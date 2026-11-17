@@ -48,7 +48,7 @@ fn every_function_count_written_anywhere_is_the_registry_count() {
         "docs/FEATURES.md",
         "docs/MCP.md",
         "src/main.rs",
-        "src/main_args.rs",
+        "src/cli/args.rs",
         "src/mcp/mod.rs",
         "src/mcp/server.rs",
         "Cargo.toml",

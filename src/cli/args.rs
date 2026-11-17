@@ -1,7 +1,9 @@
-//! The command line: every command, its flags and its help text. Kept out of
-//! `main.rs`, which only dispatches, so neither file nears the line limit.
+//! The command line: every command, its flags and its help text. `run.rs`
+//! runs them.
 
-use clap::{Parser, Subcommand};
+use crate::cli::ReportFormat;
+use clap::builder::PossibleValue;
+use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -82,31 +84,10 @@ CROSS-FILE REFERENCES:
 When a value changes, the file as it was is kept next to it as
 model.yaml.bak. Use --dry-run to preview changes without modifying files.")]
     /// Calculate all formulas in a YAML file
-    Calculate {
-        /// Path to YAML file (can include other files via an '_includes' section)
-        file: PathBuf,
-
-        /// Preview changes without writing to file
-        #[arg(short = 'n', long)]
-        dry_run: bool,
-
-        /// Show verbose calculation steps
-        #[arg(short, long)]
-        verbose: bool,
-
-        /// Scenario name to apply (uses variable overrides from 'scenarios' section)
-        #[arg(short, long)]
-        scenario: Option<String>,
-    },
+    Calculate(CalculateArgs),
 
     /// Show audit trail for a specific variable
-    Audit {
-        /// Path to YAML file
-        file: PathBuf,
-
-        /// Variable name to audit
-        variable: String,
-    },
+    Audit(AuditArgs),
 
     #[command(long_about = "Validate formulas without calculating.
 
@@ -131,11 +112,7 @@ BATCH VALIDATION:
   forge validate file1.yaml file2.yaml file3.yaml
   Validates multiple files in sequence, reporting all errors.")]
     /// Validate formulas without calculating
-    Validate {
-        /// Path to YAML file(s) to validate
-        #[arg(required = true)]
-        files: Vec<PathBuf>,
-    },
+    Validate(ValidateArgs),
 
     #[command(
         long_about = "Export a model to an Excel .xlsx workbook, formulas included.
@@ -157,17 +134,7 @@ EXAMPLE:
   forge export examples/bagel/bagel.yaml bagel.xlsx"
     )]
     /// Export a model to an Excel .xlsx workbook
-    Export {
-        /// Path to the model (.yaml)
-        input: PathBuf,
-
-        /// Output Excel file path (.xlsx)
-        output: PathBuf,
-
-        /// Show verbose export steps
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Export(ExportArgs),
 
     #[command(
         long_about = "Import an Excel .xlsx workbook as a Forge model (format 5.1.0).
@@ -191,25 +158,7 @@ WORKFLOW:
 other); --multi-doc writes one file with one document per sheet."
     )]
     /// Import an Excel .xlsx workbook as a Forge model
-    Import {
-        /// Path to Excel file (.xlsx)
-        input: PathBuf,
-
-        /// Output YAML file path (or directory if --split-files)
-        output: PathBuf,
-
-        /// Show verbose import steps
-        #[arg(short, long)]
-        verbose: bool,
-
-        /// Create separate YAML file per worksheet (v4.4.2)
-        #[arg(long)]
-        split_files: bool,
-
-        /// Create multi-document YAML with --- separators (v4.4.2)
-        #[arg(long)]
-        multi_doc: bool,
-    },
+    Import(ImportArgs),
 
     #[command(long_about = "Watch YAML files and auto-calculate on changes.
 
@@ -237,18 +186,7 @@ EXAMPLES:
 
 Press Ctrl+C to stop watching.")]
     /// Watch YAML files and auto-calculate on changes
-    Watch {
-        /// Path to YAML file to watch
-        file: PathBuf,
-
-        /// Only validate (don't calculate)
-        #[arg(long)]
-        validate: bool,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Watch(WatchArgs),
 
     #[command(long_about = "Compare calculation results across multiple scenarios.
 
@@ -310,22 +248,7 @@ WIDE TABLES:
   that needs fewer blocks. COLUMNS sets the width; output to a file or a pipe
   is not wrapped.")]
     /// Compare results across multiple scenarios
-    Compare {
-        /// Path to YAML file
-        file: PathBuf,
-
-        /// Comma-separated list of scenario names to compare
-        #[arg(short, long, value_delimiter = ',')]
-        scenarios: Vec<String>,
-
-        /// Output format
-        #[arg(long, default_value = "table", value_parser = ["table", "csv", "json", "markdown"])]
-        format: String,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Compare(CompareArgs),
 
     #[command(
         long_about = "Show a calculated model's scalars side by side: one row per group,
@@ -359,28 +282,7 @@ EXAMPLES:
   forge report options.yaml --no-inputs --format csv"
     )]
     /// Show a calculated model's scalars side by side
-    Report {
-        /// Path to a calculated YAML file
-        file: PathBuf,
-
-        /// Show only these groups (comma-separated)
-        #[arg(long, value_delimiter = ',')]
-        group: Vec<String>,
-
-        /// Show only these keys, in this order, as one table (comma-separated);
-        /// narrows a wide table. Not with --no-inputs: --keys already chooses the columns
-        #[arg(long, value_delimiter = ',', conflicts_with = "no_inputs")]
-        keys: Vec<String>,
-
-        /// Output format
-        #[arg(long, default_value = "table", value_parser = ["table", "csv", "json", "markdown"])]
-        format: String,
-
-        /// Leave out inputs, the values written with no formula. Not with --keys,
-        /// which already chooses the columns
-        #[arg(long)]
-        no_inputs: bool,
-    },
+    Report(ReportArgs),
 
     #[command(long_about = "Compare budget vs actual with variance analysis.
 
@@ -419,29 +321,7 @@ EXAMPLES:
 
 See ADR-002 for design rationale on YAML-only inputs.")]
     /// Compare budget vs actual with variance analysis
-    Variance {
-        /// Path to budget YAML file
-        budget: PathBuf,
-
-        /// Path to actual YAML file
-        actual: PathBuf,
-
-        /// Variance threshold percentage for alerts (default: 10)
-        #[arg(short, long, default_value = "10")]
-        threshold: f64,
-
-        /// Output file (optional: .yaml or .xlsx)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-
-        /// Exit with 1 when any line exceeds the threshold
-        #[arg(long)]
-        fail_on_alert: bool,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Variance(VarianceArgs),
 
     #[command(long_about = "Run sensitivity analysis by varying one or two inputs.
 
@@ -469,38 +349,7 @@ EXAMPLES:
   forge sensitivity model.yaml --vary growth_rate -r 0.05,0.20,0.05 --output-var profit
   forge sensitivity model.yaml --vary price --vary2 volume -r 10,50,10 --range2 100,500,100 --output-var revenue")]
     /// Run sensitivity analysis on model variables
-    Sensitivity {
-        /// Path to YAML file
-        file: PathBuf,
-
-        /// Variable to vary (scalar name)
-        #[arg(long)]
-        vary: String,
-
-        /// Range for first variable: start,end,step
-        #[arg(short, long)]
-        range: String,
-
-        /// Second variable to vary (for 2D analysis)
-        #[arg(long)]
-        vary2: Option<String>,
-
-        /// Range for second variable: start,end,step
-        #[arg(long)]
-        range2: Option<String>,
-
-        /// Output variable to observe (--output is accepted too)
-        #[arg(long = "output-var", visible_alias = "output")]
-        output_var: String,
-
-        /// Output format: table (default) or json
-        #[arg(long, default_value = "table", value_parser = ["table", "json"])]
-        format: String,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Sensitivity(SensitivityArgs),
 
     #[command(long_about = "Find the input value needed to achieve a target output.
 
@@ -521,38 +370,7 @@ OPTIONS:
   --min, --max: Override automatic bounds for the search
   --tolerance: How close the output must get to the target (default: 0.0001)")]
     /// Find input value to achieve target output
-    GoalSeek {
-        /// Path to YAML file
-        file: PathBuf,
-
-        /// Target variable to achieve
-        #[arg(short, long)]
-        target: String,
-
-        /// Desired value for target
-        #[arg(long)]
-        value: f64,
-
-        /// Variable to adjust
-        #[arg(long)]
-        vary: String,
-
-        /// Minimum bound for search (optional)
-        #[arg(long)]
-        min: Option<f64>,
-
-        /// Maximum bound for search (optional)
-        #[arg(long)]
-        max: Option<f64>,
-
-        /// How close the output must get to the target (default: 0.0001)
-        #[arg(long, default_value = "0.0001")]
-        tolerance: f64,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    GoalSeek(GoalSeekArgs),
 
     #[command(long_about = "Find the break-even point where output equals zero.
 
@@ -569,30 +387,7 @@ EXAMPLES:
   forge break-even model.yaml --output-var net_margin --vary price
   -> Find minimum price for positive margin")]
     /// Find break-even point (where output = 0)
-    BreakEven {
-        /// Path to YAML file
-        file: PathBuf,
-
-        /// Output variable to find zero crossing (--output is accepted too)
-        #[arg(long = "output-var", visible_alias = "output")]
-        output_var: String,
-
-        /// Variable to adjust
-        #[arg(long)]
-        vary: String,
-
-        /// Minimum bound for search (optional)
-        #[arg(long)]
-        min: Option<f64>,
-
-        /// Maximum bound for search (optional)
-        #[arg(long)]
-        max: Option<f64>,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    BreakEven(BreakEvenArgs),
 
     #[command(long_about = "Run Monte Carlo simulation for probabilistic analysis.
 
@@ -643,55 +438,7 @@ EXAMPLES:
   forge simulate model.yaml --seek \"P(year.profit > 0) = 0.8\" --vary price --min 14 --max 24
                                                # The price at which 80% of runs make money")]
     /// Run Monte Carlo simulation
-    Simulate {
-        /// Path to YAML file with `monte_carlo`: section
-        file: PathBuf,
-
-        /// Number of iterations (overrides YAML config)
-        #[arg(short = 'n', long)]
-        iterations: Option<usize>,
-
-        /// Random seed for reproducibility
-        #[arg(long)]
-        seed: Option<u64>,
-
-        /// Sampling method: `monte_carlo` or `latin_hypercube`
-        #[arg(long)]
-        sampling: Option<String>,
-
-        /// Apply a scenario's overrides first (an override of an MC.* input fixes it)
-        #[arg(long)]
-        scenario: Option<String>,
-
-        /// Find the value of --vary that meets a probability, e.g. "P(year.profit > 0) = 0.8"
-        #[arg(long, requires_all = ["vary", "min", "max"])]
-        seek: Option<String>,
-
-        /// Input to vary for --seek (a scalar with a plain value)
-        #[arg(long, requires = "seek")]
-        vary: Option<String>,
-
-        /// Lowest value of --vary to try
-        #[arg(long, requires = "seek", allow_hyphen_values = true)]
-        min: Option<f64>,
-
-        /// Highest value of --vary to try
-        #[arg(long, requires = "seek", allow_hyphen_values = true)]
-        max: Option<f64>,
-
-        /// Show only this output of `monte_carlo.outputs` (repeat for more). A name
-        /// can be written without its group when only one output has it
-        #[arg(long = "output-var", value_name = "OUTPUT", conflicts_with = "seek")]
-        output_var: Vec<String>,
-
-        /// Output file (.json, .yaml or .xlsx)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Simulate(SimulateArgs),
 
     #[command(
         long_about = "Run probability-weighted scenario analysis (Base/Bull/Bear cases).
@@ -726,22 +473,7 @@ EXAMPLES:
   forge scenarios model.yaml -o results.yaml    # Export results"
     )]
     /// Run scenario analysis with probability weights
-    Scenarios {
-        /// Path to YAML file with scenarios section
-        file: PathBuf,
-
-        /// Run specific scenario only
-        #[arg(short, long)]
-        scenario: Option<String>,
-
-        /// Output file (.yaml)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Scenarios(ScenariosArgs),
 
     #[command(long_about = "Analyze decision trees using backward induction.
 
@@ -787,22 +519,7 @@ EXAMPLES:
   forge decision-tree model.yaml --dot        # Export DOT for Graphviz
   forge decision-tree model.yaml -o out.yaml  # Export results")]
     /// Analyze decision trees with backward induction
-    DecisionTree {
-        /// Path to YAML file with `decision_tree` section
-        file: PathBuf,
-
-        /// Export as DOT graph (for Graphviz visualization)
-        #[arg(long)]
-        dot: bool,
-
-        /// Output file (.yaml or .dot)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    DecisionTree(DecisionTreeArgs),
 
     #[command(
         long_about = "Value managerial flexibility using real options analysis.
@@ -847,26 +564,7 @@ EXAMPLES:
   forge real-options model.yaml --compare-npv   # Compare with traditional NPV"
     )]
     /// Value real options (defer/expand/abandon)
-    RealOptions {
-        /// Path to YAML file with `real_options` section
-        file: PathBuf,
-
-        /// Value specific option only
-        #[arg(long)]
-        option: Option<String>,
-
-        /// Compare with traditional NPV
-        #[arg(long)]
-        compare_npv: bool,
-
-        /// Output file (.yaml)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    RealOptions(RealOptionsArgs),
 
     #[command(long_about = "Generate tornado diagram for sensitivity analysis.
 
@@ -897,22 +595,7 @@ EXAMPLES:
   forge tornado model.yaml --output-var npv # Override output variable
   forge tornado model.yaml -o results.yaml  # Export results")]
     /// Generate tornado sensitivity diagram
-    Tornado {
-        /// Path to YAML file with tornado section
-        file: PathBuf,
-
-        /// Override output variable to analyze
-        #[arg(long)]
-        output_var: Option<String>,
-
-        /// Output file (.yaml)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Tornado(TornadoArgs),
 
     #[command(long_about = "Run bootstrap resampling for confidence intervals.
 
@@ -938,30 +621,7 @@ EXAMPLES:
   forge bootstrap model.yaml -n 50000           # Override iterations
   forge bootstrap model.yaml --confidence 0.99  # Set confidence level")]
     /// Bootstrap resampling for confidence intervals
-    Bootstrap {
-        /// Path to YAML file with bootstrap section
-        file: PathBuf,
-
-        /// Number of iterations (overrides YAML config)
-        #[arg(short = 'n', long)]
-        iterations: Option<usize>,
-
-        /// Random seed for reproducibility
-        #[arg(long)]
-        seed: Option<u64>,
-
-        /// Confidence levels (e.g., 0.90,0.95,0.99)
-        #[arg(long, value_delimiter = ',')]
-        confidence: Option<Vec<f64>>,
-
-        /// Output file (.yaml)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Bootstrap(BootstrapArgs),
 
     #[command(long_about = "Run Bayesian network inference.
 
@@ -993,26 +653,7 @@ EXAMPLES:
   forge bayesian model.yaml --query default_prob      # Query specific node
   forge bayesian model.yaml -e economy=bad            # Set evidence")]
     /// Bayesian network inference
-    Bayesian {
-        /// Path to YAML file with `bayesian_network` section
-        file: PathBuf,
-
-        /// Target variable to query
-        #[arg(short, long)]
-        query: Option<String>,
-
-        /// Evidence in format var=state (can repeat)
-        #[arg(short, long, value_delimiter = ',')]
-        evidence: Vec<String>,
-
-        /// Output file (.yaml)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Bayesian(BayesianArgs),
 
     #[command(
         long_about = "List all supported Excel-compatible functions by category.
@@ -1026,11 +667,7 @@ EXAMPLES:
   forge functions --json    # Output as JSON (for tooling)"
     )]
     /// List all supported Excel-compatible functions
-    Functions {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
+    Functions(FunctionsArgs),
 
     #[command(long_about = "Display JSON schema for validating Forge YAML models.
 
@@ -1049,14 +686,7 @@ EXAMPLES:
   forge schema v5.1           # Show the v5.1.0 schema
   forge schema v5.1 > s.json  # Pipe to file for IDE use")]
     /// Display JSON schema for model validation
-    Schema {
-        /// Schema version to display (v1, v5, v5.1 ... v5.4, 1.0.0, 5.0.0, 5.1.0 ... 5.4.0)
-        version: Option<String>,
-
-        /// List available schema versions
-        #[arg(short, long)]
-        list: bool,
-    },
+    Schema(SchemaArgs),
 
     #[command(
         long_about = "Display runnable example YAML models for Forge capabilities.
@@ -1081,18 +711,7 @@ EXAMPLES:
   forge examples --json             # List as JSON (for tooling)"
     )]
     /// Show example YAML models for Forge capabilities
-    Examples {
-        /// Example name (monte-carlo, scenarios, decision-tree, etc.)
-        name: Option<String>,
-
-        /// Execute the example after displaying it
-        #[arg(long)]
-        run: bool,
-
-        /// Output as JSON (for tooling)
-        #[arg(long)]
-        json: bool,
-    },
+    Examples(ExamplesArgs),
 
     #[command(
         long_about = "Upgrade a model and its includes to the latest model format (5.1.0).
@@ -1127,22 +746,7 @@ BACKUP:
   Original files are backed up as .yaml.bak before modification."
     )]
     /// Upgrade YAML files to latest schema version
-    Upgrade {
-        /// Path to YAML file to upgrade
-        file: PathBuf,
-
-        /// Preview changes without modifying files
-        #[arg(short = 'n', long)]
-        dry_run: bool,
-
-        /// Target model format (default: 5.1.0)
-        #[arg(long, default_value = "5.1.0")]
-        to: String,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Upgrade(UpgradeArgs),
 
     #[command(
         long_about = "Check for updates and optionally install the latest version.
@@ -1166,15 +770,7 @@ NOTE:
   The update replaces the current binary - restart forge to use the new version."
     )]
     /// Check for updates and install latest version
-    Update {
-        /// Only check for updates, don't install
-        #[arg(short = 'c', long)]
-        check: bool,
-
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
+    Update(UpdateArgs),
 
     #[command(
         long_about = "Start MCP (Model Context Protocol) server for AI integration.
@@ -1211,15 +807,7 @@ EXAMPLE:
   forge mcp --root ~/models   # Start MCP server (reads JSON-RPC from stdin)"
     )]
     /// Start MCP server for AI integration (JSON-RPC over stdio)
-    Mcp {
-        /// Folder every file path must stay inside (default: the current folder)
-        #[arg(long, value_name = "DIR")]
-        root: Option<std::path::PathBuf>,
-
-        /// Allow any path the user can reach (no folder limit)
-        #[arg(long, conflicts_with = "root")]
-        any_path: bool,
-    },
+    Mcp(McpArgs),
 
     #[command(long_about = "Start HTTP REST API server.
 
@@ -1253,28 +841,537 @@ EXAMPLES:
   FORGE_API_TOKEN=... forge serve --host 0.0.0.0     # All interfaces, token required
   forge serve --cors-origin http://localhost:3000    # Allow one web app")]
     /// Start HTTP REST API server
-    Serve {
-        /// Host address to bind to (use 0.0.0.0 for all interfaces)
-        #[arg(short = 'H', long, default_value = "127.0.0.1", env = "FORGE_HOST")]
-        host: String,
+    Serve(ServeArgs),
+}
 
-        /// Port to listen on
-        #[arg(short, long, default_value = "8080", env = "FORGE_PORT")]
-        port: u16,
+#[derive(Args)]
+pub struct CalculateArgs {
+    /// Path to YAML file (can include other files via an '_includes' section)
+    pub file: PathBuf,
 
-        /// Token required on /api/v1/* (prefer the environment variable, which
-        /// other users cannot see in the process list)
-        #[arg(long, env = "FORGE_API_TOKEN", hide_env_values = true)]
-        token: Option<String>,
+    /// Preview changes without writing to file
+    #[arg(short = 'n', long)]
+    pub dry_run: bool,
 
-        /// Browser origin allowed to call the API, e.g. <http://localhost:3000>
-        /// (repeatable; none by default)
-        #[arg(long = "cors-origin", value_name = "ORIGIN")]
-        cors_origins: Vec<String>,
-        /// Folder every file path must stay inside (none by default)
-        #[arg(long, value_name = "DIR")]
-        root: Option<std::path::PathBuf>,
-    },
+    /// Show verbose calculation steps
+    #[arg(short, long)]
+    pub verbose: bool,
+
+    /// Scenario name to apply (uses variable overrides from 'scenarios' section)
+    #[arg(short, long)]
+    pub scenario: Option<String>,
+}
+
+#[derive(Args)]
+pub struct AuditArgs {
+    /// Path to YAML file
+    pub file: PathBuf,
+
+    /// Variable name to audit
+    pub variable: String,
+}
+
+#[derive(Args)]
+pub struct ValidateArgs {
+    /// Path to YAML file(s) to validate
+    #[arg(required = true)]
+    pub files: Vec<PathBuf>,
+}
+
+#[derive(Args)]
+pub struct ExportArgs {
+    /// Path to the model (.yaml)
+    pub input: PathBuf,
+
+    /// Output Excel file path (.xlsx)
+    pub output: PathBuf,
+
+    /// Show verbose export steps
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct ImportArgs {
+    /// Path to Excel file (.xlsx)
+    pub input: PathBuf,
+
+    /// Output YAML file path (or directory if --split-files)
+    pub output: PathBuf,
+
+    /// Show verbose import steps
+    #[arg(short, long)]
+    pub verbose: bool,
+
+    /// Create separate YAML file per worksheet (v4.4.2)
+    #[arg(long)]
+    pub split_files: bool,
+
+    /// Create multi-document YAML with --- separators (v4.4.2)
+    #[arg(long)]
+    pub multi_doc: bool,
+}
+
+#[derive(Args)]
+pub struct WatchArgs {
+    /// Path to YAML file to watch
+    pub file: PathBuf,
+
+    /// Only validate (don't calculate)
+    #[arg(long)]
+    pub validate: bool,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct CompareArgs {
+    /// Path to YAML file
+    pub file: PathBuf,
+
+    /// Comma-separated list of scenario names to compare
+    #[arg(short, long, value_delimiter = ',')]
+    pub scenarios: Vec<String>,
+
+    /// Output format
+    #[arg(long, value_enum, default_value = "table")]
+    pub format: ReportFormat,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct ReportArgs {
+    /// Path to a calculated YAML file
+    pub file: PathBuf,
+
+    /// Show only these groups (comma-separated)
+    #[arg(long, value_delimiter = ',')]
+    pub group: Vec<String>,
+
+    /// Show only these keys, in this order, as one table (comma-separated);
+    /// narrows a wide table. Not with --no-inputs: --keys already chooses the columns
+    #[arg(long, value_delimiter = ',', conflicts_with = "no_inputs")]
+    pub keys: Vec<String>,
+
+    /// Output format
+    #[arg(long, value_enum, default_value = "table")]
+    pub format: ReportFormat,
+
+    /// Leave out inputs, the values written with no formula. Not with --keys,
+    /// which already chooses the columns
+    #[arg(long)]
+    pub no_inputs: bool,
+}
+
+#[derive(Args)]
+pub struct VarianceArgs {
+    /// Path to budget YAML file
+    pub budget: PathBuf,
+
+    /// Path to actual YAML file
+    pub actual: PathBuf,
+
+    /// Variance threshold percentage for alerts (default: 10)
+    #[arg(short, long, default_value = "10")]
+    pub threshold: f64,
+
+    /// Output file (optional: .yaml or .xlsx)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Exit with 1 when any line exceeds the threshold
+    #[arg(long)]
+    pub fail_on_alert: bool,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct SensitivityArgs {
+    /// Path to YAML file
+    pub file: PathBuf,
+
+    /// Variable to vary (scalar name)
+    #[arg(long)]
+    pub vary: String,
+
+    /// Range for first variable: start,end,step
+    #[arg(short, long)]
+    pub range: String,
+
+    /// Second variable to vary (for 2D analysis)
+    #[arg(long)]
+    pub vary2: Option<String>,
+
+    /// Range for second variable: start,end,step
+    #[arg(long)]
+    pub range2: Option<String>,
+
+    /// Output variable to observe (--output is accepted too)
+    #[arg(long = "output-var", visible_alias = "output")]
+    pub output_var: String,
+
+    /// Output format: table (default) or json
+    #[arg(long, default_value = "table", value_parser = ["table", "json"])]
+    pub format: String,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct GoalSeekArgs {
+    /// Path to YAML file
+    pub file: PathBuf,
+
+    /// Target variable to achieve
+    #[arg(short, long)]
+    pub target: String,
+
+    /// Desired value for target
+    #[arg(long)]
+    pub value: f64,
+
+    /// Variable to adjust
+    #[arg(long)]
+    pub vary: String,
+
+    /// Minimum bound for search (optional)
+    #[arg(long)]
+    pub min: Option<f64>,
+
+    /// Maximum bound for search (optional)
+    #[arg(long)]
+    pub max: Option<f64>,
+
+    /// How close the output must get to the target (default: 0.0001)
+    #[arg(long, default_value = "0.0001")]
+    pub tolerance: f64,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct BreakEvenArgs {
+    /// Path to YAML file
+    pub file: PathBuf,
+
+    /// Output variable to find zero crossing (--output is accepted too)
+    #[arg(long = "output-var", visible_alias = "output")]
+    pub output_var: String,
+
+    /// Variable to adjust
+    #[arg(long)]
+    pub vary: String,
+
+    /// Minimum bound for search (optional)
+    #[arg(long)]
+    pub min: Option<f64>,
+
+    /// Maximum bound for search (optional)
+    #[arg(long)]
+    pub max: Option<f64>,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct SimulateArgs {
+    /// Path to YAML file with `monte_carlo`: section
+    pub file: PathBuf,
+
+    /// Number of iterations (overrides YAML config)
+    #[arg(short = 'n', long)]
+    pub iterations: Option<usize>,
+
+    /// Random seed for reproducibility
+    #[arg(long)]
+    pub seed: Option<u64>,
+
+    /// Sampling method: `monte_carlo` or `latin_hypercube`
+    #[arg(long)]
+    pub sampling: Option<String>,
+
+    /// Apply a scenario's overrides first (an override of an MC.* input fixes it)
+    #[arg(long)]
+    pub scenario: Option<String>,
+
+    /// Find the value of --vary that meets a probability, e.g. "P(year.profit > 0) = 0.8"
+    #[arg(long, requires_all = ["vary", "min", "max"])]
+    pub seek: Option<String>,
+
+    /// Input to vary for --seek (a scalar with a plain value)
+    #[arg(long, requires = "seek")]
+    pub vary: Option<String>,
+
+    /// Lowest value of --vary to try
+    #[arg(long, requires = "seek", allow_hyphen_values = true)]
+    pub min: Option<f64>,
+
+    /// Highest value of --vary to try
+    #[arg(long, requires = "seek", allow_hyphen_values = true)]
+    pub max: Option<f64>,
+
+    /// Show only this output of `monte_carlo.outputs` (repeat for more). A name
+    /// can be written without its group when only one output has it
+    #[arg(long = "output-var", value_name = "OUTPUT", conflicts_with = "seek")]
+    pub output_var: Vec<String>,
+
+    /// Output file (.json, .yaml or .xlsx)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct ScenariosArgs {
+    /// Path to YAML file with scenarios section
+    pub file: PathBuf,
+
+    /// Run specific scenario only
+    #[arg(short, long)]
+    pub scenario: Option<String>,
+
+    /// Output file (.yaml)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct DecisionTreeArgs {
+    /// Path to YAML file with `decision_tree` section
+    pub file: PathBuf,
+
+    /// Export as DOT graph (for Graphviz visualization)
+    #[arg(long)]
+    pub dot: bool,
+
+    /// Output file (.yaml or .dot)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct RealOptionsArgs {
+    /// Path to YAML file with `real_options` section
+    pub file: PathBuf,
+
+    /// Value specific option only
+    #[arg(long)]
+    pub option: Option<String>,
+
+    /// Compare with traditional NPV
+    #[arg(long)]
+    pub compare_npv: bool,
+
+    /// Output file (.yaml)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct TornadoArgs {
+    /// Path to YAML file with tornado section
+    pub file: PathBuf,
+
+    /// Override output variable to analyze
+    #[arg(long)]
+    pub output_var: Option<String>,
+
+    /// Output file (.yaml)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct BootstrapArgs {
+    /// Path to YAML file with bootstrap section
+    pub file: PathBuf,
+
+    /// Number of iterations (overrides YAML config)
+    #[arg(short = 'n', long)]
+    pub iterations: Option<usize>,
+
+    /// Random seed for reproducibility
+    #[arg(long)]
+    pub seed: Option<u64>,
+
+    /// Confidence levels (e.g., 0.90,0.95,0.99)
+    #[arg(long, value_delimiter = ',')]
+    pub confidence: Option<Vec<f64>>,
+
+    /// Output file (.yaml)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct BayesianArgs {
+    /// Path to YAML file with `bayesian_network` section
+    pub file: PathBuf,
+
+    /// Target variable to query
+    #[arg(short, long)]
+    pub query: Option<String>,
+
+    /// Evidence in format var=state (can repeat)
+    #[arg(short, long, value_delimiter = ',')]
+    pub evidence: Vec<String>,
+
+    /// Output file (.yaml)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct FunctionsArgs {
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args)]
+pub struct SchemaArgs {
+    /// Schema version to display (v1, v5, v5.1 ... v5.4, 1.0.0, 5.0.0, 5.1.0 ... 5.4.0)
+    pub version: Option<String>,
+
+    /// List available schema versions
+    #[arg(short, long)]
+    pub list: bool,
+}
+
+#[derive(Args)]
+pub struct ExamplesArgs {
+    /// Example name (monte-carlo, scenarios, decision-tree, etc.)
+    pub name: Option<String>,
+
+    /// Execute the example after displaying it
+    #[arg(long)]
+    pub run: bool,
+
+    /// Output as JSON (for tooling)
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args)]
+pub struct UpgradeArgs {
+    /// Path to YAML file to upgrade
+    pub file: PathBuf,
+
+    /// Preview changes without modifying files
+    #[arg(short = 'n', long)]
+    pub dry_run: bool,
+
+    /// Target model format (default: 5.1.0)
+    #[arg(long, default_value = "5.1.0")]
+    pub to: String,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct UpdateArgs {
+    /// Only check for updates, don't install
+    #[arg(short = 'c', long)]
+    pub check: bool,
+
+    /// Show verbose output
+    #[arg(short, long)]
+    pub verbose: bool,
+}
+
+#[derive(Args)]
+pub struct McpArgs {
+    /// Folder every file path must stay inside (default: the current folder)
+    #[arg(long, value_name = "DIR")]
+    pub root: Option<std::path::PathBuf>,
+
+    /// Allow any path the user can reach (no folder limit)
+    #[arg(long, conflicts_with = "root")]
+    pub any_path: bool,
+}
+
+#[derive(Args)]
+pub struct ServeArgs {
+    /// Host address to bind to (use 0.0.0.0 for all interfaces)
+    #[arg(short = 'H', long, default_value = "127.0.0.1", env = "FORGE_HOST")]
+    pub host: String,
+
+    /// Port to listen on
+    #[arg(short, long, default_value = "8080", env = "FORGE_PORT")]
+    pub port: u16,
+
+    /// Token required on /api/v1/* (prefer the environment variable, which
+    /// other users cannot see in the process list)
+    #[arg(long, env = "FORGE_API_TOKEN", hide_env_values = true)]
+    pub token: Option<String>,
+
+    /// Browser origin allowed to call the API, e.g. <http://localhost:3000>
+    /// (repeatable; none by default)
+    #[arg(long = "cors-origin", value_name = "ORIGIN")]
+    pub cors_origins: Vec<String>,
+    /// Folder every file path must stay inside (none by default)
+    #[arg(long, value_name = "DIR")]
+    pub root: Option<std::path::PathBuf>,
+}
+
+/// `--format` of `forge compare` and `forge report`: clap reads the name and
+/// lists the four in the help.
+impl clap::ValueEnum for ReportFormat {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Table, Self::Csv, Self::Json, Self::Markdown]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        Some(PossibleValue::new(match self {
+            Self::Table => "table",
+            Self::Csv => "csv",
+            Self::Json => "json",
+            Self::Markdown => "markdown",
+        }))
+    }
 }
 
 #[cfg(test)]

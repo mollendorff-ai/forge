@@ -459,7 +459,9 @@ jobs:
 
       - name: Generate coverage
         run: |
-          cargo llvm-cov --ignore-filename-regex 'tests/' --json --output-path cov.json
+          # The tests, then the built program for what only it runs (main,
+          # MCP over stdio): scripts/coverage.sh
+          scripts/coverage.sh --json --output-path cov.json
           for kind in lines functions regions; do
             echo "Coverage of $kind: $(jq ".data[0].totals.$kind.percent" cov.json)%"
           done
@@ -473,12 +475,13 @@ jobs:
       # and never lower them. Set 2026-11-16 from PR #257's run (lines
       # 88.04%, functions 84.46%, regions 86.31%); raised 2026-11-17 from
       # PR #258's (88.94%, 85.47%, 87.35%) and PR #259's (89.62%, 86.14%,
-      # 88.14%), as the inline tests moved in.
+      # 88.14%), as the inline tests moved in, and from PR #261's (91.91%,
+      # 87.95%, 90.58%), when the command line ran in-process.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "89.6"
-          FLOOR_FUNCTIONS: "86.1"
-          FLOOR_REGIONS: "88.1"
+          FLOOR_LINES: "91.9"
+          FLOOR_FUNCTIONS: "87.9"
+          FLOOR_REGIONS: "90.5"
         run: |
           fail=0
           for kind in lines functions regions; do

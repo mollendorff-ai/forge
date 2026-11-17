@@ -1,9 +1,12 @@
 //! Examples command - display runnable YAML examples for Forge capabilities
 
 use crate::error::{ForgeError, ForgeResult};
-use colored::Colorize;
-use std::io::Write;
-use std::process::Command;
+// Printing the examples and running one belong to the command line
+#[cfg(feature = "cli")]
+use {
+    crate::cli::console::outln, crate::cli::Console, colored::Colorize, std::ffi::OsStr,
+    std::io::Write,
+};
 
 /// Embedded example YAML files (compile-time)
 const EXAMPLE_STARTER: &str = include_str!("../../../examples/starter.yaml");
@@ -141,16 +144,22 @@ pub fn examples_core(name: Option<&str>) -> ForgeResult<serde_json::Value> {
 ///
 /// Panics if `name` is `Some` and `.unwrap()` is called after the `None` check.
 /// This is safe because we only unwrap after verifying `name.is_some()`.
-pub fn examples(name: Option<String>, run: bool, json: bool) -> ForgeResult<()> {
+#[cfg(feature = "cli")]
+pub fn examples(
+    c: &mut Console<'_>,
+    name: Option<String>,
+    run: bool,
+    json: bool,
+) -> ForgeResult<()> {
     // JSON output mode for tooling
     if json {
-        print_examples_json();
+        print_examples_json(c);
         return Ok(());
     }
 
     // No name specified - show list
     if name.is_none() {
-        print_examples_list();
+        print_examples_list(c);
         return Ok(());
     }
 
@@ -164,54 +173,59 @@ pub fn examples(name: Option<String>, run: bool, json: bool) -> ForgeResult<()> 
     })?;
 
     // Print the example
-    println!("{}", format!("# {}", example.name).bold().green());
-    println!("{}", format!("# {}", example.description).dimmed());
-    println!(
+    outln!(c, "{}", format!("# {}", example.name).bold().green());
+    outln!(c, "{}", format!("# {}", example.description).dimmed());
+    outln!(
+        c,
         "{}",
         format!("# Run with: {} <file>", example.command).dimmed()
     );
-    println!();
-    println!("{}", example.content);
+    outln!(c);
+    outln!(c, "{}", example.content);
 
     // Run the example if requested
     if run {
-        println!();
-        println!("{}", "─".repeat(60).dimmed());
-        println!("{}", "Running example...".bold().cyan());
-        println!();
-        run_example(example)?;
+        outln!(c);
+        outln!(c, "{}", "─".repeat(60).dimmed());
+        outln!(c, "{}", "Running example...".bold().cyan());
+        outln!(c);
+        run_example(c, example)?;
     }
 
     Ok(())
 }
 
 /// Print list of available examples
-fn print_examples_list() {
-    println!("{}", "Available Forge Examples".bold().green());
-    println!();
-    println!(
+#[cfg(feature = "cli")]
+fn print_examples_list(c: &mut Console<'_>) {
+    outln!(c, "{}", "Available Forge Examples".bold().green());
+    outln!(c);
+    outln!(
+        c,
         "{}",
         "Start with `starter`; the others show Forge's analysis commands:".dimmed()
     );
-    println!();
+    outln!(c);
 
     for example in EXAMPLES {
-        println!(
+        outln!(
+            c,
             "  {:16} {}",
             example.name.cyan().bold(),
             example.description
         );
     }
 
-    println!();
-    println!("Usage: {}", "forge examples <name>".yellow());
-    println!("       {}", "forge examples <name> --run".yellow());
-    println!();
-    println!("Example: {}", "forge examples monte-carlo".dimmed());
+    outln!(c);
+    outln!(c, "Usage: {}", "forge examples <name>".yellow());
+    outln!(c, "       {}", "forge examples <name> --run".yellow());
+    outln!(c);
+    outln!(c, "Example: {}", "forge examples monte-carlo".dimmed());
 }
 
 /// Print examples as JSON for tooling
-fn print_examples_json() {
+#[cfg(feature = "cli")]
+fn print_examples_json(c: &mut Console<'_>) {
     let examples_json: Vec<serde_json::Value> = EXAMPLES
         .iter()
         .map(|e| {
@@ -223,11 +237,16 @@ fn print_examples_json() {
         })
         .collect();
 
-    println!("{}", serde_json::to_string_pretty(&examples_json).unwrap());
+    outln!(
+        c,
+        "{}",
+        serde_json::to_string_pretty(&examples_json).unwrap()
+    );
 }
 
 /// Run an example by writing to temp file and executing
-fn run_example(example: &Example) -> ForgeResult<()> {
+#[cfg(feature = "cli")]
+fn run_example(c: &mut Console<'_>, example: &Example) -> ForgeResult<()> {
     // Write example to temp file
     let temp_dir = std::env::temp_dir();
     let temp_file = temp_dir.join(format!("forge-example-{}.yaml", example.name));
@@ -244,43 +263,32 @@ fn run_example(example: &Example) -> ForgeResult<()> {
         )))
     })?;
 
-    // Determine the command to run
-    let args = match example.name {
-        "monte-carlo" => vec!["simulate", temp_file.to_str().unwrap()],
-        "scenarios" => vec!["scenarios", temp_file.to_str().unwrap()],
-        "decision-tree" => vec!["decision-tree", temp_file.to_str().unwrap()],
-        "real-options" => vec!["real-options", temp_file.to_str().unwrap()],
-        "tornado" => vec!["tornado", temp_file.to_str().unwrap()],
-        "bootstrap" => vec!["bootstrap", temp_file.to_str().unwrap()],
-        "bayesian" => vec!["bayesian", temp_file.to_str().unwrap()],
-        _ => vec!["calculate", temp_file.to_str().unwrap()],
+    // The command that runs it
+    let command = match example.name {
+        "monte-carlo" => "simulate",
+        name @ ("scenarios" | "decision-tree" | "real-options" | "tornado" | "bootstrap"
+        | "bayesian") => name,
+        _ => "calculate",
     };
 
-    // Run this same binary, so the example works when forge is not on the PATH
-    let exe = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("forge"));
-    let output = Command::new(exe).args(&args).output().map_err(|e| {
-        ForgeError::Io(std::io::Error::other(format!(
-            "Failed to execute command: {e}"
-        )))
-    })?;
-
-    // Print output
-    if !output.stdout.is_empty() {
-        print!("{}", String::from_utf8_lossy(&output.stdout));
-    }
-    if !output.stderr.is_empty() {
-        eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    }
+    // Run it as `forge` would, in this same process, on the same console
+    let code = crate::cli::run_from(
+        [
+            OsStr::new("forge"),
+            OsStr::new(command),
+            temp_file.as_os_str(),
+        ],
+        c,
+    );
 
     // Clean up temp file
     let _ = std::fs::remove_file(&temp_file);
 
-    if output.status.success() {
+    if code == 0 {
         Ok(())
     } else {
         Err(ForgeError::Validation(format!(
-            "Example execution failed with exit code: {:?}",
-            output.status.code()
+            "Example execution failed with exit code: {code}"
         )))
     }
 }
@@ -288,6 +296,7 @@ fn run_example(example: &Example) -> ForgeResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::console::capture;
 
     #[test]
     fn test_all_examples_are_valid_yaml() {
@@ -303,30 +312,86 @@ mod tests {
     }
 
     #[test]
-    fn test_examples_list_mode() {
-        // Just ensure it doesn't panic
-        let result = examples(None, false, false);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_examples_json_mode() {
-        let result = examples(None, false, true);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_examples_show_specific() {
+    fn the_list_names_every_example() {
+        let (result, printed) = capture(|c| examples(c, None, false, false));
+        result.unwrap();
+        assert!(
+            printed.out.starts_with("Available Forge Examples\n"),
+            "{}",
+            printed.out
+        );
         for example in EXAMPLES {
-            let result = examples(Some(example.name.to_string()), false, false);
-            assert!(result.is_ok(), "Should show example '{}'", example.name);
+            let line = format!("  {:16} {}\n", example.name, example.description);
+            assert!(printed.out.contains(&line), "{line:?}: {}", printed.out);
+        }
+        assert!(printed.out.contains("Usage: forge examples <name>\n"));
+    }
+
+    #[test]
+    fn json_lists_every_example_with_its_command() {
+        let (result, printed) = capture(|c| examples(c, Some("ignored".to_string()), false, true));
+        result.unwrap();
+        let listed: serde_json::Value = serde_json::from_str(&printed.out).unwrap();
+        let listed = listed.as_array().unwrap();
+        assert_eq!(listed.len(), EXAMPLES.len());
+        for (json, example) in listed.iter().zip(EXAMPLES) {
+            assert_eq!(json["name"], example.name);
+            assert_eq!(json["description"], example.description);
+            assert_eq!(json["command"], example.command);
         }
     }
 
     #[test]
-    fn test_examples_unknown_name() {
-        let result = examples(Some("nonexistent".to_string()), false, false);
-        assert!(result.is_err());
+    fn an_example_is_printed_with_its_header() {
+        for example in EXAMPLES {
+            let (result, printed) =
+                capture(|c| examples(c, Some(example.name.to_string()), false, false));
+            result.unwrap();
+            let expected = format!(
+                "# {}\n# {}\n# Run with: {} <file>\n\n{}\n",
+                example.name, example.description, example.command, example.content
+            );
+            assert_eq!(printed.out, expected, "{}", example.name);
+        }
+    }
+
+    #[test]
+    fn an_unknown_example_is_refused() {
+        let (result, printed) =
+            capture(|c| examples(c, Some("nonexistent".to_string()), false, false));
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Unknown example 'nonexistent'"), "{err}");
+        assert!(err.contains("forge examples"), "{err}");
+        assert_eq!(printed.both(), "");
+    }
+
+    #[test]
+    fn run_runs_the_example_with_its_command_in_process() {
+        let (result, printed) = capture(|c| examples(c, Some("tornado".to_string()), true, false));
+        result.unwrap();
+        let (header, run) = printed.out.split_once("Running example...\n\n").unwrap();
+        assert!(header.starts_with("# tornado\n"), "{header}");
+        // What `forge tornado` prints, not `forge calculate`
+        assert!(run.starts_with("🌪️ Forge - Tornado Diagram\n"), "{run}");
+        assert_eq!(printed.err, "");
+    }
+
+    #[test]
+    fn an_example_that_fails_says_so_with_its_exit_code() {
+        let broken = Example {
+            name: "broken",
+            description: "A formula that reads nothing",
+            command: "forge calculate",
+            content:
+                "_forge_version: \"5.0.0\"\nm:\n  x:\n    value: null\n    formula: \"=nowhere\"\n",
+        };
+        let (result, printed) = capture(|c| run_example(c, &broken));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Validation error: Example execution failed with exit code: 1"
+        );
+        assert!(printed.err.starts_with("Error: "), "{}", printed.err);
+        assert!(printed.err.contains("nowhere"), "{}", printed.err);
     }
 
     #[test]

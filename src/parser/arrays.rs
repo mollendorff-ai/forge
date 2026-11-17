@@ -478,7 +478,9 @@ totals:
             let dir = tempfile::tempdir().unwrap();
             let model = write(dir.path(), "m.yaml", MODEL);
             let xlsx = dir.path().join("m.xlsx");
-            crate::cli::export(&model, &xlsx, false).unwrap();
+            crate::cli::console::capture(|c| crate::cli::export(c, &model, &xlsx, false))
+                .0
+                .unwrap();
             let mut book: Xlsx<_> = open_workbook(&xlsx).unwrap();
             let sheet = book.worksheet_range("months").unwrap();
             assert_eq!(sheet.get((1, 0)), Some(&Data::Float(985.0)));

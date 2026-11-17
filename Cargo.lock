@@ -1326,6 +1326,7 @@ dependencies = [
 name = "mollendorff-forge"
 version = "10.0.0-rc.27"
 dependencies = [
+ "anstream",
  "anyhow",
  "assert_cmd",
  "axum",

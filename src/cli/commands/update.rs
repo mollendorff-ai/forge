@@ -3,12 +3,13 @@
 //! Downloads and installs the latest version from GitHub releases.
 //! Restored in v10.0.0 after forge became public (see ADR-024 for history).
 
+use crate::cli::console::{out, outln};
+use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use colored::Colorize;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
-use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -257,6 +258,7 @@ fn find_platform_asset<'a>(release: &'a ReleaseInfo, platform: &str) -> Option<&
 
 /// Download an archive, verify its checksum, extract it and install the binary
 fn download_and_install(
+    c: &mut Console<'_>,
     release: &ReleaseInfo,
     asset: &AssetInfo,
     install_path: &PathBuf,
@@ -286,13 +288,13 @@ fn download_and_install(
 
     let download_path = temp_dir.path().join(&asset.name);
     if verbose {
-        println!("   Downloading: {}", asset.download_url);
-        println!("   Size: {} bytes", asset.size);
+        outln!(c, "   Downloading: {}", asset.download_url);
+        outln!(c, "   Size: {} bytes", asset.size);
     }
     download(&asset.download_url, &download_path)?;
 
     verify_checksum(&asset.name, &download_path, &checksums)?;
-    println!("   🔒 SHA-256 verified against {CHECKSUMS_ASSET}");
+    outln!(c, "   🔒 SHA-256 verified against {CHECKSUMS_ASSET}");
 
     // Extract (bsdtar, the `tar` on macOS and Windows, also reads zip)
     let extract_dir = temp_dir.path().join("extracted");
@@ -321,7 +323,8 @@ fn download_and_install(
     if install_path.exists() {
         let backup_path = install_path.with_extension("bak");
         if verbose {
-            println!(
+            outln!(
+                c,
                 "   Backup: {} -> {}",
                 install_path.display(),
                 backup_path.display()
@@ -361,29 +364,27 @@ fn get_install_path() -> ForgeResult<PathBuf> {
 /// # Errors
 ///
 /// Returns an error if the GitHub API request fails, the platform is unsupported,
-/// or the download/install process fails.
-///
-/// # Panics
-///
-/// Panics if stdout flushing or stdin reading fails during the confirmation prompt.
+/// the download/install process fails, or the answer to the confirmation
+/// prompt cannot be read.
 ///
 /// # Coverage Exclusion (ADR-006)
 /// Network operations and file system modifications cannot be unit tested.
 /// Tested via: manual integration testing
 #[cfg(not(coverage))]
-pub fn update(check_only: bool, verbose: bool) -> ForgeResult<()> {
-    println!("{}", "🔄 Forge - Update Check".bold().green());
-    println!("   Current version: {}", CURRENT_VERSION.cyan());
-    println!();
+pub fn update(c: &mut Console<'_>, check_only: bool, verbose: bool) -> ForgeResult<()> {
+    outln!(c, "{}", "🔄 Forge - Update Check".bold().green());
+    outln!(c, "   Current version: {}", CURRENT_VERSION.cyan());
+    outln!(c);
 
     // Fetch latest release
     if verbose {
-        println!("{}", "📡 Fetching latest release from GitHub...".cyan());
+        outln!(c, "{}", "📡 Fetching latest release from GitHub...".cyan());
     }
 
     let release = fetch_latest_release()?;
 
-    println!(
+    outln!(
+        c,
         "   Latest version:  {} ({})",
         release.version.bright_yellow().bold(),
         release.published_at.dimmed()
@@ -391,13 +392,18 @@ pub fn update(check_only: bool, verbose: bool) -> ForgeResult<()> {
 
     // Check if update needed
     if !is_newer_version(&release.version, CURRENT_VERSION) {
-        println!();
-        println!("{}", "✅ You're running the latest version!".bold().green());
+        outln!(c);
+        outln!(
+            c,
+            "{}",
+            "✅ You're running the latest version!".bold().green()
+        );
         return Ok(());
     }
 
-    println!();
-    println!(
+    outln!(c);
+    outln!(
+        c,
         "{}",
         format!(
             "🆕 Update available: {} → {}",
@@ -408,15 +414,15 @@ pub fn update(check_only: bool, verbose: bool) -> ForgeResult<()> {
     );
 
     if check_only {
-        println!();
-        println!("   Run {} to install the update", "forge update".cyan());
+        outln!(c);
+        outln!(c, "   Run {} to install the update", "forge update".cyan());
         return Ok(());
     }
 
     // Detect platform and find asset
     let platform = detect_platform()?;
     if verbose {
-        println!("   Platform: {platform}");
+        outln!(c, "   Platform: {platform}");
     }
 
     let install_path = get_install_path()?;
@@ -433,42 +439,41 @@ pub fn update(check_only: bool, verbose: bool) -> ForgeResult<()> {
         ))
     })?;
 
-    println!();
-    println!("   📦 Asset: {}", asset.name.cyan());
-    println!("   📂 Install to: {}", install_path.display());
+    outln!(c);
+    outln!(c, "   📦 Asset: {}", asset.name.cyan());
+    outln!(c, "   📂 Install to: {}", install_path.display());
 
     // Confirm with user
-    print!("\n   Proceed with update? [y/N] ");
-    io::stdout().flush().unwrap();
-
+    out!(c, "\n   Proceed with update? [y/N] ");
     let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
+    c.read_line(&mut input)?;
 
     if !input.trim().eq_ignore_ascii_case("y") {
-        println!("{}", "   Update cancelled.".yellow());
+        outln!(c, "{}", "   Update cancelled.".yellow());
         return Ok(());
     }
 
-    println!();
-    println!("{}", "⬇️  Downloading...".cyan());
+    outln!(c);
+    outln!(c, "{}", "⬇️  Downloading...".cyan());
 
-    download_and_install(&release, asset, &install_path, verbose)?;
+    download_and_install(c, &release, asset, &install_path, verbose)?;
 
-    println!();
-    println!(
+    outln!(c);
+    outln!(
+        c,
         "{}",
         format!("✅ Successfully updated to v{}!", release.version)
             .bold()
             .green()
     );
-    println!("{}", "   Restart forge to use the new version.".dimmed());
+    outln!(c, "{}", "   Restart forge to use the new version.".dimmed());
 
     Ok(())
 }
 
 /// Stub for coverage builds - see ADR-006
 #[cfg(coverage)]
-pub fn update(_check_only: bool, _verbose: bool) -> ForgeResult<()> {
+pub fn update(c: &mut Console<'_>, _check_only: bool, _verbose: bool) -> ForgeResult<()> {
     Ok(())
 }
 

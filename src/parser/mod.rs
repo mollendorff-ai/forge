@@ -427,7 +427,9 @@ data:
             let long = "_forge_version: \"5.0.0\"\n# keep\na:\n  x:\n    value: 2\n    formula: null\nb:\n  y:\n    value: null\n    formula: \"=a.x * 3\"\n";
             std::fs::write(&path, long).unwrap();
             let before = crate::cli::calculate_core(&path, true, None).unwrap();
-            crate::cli::upgrade(&path, false, "5.1.0", false).unwrap();
+            crate::cli::console::capture(|c| crate::cli::upgrade(c, &path, false, "5.1.0", false))
+                .0
+                .unwrap();
             let converted = std::fs::read_to_string(&path).unwrap();
             assert_eq!(
                 converted,

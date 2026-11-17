@@ -1,7 +1,7 @@
 //! What five fresh agents stumbled on while running docs/PROMPTS.md
 //! (roadmap T1-AGENT-FRICTION). Each test is one of the things they reported.
 //! The help text's own examples and the short flags are checked in
-//! `src/main_args.rs`.
+//! `src/cli/args.rs`.
 //!
 //! A coverage build stubs `main` (ADR-006), so these run the real binary only
 //! in an ordinary build.

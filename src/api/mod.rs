@@ -8,6 +8,21 @@ pub mod server;
 
 pub use server::run_api_server;
 
+/// Run the REST API server (`forge serve`) until it is stopped.
+///
+/// # Errors
+///
+/// Returns an error if the runtime cannot start, or the server cannot bind
+/// its address or fails while serving.
+pub fn serve(config: server::ApiConfig) -> crate::error::ForgeResult<()> {
+    use crate::error::ForgeError;
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| ForgeError::Validation(format!("Failed to create runtime: {e}")))?;
+    runtime
+        .block_on(run_api_server(config))
+        .map_err(|e| ForgeError::Validation(format!("Server error: {e}")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
