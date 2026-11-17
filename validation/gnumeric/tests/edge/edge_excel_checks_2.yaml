@@ -3,7 +3,7 @@
 # the sheet "Forge against Excel 2"; Excel agreed with Forge on all eight that
 # calculate. Where Excel refused a formula (COUNTIF and SUMIF over an array
 # constant: "There's a problem with this formula"), Forge refuses it too, with
-# the reason: tests/array_constants.rs.
+# the reason: src/core/array_calculator/parser.rs (its array_constants tests).
 #
 # An error is wrapped in IFERROR(..., -1).
 #

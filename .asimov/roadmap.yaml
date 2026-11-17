@@ -83,7 +83,7 @@ state:
     totals matched an independent calculation and the Excel export
     recalculated with 0 mismatches.
   verified_on_a_real_model: every analytics command, on the examples/bagel
-    models, with headline numbers asserted in tests/bagel_example.rs against
+    models, with headline numbers asserted in src/cli/commands/examples.rs (its bagel_example tests) against
     independent calculations (T1-USE, 2026-11-07). The numbers were right in
     all of them; the bugs were in what surrounded them (variance flags,
     output order, a 74,000-token bootstrap reply, unreported ties).
@@ -144,7 +144,11 @@ tier1:
   # T1-TESTS-INLINE step (1) is done (2026-11-17): the five parents, and
   # excel/workbook_refs.rs, which also passed 1,500 lines with its tests back,
   # are split by what they do. Step (2) is done too (2026-11-17): no test
-  # module is left in a file of its own. Left: the 45 files in tests/ folders.
+  # module is left in a file of its own. Step (3) has begun (2026-11-17): the
+  # 19 tests/ files that call the library are inline, forge-wasm's cases among
+  # them. Left: 26 files, the 17 that start the binary (to call the code
+  # in-process, after the CLI writes through a writer) and the 9 that check the
+  # repository's text (to a validation/repo program, its tests inline).
   - id: T1-TESTS-INLINE
     title: "Every test inline, in the file it tests, and no file over 1,500 lines"
     why: "Asked 2026-11-16: tests are inline or not, never both. Counted that day: 1,753 tests inline in 129 files, 36 test modules moved to files of their own (mostly to keep a file under 1,500 lines, which is not a split), and 45 test files in tests/ folders (43 in the main crate, 1 in forge-wasm, 1 in validation/gnumeric), 20 of which start the forge binary. Put back, five parents pass 1,500 lines: excel/workbook_refs/dates.rs (2,000), mcp/server.rs (1,809), excel/exporter.rs (1,711), core/array_calculator/evaluator/mod.rs (about 2,200) and core/array_calculator/mod.rs (about 2,000). Inline is the only side that works: tests/ sees only the public API, and the unit tests test private code"
@@ -193,7 +197,7 @@ tier1:
     title: "An acquisition example: what Forge already does for a deal"
     why: "Asked 2026-11-16 why Forge has nothing for mergers and acquisitions, which large companies do all the time. Most of a deal model is not game theory but arithmetic Forge already has: a price and how it is paid, synergies by year, the buyer's earnings per share before and after (accretion or dilution), an earn-out, scenarios, a tornado and a simulation on the synergies. examples/ has a bagel shop, a household, a mortgage and a capital plan, and no deal"
     how: "examples/acquisition/, as examples/bagel is built: a buyer and a target as included files, a deal table by year (price, debt and shares issued, synergies, integration cost), accretion or dilution per year, NPV and IRR of the deal, three scenarios, a tornado, and a Monte Carlo on the synergies. Invented companies and round numbers, with a README that says what each file shows. No engine change; what the example makes hard goes here as tier items"
-    acceptance: "The example runs from a fresh install with every analytics command it names, its headline numbers are asserted in a test against an independent calculation (as tests/bagel_example.rs does), and docs/EXAMPLES.md lists it"
+    acceptance: "The example runs from a fresh install with every analytics command it names, its headline numbers are asserted in a test against an independent calculation (as src/cli/commands/examples.rs (its bagel_example tests) does), and docs/EXAMPLES.md lists it"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)

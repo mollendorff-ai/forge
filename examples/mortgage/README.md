@@ -6,7 +6,7 @@ The payment is 2,563.69 a month and the interest over 25 years 319,106.29. With 
 
 The model says this twice. The scalar groups use closed forms (`PMT`, `NPER`). The `schedule` table is the loan month by month for 300 months: each month opens with what the month before closed with (`opening: "=PREV(closing, loan.principal)"`), the last payment is whatever is left, and the months after it are zeros. The `check` group is the difference between the two, and is all zeros.
 
-`tests/demo_examples.rs` checks these numbers against a month-by-month amortisation loop written in Python, and the schedule's balances against the loop's in months 1, 12, 60, 120, 246 and 247. The exported workbook, recalculated by Gnumeric and by LibreOffice, gives the same values; in it each opening balance reads the cell of the closing balance above. To save 80,000 of interest, the goal seek says to pay 397.04 more a month; the same loop, solved with SciPy, says 397.044208.
+`src/cli/commands/examples.rs` (its `demo_examples` tests) checks these numbers against a month-by-month amortisation loop written in Python, and the schedule's balances against the loop's in months 1, 12, 60, 120, 246 and 247. The exported workbook, recalculated by Gnumeric and by LibreOffice, gives the same values; in it each opening balance reads the cell of the closing balance above. To save 80,000 of interest, the goal seek says to pay 397.04 more a month; the same loop, solved with SciPy, says 397.044208.
 
 ```bash
 forge calculate examples/mortgage/mortgage.yaml --dry-run

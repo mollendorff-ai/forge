@@ -25,7 +25,7 @@ const BUDGET: [(&str, usize); 8] = [
     ("code compiled only for or only without coverage", 31),
     ("ignored tests", 2),
     ("formatting skips", 0),
-    ("test files in a tests folder", 45),
+    ("test files in a tests folder", 26),
     ("test modules in a file of their own", 0),
 ];
 

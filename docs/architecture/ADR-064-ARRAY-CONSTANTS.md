@@ -65,7 +65,7 @@ Forge has no two-dimensional values. A table is columns of one dimension each, a
   - Gnumeric reads `INDEX({10,20,30}, 2)` as row 2 of a one-row constant and gives #REF!. Microsoft's `INDEX` page says that with one row the number is the column, which gives 20.
   - Gnumeric takes one item of `{1,2,3} * 2` in a cell that is not an array formula, and gives 2 for the `SUM`.
   - Gnumeric has no `XLOOKUP`.
-- **What the engines cannot check:** `tests/array_constants.rs` covers the refusals, the import of a workbook formula with a constant, and export then import giving the same answers. Unit tests cover the parser and the workbook text.
+- **What the engines cannot check:** `src/core/array_calculator/parser.rs` (its `array_constants` tests) covers the refusals, the import of a workbook formula with a constant, and export then import giving the same answers. Unit tests cover the parser and the workbook text.
 
 **The example:** `examples/capex-plan` holds the IRS's 7-year MACRS rates as a constant (Publication 946, table A-1).
 

@@ -93,7 +93,7 @@ They do not agree on **which results they show as dates**. LibreOffice shows `=B
 
 **Acceptance**
 
-- The rolling forecast writes `last_actual: 2026-10-31` in format 5.4.0. `forge calculate` and `forge report` print 2026-10-31, and its numbers do not change (`tests/demo_examples.rs`).
+- The rolling forecast writes `last_actual: 2026-10-31` in format 5.4.0. `forge calculate` and `forge report` print 2026-10-31, and its numbers do not change (`src/cli/commands/examples.rs` (its `demo_examples` tests)).
 - In the exported workbook its cell is a date cell (46326, `yyyy-mm-dd`), and the workbook recalculates to the same values in Gnumeric and LibreOffice. `forge import` gives `last_actual: 2026-10-31` back.
 - One Gnumeric case for each row of the measured table above, with a date scalar, plus one each for `DATE` in a scalar and in a column. Forge gives the engines' answer before export, after export and after import, or for a text reading, ADR-054's.
 - The cases already in the Gnumeric suite pass unchanged, including the `DATE` comparisons and criteria of `edge_real_dates.yaml`.

@@ -22,7 +22,7 @@ The unit tests run on every push. The two validation suites, in `validation/` (A
 cargo test --release
 ```
 
-Includes Black-Scholes and binomial option prices checked against QuantLib reference values, and property tests (`tests/properties.rs`): four rules checked on generated models, from a fixed seed on every pull request and from a new seed with 1,000 cases per rule each week. CI runs the tests on stable Rust and strict clippy (`-D warnings`) on every push, and builds on the oldest supported Rust (`rust-version` in Cargo.toml); a weekly job also runs `cargo audit` and the tests on stable and beta Rust.
+Includes Black-Scholes and binomial option prices checked against QuantLib reference values, and property tests (`src/lib.rs` (its `properties` tests)): four rules checked on generated models, from a fixed seed on every pull request and from a new seed with 1,000 cases per rule each week. CI runs the tests on stable Rust and strict clippy (`-D warnings`) on every push, and builds on the oldest supported Rust (`rust-version` in Cargo.toml); a weekly job also runs `cargo audit` and the tests on stable and beta Rust.
 
 ## 2. Formulas against Gnumeric
 
