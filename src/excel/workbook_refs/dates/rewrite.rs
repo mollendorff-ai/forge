@@ -681,6 +681,15 @@ impl Dates<'_> {
                 }
                 written.extend(args.iter().cloned());
             },
+            // What is found is the table's own value: a date in it would be a
+            // day number in the workbook and text in Forge, and a date looked
+            // up would be compared as one or the other. No rule yet.
+            "VLOOKUP" | "HLOOKUP" => {
+                if args.iter().any(|a| self.touches_dates(a)) {
+                    return Err(format!("a date in {upper}"));
+                }
+                written.extend(args.iter().cloned());
+            },
             _ => {
                 // Any other function reads its arguments as Forge holds them:
                 // a date as its text, which is what the workbook held for it

@@ -41,7 +41,7 @@ pub fn is_whole_column(function: &str, arg_count: usize, position: usize) -> boo
         "FORECAST" | "FORECAST.LINEAR" => position == 1 || position == 2,
         // the lookups that always read whole columns
         "INDEX" | "ROWS" => position == 0,
-        "MATCH" | "XMATCH" => position == 1,
+        "MATCH" | "XMATCH" | "VLOOKUP" | "HLOOKUP" => position == 1,
         "XLOOKUP" => position == 1 || position == 2,
         _ => false,
     }

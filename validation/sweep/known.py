@@ -134,6 +134,11 @@ RULES = [
          lambda c: any(num(a) is not None and not whole(num(a)) for a in c["args"][2:4]),
          "DB with a fractional life or period: Forge, LibreOffice and Gnumeric each read the fraction differently, and Microsoft's page does not say. (A fractional month is cut, in Excel as in Forge and LibreOffice: checked 2026-11-14)",
          "T1-EXCEL-CHECKS"),
+    Rule("equal-near-zero", ["MATCH", "VLOOKUP", "HLOOKUP"],
+         lambda c: (n := num(c["args"][0])) is not None and 0 < abs(n) < 1e-10
+             and c["forge"] != ERR and c["lo"] == ERR and c["gn"] == ERR,
+         "An exact match of a number within 1E-10 of another, other than itself: Forge finds two numbers that close equal (values_equal, also = : -1E-12 = 0 is TRUE), and both engines do not (#N/A, FALSE)",
+         "T1-EQUAL-NEAR-ZERO"),
 ]
 
 
