@@ -489,12 +489,13 @@ jobs:
       # 88.04%, functions 84.46%, regions 86.31%); raised 2026-11-17 from
       # PR #258's (88.94%, 85.47%, 87.35%) and PR #259's (89.62%, 86.14%,
       # 88.14%), as the inline tests moved in, and from PR #261's (91.91%,
-      # 87.95%, 90.58%), when the command line ran in-process.
+      # 87.95%, 90.58%), when the command line ran in-process, and from PR
+      # #262's (92.45%, 88.52%, 91.19%), when its tests ran under coverage.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "91.9"
-          FLOOR_FUNCTIONS: "87.9"
-          FLOOR_REGIONS: "90.5"
+          FLOOR_LINES: "92.4"
+          FLOOR_FUNCTIONS: "88.5"
+          FLOOR_REGIONS: "91.1"
         run: |
           fail=0
           for kind in lines functions regions; do
