@@ -1,15 +1,14 @@
 //! Excel export and import commands
 
-use crate::cli::console::outln;
-use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::{ExcelExporter, ExcelImporter};
 use crate::parser;
-#[cfg(feature = "cli")]
-use colored::Colorize;
+// Printing the commands belongs to the command line (feature `cli`)
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
+#[cfg(feature = "cli")]
+use {crate::cli::console::outln, crate::cli::Console, colored::Colorize};
 
 /// Parse a model for export and calculate it, so a formula that Excel cannot
 /// express can be written as its value. If calculation fails, the formulas are

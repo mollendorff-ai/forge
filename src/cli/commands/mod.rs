@@ -92,7 +92,10 @@ pub use analysis::{
 #[cfg(test)]
 pub use upgrade::split_scalars_to_inputs_outputs;
 
-use crate::cli::console::{errln, out, outln};
+use crate::cli::console::outln;
+// Watch mode, which clears the screen and reports watch errors, needs `cli`
+#[cfg(feature = "cli")]
+use crate::cli::console::{errln, out};
 use crate::cli::Console;
 use crate::core::precision::to_15_digits;
 use crate::core::{ArrayCalculator, UnitValidator};

@@ -1,10 +1,12 @@
 //! Examples command - display runnable YAML examples for Forge capabilities
 
-use crate::cli::console::outln;
 use crate::error::{ForgeError, ForgeResult};
 // Printing the examples and running one belong to the command line
 #[cfg(feature = "cli")]
-use {crate::cli::Console, colored::Colorize, std::ffi::OsStr, std::io::Write};
+use {
+    crate::cli::console::outln, crate::cli::Console, colored::Colorize, std::ffi::OsStr,
+    std::io::Write,
+};
 
 /// Embedded example YAML files (compile-time)
 const EXAMPLE_STARTER: &str = include_str!("../../../examples/starter.yaml");

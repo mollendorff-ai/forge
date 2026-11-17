@@ -2,9 +2,10 @@
 //! the parts of a model that stay only in the YAML file, and whether every
 //! formula of a workbook came in as a formula (roadmap T1-AGENT-FRICTION).
 
-use crate::cli::console::outln;
-use crate::cli::Console;
+// Printing what was carried belongs to the command line (feature `cli`)
 use std::path::Path;
+#[cfg(feature = "cli")]
+use {crate::cli::console::outln, crate::cli::Console};
 
 /// Sections that run analyses from the YAML file. Excel has no counterpart,
 /// so an export leaves them out (scenarios are reported by the exporter).
