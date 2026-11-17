@@ -161,8 +161,13 @@ tier1:
   # and tested (a percentile below 0 or above 100, NaN, a range of too many
   # steps); Excel rows and columns are counted in u32 and u16, so the writer's
   # own limits refuse a cell; a binomial tree has u16 steps, at most 65,535.
-  # Next: the calculator outside the evaluator, then the evaluator, then
-  # cast_precision_loss with its two Cargo.toml allows. 118 allows left.
+  # The calculator outside the evaluator is done too (2026-11-17): its 24
+  # casts were all in core/array_calculator/dates.rs, 612 lines of older date
+  # functions that nothing called, hidden by allow(dead_code), now deleted.
+  # Next: the evaluator, whose 104 casts (cast_possible_truncation,
+  # cast_sign_loss, cast_possible_wrap) one module-wide allow covers, so they
+  # go in one change; then cast_precision_loss with its two Cargo.toml
+  # allows. 114 allows left.
   # T1-NO-SKIPPING, float_cmp is done (2026-11-17): no allow is left. Tests
   # assert an exact number with assert_exact! (the same bits, src/lib.rs),
   # and the ten exact comparisons in the engine (MODE, a variance on budget,
