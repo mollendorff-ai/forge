@@ -143,7 +143,8 @@ tier1:
 
   # T1-TESTS-INLINE step (1) is done (2026-11-17): the five parents, and
   # excel/workbook_refs.rs, which also passed 1,500 lines with its tests back,
-  # are split by what they do; 18 test modules in a file of their own are left.
+  # are split by what they do. Step (2) is done too (2026-11-17): no test
+  # module is left in a file of its own. Left: the 45 files in tests/ folders.
   - id: T1-TESTS-INLINE
     title: "Every test inline, in the file it tests, and no file over 1,500 lines"
     why: "Asked 2026-11-16: tests are inline or not, never both. Counted that day: 1,753 tests inline in 129 files, 36 test modules moved to files of their own (mostly to keep a file under 1,500 lines, which is not a split), and 45 test files in tests/ folders (43 in the main crate, 1 in forge-wasm, 1 in validation/gnumeric), 20 of which start the forge binary. Put back, five parents pass 1,500 lines: excel/workbook_refs/dates.rs (2,000), mcp/server.rs (1,809), excel/exporter.rs (1,711), core/array_calculator/evaluator/mod.rs (about 2,200) and core/array_calculator/mod.rs (about 2,000). Inline is the only side that works: tests/ sees only the public API, and the unit tests test private code"
