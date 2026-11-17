@@ -621,13 +621,12 @@ fn is_single_line_value(line: &str) -> bool {
 }
 
 /// Two YAML scalars that are the same number (`16` and `16.0`).
-#[allow(clippy::float_cmp)] // exactly the same number, not a close one
 fn same_number(a: &str, b: &str) -> bool {
     match (
         yaml_serde::from_str::<f64>(a),
         yaml_serde::from_str::<f64>(b),
     ) {
-        (Ok(x), Ok(y)) => x == y || (x.is_nan() && y.is_nan()),
+        (Ok(x), Ok(y)) => crate::core::precision::same(x, y) || (x.is_nan() && y.is_nan()),
         _ => false,
     }
 }
@@ -649,7 +648,7 @@ pub fn format_number(v: f64) -> String {
     if v.is_infinite() {
         return if v > 0.0 { ".inf" } else { "-.inf" }.to_string();
     }
-    #[allow(clippy::cast_possible_truncation, clippy::float_cmp)]
+    #[allow(clippy::cast_possible_truncation)]
     if v.fract() == 0.0 && v.abs() < 1e15 {
         return format!("{}", v as i64);
     }
@@ -900,7 +899,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact round trip is the point
     fn numbers_read_back_exactly() {
         for v in [
             0.1,
@@ -922,7 +920,7 @@ mod tests {
             let s = format_number(v);
             let back: f64 = yaml_serde::from_str(&s).unwrap();
             assert!(
-                back.to_bits() == v.to_bits() || back == v,
+                back.to_bits() == v.to_bits() || crate::core::precision::same(back, v),
                 "{v} -> {s} -> {back}"
             );
             // As part of a file, read without knowing it is a number
@@ -932,7 +930,7 @@ mod tests {
                 .as_f64()
                 .unwrap_or_else(|| panic!("{v} -> {s} is not a number"));
             assert!(
-                back.to_bits() == v.to_bits() || back == v,
+                back.to_bits() == v.to_bits() || crate::core::precision::same(back, v),
                 "{v} -> {s} -> {back} in a file"
             );
         }
@@ -966,7 +964,6 @@ mod tests {
         use crate::cli::calculate_core;
 
         #[test]
-        #[allow(clippy::float_cmp)] // the written number must read back exactly
         fn a_whole_number_past_i64_is_written_and_read_back() {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("big.yaml");

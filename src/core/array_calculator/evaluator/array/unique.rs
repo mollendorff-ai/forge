@@ -91,8 +91,7 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant, clippy::float_cmp)]
-    // float_cmp: Financial math — exact float comparison validated against Excel/Gnumeric/R
+    #![allow(clippy::approx_constant)]
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
@@ -147,8 +146,9 @@ mod integration_tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(
-            unique_products, 3.0,
+        assert_exact!(
+            unique_products,
+            3.0,
             "Should have 3 unique products, got {unique_products}"
         );
 
@@ -158,8 +158,9 @@ mod integration_tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(
-            unique_quantities, 3.0,
+        assert_exact!(
+            unique_quantities,
+            3.0,
             "Should have 3 unique quantities, got {unique_quantities}"
         );
     }
@@ -190,8 +191,9 @@ mod integration_tests {
             .expect("Calculation should succeed");
 
         let unique_flags = result.scalars.get("unique_flags").unwrap().value.unwrap();
-        assert_eq!(
-            unique_flags, 2.0,
+        assert_exact!(
+            unique_flags,
+            2.0,
             "Should have 2 unique boolean values (true, false), got {unique_flags}"
         );
     }
@@ -200,7 +202,6 @@ mod integration_tests {
 #[cfg(test)]
 mod edge_case_tests {
     #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)]
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
@@ -324,7 +325,7 @@ mod edge_case_tests {
             .expect("Calculation should succeed");
 
         let unique_dates = result.scalars.get("unique_dates").unwrap().value.unwrap();
-        assert_eq!(unique_dates, 3.0);
+        assert_exact!(unique_dates, 3.0);
     }
 
     #[test]
@@ -400,15 +401,15 @@ mod edge_case_tests {
             .calculate_all()
             .expect("Calculation should succeed");
 
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("single_unique").unwrap().value.unwrap(),
             1.0
         );
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("same_unique").unwrap().value.unwrap(),
             1.0
         );
-        assert_eq!(
+        assert_exact!(
             result
                 .scalars
                 .get("different_unique")
@@ -417,7 +418,7 @@ mod edge_case_tests {
                 .unwrap(),
             5.0
         );
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("floats_unique").unwrap().value.unwrap(),
             2.0
         );
@@ -455,7 +456,7 @@ mod edge_case_tests {
             .expect("Calculation should succeed");
 
         let unique_names = result.scalars.get("unique_names").unwrap().value.unwrap();
-        assert_eq!(unique_names, 3.0);
+        assert_exact!(unique_names, 3.0);
     }
 
     #[test]
@@ -494,7 +495,7 @@ mod edge_case_tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(result_val, 30.0);
+        assert_exact!(result_val, 30.0);
     }
 
     #[test]

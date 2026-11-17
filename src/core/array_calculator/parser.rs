@@ -1179,7 +1179,6 @@ mod tests {
         }
 
         #[test]
-        #[allow(clippy::float_cmp)] // small whole numbers
         fn constants_calculate() {
             assert_eq!(one("=SUM({1,2,3})").unwrap(), Some(6.0));
             assert_eq!(one("=SUM({1;2;3})").unwrap(), Some(6.0));
@@ -1194,7 +1193,6 @@ mod tests {
         }
 
         #[test]
-        #[allow(clippy::float_cmp)] // small whole numbers
         fn a_row_formula_reads_a_constant_whole() {
             let yaml =
                 "_forge_version: \"5.4.0\"\nt:\n  x: [1, 2, 3]\n  y: \"=INDEX({10;20;30}, x)\"\n\
@@ -1203,7 +1201,6 @@ mod tests {
         }
 
         #[test]
-        #[allow(clippy::float_cmp)] // small whole numbers
         fn a_constant_is_still_fine_where_excel_takes_one() {
             // Not in a range argument: the criterion, or a function that takes arrays
             assert_eq!(one("=SUMPRODUCT(({1,2,3,2}=2)*1)").unwrap(), Some(2.0));

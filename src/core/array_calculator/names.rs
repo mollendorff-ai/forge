@@ -450,7 +450,6 @@ mod tests {
         }
 
         #[test]
-        #[allow(clippy::float_cmp)] // small whole numbers
         fn ten_thousand_scalars_calculate_in_time() {
             let (took, last) = time(10_000, false);
             assert!(took < limit(), "10,000 scalars took {took:?}");
@@ -458,7 +457,6 @@ mod tests {
         }
 
         #[test]
-        #[allow(clippy::float_cmp)] // small whole numbers
         fn ten_thousand_chained_scalars_calculate_in_time() {
             let (took, last) = time(10_000, true);
             assert!(took < limit(), "10,000 chained scalars took {took:?}");
@@ -466,7 +464,6 @@ mod tests {
         }
 
         #[test]
-        #[allow(clippy::float_cmp)] // small whole numbers
         fn a_thousand_sections_of_ten_calculate_in_time() {
             let mut text = String::from("_forge_version: \"5.4.0\"\n");
             for section in 0..1000 {

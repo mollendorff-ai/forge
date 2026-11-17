@@ -239,7 +239,6 @@ mod sumproduct_tests {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::tests::eval;
     use super::*;
     use std::collections::HashMap;
@@ -377,7 +376,6 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
@@ -490,7 +488,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let median = result.scalars.get("median_val").unwrap().value.unwrap();
-        assert_eq!(median, 30.0);
+        assert_exact!(median, 30.0);
     }
 
     #[test]
@@ -517,7 +515,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let median = result.scalars.get("median_val").unwrap().value.unwrap();
-        assert_eq!(median, 25.0);
+        assert_exact!(median, 25.0);
     }
 
     #[test]
@@ -571,7 +569,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let count = result.scalars.get("cnt").unwrap().value.unwrap();
-        assert_eq!(count, 3.0);
+        assert_exact!(count, 3.0);
     }
 
     #[test]
@@ -598,7 +596,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let product = result.scalars.get("prod").unwrap().value.unwrap();
-        assert_eq!(product, 24.0);
+        assert_exact!(product, 24.0);
     }
 
     #[test]
@@ -632,8 +630,8 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
 
-        assert_eq!(result.scalars.get("largest").unwrap().value.unwrap(), 90.0);
-        assert_eq!(
+        assert_exact!(result.scalars.get("largest").unwrap().value.unwrap(), 90.0);
+        assert_exact!(
             result.scalars.get("second_largest").unwrap().value.unwrap(),
             70.0
         );
@@ -670,8 +668,8 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
 
-        assert_eq!(result.scalars.get("smallest").unwrap().value.unwrap(), 10.0);
-        assert_eq!(
+        assert_exact!(result.scalars.get("smallest").unwrap().value.unwrap(), 10.0);
+        assert_exact!(
             result
                 .scalars
                 .get("second_smallest")
@@ -706,7 +704,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let total = result.scalars.get("total").unwrap().value.unwrap();
-        assert_eq!(total, 60.0);
+        assert_exact!(total, 60.0);
     }
 
     #[test]
@@ -755,7 +753,7 @@ mod integration_tests {
         assert!(result.is_ok());
         let model = result.unwrap();
         if let Some(scalar) = model.scalars.get("med") {
-            assert_eq!(scalar.value.unwrap(), 5.0);
+            assert_exact!(scalar.value.unwrap(), 5.0);
         }
     }
 
@@ -784,7 +782,7 @@ mod integration_tests {
         assert!(result.is_ok());
         let model = result.unwrap();
         if let Some(scalar) = model.scalars.get("med") {
-            assert_eq!(scalar.value.unwrap(), 2.5); // (2+3)/2
+            assert_exact!(scalar.value.unwrap(), 2.5); // (2+3)/2
         }
     }
 
@@ -813,7 +811,7 @@ mod integration_tests {
 
         // Values: [10, 20, 30, 40] - average = 25.0
         let avg = result.scalars.get("avg_val").unwrap().value.unwrap();
-        assert_eq!(avg, 25.0);
+        assert_exact!(avg, 25.0);
     }
 
     #[test]
@@ -1008,7 +1006,7 @@ mod integration_tests {
         // COUNTA: ["a", "", "b"] - counts all values (including empty strings)
         // Standard Excel behavior: COUNTA counts all non-blank cells, treating "" as having data
         let count = result.scalars.get("count").unwrap().value.unwrap();
-        assert_eq!(count, 3.0);
+        assert_exact!(count, 3.0);
     }
 
     #[test]
@@ -1064,7 +1062,7 @@ mod integration_tests {
 
         // Values: [10, 20, 10, 30, 20, 40] - unique count = 4 (10, 20, 30, 40)
         let count = result.scalars.get("unique_count").unwrap().value.unwrap();
-        assert_eq!(count, 4.0);
+        assert_exact!(count, 4.0);
     }
 
     #[test]
@@ -1110,17 +1108,17 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         // Descending: [92, 90, 88, 85, 78] - ranks: 1, 2, 3, 4, 5
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("rank_92_desc").unwrap().value.unwrap(),
             1.0
         );
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("rank_90_desc").unwrap().value.unwrap(),
             2.0
         );
 
         // Ascending: [78, 85, 88, 90, 92] - 78 is rank 1
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("rank_78_asc").unwrap().value.unwrap(),
             1.0
         );
@@ -1175,13 +1173,13 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         // East amounts: [100, 150, 250] - max = 250
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("max_east").unwrap().value.unwrap(),
             250.0
         );
 
         // East + Q2 amounts: [150, 250] - max = 250
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("max_east_q2").unwrap().value.unwrap(),
             250.0
         );
@@ -1236,13 +1234,13 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         // West amounts: [200, 300] - min = 200
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("min_west").unwrap().value.unwrap(),
             200.0
         );
 
         // East + Q2 amounts: [150, 250] - min = 150
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("min_east_q2").unwrap().value.unwrap(),
             150.0
         );

@@ -62,7 +62,6 @@ pub fn eval_search(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
 
@@ -97,7 +96,7 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         let pos = result.scalars.get("pos").unwrap().value.unwrap();
         // "LO" found at position 4 in "hello"
-        assert_eq!(pos, 4.0);
+        assert_exact!(pos, 4.0);
     }
 
     #[test]
@@ -124,8 +123,8 @@ mod tests {
         let p1 = result.scalars.get("pos1").unwrap().value.unwrap();
         let p2 = result.scalars.get("pos2").unwrap().value.unwrap();
         // Both should find "World" at position 7
-        assert_eq!(p1, 7.0);
-        assert_eq!(p2, 7.0);
+        assert_exact!(p1, 7.0);
+        assert_exact!(p2, 7.0);
     }
 
     // NOT FOUND TESTS
@@ -245,9 +244,9 @@ mod tests {
 
         #[test]
         fn find_and_search_count_characters() {
-            assert_eq!(h::sweep_number("FIND(\"γ\", \"αβγ\")"), 3.0);
-            assert_eq!(h::sweep_number("FIND(\"β\", \"αβγ\", 2)"), 2.0); // panicked before
-            assert_eq!(h::sweep_number("SEARCH(\"E\", \"straße\")"), 6.0);
+            assert_exact!(h::sweep_number("FIND(\"γ\", \"αβγ\")"), 3.0);
+            assert_exact!(h::sweep_number("FIND(\"β\", \"αβγ\", 2)"), 2.0); // panicked before
+            assert_exact!(h::sweep_number("SEARCH(\"E\", \"straße\")"), 6.0);
             h::sweep_fails("FIND(\"l\", \"hello\", 0)", "#VALUE!");
             h::sweep_fails("SEARCH(\"l\", \"hello\", 6)", "#VALUE!");
         }

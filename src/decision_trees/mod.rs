@@ -53,7 +53,6 @@ mod tests {
         //! Decision Trees Integration Tests
 
         // Financial math: exact float comparison validated against Excel/Gnumeric/R
-        #![allow(clippy::float_cmp)]
 
         use super::*;
 
@@ -162,7 +161,7 @@ mod tests {
             let result = engine.analyze().unwrap();
 
             // Should choose aggressive (highest value)
-            assert_eq!(result.root_expected_value, 200_000.0);
+            assert_exact!(result.root_expected_value, 200_000.0);
             assert_eq!(
                 result.decision_policy.get("root"),
                 Some(&"aggressive".to_string())
@@ -213,8 +212,8 @@ mod tests {
             let engine = DecisionTreeEngine::new(config).unwrap();
             let result = engine.analyze().unwrap();
 
-            assert_eq!(result.risk_profile.best_case, 1000.0);
-            assert_eq!(result.risk_profile.worst_case, -200.0);
+            assert_exact!(result.risk_profile.best_case, 1000.0);
+            assert_exact!(result.risk_profile.worst_case, -200.0);
 
             // Probability positive = 0.3 + 0.5 = 0.8
             assert!(
@@ -356,9 +355,9 @@ mod tests {
             let result = DecisionTreeEngine::new(config).unwrap().analyze().unwrap();
             let risk = &result.risk_profile;
             assert_eq!(result.decision_policy["root"], "safe");
-            assert_eq!(risk.best_case, 50.0);
-            assert_eq!(risk.worst_case, 50.0);
-            assert_eq!(risk.probability_positive, 1.0);
+            assert_exact!(risk.best_case, 50.0);
+            assert_exact!(risk.worst_case, 50.0);
+            assert_exact!(risk.probability_positive, 1.0);
             assert_eq!(risk.outcomes.len(), 1);
         }
 
@@ -388,8 +387,8 @@ mod tests {
                 .risk_profile;
             // up/up: 100 - 30 = 70 at 0.25; up/down: 20 - 30 = -10 at 0.25; down: -20 at 0.5
             assert!((risk.probability_positive - 0.25).abs() < 1e-12, "{risk:?}");
-            assert_eq!(risk.best_case, 70.0);
-            assert_eq!(risk.worst_case, -20.0);
+            assert_exact!(risk.best_case, 70.0);
+            assert_exact!(risk.worst_case, -20.0);
         }
     }
 }

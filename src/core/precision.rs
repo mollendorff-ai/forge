@@ -19,6 +19,17 @@ use serde::ser::{
 /// The significant digits a written or printed number keeps, as in Excel.
 pub const SIGNIFICANT_DIGITS: usize = 15;
 
+/// Whether `a` and `b` are the same number, compared exactly as Excel does.
+///
+/// It is IEEE 754 equality: `0` and `-0` are equal, and a NaN is equal to
+/// nothing. For where exactness is the rule and a tolerance would
+/// change the answer: `MODE` counts equal values, a line on budget has no
+/// variance, a depreciation period is the first or the last.
+#[must_use]
+pub fn same(a: f64, b: f64) -> bool {
+    a.partial_cmp(&b) == Some(std::cmp::Ordering::Equal)
+}
+
 /// `value` rounded to 15 significant digits: the number Forge writes and
 /// prints. Zero, infinities and NaN are returned as they are.
 #[must_use]
@@ -353,6 +364,39 @@ mod tests {
     use super::*;
 
     #[test]
+    fn same_is_ieee_equality_on_every_edge() {
+        let edges = [
+            0.0,
+            -0.0,
+            1.0,
+            -1.0,
+            0.1 + 0.2,
+            0.3,
+            f64::MIN_POSITIVE,
+            f64::MIN_POSITIVE / 4.0,
+            f64::EPSILON,
+            1.0 + f64::EPSILON,
+            f64::MAX,
+            f64::MIN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NAN,
+        ];
+        for a in edges {
+            for b in edges {
+                // IEEE equality, from the bits: the same number and not a NaN, or
+                // both zeros (0 and -0 differ in their sign bit)
+                let ieee = (!a.is_nan() && a.to_bits() == b.to_bits()) || (a == 0.0 && b == 0.0);
+                assert_eq!(same(a, b), ieee, "{a:?} and {b:?}");
+            }
+        }
+        assert!(same(0.0, -0.0));
+        assert!(!same(f64::NAN, f64::NAN));
+        assert!(!same(0.1 + 0.2, 0.3));
+        assert!(same(f64::INFINITY, f64::INFINITY));
+    }
+
+    #[test]
     fn money_has_separators_two_decimals_and_the_sign_first() {
         assert_eq!(money(61_500.0), "$61,500.00");
         assert_eq!(money(-117_000.0), "-$117,000.00");
@@ -370,9 +414,8 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // the exact numbers are the point
     fn rounds_the_noise_away() {
-        assert_eq!(to_15_digits(0.1 + 0.2), 0.3);
+        assert_exact!(to_15_digits(0.1 + 0.2), 0.3);
         assert_eq!(to_15_digits(418.329_999_999_999_9).to_string(), "418.33");
         assert_eq!(to_15_digits(2_170.970_000_000_000_3).to_string(), "2170.97");
         assert_eq!(
@@ -383,19 +426,18 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)]
     fn keeps_fifteen_digits_and_everything_shorter() {
         assert_eq!(
             to_15_digits(0.604_651_162_790_697_6).to_string(),
             "0.604651162790698"
         );
         for v in [1.0, -2.5, 1234.5678, 1e-300, 6.02e23, 123_456_789_012_345.0] {
-            assert_eq!(to_15_digits(v), v);
+            assert_exact!(to_15_digits(v), v);
         }
-        assert_eq!(to_15_digits(0.0), 0.0);
+        assert_exact!(to_15_digits(0.0), 0.0);
         assert!(to_15_digits(f64::NAN).is_nan());
-        assert_eq!(to_15_digits(f64::INFINITY), f64::INFINITY);
-        assert_eq!(to_15_digits(f64::NEG_INFINITY), f64::NEG_INFINITY);
+        assert_exact!(to_15_digits(f64::INFINITY), f64::INFINITY);
+        assert_exact!(to_15_digits(f64::NEG_INFINITY), f64::NEG_INFINITY);
     }
 
     #[test]

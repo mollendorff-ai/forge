@@ -24,7 +24,6 @@ pub fn eval_choose(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::*;
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::ArrayCalculator;
@@ -94,9 +93,9 @@ mod tests {
             .get("result")
             .unwrap();
         if let ColumnValue::Number(values) = &col.values {
-            assert_eq!(values[0], 100.0);
-            assert_eq!(values[1], 200.0);
-            assert_eq!(values[2], 300.0);
+            assert_exact!(values[0], 100.0);
+            assert_exact!(values[1], 200.0);
+            assert_exact!(values[2], 300.0);
         }
     }
 
@@ -123,9 +122,9 @@ mod tests {
         let table = model_result.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("chosen") {
             if let ColumnValue::Number(vals) = &col.values {
-                assert_eq!(vals[0], 10.0);
-                assert_eq!(vals[1], 20.0);
-                assert_eq!(vals[2], 30.0);
+                assert_exact!(vals[0], 10.0);
+                assert_exact!(vals[1], 20.0);
+                assert_exact!(vals[2], 30.0);
             }
         }
     }
@@ -146,7 +145,7 @@ mod tests {
         assert!(result.is_ok(), "CHOOSE with valid index should succeed");
         let model_result = result.unwrap();
         let val = model_result.scalars.get("result").unwrap().value.unwrap();
-        assert_eq!(val, 200.0);
+        assert_exact!(val, 200.0);
     }
 
     #[test]

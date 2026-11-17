@@ -71,7 +71,6 @@ pub fn eval_concatenate(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -373,7 +372,7 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         // CONCATENATE should work like CONCAT, result length should be 11
         let len = result.scalars.get("result").unwrap().value.unwrap();
-        assert_eq!(len, 11.0);
+        assert_exact!(len, 11.0);
     }
 
     #[test]
@@ -390,7 +389,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let len = result.scalars.get("result").unwrap().value.unwrap();
-        assert_eq!(len, 4.0);
+        assert_exact!(len, 4.0);
     }
 
     #[test]
@@ -493,7 +492,7 @@ mod tests {
             assert_eq!(h::sweep_text("CONCAT(0.1 + 0.2)"), "0.3");
             assert_eq!(h::sweep_text("CONCAT(1 / 3)"), "0.333333333333333");
             assert_eq!(h::sweep_text("CONCAT(1E+20)"), "1E+20");
-            assert_eq!(h::sweep_number("LEN(2 / 3)"), 17.0);
+            assert_exact!(h::sweep_number("LEN(2 / 3)"), 17.0);
         }
     }
 }

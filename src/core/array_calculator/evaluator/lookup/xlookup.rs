@@ -171,7 +171,6 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::evaluator::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;
@@ -347,7 +346,7 @@ mod tests {
             let table = model_result.tables.get("data").unwrap();
             if let Some(col) = table.columns.get("found_price") {
                 if let ColumnValue::Number(vals) = &col.values {
-                    assert_eq!(vals[0], 0.75);
+                    assert_exact!(vals[0], 0.75);
                 }
             }
         }
@@ -386,7 +385,7 @@ mod tests {
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("emp_salary") {
             if let ColumnValue::Number(vals) = &col.values {
-                assert_eq!(vals[0], 60000.0);
+                assert_exact!(vals[0], 60000.0);
             }
         }
     }
@@ -424,7 +423,7 @@ mod tests {
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("emp_salary") {
             if let ColumnValue::Number(vals) = &col.values {
-                assert_eq!(vals[0], -1.0);
+                assert_exact!(vals[0], -1.0);
             }
         }
     }
@@ -458,7 +457,7 @@ mod tests {
         );
         let model_result = result.unwrap();
         let val = model_result.scalars.get("result").unwrap().value.unwrap();
-        assert_eq!(val, -1.0);
+        assert_exact!(val, -1.0);
     }
 
     #[test]
@@ -608,9 +607,9 @@ mod tests {
 
         #[test]
         fn xlookup_searches_from_the_end_when_asked() {
-            assert_eq!(h::sweep_number("XLOOKUP(2, t.lu, t.pr, -1, 0, -1)"), 40.0);
-            assert_eq!(h::sweep_number("XLOOKUP(2, t.lu, t.pr, -1, 0, 1)"), 20.0);
-            assert_eq!(h::sweep_number("XLOOKUP(3, t.lu, t.pr, -1, 1, -1)"), 60.0);
+            assert_exact!(h::sweep_number("XLOOKUP(2, t.lu, t.pr, -1, 0, -1)"), 40.0);
+            assert_exact!(h::sweep_number("XLOOKUP(2, t.lu, t.pr, -1, 0, 1)"), 20.0);
+            assert_exact!(h::sweep_number("XLOOKUP(3, t.lu, t.pr, -1, 1, -1)"), 60.0);
         }
     }
 }

@@ -56,7 +56,6 @@ mod tests {
         //! Real Options Integration Tests
 
         // Financial math: exact float comparison validated against Excel/Gnumeric/R
-        #![allow(clippy::float_cmp)]
 
         use super::*;
 

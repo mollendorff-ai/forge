@@ -191,7 +191,6 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
@@ -404,9 +403,9 @@ mod integration_tests {
             .get("result")
             .unwrap();
         if let ColumnValue::Number(values) = &col.values {
-            assert_eq!(values[0], 25.0);
-            assert_eq!(values[1], 45.0);
-            assert_eq!(values[2], 65.0);
+            assert_exact!(values[0], 25.0);
+            assert_exact!(values[1], 45.0);
+            assert_exact!(values[2], 65.0);
         }
     }
 
@@ -436,9 +435,9 @@ mod integration_tests {
             .get("label")
             .unwrap();
         if let ColumnValue::Number(values) = &col.values {
-            assert_eq!(values[0], 100.0);
-            assert_eq!(values[1], 200.0);
-            assert_eq!(values[2], 0.0);
+            assert_exact!(values[0], 100.0);
+            assert_exact!(values[1], 200.0);
+            assert_exact!(values[2], 0.0);
         }
     }
 
@@ -472,8 +471,8 @@ mod integration_tests {
             .get("product")
             .unwrap();
         if let ColumnValue::Number(values) = &col.values {
-            assert_eq!(values[0], 6.0, "2 * 3 = 6");
-            assert_eq!(values[1], 12.0, "3 * 4 = 12");
+            assert_exact!(values[0], 6.0, "2 * 3 = 6");
+            assert_exact!(values[1], 12.0, "3 * 4 = 12");
         } else {
             panic!("Expected number column");
         }
@@ -496,7 +495,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let let_val = result.scalars.get("let_result").unwrap().value.unwrap();
-        assert_eq!(let_val, 30.0, "LET(x, 10, y, 20, x + y) should return 30");
+        assert_exact!(let_val, 30.0, "LET(x, 10, y, 20, x + y) should return 30");
     }
 
     #[test]
@@ -516,7 +515,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let lambda_val = result.scalars.get("lambda_result").unwrap().value.unwrap();
-        assert_eq!(lambda_val, 10.0, "LAMBDA(x, x * 2)(5) should return 10");
+        assert_exact!(lambda_val, 10.0, "LAMBDA(x, x * 2)(5) should return 10");
     }
 
     #[test]
@@ -645,7 +644,6 @@ mod integration_tests {
 #[cfg(test)]
 mod edge_case_tests {
     #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)]
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};

@@ -3,6 +3,7 @@
 use super::{collect_numeric_values, evaluate, paired_numbers, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::number_or;
+use crate::core::precision::same;
 
 /// Try to evaluate a statistical function. Returns None if function not recognized.
 #[allow(
@@ -67,8 +68,7 @@ pub fn try_evaluate(
             let mut best: Option<(f64, usize)> = None;
             for &v in &values {
                 // Equal means exactly equal, as in Excel.
-                #[allow(clippy::float_cmp)]
-                let count = values.iter().filter(|&&w| w == v).count();
+                let count = values.iter().filter(|&&w| same(w, v)).count();
                 if count > 1 && best.is_none_or(|(_, c)| count > c) {
                     best = Some((v, count));
                 }

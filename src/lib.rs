@@ -30,6 +30,31 @@
 //! # Ok::<(), mollendorff_forge::error::ForgeError>(())
 //! ```
 
+/// `assert_eq!` for two numbers that must be exactly equal: the same bits,
+/// so a result off in its last digit, or `-0.0` for `0.0`, fails. A test
+/// states the exact value the engine gives (checked against Excel, Gnumeric
+/// or R), and an approximate one compares with a tolerance instead.
+#[cfg(test)]
+macro_rules! assert_exact {
+    ($got:expr, $want:expr $(,)?) => {{
+        let (got, want): (f64, f64) = ($got, $want);
+        assert!(
+            got.to_bits() == want.to_bits(),
+            "{} is {got:?}, not exactly {want:?}",
+            stringify!($got)
+        );
+    }};
+    ($got:expr, $want:expr, $($message:tt)+) => {{
+        let (got, want): (f64, f64) = ($got, $want);
+        assert!(
+            got.to_bits() == want.to_bits(),
+            "{} is {got:?}, not exactly {want:?}: {}",
+            stringify!($got),
+            format_args!($($message)+)
+        );
+    }};
+}
+
 pub mod core;
 pub mod error;
 pub mod functions;

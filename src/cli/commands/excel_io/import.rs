@@ -102,7 +102,7 @@ fn tables_to_value(
 
 /// A number as YAML: `16`, not `16.0`, when it is a whole number.
 fn number(n: f64) -> yaml_serde::Value {
-    #[allow(clippy::cast_possible_truncation, clippy::float_cmp)] // whole and in range
+    #[allow(clippy::cast_possible_truncation)] // whole and in range
     if n.fract() == 0.0 && n.abs() < 1e15 {
         return yaml_serde::Value::Number((n as i64).into());
     }

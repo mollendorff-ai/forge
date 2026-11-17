@@ -300,13 +300,12 @@ quarters:
         }
 
         #[test]
-        #[allow(clippy::float_cmp)] // a whole-number sum
         fn a_thousand_rows_aggregating_a_thousand_rows_take_under_a_second() {
             let start = std::time::Instant::now();
             let result = calculate(&sumifs_model(1_000));
             let took = start.elapsed();
             // Key 0 is in rows 0, 50, ..., 950: 0 + 50 + ... + 950 = 9,500
-            assert_eq!(column(&result, "b", "total")[0], 9_500.0);
+            assert_exact!(column(&result, "b", "total")[0], 9_500.0);
             assert!(took.as_secs_f64() < 1.0, "{took:?}");
         }
 
@@ -314,14 +313,13 @@ quarters:
         /// as the weekly workflow runs); a debug build is several times slower.
         #[test]
         #[cfg_attr(debug_assertions, ignore = "timed in a release build")]
-        #[allow(clippy::float_cmp)] // a whole-number sum
         fn five_thousand_rows_aggregating_five_thousand_rows_take_under_a_second() {
             let model = sumifs_model(5_000);
             let start = std::time::Instant::now();
             let result = calculate(&model);
             let took = start.elapsed();
             // Key 0 is in rows 0, 50, ..., 4,950: 50 * (0 + 99) * 100 / 2 = 247,500
-            assert_eq!(column(&result, "b", "total")[0], 247_500.0);
+            assert_exact!(column(&result, "b", "total")[0], 247_500.0);
             assert!(took.as_secs_f64() < 1.0, "{took:?}");
         }
     }

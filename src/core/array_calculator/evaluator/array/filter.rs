@@ -138,8 +138,6 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     #![allow(clippy::approx_constant)]
-    // Exact float comparison validated against Excel/Gnumeric/R
-    #![allow(clippy::float_cmp)]
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
@@ -172,14 +170,13 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let filtered_sum = result.scalars.get("filtered_sum").unwrap().value.unwrap();
-        assert_eq!(filtered_sum, 65.0, "SUM(FILTER(...)) should return 65.0");
+        assert_exact!(filtered_sum, 65.0, "SUM(FILTER(...)) should return 65.0");
     }
 }
 
 #[cfg(test)]
 mod edge_case_tests {
     #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)]
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
@@ -235,7 +232,7 @@ mod edge_case_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let sum_result = result.scalars.get("sum").unwrap().value.unwrap();
-        assert_eq!(sum_result, 9.0);
+        assert_exact!(sum_result, 9.0);
     }
 
     #[test]

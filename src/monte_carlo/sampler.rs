@@ -154,7 +154,6 @@ impl SampleStats {
 }
 
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 // sampler/samples, sampler1/samples1 — standard statistical terminology
 #[allow(clippy::similar_names)]
 #[cfg(test)]
@@ -291,9 +290,9 @@ mod tests {
         let samples = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let stats = SampleStats::from_samples(&samples);
 
-        assert_eq!(stats.mean, 3.0);
-        assert_eq!(stats.min, 1.0);
-        assert_eq!(stats.max, 5.0);
+        assert_exact!(stats.mean, 3.0);
+        assert_exact!(stats.min, 1.0);
+        assert_exact!(stats.max, 5.0);
         assert!((stats.variance - 2.0).abs() < 0.001);
     }
 }
