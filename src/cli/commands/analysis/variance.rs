@@ -551,11 +551,9 @@ fn export_variance_to_excel_with_xlsx(
         .ok();
 
     // Data rows
-    for (i, v) in variances.iter().enumerate() {
-        // Truncation impossible: variance reports have far fewer than u32::MAX rows
-        #[allow(clippy::cast_possible_truncation)]
-        let row = (i + 1) as u32;
-
+    let mut last_row = 0;
+    for (row, v) in (1u32..=u32::MAX).zip(variances) {
+        last_row = row;
         worksheet.write_string(row, 0, &v.name).ok();
         worksheet.write_number(row, 1, v.budget).ok();
         worksheet.write_number(row, 2, v.actual).ok();
@@ -570,9 +568,8 @@ fn export_variance_to_excel_with_xlsx(
     }
 
     // Add metadata row
-    // Truncation impossible: variance reports have far fewer than u32::MAX rows
-    #[allow(clippy::cast_possible_truncation)]
-    let meta_row = (variances.len() + 3) as u32;
+    // Two rows below the last line
+    let meta_row = last_row.saturating_add(3);
     worksheet
         .write_string(meta_row, 0, format!("Threshold: {threshold}%"))
         .ok();

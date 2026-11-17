@@ -7,6 +7,7 @@ use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use crate::tornado::{TornadoConfig, TornadoEngine};
 use colored::Colorize;
+use num_traits::ToPrimitive;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -131,10 +132,11 @@ pub fn tornado(
         .unwrap_or(0);
 
     for bar in &result.bars {
-        // Truncation/sign-loss impossible: value is always in 0.0..=30.0
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        // A swing is at most the largest, so 0 to 30 characters; never under 1
         let bar_width = if max_impact > 0.0 {
-            ((bar.swing.abs() / max_impact) * 30.0) as usize
+            ((bar.swing.abs() / max_impact) * 30.0)
+                .to_usize()
+                .unwrap_or(0)
         } else {
             0
         };

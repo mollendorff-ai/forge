@@ -14,6 +14,9 @@ pub struct FormulaTranslator {
     table_row_counts: HashMap<String, usize>,
 }
 
+/// The column letters, by their place in the alphabet
+const LETTERS: &[u8; 26] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
 impl FormulaTranslator {
     /// Create a new formula translator with column mappings (legacy, for backwards compat)
     #[must_use]
@@ -664,11 +667,7 @@ impl FormulaTranslator {
         let mut idx = index;
 
         loop {
-            let remainder = idx % 26;
-            // Remainder is always 0..25, fits in u8
-            #[allow(clippy::cast_possible_truncation)] // remainder is 0..25, always fits in u8
-            let ch = (b'A' + remainder as u8) as char;
-            result.insert(0, ch);
+            result.insert(0, char::from(LETTERS[idx % 26]));
             if idx < 26 {
                 break;
             }

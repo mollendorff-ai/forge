@@ -182,7 +182,7 @@ pub struct SimulateRequest {
     /// Inline include content as namespace to YAML map (use with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Number of simulation iterations (default: from YAML config or 10000)
-    pub iterations: Option<u64>,
+    pub iterations: Option<usize>,
     /// Random seed for reproducibility
     pub seed: Option<u64>,
     /// Sampling method: `monte_carlo` or `latin_hypercube` (default: from config)
@@ -261,7 +261,7 @@ pub struct BootstrapRequest {
     /// Inline include content as namespace to YAML map (use with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Override number of bootstrap iterations
-    pub iterations: Option<u64>,
+    pub iterations: Option<usize>,
     /// Random seed for reproducibility
     pub seed: Option<u64>,
     /// Override confidence levels (e.g., [0.90, 0.95, 0.99])

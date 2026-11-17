@@ -7,6 +7,7 @@
 //! changed. If a scalar is written in a layout they do not handle, they return
 //! an error and the caller leaves the file alone.
 
+use num_traits::ToPrimitive;
 use yaml_serde::Value;
 
 /// A scalar's place in the file: `["year", "profit"]` or `["total"]`.
@@ -648,9 +649,8 @@ pub fn format_number(v: f64) -> String {
     if v.is_infinite() {
         return if v > 0.0 { ".inf" } else { "-.inf" }.to_string();
     }
-    #[allow(clippy::cast_possible_truncation)]
-    if v.fract() == 0.0 && v.abs() < 1e15 {
-        return format!("{}", v as i64);
+    if let Some(whole) = v.to_i64().filter(|_| v.fract() == 0.0 && v.abs() < 1e15) {
+        return format!("{whole}");
     }
     let mut plain = format!("{v}");
     // A whole number from 1e15 on prints as digits alone, which YAML reads
@@ -829,6 +829,15 @@ fn same(a: &Value, b: &Value) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_whole_number_below_1e15_is_written_without_a_point() {
+        assert_eq!(format_number(16.0), "16");
+        assert_eq!(format_number(-0.0), "0");
+        assert_eq!(format_number(999_999_999_999_999.0), "999999999999999");
+        assert_ne!(format_number(1e15), "1000000000000000");
+        assert_eq!(format_number(2.5), "2.5");
+    }
 
     fn paths(items: &[(&str, f64)]) -> Vec<(ScalarPath, Written)> {
         items

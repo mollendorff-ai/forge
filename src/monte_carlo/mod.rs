@@ -426,6 +426,7 @@ mod tests {
         use super::config::{CorrelationConfig, MonteCarloConfig};
         use super::distributions::Distribution;
         use super::engine::MonteCarloEngine;
+        use num_traits::ToPrimitive;
         use std::collections::HashMap;
 
         fn config(sampling: &str, seed: u64, iterations: usize) -> MonteCarloConfig {
@@ -499,7 +500,6 @@ mod tests {
         }
 
         #[test]
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         fn test_latin_hypercube_puts_one_sample_in_each_stratum() {
             let n = 100;
             let result = samples(
@@ -508,7 +508,7 @@ mod tests {
             );
             let mut counts = vec![0; n];
             for value in &result["u"] {
-                counts[(value * n as f64) as usize] += 1;
+                counts[(value * n as f64).to_usize().expect("a draw in 0..1")] += 1;
             }
             assert!(counts.iter().all(|&count| count == 1), "{counts:?}");
         }

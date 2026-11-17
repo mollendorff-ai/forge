@@ -4,6 +4,7 @@
 //! Validated against R's boot package.
 
 use super::config::{BootstrapConfig, BootstrapMethod, BootstrapStatistic};
+use num_traits::ToPrimitive;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use serde::{Deserialize, Serialize};
@@ -85,9 +86,10 @@ impl BootstrapResult {
 
 /// Value at probability `p` of a sorted distribution (index `floor(p * len)`, kept inside the data)
 fn quantile(sorted: &[f64], p: f64) -> f64 {
-    // cast_possible_truncation: the index is clamped to the data below
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let index = (p.clamp(0.0, 1.0) * sorted.len() as f64) as usize;
+    // A NaN probability reads the smallest value
+    let index = (p.clamp(0.0, 1.0) * sorted.len() as f64)
+        .to_usize()
+        .unwrap_or(0);
     sorted[index.min(sorted.len() - 1)]
 }
 
@@ -217,11 +219,14 @@ impl BootstrapEngine {
             BootstrapStatistic::Percentile => {
                 let mut sorted = sample.to_vec();
                 sorted.sort_by(f64::total_cmp);
-                // cast_possible_truncation: percentile index is always in [0, sorted.len()-1]
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                let idx = ((self.config.percentile_value / 100.0) * (sorted.len() as f64 - 1.0))
-                    .round() as usize;
-                sorted[idx.min(sorted.len() - 1)]
+                // Below 0 is the smallest value, above 100 the largest, and NaN the smallest
+                let last = sorted.len() as f64 - 1.0;
+                let idx = ((self.config.percentile_value / 100.0) * last)
+                    .clamp(0.0, last)
+                    .round()
+                    .to_usize()
+                    .unwrap_or(0);
+                sorted[idx]
             },
             BootstrapStatistic::Min => sample.iter().copied().fold(f64::INFINITY, f64::min),
             BootstrapStatistic::Max => sample.iter().copied().fold(f64::NEG_INFINITY, f64::max),
@@ -317,6 +322,17 @@ impl BootstrapEngine {
 #[cfg(test)]
 mod engine_tests {
     use super::*;
+
+    #[test]
+    fn a_quantile_stays_inside_the_data_and_nan_reads_the_smallest() {
+        let sorted = [1.0, 2.0, 3.0, 4.0];
+        assert_exact!(quantile(&sorted, 0.5), 3.0);
+        assert_exact!(quantile(&sorted, 0.0), 1.0);
+        assert_exact!(quantile(&sorted, 1.0), 4.0);
+        assert_exact!(quantile(&sorted, 2.0), 4.0);
+        assert_exact!(quantile(&sorted, -1.0), 1.0);
+        assert_exact!(quantile(&sorted, f64::NAN), 1.0);
+    }
 
     #[test]
     fn test_bootstrap_mean() {

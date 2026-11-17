@@ -7,6 +7,7 @@
 //! 4. Compute output statistics
 
 use indexmap::IndexMap;
+use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Instant;
@@ -22,11 +23,12 @@ fn stopwatch() -> Option<Instant> {
     }
 }
 
-/// Milliseconds since [`stopwatch`], or 0 without a clock.
-// cast_possible_truncation: simulation time in ms will never exceed u64::MAX
-#[allow(clippy::cast_possible_truncation)]
+/// Milliseconds since [`stopwatch`], or 0 without a clock (and `u64::MAX`
+/// after 584 million years).
 fn elapsed_ms(start: Option<Instant>) -> u64 {
-    start.map_or(0, |start| start.elapsed().as_millis() as u64)
+    start.map_or(0, |start| {
+        u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX)
+    })
 }
 
 use super::config::MonteCarloConfig;
@@ -159,12 +161,11 @@ fn expected_shortfall(samples: &[f64], percent: u8, higher_is_worse: bool) -> f6
         sorted.reverse();
     }
     // n is far below 2^52, so the products are exact
-    #[allow(
-        clippy::cast_precision_loss,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss
-    )]
-    let count = ((sorted.len() as f64) * f64::from(percent) / 100.0).ceil() as usize;
+    #[allow(clippy::cast_precision_loss)]
+    let count = ((sorted.len() as f64) * f64::from(percent) / 100.0)
+        .ceil()
+        .to_usize()
+        .unwrap_or(1);
     let worst = &sorted[..count.clamp(1, sorted.len())];
     #[allow(clippy::cast_precision_loss)]
     let mean = worst.iter().sum::<f64>() / worst.len() as f64;

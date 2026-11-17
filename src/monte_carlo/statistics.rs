@@ -6,6 +6,7 @@
 //! - Probability thresholds (P(X > target))
 //! - Histogram bin data
 
+use num_traits::ToPrimitive;
 use std::collections::BTreeMap;
 
 /// Comprehensive statistics for a simulation output
@@ -161,15 +162,14 @@ fn percentile_sorted(sorted: &[f64], p: f64) -> f64 {
     }
 
     let n = sorted.len() as f64;
-    let rank = p / 100.0 * (n - 1.0);
-    // cast_possible_truncation: rank is bounded by [0, sorted.len()-1]
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let lower = rank.floor() as usize;
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let upper = rank.ceil() as usize;
+    // Below 0 is the smallest value and above 100 the largest; a NaN
+    // percentile reads the smallest
+    let rank = (p / 100.0 * (n - 1.0)).clamp(0.0, n - 1.0);
+    let lower = rank.floor().to_usize().unwrap_or(0);
+    let upper = rank.ceil().to_usize().unwrap_or(0);
 
-    if lower == upper || upper >= sorted.len() {
-        sorted[lower.min(sorted.len() - 1)]
+    if lower == upper {
+        sorted[lower]
     } else {
         let frac = rank - lower as f64;
         sorted[lower].mul_add(1.0 - frac, sorted[upper] * frac)
@@ -234,10 +234,12 @@ impl Histogram {
         // Count samples per bin
         let mut counts = vec![0usize; num_bins];
         for &sample in samples {
-            // cast_possible_truncation: bin index is bounded by [0, num_bins-1]
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let bin = ((sample - actual_min) / bin_width).floor() as usize;
-            let bin = bin.min(num_bins - 1); // Handle edge case
+            // The largest sample falls on the last edge: it counts in the last bin
+            let bin = ((sample - actual_min) / bin_width)
+                .floor()
+                .to_usize()
+                .unwrap_or(0)
+                .min(num_bins - 1);
             counts[bin] += 1;
         }
 
@@ -315,6 +317,17 @@ pub fn evaluate_threshold(samples: &[f64], operator: &str, value: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_percentile_outside_0_to_100_reads_the_end_and_nan_the_smallest() {
+        let sorted = [1.0, 2.0, 3.0];
+        assert_exact!(percentile_sorted(&sorted, 50.0), 2.0);
+        assert_exact!(percentile_sorted(&sorted, 25.0), 1.5);
+        assert_exact!(percentile_sorted(&sorted, 100.0), 3.0);
+        assert_exact!(percentile_sorted(&sorted, 150.0), 3.0);
+        assert_exact!(percentile_sorted(&sorted, -10.0), 1.0);
+        assert_exact!(percentile_sorted(&sorted, f64::NAN), 1.0);
+    }
 
     #[test]
     fn nan_samples_do_not_panic() {

@@ -121,15 +121,15 @@ impl ExcelExporter {
 
     /// The header row (row 0), with each column's metadata as a note (v4.0),
     /// a formula column's too (ADR-061).
-    #[allow(clippy::cast_possible_truncation)] // far fewer columns than u16::MAX
     pub(super) fn write_header(
         worksheet: &mut Worksheet,
         table: &Table,
         column_names: &[String],
     ) -> ForgeResult<()> {
-        for (col_idx, col_name) in column_names.iter().enumerate() {
+        // Past Excel's last column the writer refuses the cell, long before the counter ends
+        for (col, col_name) in (0u16..=u16::MAX).zip(column_names) {
             worksheet
-                .write_string(0, col_idx as u16, col_name)
+                .write_string(0, col, col_name)
                 .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
             if let Some(note_text) = table
                 .metadata(col_name)
@@ -137,7 +137,7 @@ impl ExcelExporter {
             {
                 let note = Note::new(note_text).set_author("Forge");
                 worksheet
-                    .insert_note(0, col_idx as u16, &note)
+                    .insert_note(0, col, &note)
                     .map_err(|e| ForgeError::Export(format!("Failed to add note: {e}")))?;
             }
         }
