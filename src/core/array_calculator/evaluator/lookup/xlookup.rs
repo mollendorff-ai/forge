@@ -2,9 +2,6 @@
 //!
 //! Functions
 
-// Lookup casts: f64 row/col indices to usize (bounded by array length).
-#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-
 use super::match_fn::{exact_match, xmatch_index};
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
@@ -75,8 +72,7 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     let table_array = evaluate_without_row(&args[1], ctx)?;
     let _col_index = evaluate(&args[2], ctx)?
         .as_cell_number()
-        .ok_or_else(|| EvalError::new("VLOOKUP: col_index must be a number"))?
-        as usize;
+        .ok_or_else(|| EvalError::new("VLOOKUP: col_index must be a number"))?;
     let range_lookup = if args.len() > 3 {
         evaluate(&args[3], ctx)?.is_truthy()
     } else {
@@ -129,8 +125,7 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     let table_array = evaluate_without_row(&args[1], ctx)?;
     let _row_index = evaluate(&args[2], ctx)?
         .as_cell_number()
-        .ok_or_else(|| EvalError::new("HLOOKUP: row_index must be a number"))?
-        as usize;
+        .ok_or_else(|| EvalError::new("HLOOKUP: row_index must be a number"))?;
     let range_lookup = if args.len() > 3 {
         evaluate(&args[3], ctx)?.is_truthy()
     } else {
@@ -611,5 +606,20 @@ mod tests {
             assert_exact!(h::sweep_number("XLOOKUP(2, t.lu, t.pr, -1, 0, 1)"), 20.0);
             assert_exact!(h::sweep_number("XLOOKUP(3, t.lu, t.pr, -1, 1, -1)"), 60.0);
         }
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("v", h::numbers(&[1.0, 2.0, 3.0]))]);
+        assert!(
+            h::error_in("VLOOKUP(1, t.v, \"x\")", &ctx).contains("col_index must be a number"),
+            "VLOOKUP(1, t.v, \"x\")"
+        );
+        assert!(
+            h::error_in("HLOOKUP(1, t.v, \"x\")", &ctx).contains("row_index must be a number"),
+            "HLOOKUP(1, t.v, \"x\")"
+        );
     }
 }

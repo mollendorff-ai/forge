@@ -1,5 +1,7 @@
 //! Excel's day numbers for dates written `YYYY-MM-DD` (ADR-054, ADR-060).
 
+use num_traits::ToPrimitive;
+
 /// The day number of a date written `YYYY-MM-DD`: the days since 1899-12-30,
 /// which is Excel's serial number for every date from 1900-03-01 on.
 #[must_use]
@@ -34,7 +36,27 @@ pub fn excel_date_serial(text: &str) -> Option<f64> {
 #[must_use]
 pub fn serial_date_text(serial: f64) -> String {
     let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30).unwrap_or_default();
-    #[allow(clippy::cast_possible_truncation)] // a day number, a whole number
-    base.checked_add_signed(chrono::TimeDelta::days(serial as i64))
+    // Whole days on from it; one no calendar holds is shown as its number
+    serial
+        .to_i64()
+        .and_then(chrono::TimeDelta::try_days)
+        .and_then(|days| base.checked_add_signed(days))
         .map_or_else(|| serial.to_string(), |d| d.format("%Y-%m-%d").to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Whole days on from 1899-12-30, the fraction cut; a number no calendar
+    /// holds is shown as its number, where `TimeDelta::days` panicked
+    #[test]
+    fn a_serial_is_shown_as_its_date_or_its_number() {
+        assert_eq!(serial_date_text(46326.0), "2026-10-31");
+        assert_eq!(serial_date_text(46326.9), "2026-10-31");
+        assert_eq!(serial_date_text(-0.5), "1899-12-30");
+        assert_eq!(serial_date_text(-1.0), "1899-12-29");
+        assert_eq!(serial_date_text(1e300), 1e300.to_string());
+        assert_eq!(serial_date_text(1e15), "1000000000000000");
+    }
 }

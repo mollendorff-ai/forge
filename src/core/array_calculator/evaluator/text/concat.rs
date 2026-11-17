@@ -1,8 +1,5 @@
 //! String concatenation functions: CONCAT, REPT, CONCATENATE, TEXTJOIN
 
-// Concat casts: f64 repeat count to usize (bounded, small integer).
-#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 use super::whole_arg;
 

@@ -1,12 +1,10 @@
 //! Rounding functions: ROUND, ROUNDUP, ROUNDDOWN, FLOOR, CEILING, MROUND, TRUNC, INT
 
-// Rounding casts: f64 decimal-place counts to i32 (small bounded integers, typically 0..15).
-#![allow(clippy::cast_possible_truncation)]
-
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::number_or;
+use num_traits::ToPrimitive;
 
 /// `x` to 15 significant digits, as Excel holds a number before it rounds:
 /// 1.005 * 100 is 100.49999999999999 in binary and 100.5 in Excel, so
@@ -22,7 +20,8 @@ fn excel_digits(x: f64) -> f64 {
 /// to its magnitude, the sign kept: the rounding of ROUND, ROUNDUP,
 /// ROUNDDOWN and TRUNC.
 fn round_with(val: f64, decimals: f64, op: fn(f64) -> f64) -> f64 {
-    let decimals = decimals.trunc().clamp(-400.0, 400.0) as i32;
+    // Past 400 places either way nothing is left to round; no number (NaN) is 0
+    let decimals = decimals.clamp(-400.0, 400.0).to_i32().unwrap_or(0);
     let magnitude = val.abs();
     let rounded = if decimals >= 0 {
         let multiplier = 10_f64.powi(decimals);
@@ -405,5 +404,16 @@ mod tests {
             h::sweep_is_exactly("CEILING(7.3, 0)", 0.0);
             h::sweep_is_exactly("FLOOR(-7.3, -2)", -6.0);
         }
+    }
+
+    /// Places are cut to a whole number and held to 400, past which a
+    /// double has nothing left to round
+    #[test]
+    fn places_past_any_double_round_nothing() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("ROUND(123.456, 1E+20)", 123.456);
+        h::is_exactly("ROUND(123.456, -308)", 0.0);
+        h::is_exactly("ROUND(123.456, 1.9)", 123.5);
+        h::is_exactly("ROUNDDOWN(123.456, -1.9)", 120.0);
     }
 }

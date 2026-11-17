@@ -1,8 +1,5 @@
 //! Convert functions: TEXT, VALUE
 
-// Text convert casts: f64 to integer types for formatting (bounded by format specifiers).
-#![allow(clippy::cast_possible_truncation)]
-
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 
 /// TEXT(value, format) - a value written with an Excel format code

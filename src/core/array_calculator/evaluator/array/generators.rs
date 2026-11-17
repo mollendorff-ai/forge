@@ -1,17 +1,39 @@
 //! Array generator functions: SEQUENCE and RANDARRAY
 
-// Array generator casts: f64 row/col counts to usize (bounded worksheet dimensions).
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
+// A place in the array, and a random whole number, become numbers.
+#![allow(clippy::cast_precision_loss)]
 
 use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use num_traits::ToPrimitive;
 use rand::RngExt;
+
+/// The most values an array SEQUENCE or RANDARRAY makes holds: the rows of a
+/// sheet.
+const MOST_VALUES: usize = 1_048_576;
+
+/// How many values an array of `rows` by `cols` holds, each cut to a whole
+/// number as Excel cuts them. None is #CALC! in Excel (an empty array); a
+/// negative count is #VALUE!, as is one past [`MOST_VALUES`], which no sheet
+/// could show.
+fn array_size(name: &str, rows: f64, cols: f64) -> Result<usize, EvalError> {
+    let size = rows
+        .to_usize()
+        .zip(cols.to_usize())
+        .and_then(|(r, c)| r.checked_mul(c))
+        .filter(|&n| n <= MOST_VALUES);
+    match size {
+        Some(0) => Err(EvalError::new(format!(
+            "#CALC!: {name}: {rows} rows by {cols} columns is an empty array"
+        ))),
+        Some(n) => Ok(n),
+        None => Err(EvalError::new(format!(
+            "#VALUE!: {name}: {rows} rows by {cols} columns must be from 1 to 1,048,576 values"
+        ))),
+    }
+}
 
 /// Evaluate SEQUENCE function - generates a sequence of numbers
 /// SEQUENCE(rows, [columns], [start], [step])
@@ -19,11 +41,11 @@ pub fn eval_sequence(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
     require_args_range("SEQUENCE", args, 1, 4)?;
     let rows = evaluate(&args[0], ctx)?
         .as_cell_number()
-        .ok_or_else(|| EvalError::new("SEQUENCE: rows must be a number"))? as usize;
+        .ok_or_else(|| EvalError::new("SEQUENCE: rows must be a number"))?;
     let cols = if args.len() > 1 {
-        number_or(&args[1], ctx, 1.0)? as usize
+        number_or(&args[1], ctx, 1.0)?
     } else {
-        1
+        1.0
     };
     let start = if args.len() > 2 {
         number_or(&args[2], ctx, 1.0)?
@@ -37,7 +59,7 @@ pub fn eval_sequence(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
     };
 
     // Generate sequence
-    let total = rows * cols;
+    let total = array_size("SEQUENCE", rows, cols)?;
     let values: Vec<Value> = (0..total)
         .map(|i| Value::Number((i as f64).mul_add(step, start)))
         .collect();
@@ -49,14 +71,14 @@ pub fn eval_sequence(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
 pub fn eval_randarray(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("RANDARRAY", args, 0, 5)?;
     let rows = if args.is_empty() {
-        1
+        1.0
     } else {
-        number_or(&args[0], ctx, 1.0)? as usize
+        number_or(&args[0], ctx, 1.0)?
     };
     let cols = if args.len() > 1 {
-        number_or(&args[1], ctx, 1.0)? as usize
+        number_or(&args[1], ctx, 1.0)?
     } else {
-        1
+        1.0
     };
     let min = if args.len() > 2 {
         number_or(&args[2], ctx, 0.0)?
@@ -74,18 +96,31 @@ pub fn eval_randarray(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
         false
     };
 
+    let total = array_size("RANDARRAY", rows, cols)?;
+    // Excel: #VALUE! for a minimum above the maximum (or one that is no number)
+    if min.is_nan() || max.is_nan() || min > max {
+        return Err(EvalError::new(format!(
+            "#VALUE!: RANDARRAY: the minimum {min} is above the maximum {max}"
+        )));
+    }
     let mut rng = rand::rng();
-    let total = rows * cols;
     let values: Vec<Value> = if whole_number {
+        // Whole numbers from min to max, each rounded down
+        let Some((low, high)) = min.floor().to_i64().zip(max.floor().to_i64()) else {
+            return Err(EvalError::new(format!(
+                "#NUM!: RANDARRAY: whole numbers from {min} to {max} are past what it counts"
+            )));
+        };
         (0..total)
-            .map(
-                |_| Value::Number(rng.random_range(min.floor() as i64..=max.floor() as i64) as f64),
-            )
+            .map(|_| Value::Number(rng.random_range(low..=high) as f64))
             .collect()
-    } else {
+    } else if min < max {
         (0..total)
             .map(|_| Value::Number(rng.random_range(min..max)))
             .collect()
+    } else {
+        // No room between them: the one number
+        vec![Value::Number(min); total]
     };
     Ok(Value::Array(values.into()))
 }
@@ -433,5 +468,46 @@ mod edge_case_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
+    }
+
+    /// Rows and columns are cut to whole numbers, as Excel cuts them. An
+    /// empty array is #CALC! and a negative count #VALUE!, as in Excel; more
+    /// values than the 1,048,576 rows of a sheet is #VALUE! too, where rows
+    /// times columns overflowed (1E+20 by 1E+20 crashed).
+    #[test]
+    fn an_array_holds_from_one_value_to_a_sheets_rows() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("COUNT(SEQUENCE(2.9, 1.5))", 2.0);
+        h::is_exactly("COUNT(SEQUENCE(1024, 1024))", 1_048_576.0);
+        h::fails_with("SEQUENCE(0)", "#CALC!");
+        h::fails_with("SEQUENCE(3, 0.5)", "#CALC!");
+        h::fails_with("SEQUENCE(-2)", "#VALUE!");
+        h::fails_with("SEQUENCE(1048577)", "#VALUE!");
+        h::fails_with("SEQUENCE(1E+20, 1E+20)", "#VALUE!");
+        h::fails_with("RANDARRAY(0)", "#CALC!");
+        h::fails_with("RANDARRAY(1E+20, 1E+20)", "#VALUE!");
+    }
+
+    /// A minimum above the maximum is #VALUE!, as in Excel, where the random
+    /// range was empty and crashed; an equal one is that number.
+    #[test]
+    fn randarray_draws_from_the_minimum_to_the_maximum() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::fails_with("RANDARRAY(1, 1, 5, 1)", "#VALUE!");
+        h::fails_with("RANDARRAY(1, 1, 5, 1, TRUE)", "#VALUE!");
+        h::is_exactly("SUM(RANDARRAY(2, 1, 3, 3))", 6.0);
+        h::is_exactly("SUM(RANDARRAY(2, 1, 3, 3, TRUE))", 6.0);
+        h::is_exactly("SUM(RANDARRAY(2, 1, 1.5, 1.7, TRUE))", 2.0);
+        h::fails_with("RANDARRAY(1, 1, 1E+19, 1E+20, TRUE)", "#NUM!");
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::fails_with("SEQUENCE(\"x\")", "rows must be a number");
+        h::fails_with("SEQUENCE(2, 1/0)", "");
+        h::fails_with("RANDARRAY(1/0)", "");
+        h::fails_with("RANDARRAY(1, 1/0)", "");
     }
 }
