@@ -139,35 +139,26 @@ tier1:
     title: "100% coverage: lines, functions and regions, with nothing skipped"
     why: "ADR-004 requires 100%, but its 2026-11-08 note made it a goal; P-COV100 was parked for the same reason, now overruled by the maintainer (2026-11-16: no exceptions, no skipping). Measured on PR #257's head (2026-11-16): lines 88.04%, functions 84.46%, regions 86.31%. Since then the Coverage job fails below floors in ci.yml (88.0, 84.4 and 86.3 at first; 88.9, 85.4 and 87.3 since PR #258; 89.6, 86.1 and 88.1 since PR #259), which only rise, and make coverage fails below 100"
     how: "List each uncovered line by file (cargo llvm-cov --ignore-filename-regex 'tests/' --summary-only, then --show-missing-lines). Cover each with a test that asserts a result. A line no test can reach is a defensive branch that cannot happen: remove it, or make the type rule it out; never exclude it from the count. Raise the floors in ci.yml with each merge that raises coverage"
-    acceptance: "The floors in ci.yml are 100 for lines, functions and regions, and the Coverage job passes on main; tests/no_skipping.rs counts no coverage-only code and no ignored test"
+    acceptance: "The floors in ci.yml are 100 for lines, functions and regions, and the Coverage job passes on main; validation/repo/src/no_skipping.rs counts no coverage-only code and no ignored test"
 
-  # T1-TESTS-INLINE step (1) is done (2026-11-17): the five parents, and
-  # excel/workbook_refs.rs, which also passed 1,500 lines with its tests back,
-  # are split by what they do. Step (2) is done too (2026-11-17): no test
-  # module is left in a file of its own. Step (3) has begun (2026-11-17): the
-  # 19 tests/ files that call the library are inline, forge-wasm's cases among
-  # them. Left: 26 files, the 17 that start the binary (to call the code
-  # in-process, after the CLI writes through a writer) and the 9 that check the
-  # repository's text (to a validation/repo program, its tests inline).
-  # The command line runs in-process (2026-11-17): cli::run_from(args, console)
-  # is forge from its arguments to its exit code, and every command writes to
-  # the console it is given (outln!/errln!, no ? per line, so no uncovered
-  # region per line). The 17 binary-starting files are inline too
-  # (2026-11-17), calling it (cli::forge in a test) and an in-memory MCP
-  # session (mcp::Session); the closed pipe is a step of the MCP Protocol
-  # Test job, the one check only a real process can make. Left: the 9 files
-  # that check the repository's text, for a validation/repo program.
-  - id: T1-TESTS-INLINE
-    title: "Every test inline, in the file it tests, and no file over 1,500 lines"
-    why: "Asked 2026-11-16: tests are inline or not, never both. Counted that day: 1,753 tests inline in 129 files, 36 test modules moved to files of their own (mostly to keep a file under 1,500 lines, which is not a split), and 45 test files in tests/ folders (43 in the main crate, 1 in forge-wasm, 1 in validation/gnumeric), 20 of which start the forge binary. Put back, five parents pass 1,500 lines: excel/workbook_refs/dates.rs (2,000), mcp/server.rs (1,809), excel/exporter.rs (1,711), core/array_calculator/evaluator/mod.rs (about 2,200) and core/array_calculator/mod.rs (about 2,000). Inline is the only side that works: tests/ sees only the public API, and the unit tests test private code"
-    how: "In this order, each pull request lowering its budgets in tests/no_skipping.rs. (1) Split the five parents into modules by what they do (the evaluator by function family), each carrying its tests. (2) Fold the other 31 test modules back into the file they test. (3) Move each tests/ file into the module it tests; the 20 that start the binary call the code in-process instead (the command's run function and its exit code, the MCP tool handler, a writer given a broken pipe), and what only the built binary can show stays with the MCP Protocol Test job and the validation suites. (4) The same in forge-wasm and validation/gnumeric. (5) Last, tests/no_skipping.rs and tests/conventions.rs move inline themselves, into the crate root"
-    acceptance: "No tests/ folder with Rust in any crate, no test module in a file of its own, both budgets at 0, every Rust file at 1,500 lines or fewer, and the test count no lower than before the moves"
+  # T1-TESTS-INLINE is done (2026-11-17, PRs #257 to #263): every test is
+  # inline, in the module it tests, in every crate, and no Rust file is over
+  # 1,500 lines. The oversized parents were split by what they do (the
+  # evaluator, the calculator, the workbook references, the MCP server, the
+  # exporter, then analysis, excel_io and prediction by command); the test
+  # modules kept in files of their own were folded back; the tests/ files
+  # that call the library moved into their modules; the command line runs
+  # in-process (cli::run_from on a Console, outln!/errln!), so the tests that
+  # started the binary call it (cli::forge, mcp::Session); and the checks of
+  # the repository's own text are validation/repo, which runs the built
+  # binary as a reader does. The closed pipe is a step of the MCP Protocol
+  # Test job. Both budgets in validation/repo/src/no_skipping.rs are 0.
 
   - id: T1-NO-SKIPPING
     title: "No way round the three rules, in every crate"
-    why: "Counted 2026-11-16 by tests/no_skipping.rs, which fails if any count rises: 218 lint allow or expect attributes (float_cmp 62, cast_possible_truncation 59, approx_constant 18, cast_precision_loss 16, too_many_lines 13, unnecessary_wraps 8, dead_code 6, and 15 more), 16 lints allowed in Cargo.toml files (multiple_crate_versions and cast_precision_loss in the main crate and forge-wasm; 8 in validation/gnumeric and 4 in validation/r), the cargo lint group missing in both validation crates, 31 places of code compiled only for or only without coverage (23 test files run nothing under coverage), and 2 ignored tests (a release-only timing test, and a round-trip corpus that needs FORGE_ROUNDTRIP_DIR)"
-    how: "One kind of lint or one crate per pull request, each lowering its budget in tests/no_skipping.rs. A count is not a size: the #![allow] of three cast lints at the top of core/array_calculator/evaluator/mod.rs is one attribute and covers the whole evaluator, about 24,000 lines, so it is worth more than most. float_cmp in tests: an assertion helper for an exact value. Casts: checked conversions (try_from) with the error named, in numeric code with a test at the boundary, since a careless cast is a wrong answer. too_many_lines: split the function. multiple_crate_versions: update or replace the dependency that pulls the second version. The coverage-only test files: make each run under cargo llvm-cov (it measures the binary they start). The two ignored tests: run the timing test in the release-build job it was meant for, and give the round-trip corpus a fixture in the repository"
-    acceptance: "Every budget in tests/no_skipping.rs is 0 and the test passes; CLAUDE.md and project.yaml name no exception"
+    why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs, which fails if any count rises: 218 lint allow or expect attributes (float_cmp 62, cast_possible_truncation 59, approx_constant 18, cast_precision_loss 16, too_many_lines 13, unnecessary_wraps 8, dead_code 6, and 15 more), 16 lints allowed in Cargo.toml files (multiple_crate_versions and cast_precision_loss in the main crate and forge-wasm; 8 in validation/gnumeric and 4 in validation/r), the cargo lint group missing in both validation crates, 31 places of code compiled only for or only without coverage (23 test files run nothing under coverage), and 2 ignored tests (a release-only timing test, and a round-trip corpus that needs FORGE_ROUNDTRIP_DIR)"
+    how: "One kind of lint or one crate per pull request, each lowering its budget in validation/repo/src/no_skipping.rs. A count is not a size: the #![allow] of three cast lints at the top of core/array_calculator/evaluator/mod.rs is one attribute and covers the whole evaluator, about 24,000 lines, so it is worth more than most. float_cmp in tests: an assertion helper for an exact value. Casts: checked conversions (try_from) with the error named, in numeric code with a test at the boundary, since a careless cast is a wrong answer. too_many_lines: split the function. multiple_crate_versions: update or replace the dependency that pulls the second version. The coverage-only test files: make each run under cargo llvm-cov (it measures the binary they start). The two ignored tests: run the timing test in the release-build job it was meant for, and give the round-trip corpus a fixture in the repository"
+    acceptance: "Every budget in validation/repo/src/no_skipping.rs is 0 and the test passes; CLAUDE.md and project.yaml name no exception"
 
   # From an independent audit of rc.26 at f389e22 (2026-11-15), checked again
   # on main at f77fa0a (rc.27, 2026-11-16): the examples were recomputed

@@ -1398,6 +1398,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mollendorff-forge-repo"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "multiversion_no_op"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

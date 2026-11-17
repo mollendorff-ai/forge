@@ -1,0 +1,190 @@
+//! What Forge says about itself is what it does: its documents, workflows
+//! and sources checked against its code and against what the `forge` binary
+//! prints, so a doc, a count or a rule cannot drift from the engine.
+//!
+//! Each module is one kind of check: its code finds what the check reads,
+//! and its tests, inline, assert that the repository passes. The checks that
+//! run commands run the built binary, as a reader types them, like the
+//! Gnumeric and R suites (ADR-057): build it first (`cargo build --bin
+//! forge`), or name another with `FORGE_BIN`.
+//!
+//! ```text
+//! cargo build --bin forge && cargo test -p mollendorff-forge-repo
+//! ```
+
+pub mod conventions;
+pub mod doc_counts;
+pub mod doc_examples;
+pub mod install_script;
+pub mod no_skipping;
+pub mod posts;
+pub mod readme_commands;
+pub mod workflows_doc;
+
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+/// The repository's top folder.
+#[must_use]
+pub fn root() -> &'static Path {
+    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+}
+
+/// A file of the repository, by its path from the top.
+///
+/// # Panics
+///
+/// Panics, naming the file, if it cannot be read.
+#[must_use]
+pub fn read(path: &str) -> String {
+    std::fs::read_to_string(root().join(path)).unwrap_or_else(|e| panic!("{path}: {e}"))
+}
+
+/// The Rust files under `dir`, at any depth, leaving out build output
+/// (`target`) and installed packages (`node_modules`).
+///
+/// # Panics
+///
+/// Panics if `dir` or a folder in it cannot be read.
+pub fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
+        let path = entry.expect("a folder entry").path();
+        let name = path.file_name().unwrap_or_default();
+        if path.is_dir() {
+            if name != "target" && name != "node_modules" {
+                rust_files(&path, out);
+            }
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            out.push(path);
+        }
+    }
+}
+
+/// A line without its `//` comment, unless the `//` is inside a string (as
+/// in a URL): a comment that names an attribute is not one.
+#[must_use]
+pub fn without_comment(line: &str) -> &str {
+    let mut from = 0;
+    while let Some(at) = line[from..].find("//") {
+        let at = from + at;
+        if line[..at].matches('"').count().is_multiple_of(2) {
+            return &line[..at];
+        }
+        from = at + 2;
+    }
+    line
+}
+
+/// The `forge` binary the checks run: `FORGE_BIN` if it is set (a path from
+/// the repository's top, or an absolute one), the debug build otherwise.
+///
+/// # Panics
+///
+/// Panics, saying how to build it, if there is no such file.
+#[must_use]
+pub fn forge_bin() -> PathBuf {
+    let path = std::env::var_os("FORGE_BIN")
+        .map_or_else(|| root().join("target/debug/forge"), |bin| root().join(bin));
+    assert!(
+        path.is_file(),
+        "no forge binary at {}: build it (cargo build --bin forge) or set FORGE_BIN",
+        path.display()
+    );
+    path
+}
+
+/// What the binary did: its exit code and what it printed.
+#[derive(Debug)]
+pub struct Ran {
+    /// The exit code, `None` if a signal ended it
+    pub code: Option<i32>,
+    /// Its standard output
+    pub out: String,
+    /// Its standard error
+    pub err: String,
+}
+
+impl Ran {
+    /// Whether it exited 0.
+    #[must_use]
+    pub fn success(&self) -> bool {
+        self.code == Some(0)
+    }
+
+    /// What it printed, for a command that must succeed.
+    ///
+    /// # Panics
+    ///
+    /// Panics, with what it wrote to standard error, if it did not exit 0.
+    #[must_use]
+    pub fn printed(self) -> String {
+        assert!(self.success(), "{}{}", self.out, self.err);
+        self.out
+    }
+}
+
+/// `forge` with `args`, run from the repository's top as a reader runs it
+/// there, without colour.
+///
+/// # Panics
+///
+/// Panics if the binary is missing or does not start.
+#[must_use]
+pub fn forge<S: AsRef<std::ffi::OsStr>>(args: &[S]) -> Ran {
+    let out = Command::new(forge_bin())
+        .args(args)
+        .current_dir(root())
+        .env("NO_COLOR", "1")
+        .output()
+        .expect("forge starts");
+    Ran {
+        code: out.status.code(),
+        out: String::from_utf8_lossy(&out.stdout).into_owned(),
+        err: String::from_utf8_lossy(&out.stderr).into_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_root_is_the_repository_with_its_manifest() {
+        assert!(root().join("Cargo.toml").is_file());
+        assert!(read("Cargo.toml").contains("name = \"mollendorff-forge\""));
+    }
+
+    #[test]
+    fn rust_files_finds_the_crates_own_sources() {
+        let mut files = Vec::new();
+        rust_files(&root().join("validation/repo"), &mut files);
+        assert!(files.iter().any(|f| f.ends_with("src/lib.rs")), "{files:?}");
+        assert!(files
+            .iter()
+            .all(|f| f.extension().is_some_and(|e| e == "rs")));
+    }
+
+    #[test]
+    fn a_comment_is_cut_but_not_a_url() {
+        assert_eq!(without_comment("let x = 1; // one"), "let x = 1; ");
+        assert_eq!(
+            without_comment("let u = \"https://x\"; // a"),
+            "let u = \"https://x\"; "
+        );
+        assert_eq!(without_comment("no comment"), "no comment");
+    }
+
+    #[test]
+    fn the_binary_prints_its_version_and_refuses_a_wrong_command() {
+        let version = forge(&["--version"]).printed();
+        assert!(version.starts_with("forge "), "{version}");
+        let wrong = forge(&["nope"]);
+        assert_eq!(wrong.code, Some(2));
+        assert!(!wrong.success());
+        assert!(
+            wrong.err.contains("unrecognized subcommand"),
+            "{}",
+            wrong.err
+        );
+    }
+}

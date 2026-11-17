@@ -77,7 +77,7 @@ jobs:
       - name: README commands and timings
         shell: bash
         run: |
-          cargo test --release --test readme_commands
+          FORGE_BIN=target/release/forge cargo test --release -p mollendorff-forge-repo -- readme_commands
           cargo test --release --lib -- column_copies scalar_scaling
       # Generated cases (ADR-062): seed 1 on a pull request and a push, so a
       # change fails only for what it changes; the week's seed (year and ISO
