@@ -435,4 +435,24 @@ mod tests {
             Value::Number(3.0)
         );
     }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn text_arguments_out_of_range_are_value_errors() {
+            h::sweep_fails("LEFT(\"hello\", -1)", "#VALUE!");
+            h::sweep_fails("RIGHT(\"hello\", -1)", "#VALUE!");
+            h::sweep_fails("MID(\"hello\", 0, 2)", "#VALUE!");
+            h::sweep_fails("MID(\"hello\", 1, -1)", "#VALUE!");
+            h::sweep_fails("REPT(\"ab\", -1)", "#VALUE!");
+            h::sweep_fails("REPLACE(\"hello\", 0, 1, \"Z\")", "#VALUE!");
+            h::sweep_fails("SUBSTITUTE(\"hello\", \"l\", \"L\", 0)", "#VALUE!");
+            assert_eq!(h::sweep_text("REPLACE(\"hello\", 20, 2, \"Q\")"), "helloQ"); // panicked before
+            assert_eq!(h::sweep_text("MID(\"hello\", 2.9, 2.5)"), "el");
+        }
+    }
 }

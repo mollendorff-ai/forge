@@ -236,4 +236,20 @@ mod tests {
         // Should find "l" at position 4 (case insensitive)
         assert_eq!(var.value, Some(4.0));
     }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn find_and_search_count_characters() {
+            assert_eq!(h::sweep_number("FIND(\"γ\", \"αβγ\")"), 3.0);
+            assert_eq!(h::sweep_number("FIND(\"β\", \"αβγ\", 2)"), 2.0); // panicked before
+            assert_eq!(h::sweep_number("SEARCH(\"E\", \"straße\")"), 6.0);
+            h::sweep_fails("FIND(\"l\", \"hello\", 0)", "#VALUE!");
+            h::sweep_fails("SEARCH(\"l\", \"hello\", 6)", "#VALUE!");
+        }
+    }
 }

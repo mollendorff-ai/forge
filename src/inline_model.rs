@@ -140,3 +140,49 @@ fn resolve_inline_includes(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_resolve_model_input_file_path() {
+        let (path, tmpdir) =
+            resolve_model_input(None, Some("test-data/budget.yaml"), None, None).unwrap();
+        assert_eq!(path, PathBuf::from("test-data/budget.yaml"));
+        assert!(tmpdir.is_none());
+    }
+
+    #[test]
+    fn test_resolve_model_input_content() {
+        let (path, tmpdir) = resolve_model_input(
+            None,
+            None,
+            Some("_forge_version: \"5.1.0\"\na:\n  x: 1\n"),
+            None,
+        )
+        .unwrap();
+        assert!(tmpdir.is_some());
+        assert!(path.exists());
+        assert!(path.ends_with("model.yaml"));
+    }
+
+    #[test]
+    fn test_resolve_model_input_both_error() {
+        let result = resolve_model_input(None, Some("file.yaml"), Some("content"), None);
+        assert_eq!(
+            result.unwrap_err(),
+            "Provide either file_path or content, not both"
+        );
+    }
+
+    #[test]
+    fn test_resolve_model_input_neither_error() {
+        let result = resolve_model_input(None, None, None, None);
+        assert_eq!(
+            result.unwrap_err(),
+            "Either file_path or content is required"
+        );
+    }
+}

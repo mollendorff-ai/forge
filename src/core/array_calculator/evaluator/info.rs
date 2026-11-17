@@ -304,4 +304,24 @@ mod tests {
         // ISFORMULA always returns FALSE in current implementation
         assert_eq!(eval("ISFORMULA(5)", &ctx).unwrap(), Value::Boolean(false));
     }
+
+    /// Fixes for what the generated cases found (ADR-062) that the engines cannot
+    /// check: answers Forge gives on its own, with the reason, and the exact
+    /// values where every engine loses digits.
+    mod generated_cases {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::{EvalContext, Value};
+
+        #[test]
+        fn na_is_an_error_and_an_empty_cell_is_not() {
+            h::is_exactly("TYPE(NA())", 16.0);
+            assert_eq!(
+                h::eval("ISBLANK(NA())", &EvalContext::new()).unwrap(),
+                Value::Boolean(false)
+            );
+            h::fails_with("NA() + 1", "#N/A");
+            h::is_exactly("IFNA(NA(), 5)", 5.0);
+            h::fails_with("IFNA(1/0, 5)", "");
+        }
+    }
 }

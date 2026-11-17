@@ -19,14 +19,14 @@ use std::path::{Path, PathBuf};
 /// What is left of each kind on 2026-11-16, when the rule was made. Lower a
 /// number when a change removes some; never raise one.
 const BUDGET: [(&str, usize); 8] = [
-    ("lint allow or expect attributes", 218),
+    ("lint allow or expect attributes", 215),
     ("lints allowed in a Cargo.toml", 16),
     ("lint groups a crate does not enable", 2),
     ("code compiled only for or only without coverage", 31),
     ("ignored tests", 2),
     ("formatting skips", 0),
     ("test files in a tests folder", 45),
-    ("test modules in a file of their own", 36),
+    ("test modules in a file of their own", 18),
 ];
 
 /// The crates: their manifest, and the folders of their Rust code

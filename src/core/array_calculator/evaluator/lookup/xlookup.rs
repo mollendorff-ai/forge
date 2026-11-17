@@ -599,4 +599,18 @@ mod tests {
         assert_eq!(column("off"), vec![30.0, 10.0, 20.0]);
         assert_eq!(column("total"), vec![63.0, 61.0, 62.0]);
     }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn xlookup_searches_from_the_end_when_asked() {
+            assert_eq!(h::sweep_number("XLOOKUP(2, t.lu, t.pr, -1, 0, -1)"), 40.0);
+            assert_eq!(h::sweep_number("XLOOKUP(2, t.lu, t.pr, -1, 0, 1)"), 20.0);
+            assert_eq!(h::sweep_number("XLOOKUP(3, t.lu, t.pr, -1, 1, -1)"), 60.0);
+        }
+    }
 }

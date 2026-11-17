@@ -1347,4 +1347,50 @@ mod tests {
             );
         }
     }
+
+    /// The five answers Excel gave differently from Forge when 40 formulas were
+    /// checked in Excel on 2026-11-14
+    /// (`validation/gnumeric/tests/edge/edge_excel_checks.yaml`), and what
+    /// follows from each rule.
+    mod checked_in_excel {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn db_cuts_a_fraction_of_a_month() {
+            h::is_exactly("DB(10000, 1000, 5, 1, 6.5)", 1845.0); // Excel
+            h::is_exactly("DB(10000, 1000, 5, 1, 6.9)", 1845.0); // LibreOffice
+        }
+    }
+
+    /// Fixes for what the generated cases found (ADR-062) that the engines cannot
+    /// check: answers Forge gives on its own, with the reason, and the exact
+    /// values where every engine loses digits.
+    mod generated_cases {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn annuities_keep_their_digits() {
+            // Exact to 50 digits for the double inputs (2026-11-14)
+            h::exactly(
+                "NPER(1e-09, 3.944973623587, 0, 2.5, 1)",
+                -0.633_717_798_414_327_9,
+            );
+            h::exactly("NPER(0.1, -1e-12, -2.5)", -275.361_213_342_520_2);
+            h::exactly(
+                "NPER(0.1, 0.285, 1E15, -0.559709076024, 1)",
+                -348.670_778_361_094_7,
+            );
+            h::exactly(
+                "CUMPRINC(0.5, 61, 487, 3, 36, 0)",
+                -0.019_286_216_489_415_402,
+            );
+            h::exactly(
+                "CUMPRINC(0.5, 60, 0.663097621158, 43, 52, 1)",
+                -0.016_949_572_163_691_61,
+            );
+            h::exactly("CUMPRINC(0.03, 24, 900, 5, 9, 1)", -151.665_053_343_195_1);
+            h::exactly("CUMPRINC(0.05, 30, 1000, 1, 30, 1)", -1000.0);
+            h::exactly("RATE(276, -100, 1E15)", -0.095_099_553_259_213_3);
+        }
+    }
 }

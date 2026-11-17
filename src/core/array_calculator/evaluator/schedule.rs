@@ -286,3 +286,96 @@ pub fn try_evaluate(
     };
     Ok(Some(result))
 }
+
+#[cfg(test)]
+mod tests {
+    /// Tests of the functions added in 10.1: schedules, conveniences, percentiles.
+    /// Their expected values were computed outside Forge (R, Python, by hand); the
+    /// Gnumeric suite (`statistics_finance_batch.yaml`) checks the same functions
+    /// against two spreadsheet engines.
+    mod batch_10_1 {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::EvalContext;
+
+        #[test]
+        fn rri_and_syd() {
+            let ctx = EvalContext::new();
+            // (2500 / 1000) ^ (1 / 10) - 1, and the sum of the years' digits for year 1 of 5
+            assert!(h::near(
+                h::number_in("RRI(10, 1000, 2500)", &ctx),
+                0.095_958_226_385_217_23
+            ));
+            assert!(h::near(h::number_in("RRI(12, 5000, 5000)", &ctx), 0.0));
+            assert!(h::near(
+                h::number_in("SYD(10000, 1000, 5, 1)", &ctx),
+                3_000.0
+            ));
+            assert!(h::near(h::number_in("SYD(10000, 1000, 5, 5)", &ctx), 600.0));
+            assert!(h::error_in("RRI(0, 1000, 2500)", &ctx).contains("#NUM!"));
+            assert!(h::error_in("RRI(5, 0, 2500)", &ctx).contains("#DIV/0!"));
+            assert!(h::error_in("RRI(5, 100, -50)", &ctx).contains("#NUM!"));
+            assert!(h::error_in("SYD(10000, 1000, 5, 6)", &ctx).contains("#NUM!"));
+        }
+
+        #[test]
+        fn cumulative_interest_and_principal_of_a_loan() {
+            let ctx = EvalContext::new();
+            // Microsoft's example: 9% a year, 30 years, 125,000; the second year's
+            // interest is -11,135.23 and the principal -934.11 (a loop in R agrees)
+            let interest = h::number_in("CUMIPMT(0.09/12, 360, 125000, 13, 24, 0)", &ctx);
+            let principal = h::number_in("CUMPRINC(0.09/12, 360, 125000, 13, 24, 0)", &ctx);
+            assert!((interest + 11_135.23).abs() < 0.005, "{interest}");
+            assert!((principal + 934.107).abs() < 0.005, "{principal}");
+            // Over the whole loan the principal paid is the loan, and interest plus
+            // principal is the payments
+            let all_principal = h::number_in("CUMPRINC(0.09/12, 360, 125000, 1, 360, 0)", &ctx);
+            assert!(h::near(all_principal, -125_000.0));
+            let payments = h::number_in("PMT(0.09/12, 360, 125000)", &ctx) * 360.0;
+            let all_interest = h::number_in("CUMIPMT(0.09/12, 360, 125000, 1, 360, 0)", &ctx);
+            assert!(h::near(all_interest + all_principal, payments));
+            // A loan paid at the start of each period pays no interest in period 1
+            assert!(h::near(
+                h::number_in("CUMIPMT(0.05, 10, 20000, 1, 1, 1)", &ctx),
+                0.0
+            ));
+            for bad in [
+                "CUMIPMT(0, 360, 125000, 1, 12, 0)",
+                "CUMIPMT(0.05, 360, 0, 1, 12, 0)",
+                "CUMIPMT(0.05, 360, 125000, 0, 12, 0)",
+                "CUMIPMT(0.05, 360, 125000, 12, 1, 0)",
+                "CUMPRINC(0.05, 360, 125000, 1, 361, 0)",
+                "CUMPRINC(0.05, 360, 125000, 1, 12, 2)",
+            ] {
+                assert!(h::error_in(bad, &ctx).contains("#NUM!"), "{bad}");
+            }
+        }
+
+        #[test]
+        fn vdb_switches_to_the_straight_line_and_can_be_told_not_to() {
+            let ctx = EvalContext::new();
+            // Microsoft's examples with the answers they give: the first day, the
+            // first month, the first year, and a factor of 1.5
+            assert!((h::number_in("VDB(2400, 300, 3650, 0, 1)", &ctx) - 1.32).abs() < 0.005);
+            assert!(h::near(
+                h::number_in("VDB(2400, 300, 120, 0, 1)", &ctx),
+                40.0
+            ));
+            assert!(h::near(
+                h::number_in("VDB(2400, 300, 10, 0, 1)", &ctx),
+                480.0
+            ));
+            assert!((h::number_in("VDB(2400, 300, 120, 6, 18, 1.5)", &ctx) - 311.81).abs() < 0.005);
+            // Over the whole life the asset loses its cost less its salvage, switching or not
+            assert!(h::near(
+                h::number_in("VDB(2400, 300, 10, 0, 10)", &ctx),
+                2_100.0
+            ));
+            // Without the switch the balance falls by a fixed share and stops at the salvage
+            let no_switch = h::number_in("VDB(50000, 5000, 8, 0, 8, 2, TRUE)", &ctx);
+            assert!(no_switch <= 45_000.0 + 1e-9);
+            assert!(h::error_in("VDB(2400, 300, 10, 0, 11)", &ctx).contains("#NUM!"));
+            assert!(h::error_in("VDB(2400, 300, 10, 5, 4)", &ctx).contains("#NUM!"));
+            assert!(h::error_in("VDB(-1, 300, 10, 0, 1)", &ctx).contains("#NUM!"));
+        }
+    }
+}

@@ -9,8 +9,8 @@
 //! other name or formula gets its own entry and the same results as a fresh
 //! calculation.
 
+use super::order::Cell;
 use super::parser::Expr;
-use super::Cell;
 use crate::types::ParsedModel;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
