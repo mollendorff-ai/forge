@@ -780,4 +780,177 @@ mod tests {
             assert_eq!(values, expected());
         }
     }
+
+    mod formula_depth {
+        //! A formula nested too deep is refused with a message, not calculated until
+        //! the stack overflows (roadmap T1-DEPTH). Before the limit, a formula of
+        //! 10,000 parentheses, or of 100,000 terms added, ended `forge calculate`
+        //! with a stack overflow (exit 134), and a `forge mcp` server died on the
+        //! same formula in a call, taking its session with it.
+
+        use crate::cli::calculate_core;
+        use crate::core::array_calculator::parser::{parse, MAX_DEPTH};
+        use crate::core::array_calculator::tokenizer::tokenize;
+
+        fn model(formula: &str) -> String {
+            format!("_forge_version: \"5.1.0\"\nm:\n  x:\n    formula: \"={formula}\"\n")
+        }
+
+        fn accepted(formula: &str) -> bool {
+            parse(tokenize(formula).unwrap()).is_ok()
+        }
+
+        /// What `m.x` calculates to, in a file of its own
+        fn calculated(formula: &str) -> Result<f64, String> {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, model(formula)).unwrap();
+            calculate_core(&path, true, None)
+                .map(|result| result.scalars["m.x"].unwrap())
+                .map_err(|e| e.to_string())
+        }
+
+        /// The longest chain `1+1+...` inside parentheses that is accepted as the
+        /// first operand of a longer one, and the longest longer one: the deepest
+        /// tree the limit lets through, nearly twice `MAX_DEPTH`.
+        fn deepest() -> (String, f64) {
+            let chain = |n: usize| vec!["1"; n].join("+");
+            let inner = (1..=MAX_DEPTH)
+                .take_while(|&n| accepted(&format!("({})+1", chain(n))))
+                .last()
+                .unwrap();
+            let outer = (1..=MAX_DEPTH)
+                .take_while(|&n| accepted(&format!("({}){}", chain(inner), "+1".repeat(n))))
+                .last()
+                .unwrap();
+            (
+                format!("({}){}", chain(inner), "+1".repeat(outer)),
+                (inner + outer) as f64,
+            )
+        }
+
+        #[test]
+        fn a_formula_at_the_limit_calculates() {
+            let pairs = MAX_DEPTH - 1;
+            let parentheses = format!("{}7{}", "(".repeat(pairs), ")".repeat(pairs));
+            assert_eq!(calculated(&parentheses), Ok(7.0));
+            // The sign inside is one more level, so one call fewer
+            let calls = format!("{}-3{}", "ABS(".repeat(pairs - 1), ")".repeat(pairs - 1));
+            assert_eq!(calculated(&calls), Ok(3.0));
+            let signs = format!("{}5", "-".repeat(pairs));
+            assert_eq!(calculated(&signs), Ok(-5.0));
+            let sum = vec!["1"; MAX_DEPTH].join("+");
+            assert_eq!(calculated(&sum), Ok(MAX_DEPTH as f64));
+        }
+
+        #[test]
+        fn the_deepest_tree_the_limit_lets_through_calculates() {
+            let (formula, value) = deepest();
+            assert!(value > MAX_DEPTH as f64, "{value}: not the worst case");
+            assert_eq!(calculated(&formula), Ok(value));
+        }
+
+        #[test]
+        fn a_formula_one_level_past_the_limit_is_refused_with_the_cell() {
+            let pairs = MAX_DEPTH;
+            let formula = format!("{}7{}", "(".repeat(pairs), ")".repeat(pairs));
+            let message = calculated(&formula).unwrap_err();
+            assert!(message.contains("m.x"), "{message}");
+            assert!(
+                message.contains(&format!("nested more than {MAX_DEPTH} levels")),
+                "{message}"
+            );
+            let sum = vec!["1"; MAX_DEPTH + 1].join("+");
+            assert!(calculated(&sum).is_err());
+        }
+
+        #[test]
+        fn a_hundred_thousand_levels_are_refused() {
+            let n = 100_000;
+            for formula in [
+                format!("{}1{}", "(".repeat(n), ")".repeat(n)),
+                format!("{}1{}", "ABS(".repeat(n), ")".repeat(n)),
+                format!("{}1", "-".repeat(n)),
+                vec!["2"; n].join("^"),
+                vec!["1"; n].join("+"),
+                vec!["1"; n].join("&"),
+                vec!["1"; n].join("="),
+                format!("LAMBDA(q, q){}", "(1)".repeat(n)),
+            ] {
+                let message = calculated(&formula).unwrap_err();
+                assert!(message.contains("nested more than"), "{message}");
+            }
+        }
+
+        /// The command line and the MCP server, which ran out of stack before
+        #[cfg(feature = "cli")]
+        mod command_line_and_mcp {
+            use super::{deepest, model, MAX_DEPTH};
+            use crate::cli::forge;
+            use crate::mcp::Session;
+
+            const N: usize = 100_000;
+
+            fn deep() -> String {
+                format!("{}1{}", "(".repeat(N), ")".repeat(N))
+            }
+
+            #[test]
+            fn forge_calculate_exits_with_an_error_not_a_stack_overflow() {
+                let dir = tempfile::tempdir().unwrap();
+                for (name, formula) in [
+                    ("parentheses", deep()),
+                    ("sum", vec!["1"; N].join("+")),
+                    ("signs", format!("{}1", "-".repeat(N))),
+                ] {
+                    let path = dir.path().join(format!("{name}.yaml"));
+                    std::fs::write(&path, model(&formula)).unwrap();
+                    let ran = forge(&["calculate", "--dry-run", path.to_str().unwrap()]);
+                    assert_eq!(ran.code, 1, "{name}: {}", ran.err);
+                    assert!(ran.err.contains("m.x"), "{name}: {}", ran.err);
+                    assert!(
+                        ran.err
+                            .contains(&format!("nested more than {MAX_DEPTH} levels")),
+                        "{name}: {}",
+                        ran.err
+                    );
+                }
+            }
+
+            /// The answers of the MCP server to `forge_calculate` on each model, in
+            /// order, with the server still serving after the last
+            fn answers(models: &[String]) -> Vec<String> {
+                let mut session = Session::start(None);
+                let answers = (1..)
+                    .zip(models)
+                    .map(|(id, content)| {
+                        session.call(
+                            id,
+                            "forge_calculate",
+                            &serde_json::json!({"content": content, "dry_run": true}),
+                        )
+                    })
+                    .collect();
+                assert!(session.is_serving(), "the server is alive");
+                answers
+            }
+
+            #[test]
+            fn forge_mcp_answers_a_deep_formula_with_an_error_and_the_next_call() {
+                let fine = model("1 + 2");
+                let (worst, value) = deepest();
+                let answers = answers(&[
+                    model(&deep()),
+                    fine,
+                    model(&vec!["1"; N].join("+")),
+                    model(&worst),
+                ]);
+                assert!(answers[0].contains("nested more than"), "{}", answers[0]);
+                assert!(answers[1].contains("\\\"m.x\\\":3.0"), "{}", answers[1]);
+                assert!(answers[2].contains("nested more than"), "{}", answers[2]);
+                let expected = format!("\\\"m.x\\\":{value:.1}");
+                assert!(answers[3].contains(&expected), "{}", answers[3]);
+            }
+        }
+    }
 }

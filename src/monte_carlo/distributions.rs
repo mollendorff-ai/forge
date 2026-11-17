@@ -998,4 +998,127 @@ mod tests {
             );
         }
     }
+
+    // The command line and the MCP server, which need `cli`
+    #[cfg(feature = "cli")]
+    mod refused_everywhere {
+        //! A distribution with a parameter that is not a finite number is refused,
+        //! naming the scalar and the argument (roadmap T1-NONFINITE). `1E+400`, `inf`
+        //! and `NaN` are read as numbers: before this, `MC.PERT(0, 1, 1E+400)` ended
+        //! `forge simulate` on a panic (exit 134, as the release build aborts on a
+        //! panic) and a `forge mcp` server on the same call, while
+        //! `MC.Triangular(0, 1, 1E+400)` and `MC.Lognormal(1, 1E+400)` printed NaN
+        //! percentiles with exit 0.
+
+        use crate::cli::forge;
+        use crate::mcp::Session;
+
+        /// Each distribution of the audit, and the start of the message it gives
+        const REFUSED: [(&str, &str); 8] = [
+            (
+                "MC.PERT(0, 1, 1E+400)",
+                "MC.PERT max must be a finite number, not inf",
+            ),
+            (
+                "MC.Normal(0, nan)",
+                "MC.Normal stdev must be a finite number, not NaN",
+            ),
+            (
+                "MC.Triangular(0, 1, 1E+400)",
+                "MC.Triangular max must be a finite number, not inf",
+            ),
+            (
+                "MC.Lognormal(1, 1E+400)",
+                "MC.Lognormal stdev must be a finite number, not inf",
+            ),
+            (
+                "MC.Uniform(0, inf)",
+                "MC.Uniform max must be a finite number, not inf",
+            ),
+            (
+                "MC.PERT(-1E+308, 1E+308, 1E+308)",
+                "MC.PERT max - min is too large to calculate with",
+            ),
+            (
+                "MC.Normal(0, 1E+308)",
+                "MC.Normal: its arguments are too large to calculate with",
+            ),
+            (
+                "MC.Lognormal(1, 1E+200)",
+                "MC.Lognormal: its arguments are too large to calculate with",
+            ),
+        ];
+
+        fn model(distribution: &str) -> String {
+            format!(
+                "_forge_version: \"5.1.0\"\nmonte_carlo:\n  iterations: 200\n  seed: 1\n  outputs:\n    \
+         - variable: m.out\n      percentiles: [50]\nm:\n  x:\n    formula: \"={distribution}\"\n  \
+         out:\n    formula: \"=x * 2\"\n"
+            )
+        }
+
+        #[test]
+        fn forge_simulate_exits_1_naming_the_scalar_and_the_argument() {
+            let dir = tempfile::tempdir().unwrap();
+            for (distribution, message) in REFUSED {
+                let path = dir.path().join("m.yaml");
+                std::fs::write(&path, model(distribution)).unwrap();
+                let ran = forge(&["simulate", path.to_str().unwrap()]);
+                assert_eq!(ran.code, 1, "{distribution}: {}", ran.err);
+                assert!(
+                    ran.err.contains(&format!("m.x: {message}")),
+                    "{distribution}: {}",
+                    ran.err
+                );
+                assert!(!ran.out.contains("NaN"));
+            }
+        }
+
+        #[test]
+        fn a_wide_but_finite_distribution_still_simulates() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, model("MC.Triangular(-1E+307, 0, 1E+307)")).unwrap();
+            let ran = forge(&["simulate", path.to_str().unwrap()]);
+            assert_eq!(ran.code, 0, "{}", ran.err);
+            let stdout = ran.out;
+            // The draws, the mean, the percentiles and the extremes are finite. The
+            // standard deviation of values near 1e307 overflows when squared, as for
+            // any output above about 1e154: roadmap T1-HUGE-STATS, not this item.
+            assert!(!stdout.contains("NaN"), "{stdout}");
+            let infinite: Vec<&str> = stdout.lines().filter(|l| l.contains("inf")).collect();
+            assert_eq!(infinite.len(), 1, "{infinite:?}");
+            assert!(
+                infinite[0].trim_start().starts_with("Std Dev:"),
+                "{infinite:?}"
+            );
+        }
+
+        #[test]
+        fn forge_mcp_answers_each_with_an_error_and_then_simulates() {
+            let mut session = Session::start(None);
+            let mut call = |id: u64, distribution: &str| {
+                session.call(
+                    id,
+                    "forge_simulate",
+                    &serde_json::json!({"content": model(distribution)}),
+                )
+            };
+            for ((distribution, message), id) in REFUSED.into_iter().zip(2..) {
+                let answer = call(id, distribution);
+                assert!(
+                    answer.contains("\"isError\":true"),
+                    "{distribution}: {answer}"
+                );
+                assert!(
+                    answer.contains(&format!("m.x: {message}")),
+                    "{distribution}: {answer}"
+                );
+            }
+            let answer = call(100, "MC.PERT(0, 5, 10)");
+            assert!(answer.contains("\"isError\":false"), "{answer}");
+            assert!(answer.contains("monte_carlo_results"), "{answer}");
+            assert!(session.is_serving(), "the server is alive");
+        }
+    }
 }

@@ -188,6 +188,8 @@ rust_xlsxwriter = { version = "0.102", optional = true, features = ["wasm"] }
 # Testing
 pretty_assertions = "1.4"
 tempfile = "3.8"
+# A test's MCP client waits for each answer with a timeout (src/mcp/mod.rs)
+tokio = { version = "1", features = ["time"] }
 assert_cmd = "2.0"  # CLI integration testing
 predicates = "3.1"  # CLI output assertions
 # Property tests: rules that must hold for any model (src/lib.rs (its properties tests))

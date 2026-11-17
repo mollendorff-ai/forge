@@ -696,4 +696,76 @@ mod tests {
             assert!(!plain.contains("descriptions"));
         }
     }
+
+    mod command_line {
+        //! `forge compare` on the command line: the formats and the width of the
+        //! table (Session Prompt, compare column overflow).
+
+        use crate::cli::forge_at_width;
+
+        const MODEL: &str = r#"_forge_version: "5.1.0"
+living:
+  rent: 1200
+  total: {formula: "=living.rent + 450.5"}
+bankruptcy:
+  income: 3100
+  monthly_surplus_payment: {formula: "=MAX(0, (bankruptcy.income - living.total) * 0.5)"}
+scenarios:
+  rent_1100_prosupport_recognized:
+    probability: 0.5
+    scalars: {living.rent: 1100}
+  rent_1500_prosupport_not_recognized:
+    probability: 0.5
+    scalars: {living.rent: 1500, bankruptcy.income: 2800}
+"#;
+
+        const BOTH: &str = "rent_1100_prosupport_recognized,rent_1500_prosupport_not_recognized";
+
+        /// `forge compare` of both scenarios on a terminal `columns` wide
+        fn run(dir: &std::path::Path, columns: usize, args: &[&str]) -> String {
+            let file = dir.join("m.yaml");
+            std::fs::write(&file, MODEL).unwrap();
+            let mut all = vec!["compare", file.to_str().unwrap(), "--scenarios", BOTH];
+            all.extend(args);
+            let ran = forge_at_width(Some(columns), &all);
+            assert!(ran.success(), "{}", ran.err);
+            ran.out
+        }
+
+        #[test]
+        fn csv_is_the_numbers_alone_at_full_precision() {
+            let dir = tempfile::tempdir().unwrap();
+            // (3100 - 1550.5) * 0.5 = 774.75 and (2800 - 1950.5) * 0.5 = 424.75
+            assert_eq!(
+                run(dir.path(), 40, &["--format", "csv"]),
+                "variable,rent_1100_prosupport_recognized,rent_1500_prosupport_not_recognized\n\
+         living.rent,1100,1500\n\
+         living.total,1550.5,1950.5\n\
+         bankruptcy.income,3100,2800\n\
+         bankruptcy.monthly_surplus_payment,774.75,424.75\n"
+            );
+        }
+
+        #[test]
+        fn the_table_fits_the_terminal() {
+            let dir = tempfile::tempdir().unwrap();
+            let wide = run(dir.path(), 200, &[]);
+            assert!(wide
+                .contains("rent_1100_prosupport_recognized  rent_1500_prosupport_not_recognized"));
+            // 34 + 2 + 31 + 2 + 35 = 104 characters: two blocks in 80
+            let narrow = run(dir.path(), 80, &[]);
+            assert_eq!(narrow.matches("\nvariable ").count(), 2, "{narrow}");
+            let table: Vec<&str> = narrow
+                .lines()
+                .filter(|l| {
+                    l.starts_with("variable") || l.starts_with("scenario") || l.contains('.')
+                })
+                .filter(|l| !l.contains("File:") && !l.contains("Scenarios:"))
+                .collect();
+            assert!(!table.is_empty(), "{narrow}");
+            for line in table {
+                assert!(line.chars().count() <= 80, "{line}\n{narrow}");
+            }
+        }
+    }
 }

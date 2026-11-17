@@ -1202,4 +1202,75 @@ scenarios:
             assert!(text.contains(line), "missing {line:?} in:\n{text}");
         }
     }
+
+    mod enabled {
+        //! `monte_carlo.enabled` is accepted but `forge simulate` never reads it: a
+        //! model whose section says `enabled: false`, or leaves it out, still runs.
+        //! docs/MCP.md says so; this keeps the doc honest.
+
+        use crate::cli::forge;
+
+        fn model(enabled_line: &str) -> String {
+            format!(
+                r#"_forge_version: "5.1.0"
+monte_carlo:
+{enabled_line}  iterations: 100
+  seed: 42
+  outputs:
+    - variable: revenue
+      percentiles: [50]
+revenue:
+  value: 100000
+  formula: "=MC.Normal(100000, 15000)"
+"#
+            )
+        }
+
+        #[test]
+        fn simulate_runs_without_enabled_and_with_enabled_false() {
+            for line in ["", "  enabled: false\n", "  enabled: true\n"] {
+                let dir = tempfile::tempdir().expect("temp dir");
+                let file = dir.path().join("mc.yaml");
+                std::fs::write(&file, model(line)).expect("write");
+                let ran = forge(&["simulate", file.to_str().expect("path")]);
+                assert!(ran.success(), "{line:?}: {}", ran.both());
+                assert!(
+                    ran.out.contains("Simulation complete"),
+                    "{line:?}: {}",
+                    ran.out
+                );
+            }
+        }
+
+        #[test]
+        fn mcp_md_does_not_say_enabled_is_required() {
+            let doc = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/MCP.md"))
+                .expect("docs/MCP.md");
+            assert!(
+                !doc.contains("with `enabled: true`"),
+                "docs/MCP.md says a Monte Carlo section needs enabled: true; forge simulate never reads it"
+            );
+        }
+    }
+
+    mod printed_numbers {
+        //! `forge simulate` prints its statistics as `forge report` prints numbers:
+        //! two decimals and thousands separators (the end-to-end pass of 2026-11-12).
+
+        use crate::cli::forge;
+
+        #[test]
+        fn simulate_prints_statistics_with_separators_and_two_decimals() {
+            let text = forge(&["simulate", "examples/bagel/bagel_simulate.yaml"]).printed();
+            for line in [
+                "Mean:      -15,925.94",
+                "Median:    -15,689.18",
+                "P5: -78,477.56",
+                "(expected shortfall): -91,760.43",
+                "assumptions.opening_dozens_per_day mean=55.00 plan=55.00 (value) min=40.79 max=69.73",
+            ] {
+                assert!(text.contains(line), "{line}\n{text}");
+            }
+        }
+    }
 }

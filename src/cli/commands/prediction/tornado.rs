@@ -172,3 +172,89 @@ pub fn tornado(
     outln!(c, "{}", "✅ Tornado diagram complete".bold().green());
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+
+    mod tornado_note {
+        //! `forge tornado` says when an input cannot move the output, instead of
+        //! listing it with a swing of 0 and no reason (roadmap T1-PIPELINE-FINDINGS).
+
+        use crate::cli::forge;
+
+        #[test]
+        fn the_printed_tornado_names_the_input_that_cannot_move_the_output() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = dir.path().join("t.yaml");
+            std::fs::write(
+                &file,
+                r#"_forge_version: "5.1.0"
+price: 10
+tax_rate: 0.2
+revenue: {formula: "=price * 100", value: 1000}
+tornado:
+  output: revenue
+  inputs:
+    - {name: price, low: 5, high: 15}
+    - {name: tax_rate, low: 0.1, high: 0.3}
+"#,
+            )
+            .expect("write");
+            let ran = forge(&["tornado", file.to_str().expect("path")]);
+            assert!(ran.success(), "{}", ran.both());
+            assert_eq!(ran.out.matches("does not use it").count(), 1, "{}", ran.out);
+        }
+    }
+
+    mod printed_numbers {
+        //! The amounts `forge tornado` prints
+        //! follow `forge report`'s rule (Session Prompt part 1, item 5): two decimals
+        //! and thousands separators, four significant digits under 1, and money with
+        //! the sign before the `$`. JSON and files keep the raw numbers.
+
+        use crate::cli::forge;
+
+        #[test]
+        fn tornado_prints_amounts_with_separators() {
+            let text = forge(&["tornado", "examples/tornado.yaml"]).printed();
+            assert!(text.contains("Base value: -625,000.00"), "{text}");
+            // initial_investment 700,000 x 1: -425,000 at low, -1,125,000 at high
+            assert!(
+                text.contains(
+                    "swing 700,000.00  (output -425,000.00 at low, -1,125,000.00 at high)"
+                ),
+                "{text}"
+            );
+        }
+
+        #[test]
+        fn tornado_keeps_the_digits_of_a_rate() {
+            let dir = tempfile::tempdir().unwrap();
+            let file = dir.path().join("rate.yaml");
+            // margin = profit / revenue = (1000 - cost) / 1000: cost 840 gives 0.16,
+            // cost 903 gives 0.097; the swing is 0.063 (0.06 at two decimals)
+            std::fs::write(
+                &file,
+                r#"_forge_version: "5.1.0"
+tornado:
+  output: plan.margin
+  inputs:
+    - name: plan.cost
+      low: 840
+      high: 903
+plan:
+  revenue: 1000
+  cost: 870
+  margin: {formula: "=(plan.revenue - plan.cost) / plan.revenue"}
+"#,
+            )
+            .unwrap();
+            let text = forge(&["tornado", file.to_str().unwrap()]).printed();
+            assert!(text.contains("swing 0.063"), "{text}");
+            assert!(
+                text.contains("0.16 at low") || text.contains("0.160 at low"),
+                "{text}"
+            );
+        }
+    }
+}

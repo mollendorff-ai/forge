@@ -152,7 +152,11 @@ tier1:
   # The command line runs in-process (2026-11-17): cli::run_from(args, console)
   # is forge from its arguments to its exit code, and every command writes to
   # the console it is given (outln!/errln!, no ? per line, so no uncovered
-  # region per line). Next: the 17 binary-starting files call it instead.
+  # region per line). The 17 binary-starting files are inline too
+  # (2026-11-17), calling it (cli::forge in a test) and an in-memory MCP
+  # session (mcp::Session); the closed pipe is a step of the MCP Protocol
+  # Test job, the one check only a real process can make. Left: the 9 files
+  # that check the repository's text, for a validation/repo program.
   - id: T1-TESTS-INLINE
     title: "Every test inline, in the file it tests, and no file over 1,500 lines"
     why: "Asked 2026-11-16: tests are inline or not, never both. Counted that day: 1,753 tests inline in 129 files, 36 test modules moved to files of their own (mostly to keep a file under 1,500 lines, which is not a split), and 45 test files in tests/ folders (43 in the main crate, 1 in forge-wasm, 1 in validation/gnumeric), 20 of which start the forge binary. Put back, five parents pass 1,500 lines: excel/workbook_refs/dates.rs (2,000), mcp/server.rs (1,809), excel/exporter.rs (1,711), core/array_calculator/evaluator/mod.rs (about 2,200) and core/array_calculator/mod.rs (about 2,000). Inline is the only side that works: tests/ sees only the public API, and the unit tests test private code"
@@ -174,16 +178,16 @@ tier1:
   # 2026-11-16; its release attestations (T1-SUPPLY-CHAIN) are in d335791.
   # T1-NONFINITE is done (2026-11-16): every distribution argument, max - min
   # and the draws at both ends must be finite (distributions.rs,
-  # tests/nonfinite_distributions.rs); it found T1-HUGE-STATS and T1-DISCRETE.
+  # src/monte_carlo/distributions.rs (its refused_everywhere tests)); it found T1-HUGE-STATS and T1-DISCRETE.
   # T1-DEPTH is done (2026-11-16): a formula may nest 128 levels (parser.rs
-  # MAX_DEPTH, tests/formula_depth.rs); the audit's 256 overflowed a 2 MiB debug
+  # MAX_DEPTH, src/core/array_calculator/mod.rs (its formula_depth tests)); the audit's 256 overflowed a 2 MiB debug
   # thread, which is the size of a test thread.
 
   - id: T1-HUGE-STATS
     title: "The summary statistics of a simulation overflow above about 1e154"
     why: "Found 2026-11-16 while fixing T1-NONFINITE: MC.Triangular(-1E+307, 0, 1E+307) draws finite values and forge simulate prints a finite mean, median, extremes and percentiles, but Std Dev: inf, because Statistics::from_samples squares each deviation (src/monte_carlo/statistics.rs). Any output, from a distribution or a formula (x^200), with values above about 1.3e154 does the same; a sum of many values near 1e306 makes the mean inf too, and the histogram's max - min can overflow. The variance of values near 1e307 (about 1e613) cannot be a number at all"
     how: "An ADR or a short decision first: refuse an output whose values cannot be summarized, or report the standard deviation by scaling (the largest deviation out, then back in) and the variance as too large to show. Keep the results of every model that calculates today the same to the last digit (compute the plain way first, as triangular_quantile does)"
-    acceptance: "forge simulate on MC.Triangular(-1E+307, 0, 1E+307) prints no inf and no NaN, or exits 1 saying why; the decision is written down; tests/nonfinite_distributions.rs no longer allows the one inf line"
+    acceptance: "forge simulate on MC.Triangular(-1E+307, 0, 1E+307) prints no inf and no NaN, or exits 1 saying why; the decision is written down; the refused_everywhere tests in src/monte_carlo/distributions.rs no longer allow the one inf line"
 
   - id: T1-DISCRETE
     title: "MC.Discrete is documented and cannot be used"

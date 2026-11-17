@@ -689,3 +689,112 @@ mod direction_tests {
         assert_eq!(better_direction("income.salary", &declared, &v), "lower");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod not_meaningful {
+        //! A variance percentage that means nothing is n/m (T2-VARIANCE-NM): on a
+        //! zero budget, or when the budget and the actual have opposite signs. Only
+        //! the text changes: the values are the same.
+
+        use super::*;
+        use crate::cli::forge_at_width;
+        use std::path::Path;
+
+        const PLAN: &str = "examples/bagel/bagel.yaml";
+        const ACTUAL: &str = "examples/bagel/actual.yaml";
+
+        /// The lines `forge` prints on a wide terminal, words separated by single
+        /// spaces, so column widths do not matter
+        fn lines(args: &[&str]) -> Vec<String> {
+            let ran = forge_at_width(Some(200), args);
+            assert!(ran.success(), "{}", ran.err);
+            ran.out
+                .lines()
+                .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+                .collect()
+        }
+
+        fn has(lines: &[String], wanted: &str) -> bool {
+            lines.iter().any(|l| l == wanted)
+        }
+
+        #[test]
+        fn a_percentage_is_not_meaningful_on_a_zero_budget_or_across_zero() {
+            // Zero (or as good as zero) budget: any change is an infinite share of it
+            assert!(!pct_is_meaningful(0.0, 5.0));
+            assert!(!pct_is_meaningful(0.000_01, 1.0));
+            // The sign flips: a profit that became a loss, and back
+            assert!(!pct_is_meaningful(786.32, -28_313.87));
+            assert!(!pct_is_meaningful(-100.0, 50.0));
+            // Same side of zero, or down to exactly zero (-100%): meaningful
+            assert!(pct_is_meaningful(-95_579.52, -123_258.79));
+            assert!(pct_is_meaningful(100.0, 0.0));
+            assert!(pct_is_meaningful(4_800.0, 4_950.0));
+        }
+
+        /// The plan's profit is 786.32 and the actual -28,313.87: -3,700.8% says
+        /// nothing, 29,100 worse says it all. The rows whose sign flipped are n/m and
+        /// stay alerts; every other row keeps its percentage.
+        #[test]
+        fn bagel_variance_marks_the_rows_that_changed_sign() {
+            let v = variance_core(Path::new(PLAN), Path::new(ACTUAL), 10.0).unwrap();
+            let not_meaningful: Vec<&str> = v
+                .results
+                .iter()
+                .filter(|r| !r.pct_meaningful)
+                .map(|r| r.name.as_str())
+                .collect();
+            assert_eq!(
+                not_meaningful,
+                ["year.profit", "year.margin", "year.first_year_return"]
+            );
+            for name in &not_meaningful {
+                let row = v.results.iter().find(|r| r.name == *name).unwrap();
+                assert!(row.exceeds_threshold, "{name} is still an alert");
+            }
+            // Same five alerts as before the rule
+            assert_eq!(v.alert_count, 5);
+        }
+
+        #[test]
+        fn variance_prints_n_m() {
+            let out = lines(&["variance", PLAN, ACTUAL]);
+            assert!(
+                has(&out, "year.profit 786.32 -28,313.87 -29,100.19 n/m ⚠️ ❌"),
+                "{out:#?}"
+            );
+            assert!(
+                has(
+                    &out,
+                    "year.npv_first_year -95,579.52 -123,258.79 -27,679.27 -29.0% ⚠️ ❌"
+                ),
+                "{out:#?}"
+            );
+        }
+    }
+
+    mod printed_numbers {
+        //! `forge variance` prints the budget, the actual and the variance as `forge
+        //! report` prints numbers (the end-to-end pass of 2026-11-12).
+
+        use crate::cli::forge;
+
+        #[test]
+        fn variance_prints_budget_actual_and_variance_as_report_does() {
+            let text = forge(&[
+                "variance",
+                "examples/bagel/bagel.yaml",
+                "examples/bagel/actual.yaml",
+            ])
+            .printed();
+            assert!(text.contains("assumptions.rent_per_month"), "{text}");
+            for cell in ["4,800.00", "4,950.00", "150.00", "386,827.45", "-16,923.70"] {
+                assert!(text.contains(cell), "{cell}\n{text}");
+            }
+            assert!(!text.contains("386827.449538"), "{text}");
+        }
+    }
+}

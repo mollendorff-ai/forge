@@ -247,3 +247,47 @@ fn print_real_options_results(
     );
     outln!(c);
 }
+
+#[cfg(test)]
+mod tests {
+
+    mod printed_numbers {
+        //! The money `forge real-options` prints
+        //! follow `forge report`'s rule (Session Prompt part 1, item 5): two decimals
+        //! and thousands separators, four significant digits under 1, and money with
+        //! the sign before the `$`. JSON and files keep the raw numbers.
+
+        use crate::cli::forge;
+
+        #[test]
+        fn real_options_print_money_with_separators() {
+            let text = forge(&["real-options", "examples/bagel/wait_option.yaml"]).printed();
+            for expected in [
+                "invest now, no flexibility): $60,000.00",
+                "Adds over the traditional NPV: $4,604.68",
+                "Project value with this option: $64,604.68",
+                "Underlying value: $240,000.00",
+                "exercise when value > $198,000",
+                "project value $64,605.",
+                "worth $4,605 more than deciding now",
+            ] {
+                assert!(text.contains(expected), "{expected}\n{text}");
+            }
+        }
+    }
+
+    mod horizon {
+        //! A horizon of one is `1 year`, not `1 years` (the end-to-end pass of
+        //! 2026-11-12).
+
+        use crate::cli::forge;
+
+        #[test]
+        fn a_horizon_of_one_is_a_year() {
+            let text = forge(&["real-options", "examples/bagel/wait_option.yaml"]).printed();
+            assert!(text.contains("Time horizon: 1 year\n"), "{text}");
+            let text = forge(&["real-options", "examples/real-options.yaml"]).printed();
+            assert!(text.contains("Time horizon: 3 years\n"), "{text}");
+        }
+    }
+}

@@ -210,4 +210,28 @@ scalars:
         let value: yaml_serde::Value = yaml_serde::from_str(yaml).unwrap();
         assert!(value.get("scenarios").is_some());
     }
+
+    mod printed_numbers {
+        //! The numbers `forge scenarios` prints
+        //! follow `forge report`'s rule (Session Prompt part 1, item 5): two decimals
+        //! and thousands separators, four significant digits under 1, and money with
+        //! the sign before the `$`. JSON and files keep the raw numbers.
+
+        use crate::cli::forge;
+
+        #[test]
+        fn scenarios_print_numbers_as_forge_report_does() {
+            let text = forge(&["scenarios", "examples/bagel/bagel.yaml"]).printed();
+            assert!(text.contains("year.profit: 786.32\n"), "{text}");
+            assert!(text.contains("year.revenue: 386,827.45\n"), "{text}");
+            assert!(text.contains("year.npv_first_year: -95,579.52\n"), "{text}");
+            // year.margin has `format: "0.0%"` (ADR-061, T2-CLI-FORMAT)
+            assert!(text.contains("year.margin: 0.2%\n"), "{text}");
+            assert!(
+                text.contains("(range -71,197.20 to 80,811.24, P(>0) = 70%)"),
+                "{text}"
+            );
+            assert!(!text.contains("786.320362"), "{text}");
+        }
+    }
 }

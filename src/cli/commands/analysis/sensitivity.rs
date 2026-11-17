@@ -460,3 +460,107 @@ fn run_two_var_sensitivity(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+
+    mod date_inputs {
+        //! `forge sensitivity` refuses a date input however it is asked for (ADR-060):
+        //! an error and a failing exit code, not a table of errors.
+
+        use crate::cli::forge;
+
+        const MODEL: &str = r#"_forge_version: "5.4.0"
+inputs:
+  last_actual: 2026-10-31
+out:
+  next:
+    formula: "=EOMONTH(inputs.last_actual, 1)"
+"#;
+
+        #[test]
+        fn sensitivity_refuses_a_date_input_and_says_so_in_its_exit_code() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let path = dir.path().join("model.yaml");
+            std::fs::write(&path, MODEL).expect("model written");
+            let ran = forge(&[
+                "sensitivity",
+                path.to_str().expect("path"),
+                "--vary",
+                "inputs.last_actual",
+                "--range",
+                "1,3,1",
+                "--output",
+                "out.next",
+            ]);
+            assert!(!ran.success(), "a date input must fail the command");
+            let text = ran.both();
+            assert!(text.contains("varying a date is not supported"), "{text}");
+            assert!(!text.contains("Sensitivity analysis complete"), "{text}");
+        }
+    }
+
+    mod printed {
+        //! `forge sensitivity`'s table lines up under its header, and a program can
+        //! read the full numbers as JSON instead of parsing the table (the end-to-end
+        //! pass of 2026-11-12).
+
+        use crate::cli::forge;
+
+        #[test]
+        fn the_sensitivity_table_lines_up_under_its_header() {
+            let text = forge(&[
+                "sensitivity",
+                "examples/periods/dcf.yaml",
+                "--vary",
+                "assumptions.wacc",
+                "-r",
+                "0.08,0.11,0.01",
+                "--output-var",
+                "valuation.equity_value",
+            ])
+            .printed();
+            let lines: Vec<&str> = text.lines().collect();
+            let header = lines
+                .iter()
+                .position(|l| {
+                    l.contains("assumptions.wacc")
+                        && l.contains("valuation.equity_value")
+                        && !l.contains('→')
+                })
+                .unwrap();
+            let header_line = lines[header];
+            // Every row ends where the header ends, and its input where the header's input ends
+            let first_end =
+                header_line.find("assumptions.wacc").unwrap() + "assumptions.wacc".len();
+            for row in &lines[header + 2..header + 6] {
+                assert_eq!(row.chars().count(), header_line.chars().count(), "{row}");
+                assert_eq!(&row[first_end..=first_end], " ", "{row}");
+            }
+            assert!(text.contains("7,693,647.27"), "{text}");
+        }
+
+        #[test]
+        fn sensitivity_can_print_json_with_the_full_numbers() {
+            let text = forge(&[
+                "sensitivity",
+                "examples/periods/dcf.yaml",
+                "--vary",
+                "assumptions.wacc",
+                "-r",
+                "0.08,0.09,0.01",
+                "--output-var",
+                "valuation.equity_value",
+                "--format",
+                "json",
+            ])
+            .printed();
+            let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+            assert_eq!(json["vary"], "assumptions.wacc");
+            let entries = json["data"]["OneVar"]["entries"].as_array().unwrap();
+            assert_eq!(entries.len(), 2);
+            assert_eq!(entries[0]["input"], 0.08);
+            assert_eq!(entries[0]["output"], 7_693_647.272_727_27);
+        }
+    }
+}

@@ -273,3 +273,62 @@ pub fn break_even(
 
 /// How close to zero the output must be for `forge break-even`.
 const BREAK_EVEN_TOLERANCE: f64 = 0.0001;
+
+#[cfg(test)]
+mod tests {
+
+    mod printed_numbers {
+        //! The solution `forge goal-seek` prints and the numbers beside it
+        //! follow `forge report`'s rule (Session Prompt part 1, item 5): two decimals
+        //! and thousands separators, four significant digits under 1, and money with
+        //! the sign before the `$`. JSON and files keep the raw numbers.
+
+        use crate::cli::forge;
+
+        #[test]
+        fn goal_seek_prints_the_solution_with_two_decimals() {
+            // examples/mortgage: 397.04 a month saves 80,000 of interest (README)
+            let text = forge(&[
+                "goal-seek",
+                "examples/mortgage/mortgage.yaml",
+                "--target",
+                "saved.interest",
+                "--value",
+                "80000",
+                "--vary",
+                "loan.extra_per_month",
+            ])
+            .printed();
+            assert!(
+                text.contains("loan.extra_per_month = 397.04 → saved.interest = 80,000.00"),
+                "{text}"
+            );
+        }
+    }
+
+    mod break_even_header {
+        //! `forge break-even` said it was goal-seek (the end-to-end pass of 2026-11-12).
+
+        use crate::cli::forge;
+
+        #[test]
+        fn break_even_has_a_header_of_its_own() {
+            let text = forge(&[
+                "break-even",
+                "examples/bagel/bagel.yaml",
+                "--output",
+                "year.profit",
+                "--vary",
+                "assumptions.price_per_dozen",
+            ])
+            .printed();
+            assert!(text.contains("Break-Even Analysis"), "{text}");
+            assert!(text.contains("Finding where year.profit = 0"), "{text}");
+            assert!(!text.contains("Goal Seek"), "{text}");
+            assert!(
+                text.contains("assumptions.price_per_dozen = 15.97"),
+                "{text}"
+            );
+        }
+    }
+}

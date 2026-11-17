@@ -227,4 +227,44 @@ decision_tree:
             yaml_serde::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
         assert!(doc["root_expected_value"].as_f64().is_some());
     }
+
+    mod printed_numbers {
+        //! The money `forge decision-tree` prints
+        //! follow `forge report`'s rule (Session Prompt part 1, item 5): two decimals
+        //! and thousands separators, four significant digits under 1, and money with
+        //! the sign before the `$`. JSON and files keep the raw numbers.
+
+        use crate::cli::forge;
+
+        #[test]
+        fn a_decision_tree_prints_money_with_separators() {
+            let text = forge(&["decision-tree", "examples/bagel/second_shop.yaml"]).printed();
+            for expected in [
+                "Expected Value: $61,500.00",
+                "Best case:  $198,000.00",
+                "Worst case: -$117,000.00",
+                "-$12,000.00 with probability 50.0%",
+            ] {
+                assert!(text.contains(expected), "{expected}\n{text}");
+            }
+            assert!(!text.contains("$-"), "{text}");
+        }
+
+        #[test]
+        fn the_json_of_an_analysis_keeps_the_numbers_not_the_display() {
+            let dir = tempfile::tempdir().unwrap();
+            let file = dir.path().join("tree.json");
+            let printed = forge(&[
+                "decision-tree",
+                "examples/bagel/second_shop.yaml",
+                "-o",
+                file.to_str().unwrap(),
+            ])
+            .printed();
+            assert!(printed.contains("Results written to"), "{printed}");
+            let json: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+            assert_eq!(json["root_expected_value"], 61_500.0);
+        }
+    }
 }

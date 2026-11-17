@@ -696,3 +696,44 @@ mod import_output_tests {
             .unwrap();
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    mod included_files {
+        //! `forge import` says which included file it wrote (the end-to-end pass of
+        //! 2026-11-12).
+
+        use crate::cli::forge;
+
+        #[test]
+        fn an_import_says_which_included_file_it_wrote() {
+            let dir = tempfile::tempdir().unwrap();
+            let xlsx = dir.path().join("bagel.xlsx");
+            let model = std::path::Path::new("examples/bagel/bagel.yaml");
+            // The model reads examples/bagel/costs.yaml, so export from there
+            let exported =
+                forge(&["export", model.to_str().unwrap(), xlsx.to_str().unwrap()]).printed();
+            assert!(exported.contains("Export Complete"), "{exported}");
+            let back = dir.path().join("back");
+            std::fs::create_dir(&back).unwrap();
+            let text = forge(&[
+                "import",
+                xlsx.to_str().unwrap(),
+                back.join("model.yaml").to_str().unwrap(),
+            ])
+            .printed();
+            assert!(text.contains("YAML file:"), "{text}");
+            assert!(text.contains("Included files: costs.yaml"), "{text}");
+            assert!(back.join("costs.yaml").exists());
+            // Importing again finds the same values there and writes nothing more
+            let again = forge(&[
+                "import",
+                xlsx.to_str().unwrap(),
+                back.join("model.yaml").to_str().unwrap(),
+            ])
+            .printed();
+            assert!(!again.contains("Included files"), "{again}");
+        }
+    }
+}

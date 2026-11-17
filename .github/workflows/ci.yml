@@ -442,6 +442,19 @@ jobs:
           fi
           echo "PASS: Tool count is $TOOLS"
 
+      # `forge functions | head` must end quietly, like other command-line
+      # tools: only a real process has a pipe to close, so this runs the
+      # built binary (it was tests/broken_pipe.rs)
+      - name: A closed pipe ends quietly
+        run: |
+          ./forge functions 2> stderr.txt | head -1
+          if [ -s stderr.txt ]; then
+            echo "FAIL: forge wrote to stderr when its output was closed:"
+            cat stderr.txt
+            exit 1
+          fi
+          echo "PASS: nothing on stderr"
+
   coverage:
     name: Coverage
     timeout-minutes: 45
