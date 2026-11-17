@@ -26,7 +26,7 @@ const BUDGET: [(&str, usize); 8] = [
     ("ignored tests", 2),
     ("formatting skips", 0),
     ("test files in a tests folder", 45),
-    ("test modules in a file of their own", 24),
+    ("test modules in a file of their own", 18),
 ];
 
 /// The crates: their manifest, and the folders of their Rust code

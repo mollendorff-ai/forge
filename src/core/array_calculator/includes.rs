@@ -142,14 +142,14 @@ mod tests {
     }
 
     const RATES: &str = r#"
-    _forge_version: "5.0.0"
-    fx:
-      usd_eur:
-        value: 0.92
-      eur_usd:
-        value: null
-        formula: "=1 / fx.usd_eur"
-    "#;
+_forge_version: "5.0.0"
+fx:
+  usd_eur:
+    value: 0.92
+  eur_usd:
+    value: null
+    formula: "=1 / fx.usd_eur"
+"#;
 
     fn main_with(body: &str) -> String {
         format!(
@@ -250,14 +250,14 @@ mod tests {
     /// An included file with a price table, whose `with_tax` column is a formula
     /// that reads one of the file's own scalars.
     const PRICES: &str = r#"
-    _forge_version: "5.1.0"
-    tax:
-      rate: 0.15
-    list:
-      item: ["flour", "sesame", "salt"]
-      per_kg: [1.15, 9.40, 0.80]
-      with_tax: "=per_kg * (1 + tax.rate)"
-    "#;
+_forge_version: "5.1.0"
+tax:
+  rate: 0.15
+list:
+  item: ["flour", "sesame", "salt"]
+  per_kg: [1.15, 9.40, 0.80]
+  with_tax: "=per_kg * (1 + tax.rate)"
+"#;
 
     fn order(body: &str) -> String {
         format!(
