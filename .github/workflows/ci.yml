@@ -470,13 +470,15 @@ jobs:
       # the code is at 100%, these floors are the coverage of the last merge,
       # rounded down to a tenth (the weekly run's new property-test seeds can
       # move it by hundredths): raise them whenever coverage goes up, to 100,
-      # and never lower them. Set 2026-11-16 from PR #257's run: lines
-      # 88.04%, functions 84.46%, regions 86.31%.
+      # and never lower them. Set 2026-11-16 from PR #257's run (lines
+      # 88.04%, functions 84.46%, regions 86.31%); raised 2026-11-17 from
+      # PR #258's (88.94%, 85.47%, 87.35%) and PR #259's (89.62%, 86.14%,
+      # 88.14%), as the inline tests moved in.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "88.0"
-          FLOOR_FUNCTIONS: "84.4"
-          FLOOR_REGIONS: "86.3"
+          FLOOR_LINES: "89.6"
+          FLOOR_FUNCTIONS: "86.1"
+          FLOOR_REGIONS: "88.1"
         run: |
           fail=0
           for kind in lines functions regions; do
