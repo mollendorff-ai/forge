@@ -285,11 +285,12 @@ tier1:
   # calculates for the goal's output only (ArrayCalculator::calculate_outputs),
   # as break-even does; the acquisition example's seek starts at 0.
 
-  - id: T1-UNWEIGHTED-SCENARIOS
-    title: "Scenarios to compare beside scenarios to weight"
-    why: "Found building examples/acquisition (2026-11-18): forge scenarios needs every scenario to have a probability, and the probabilities to add to 1, so a deal's payment structures (all cash, all shares, 60/40), which are choices and not chances, cannot sit in the same file as its weighted risk cases for forge compare. The example put the payment mix in a goal seek and the sensitivity table instead"
-    how: "Decide in an ADR whether forge scenarios weights only the scenarios that carry a probability (and says which it left out), or whether a model keeps a second, unweighted list for compare"
-    acceptance: "examples/acquisition has all_cash and all_shares beside its four weighted scenarios, forge compare shows the three structures side by side, and forge scenarios still weights the four and says so"
+  # T1-UNWEIGHTED-SCENARIOS is done (2026-11-18, ADR-067, option 1): forge
+  # scenarios weighs the scenarios that have a probability and names the rest
+  # (`unweighted`), where it refused the file. examples/acquisition has
+  # all_cash and all_shares beside its four weighted scenarios; forge compare
+  # shows the three structures, checked against the Python, and forge
+  # scenarios still weighs the four (139.49) and names the two.
 
   # Examples where no example has been (decided 2026-11-18). Building models
   # is what finds Forge's bugs: bagel found PR 76 and the rc.5 fixes,

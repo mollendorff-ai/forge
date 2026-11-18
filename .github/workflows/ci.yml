@@ -351,6 +351,10 @@ jobs:
         working-directory: studio
         run: node tests/grid.mjs ../studio-site
 
+      - name: Studio weighs the scenarios Forge weighs and names the ones it leaves out
+        working-directory: studio
+        run: node tests/scenarios.mjs ../studio-site
+
       - name: Studio shows a format as Forge gives it
         working-directory: studio
         run: node tests/formats.mjs ../studio-site

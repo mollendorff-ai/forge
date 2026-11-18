@@ -182,7 +182,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_scenarios",
-        description = "Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results."
+        description = "Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results. A scenario without a probability is left out of the weighting and named in `unweighted`; forge_compare puts it beside the others."
     )]
     fn scenarios(&self, Parameters(req): Parameters<ScenariosRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
@@ -404,6 +404,45 @@ scenarios:
         // Expected value should be probability-weighted: 0.5*10000 + 0.5*2500 = 6250
         let ev = parsed["expected_values"]["revenue"].as_f64().unwrap();
         assert!((ev - 6250.0).abs() < 1.0, "Expected ~6250, got {ev}");
+    }
+
+    #[test]
+    fn forge_scenarios_names_the_scenarios_it_does_not_weigh() {
+        // ADR-067: a scenario without a probability is a choice, left out of
+        // the weighting and named in `unweighted`; the chances still weigh
+        let content = r#"
+_forge_version: "5.1.0"
+price: 100
+units: 50
+revenue: {formula: "=price * units"}
+scenarios:
+  high:
+    probability: 0.5
+    scalars:
+      price: 200
+  double_units:
+    scalars:
+      units: 100
+  low:
+    probability: 0.5
+    scalars:
+      price: 50
+"#;
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.scenarios(Parameters(ScenariosRequest {
+            file_path: None,
+            content: Some(content.to_string()),
+            includes: None,
+            scenario_filter: None,
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(parsed["unweighted"], serde_json::json!(["double_units"]));
+        assert_eq!(parsed["scenarios"].as_array().unwrap().len(), 2);
+        // 0.5 * 10,000 + 0.5 * 2,500
+        assert_eq!(
+            parsed["expected_values"]["revenue"],
+            serde_json::json!(6250.0)
+        );
     }
 
     #[test]
