@@ -60,8 +60,8 @@ jobs:
         # LibreOffice from noble-backports: LET needs 24.8 or later, and
         # Ubuntu 24.04 itself has 24.2. A few minutes as a rule; 27 on
         # 2026-11-18, when the Ubuntu mirror was slow. The limit stops a hung
-        # mirror in under an hour, where the job ran until GitHub's six.
-        timeout-minutes: 45
+        # mirror in three hours, where the job ran until GitHub's six.
+        timeout-minutes: 180
         run: |
           sudo apt-get update
           sudo apt-get install -y gnumeric
@@ -109,8 +109,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Install R and packages
-        # As the Gnumeric job's install: a hung mirror fails in under an hour
-        timeout-minutes: 45
+        # As the Gnumeric job's install. This one took 3 minutes on one run
+        # and 155 on another the same morning (2026-11-18) and passed; a limit
+        # of 45 failed it, so the limit is above what has been seen.
+        timeout-minutes: 180
         run: |
           sudo apt-get update
           sudo apt-get install -y r-base r-cran-jsonlite r-cran-boot r-cran-mvtnorm

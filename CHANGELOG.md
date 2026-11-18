@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The Validation workflow's installs stop after 180 minutes, not 45.** The 45 minutes of rc.29 failed the R job on `main` (2026-11-18): the install of R and its packages takes 3 minutes on one run and took 155 on another the same morning, which passed. The limit is now above what has been seen, and still stops a hung install well before GitHub's six hours.
+
 ## [10.0.0-rc.29] - 2026-11-18
 
 A sum near zero is 0, as in Excel. **A result can change:** `=0.1 + 0.2 - 0.3` was 5.55E-17 and is now 0, and so is a `SUM` that cancels, and everything calculated from them (a balance check written as its own cell now passes, as it does in Excel). Excel's rule was measured on 69 formulas in Excel for iPhone: the result of a formula's last `+` or `-`, and the last addition of `SUM`, is 0 when it is less than 8 units in the last place of the larger operand, and not inside parentheses around the whole formula, another operation or a function (ADR-066). A formula that wants the noise writes it in parentheses, as in Excel. `forge break-even`, `goal-seek`, `sensitivity` and `tornado` are no longer stopped by a formula their output does not use, ADR-065's comparisons are checked in Excel (all 13 agree), and the Validation installs stop after 45 minutes. A wrong answer fixed, so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-12-02. One difference from Excel is written down, not changed: Excel cuts a number typed in a formula to 15 significant digits (roadmap T1-EXCEL-LITERAL-DIGITS).
