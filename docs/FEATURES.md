@@ -359,7 +359,7 @@ The price barely drives profit: a higher price brings fewer units (the correlati
 | `MC.Uniform(min, max)` | minimum, maximum | Anything in a range, equally likely |
 | `MC.PERT(min, mode, max)` | minimum, most likely, maximum | Three-point estimates, smoother than triangular |
 | `MC.Lognormal(mean, std_dev)` | mean, standard deviation | Prices and values that cannot go negative |
-| `MC.Discrete(values, probabilities)` | two arrays | A few specific outcomes |
+| `MC.Discrete({values}, {probabilities})` | two array constants, a row `{0, 0.3}` or a column `{0; 0.3}` | A few specific outcomes: `MC.Discrete({0, 0.3}, {0.9, 0.1})` is 0 nine times in ten and 0.3 the tenth |
 
 Every argument is a finite number: `inf`, `NaN` and a literal too large for a number (`1E+400`) are refused with the scalar and the argument named, and so is a distribution whose `max - min` or whose draws would overflow (`MC.Normal(0, 1E+308)`).
 
@@ -369,7 +369,7 @@ An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}
 
 - `iterations` (100 to 1,000,000 in the file, default 10,000; `-n` accepts any count from 1), `sampling` (`latin_hypercube`, the default, spreads each input's samples evenly and gives steadier results for the same count; or `monte_carlo`), and `seed` for the same samples on every run.
 - `outputs`: for each output, `variable` (a scalar, or a table column such as `months.profit`, which gives one result per row, printed as a table); `percentiles` (added to P5, P10, P25, P50, P75, P90 and P95, each 0 to 100); `threshold` or `thresholds` (`"> 0"`, `"<= 100000"`; operators `>`, `>=`, `<`, `<=`, `=`); `expected_shortfall` (`[5, 10]`: the mean of the worst 5% and 10% of runs, the lowest results, or the highest when the variable has `better: lower`; the worst ceil(n × p / 100) runs are averaged). An unknown key is an error.
-- `correlations`: pairs of inputs and a coefficient between -1 and 1, applied as a Gaussian copula, so each input keeps its own distribution (the rank correlation that results is a little lower: 0.58 for 0.6). A name can be the full name or its last part when that is unique, and an input of an included file can be paired with one of the model.
+- `correlations`: pairs of inputs and a coefficient between -1 and 1, applied as a Gaussian copula, so each input keeps its own distribution (the rank correlation that results is a little lower, (6/π) asin(ρ/2): 0.58 for 0.6). Coefficients that no set of inputs can have together, such as a with b 0.9, b with c 0.9 and a with c -0.9, or a coefficient of exactly 1 or -1, are refused before anything is drawn, naming the inputs. `examples/vineyard` shows what a correlation changes: the crop and the price at -0.7 cut the chance of a losing season from 33% to 26%, and the mean with it. A name can be the full name or its last part when that is unique, and an input of an included file can be paired with one of the model.
 
 ### Seeking a probability
 

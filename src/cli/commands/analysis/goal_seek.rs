@@ -358,6 +358,35 @@ mod tests {
         }
     }
 
+    mod vineyard_break_even {
+        //! examples/vineyard: the price a tonne at which the season breaks even.
+        //! The `season` of the Python in prediction/scenarios.rs
+        //! (`vineyard_example`), bisected on the price: 1593.8063063063057, the
+        //! costs 283,060 over the 177.6 price-weighted tonnes.
+
+        use crate::cli::goal_seek_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_season_breaks_even_at_1_593_81_a_tonne() {
+            let result = goal_seek_core(
+                Path::new("examples/vineyard/vineyard.yaml"),
+                "season.profit",
+                0.0,
+                "harvest.price_per_tonne",
+                (None, None),
+                0.0001,
+            )
+            .unwrap();
+            assert!(result.converged);
+            assert!(
+                (result.solution - 1_593.806_306_306_305_7).abs() <= 1e-6,
+                "{}",
+                result.solution
+            );
+        }
+    }
+
     mod realestate_break_even {
         //! examples/realestate: the price at which Linden Court is worth what it
         //! costs. The `run` of the Python in prediction/scenarios.rs
