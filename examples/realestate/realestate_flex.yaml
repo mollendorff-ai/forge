@@ -85,7 +85,7 @@ decision:
   sold_early:
     formula: "=IF(sale_year < deal.hold_years, 1, 0)"
 
-value:
+valuation:
   # Hold ten years and sell, whatever happens
   npv_hold:
     formula: "=SUMPRODUCT(years.cash, years.discount, --(years.n <= deal.hold_years)) + INDEX(years.sale_value, deal.hold_years) * INDEX(years.discount, deal.hold_years) - deal.cost"
@@ -104,15 +104,15 @@ monte_carlo:
   sampling: latin_hypercube
   seed: 43
   outputs:
-    - variable: value.npv_hold
+    - variable: valuation.npv_hold
       percentiles: [5, 50, 95]
       thresholds: ["> 0"]
       expected_shortfall: [5]
-    - variable: value.npv_flex
+    - variable: valuation.npv_flex
       percentiles: [5, 50, 95]
       thresholds: ["> 0"]
       expected_shortfall: [5]
-    - variable: value.flexibility
+    - variable: valuation.flexibility
       percentiles: [5, 50, 95]
       thresholds: ["> 0", "< 0"]
     - variable: decision.sold_early

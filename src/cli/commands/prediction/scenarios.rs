@@ -392,13 +392,17 @@ scalars:
             let results = scenarios_core(Path::new(MODEL), Some("base")).unwrap();
             let base = &results.scenarios[0].outputs;
             let expected = [
-                ("value.dcf", 4_824_715.314_059_857, 1e-6),
-                ("value.npv", 155_715.314_059_857_28, 1e-6),
+                ("valuation.dcf", 4_824_715.314_059_857, 1e-6),
+                ("valuation.npv", 155_715.314_059_857_28, 1e-6),
                 ("returns.unlevered_irr", 0.084_433_061_538_373_82, 1e-9),
                 ("returns.equity_irr", 0.113_651_791_079_176_45, 1e-9),
                 ("returns.equity_multiple", 2.683_287_063_848_492, 1e-9),
                 ("returns.min_dscr", 1.218_220_150_553_821_7, 1e-12),
-                ("value.going_in_cap_rate", 0.057_526_539_130_434_776, 1e-12),
+                (
+                    "valuation.going_in_cap_rate",
+                    0.057_526_539_130_434_776,
+                    1e-12,
+                ),
                 ("sale.net_proceeds", 6_196_943.260_192_36, 1e-6),
             ];
             for (name, want, tol) in expected {
@@ -427,16 +431,16 @@ scalars:
             assert_eq!(results.scenarios.len(), expected.len());
             for (name, npv, dscr) in expected {
                 let scenario = results.scenarios.iter().find(|s| s.name == name).unwrap();
-                let got = scenario.outputs["value.npv"];
+                let got = scenario.outputs["valuation.npv"];
                 assert!(close(got, npv, 1e-6), "{name}: npv {got}, not {npv}");
                 let got = scenario.outputs["returns.min_dscr"];
                 assert!(close(got, dscr, 1e-12), "{name}: dscr {got}, not {dscr}");
             }
             // Worth buying in the plan, but not once the scenarios are weighted
-            let weighted = results.expected_values["value.npv"];
+            let weighted = results.expected_values["valuation.npv"];
             assert!(close(weighted, -129_179.917_457_469_16, 1e-6), "{weighted}");
             assert!(close(
-                results.probability_positive["value.npv"],
+                results.probability_positive["valuation.npv"],
                 0.65,
                 1e-12
             ));

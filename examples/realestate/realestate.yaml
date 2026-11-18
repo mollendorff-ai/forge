@@ -7,7 +7,7 @@ _forge_version: "5.4.0"
 #   forge calculate realestate.yaml --dry-run
 #   forge scenarios realestate.yaml
 #   forge tornado realestate.yaml
-#   forge break-even realestate.yaml --output value.npv --vary deal.price --min 4000000 --max 5500000
+#   forge break-even realestate.yaml --output valuation.npv --vary deal.price --min 4000000 --max 5500000
 
 building:
   units: 24
@@ -86,7 +86,7 @@ sale:
     formula: "=net_proceeds - loan.balance_at_sale"
     format: "$#,##0"
 
-value:
+valuation:
   # Ten years of cash and the sale, discounted at the buyer's rate: what the
   # building is worth to a buyer who pays cash
   dcf:
@@ -152,7 +152,7 @@ scenarios:
       market.exit_cap_rate: 0.07
 
 tornado:
-  output: value.npv
+  output: valuation.npv
   inputs:
     - name: market.exit_cap_rate
       low: 0.05

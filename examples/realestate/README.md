@@ -35,7 +35,7 @@ The building is worth what it costs at a price of 4,753,414.10 (`forge break-eve
 forge calculate examples/realestate/realestate.yaml --dry-run
 forge scenarios examples/realestate/realestate.yaml
 forge tornado examples/realestate/realestate.yaml
-forge break-even examples/realestate/realestate.yaml --output value.npv --vary deal.price --min 4000000 --max 5500000
+forge break-even examples/realestate/realestate.yaml --output valuation.npv --vary deal.price --min 4000000 --max 5500000
 forge simulate examples/realestate/realestate_risk.yaml
 forge simulate examples/realestate/realestate_flex.yaml
 forge simulate examples/realestate/realestate_flex.yaml --scenario random_walk

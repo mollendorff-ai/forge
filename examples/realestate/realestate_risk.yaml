@@ -84,7 +84,7 @@ sale:
     formula: "=net_proceeds - loan.balance_at_sale"
     format: "$#,##0"
 
-value:
+valuation:
   # Ten years of cash and the sale, discounted at the buyer's rate: what the
   # building is worth to a buyer who pays cash
   dcf:
@@ -128,11 +128,11 @@ monte_carlo:
   seed: 41
   outputs:
     # Worth more than it costs; worth 500,000 less
-    - variable: value.npv
+    - variable: valuation.npv
       percentiles: [5, 50, 95]
       thresholds: ["> 0", "< -500000"]
       expected_shortfall: [5]
-    - variable: value.dcf
+    - variable: valuation.dcf
       percentiles: [5, 50, 95]
     - variable: returns.equity_irr
       percentiles: [5, 50, 95]

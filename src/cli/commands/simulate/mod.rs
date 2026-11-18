@@ -1069,7 +1069,7 @@ revenue:
             };
             let result = simulate_core(Path::new(MODEL), options).unwrap();
             assert_eq!(result.iterations_completed, 1000);
-            let npv = &result.outputs["value.npv"];
+            let npv = &result.outputs["valuation.npv"];
             let at_plan = npv.at_plan.unwrap();
             assert!(
                 (at_plan - 155_715.314_059_857_28).abs() <= 1e-6,
@@ -1097,7 +1097,7 @@ revenue:
                         .unwrap();
                 }
                 let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
-                let value = calculated.scalars["value.npv"].value.unwrap();
+                let value = calculated.scalars["valuation.npv"].value.unwrap();
                 assert!(
                     (value - npv.samples[run]).abs() <= 1e-6,
                     "run {run}: {value}"
@@ -1169,8 +1169,8 @@ revenue:
             let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
             let get = |name: &str| calculated.scalars[name].value.unwrap();
             (
-                get("value.npv_hold"),
-                get("value.npv_flex"),
+                get("valuation.npv_hold"),
+                get("valuation.npv_flex"),
                 get("decision.sale_year"),
             )
         }
@@ -1219,12 +1219,12 @@ revenue:
                 ..SimulateOptions::default()
             };
             let result = simulate_core(Path::new(MODEL), options).unwrap();
-            let flexibility = &result.outputs["value.flexibility"];
+            let flexibility = &result.outputs["valuation.flexibility"];
             // At plan the market follows its trend, the rule never fires, and
             // the right to sell early is worth nothing
             assert!(flexibility.at_plan.unwrap().abs() <= 1e-6);
             // Three futures, calculated again by the plain model
-            let npv = &result.outputs["value.npv_flex"];
+            let npv = &result.outputs["valuation.npv_flex"];
             for run in [0, 499, 999] {
                 let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
                 if scenario == Some("random_walk") {
@@ -1236,7 +1236,7 @@ revenue:
                     model.set_input(input, samples[run]).unwrap();
                 }
                 let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
-                let value = calculated.scalars["value.npv_flex"].value.unwrap();
+                let value = calculated.scalars["valuation.npv_flex"].value.unwrap();
                 assert!(close(value, npv.samples[run]), "run {run}: {value}");
             }
             flexibility.statistics.mean

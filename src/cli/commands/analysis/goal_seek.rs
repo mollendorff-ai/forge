@@ -372,7 +372,7 @@ mod tests {
         fn the_building_is_worth_its_cost_at_4_75_million() {
             let result = goal_seek_core(
                 Path::new("examples/realestate/realestate.yaml"),
-                "value.npv",
+                "valuation.npv",
                 0.0,
                 "deal.price",
                 (Some(4_000_000.0), Some(5_500_000.0)),
