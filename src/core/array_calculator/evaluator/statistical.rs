@@ -3,6 +3,7 @@
 use super::{collect_numeric_values, evaluate, paired_numbers, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::number_or;
+use crate::core::precision;
 use crate::core::precision::same;
 use num_traits::ToPrimitive;
 
@@ -20,9 +21,9 @@ pub fn try_evaluate(
             if values.len() < 2 {
                 return Err(EvalError::new("VAR requires at least 2 values"));
             }
-            let mean = values.iter().sum::<f64>() / values.len() as f64;
+            let mean = values.iter().sum::<f64>() / precision::count(values.len());
             let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
-            Value::Number(sum_sq / (values.len() - 1) as f64)
+            Value::Number(sum_sq / precision::count(values.len() - 1))
         },
 
         "VAR.P" | "VARP" => {
@@ -30,9 +31,9 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new("VARP requires at least 1 value"));
             }
-            let mean = values.iter().sum::<f64>() / values.len() as f64;
+            let mean = values.iter().sum::<f64>() / precision::count(values.len());
             let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
-            Value::Number(sum_sq / values.len() as f64)
+            Value::Number(sum_sq / precision::count(values.len()))
         },
 
         "STDEV" | "STDEV.S" => {
@@ -40,9 +41,9 @@ pub fn try_evaluate(
             if values.len() < 2 {
                 return Err(EvalError::new("STDEV requires at least 2 values"));
             }
-            let mean = values.iter().sum::<f64>() / values.len() as f64;
+            let mean = values.iter().sum::<f64>() / precision::count(values.len());
             let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
-            let variance = sum_sq / (values.len() - 1) as f64;
+            let variance = sum_sq / precision::count(values.len() - 1);
             Value::Number(variance.sqrt())
         },
 
@@ -51,9 +52,9 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new("STDEVP requires at least 1 value"));
             }
-            let mean = values.iter().sum::<f64>() / values.len() as f64;
+            let mean = values.iter().sum::<f64>() / precision::count(values.len());
             let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
-            let variance = sum_sq / values.len() as f64;
+            let variance = sum_sq / precision::count(values.len());
             Value::Number(variance.sqrt())
         },
 
@@ -138,7 +139,7 @@ pub fn try_evaluate(
                 arg
             };
             values.sort_by(f64::total_cmp);
-            let n = values.len() as f64;
+            let n = precision::count(values.len());
             // Rank k * (n + 1), counted from 1, so k must leave room for it
             if k < 1.0 / (n + 1.0) || k > n / (n + 1.0) {
                 return Err(EvalError::new(format!(
@@ -168,7 +169,8 @@ pub fn try_evaluate(
             if values.iter().any(|v| *v <= 0.0) {
                 return Err(EvalError::new("GEOMEAN needs numbers above 0 (#NUM!)"));
             }
-            let mean_ln = values.iter().map(|v| v.ln()).sum::<f64>() / values.len() as f64;
+            let mean_ln =
+                values.iter().map(|v| v.ln()).sum::<f64>() / precision::count(values.len());
             Value::Number(mean_ln.exp())
         },
 
@@ -180,7 +182,7 @@ pub fn try_evaluate(
                     "CORREL requires two arrays of equal length >= 2",
                 ));
             }
-            let n = x_vals.len() as f64;
+            let n = precision::count(x_vals.len());
             let x_mean = x_vals.iter().sum::<f64>() / n;
             let y_mean = y_vals.iter().sum::<f64>() / n;
             let mut cov = 0.0;
@@ -273,7 +275,7 @@ pub fn try_evaluate(
                 .iter()
                 .filter(|&&x| if descending { x > number } else { x < number })
                 .count();
-            Value::Number((ahead + 1) as f64)
+            Value::Number(precision::count(ahead + 1))
         },
 
         _ => return Ok(None),
@@ -286,7 +288,7 @@ pub fn try_evaluate(
 /// the two either side of it (PERCENTILE.INC, QUARTILE.INC); `k` is from 0
 /// to 1, so the rank is a place in the values.
 fn inclusive(sorted: &[f64], k: f64) -> f64 {
-    let pos = k * (sorted.len() - 1) as f64;
+    let pos = k * precision::count(sorted.len() - 1);
     let lower = pos.floor();
     let frac = pos - lower;
     let at = lower.to_usize().unwrap_or(0);

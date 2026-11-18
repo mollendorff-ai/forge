@@ -3,6 +3,7 @@
 
 use crate::cli::console::{out, outln};
 use crate::cli::Console;
+use crate::core::precision;
 use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
@@ -55,9 +56,8 @@ pub fn parse_range(range: &str) -> ForgeResult<Vec<f64>> {
         .ok_or_else(|| {
             ForgeError::Validation(format!("The range {range} has too many steps to calculate"))
         })?;
-    #[allow(clippy::cast_precision_loss)] // step index is always small enough for f64
     let values: Vec<f64> = (0..num_steps)
-        .map(|i| step.mul_add(i as f64, start))
+        .map(|i| step.mul_add(precision::count(i), start))
         .collect();
 
     Ok(values)

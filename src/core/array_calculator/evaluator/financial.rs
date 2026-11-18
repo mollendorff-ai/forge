@@ -5,6 +5,7 @@ use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::day_count::{self, Basis};
 use crate::core::array_calculator::evaluator::{number_or, parse_date_value};
+use crate::core::precision;
 use num_traits::ToPrimitive;
 
 /// Return an error unless the cash flows contain both signs.
@@ -238,9 +239,8 @@ fn dated_cash_flows(
 }
 
 /// Try to evaluate a financial function. Returns None if function not recognized.
-#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
-// A count of cash flows becomes a number. Splitting this 600-line match would
-// fragment the function dispatch table.
+#[allow(clippy::too_many_lines)]
+// Splitting this 600-line match would fragment the function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -597,7 +597,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("MIRR requires cash flows"));
             }
 
-            let n = values.len() as f64;
+            let n = precision::count(values.len());
             let mut npv_neg = 0.0;
             let mut npv_pos = 0.0;
 
@@ -885,7 +885,7 @@ mod tests {
         let npv: f64 = [-1000.0, 1.0, 1.0, 1.0, 1.0]
             .iter()
             .enumerate()
-            .map(|(i, cf)| cf / (1.0 + irr).powf(i as f64))
+            .map(|(i, cf)| cf / (1.0 + irr).powf(precision::count(i)))
             .sum();
         assert!(irr > -1.0 && npv.abs() < 1e-5, "irr {irr}, npv {npv}");
     }

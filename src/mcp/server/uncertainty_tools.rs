@@ -2,6 +2,7 @@
 //! the bootstrap and Bayesian networks.
 
 use super::{to_json, ForgeMcpServer};
+use crate::core::precision;
 use crate::mcp::types::{
     BayesianRequest, BootstrapRequest, DecisionTreeRequest, RealOptionsRequest, SimulateRequest,
 };
@@ -28,8 +29,7 @@ fn compact_bootstrap(result: &crate::bootstrap::BootstrapResult) -> serde_json::
         map.remove("distribution");
         if !sorted.is_empty() {
             let at = |p: f64| {
-                #[allow(clippy::cast_precision_loss)]
-                let i = (p * (sorted.len() - 1) as f64)
+                let i = (p * precision::count(sorted.len() - 1))
                     .round()
                     .to_usize()
                     .unwrap_or(0)

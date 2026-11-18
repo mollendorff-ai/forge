@@ -6,6 +6,7 @@
 //! 3. Evaluate formulas for each iteration
 //! 4. Compute output statistics
 
+use crate::core::precision;
 use indexmap::IndexMap;
 use num_traits::ToPrimitive;
 use std::collections::HashMap;
@@ -160,16 +161,12 @@ fn expected_shortfall(samples: &[f64], percent: u8, higher_is_worse: bool) -> f6
     if higher_is_worse {
         sorted.reverse();
     }
-    // n is far below 2^52, so the products are exact
-    #[allow(clippy::cast_precision_loss)]
-    let count = ((sorted.len() as f64) * f64::from(percent) / 100.0)
+    let count = (precision::count(sorted.len()) * f64::from(percent) / 100.0)
         .ceil()
         .to_usize()
         .unwrap_or(1);
     let worst = &sorted[..count.clamp(1, sorted.len())];
-    #[allow(clippy::cast_precision_loss)]
-    let mean = worst.iter().sum::<f64>() / worst.len() as f64;
-    mean
+    worst.iter().sum::<f64>() / precision::count(worst.len())
 }
 
 /// Every input whose samples vary, ranked by the size of its rank
@@ -646,7 +643,7 @@ impl SimulationResult {
             .iter()
             .map(|(name, plan)| {
                 let mean = self.input_samples.get(name).map(|s| {
-                    let n = s.len() as f64;
+                    let n = precision::count(s.len());
                     s.iter().sum::<f64>() / n
                 });
                 (

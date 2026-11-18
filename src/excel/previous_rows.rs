@@ -15,6 +15,7 @@
 
 use crate::core::array_calculator::parser::{parse, Expr};
 use crate::core::array_calculator::tokenizer::tokenize;
+use crate::core::precision;
 use num_traits::ToPrimitive;
 
 fn parsed(formula: &str) -> Option<Expr> {
@@ -181,8 +182,7 @@ fn line_up(rest: &Expr, first: &Expr, row: Option<usize>) -> Option<Expr> {
         None => {
             let mut args = vec![unmarked(rest), first.clone()];
             if back > 1 {
-                #[allow(clippy::cast_precision_loss)] // a row count
-                args.push(Expr::Number(back as f64));
+                args.push(Expr::Number(precision::count(back)));
             }
             Expr::FunctionCall {
                 name: "PREV".to_string(),

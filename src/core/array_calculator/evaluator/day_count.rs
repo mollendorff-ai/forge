@@ -8,6 +8,7 @@
 //! - 4: European 30/360
 
 use super::EvalError;
+use crate::core::precision;
 use chrono::{Datelike, Months, NaiveDate};
 use num_traits::ToPrimitive;
 
@@ -51,10 +52,7 @@ fn is_last_day_of_february(date: NaiveDate) -> bool {
 }
 
 fn actual_days(start: NaiveDate, end: NaiveDate) -> f64 {
-    // Day counts between real dates fit easily in f64
-    #[allow(clippy::cast_precision_loss)]
-    let days = (end - start).num_days() as f64;
-    days
+    precision::whole((end - start).num_days())
 }
 
 /// Days between two dates in 30/360, the way Excel's `YEARFRAC` counts them

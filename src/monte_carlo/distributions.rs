@@ -628,6 +628,7 @@ pub fn parse_distribution(formula: &str) -> Result<Distribution, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::precision;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
 
@@ -641,9 +642,9 @@ mod tests {
         let mut rng = seeded_rng();
 
         let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
-        let variance: f64 =
-            samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / samples.len() as f64;
+        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
+        let variance: f64 = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+            / precision::count(samples.len());
 
         // Mean should be within 2% of theoretical
         assert!((mean - 100.0).abs() < 2.0, "Mean {mean} not close to 100");
@@ -660,7 +661,7 @@ mod tests {
         let mut rng = seeded_rng();
 
         let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
+        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
 
         // Theoretical mean = (0 + 5 + 10) / 3 = 5
         assert!((mean - 5.0).abs() < 0.2, "Mean {mean} not close to 5");
@@ -675,7 +676,7 @@ mod tests {
         let mut rng = seeded_rng();
 
         let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
+        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
 
         // Theoretical mean = (10 + 20) / 2 = 15
         assert!((mean - 15.0).abs() < 0.2, "Mean {mean} not close to 15");
@@ -690,7 +691,7 @@ mod tests {
         let mut rng = seeded_rng();
 
         let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
+        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
 
         // Theoretical mean = (0 + 4*3 + 10) / 6 = 22/6 ≈ 3.67
         let theoretical = (4.0f64.mul_add(3.0, 0.0) + 10.0) / 6.0;

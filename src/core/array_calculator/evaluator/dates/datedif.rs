@@ -4,14 +4,14 @@ use super::{
     evaluate, parse_date_value, require_args, Datelike, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::{day_count, number_or};
+use crate::core::precision;
 
 use super::require_args_range;
 use num_traits::ToPrimitive;
 
 /// Try to evaluate a date difference function.
-#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
-// A day count becomes a number. Splitting this match would fragment the date
-// function dispatch table.
+#[allow(clippy::too_many_lines)]
+// Splitting this match would fragment the date function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -33,7 +33,7 @@ pub fn try_evaluate(
             }
 
             let result = match unit.as_str() {
-                "D" => (end_date - start_date).num_days() as f64,
+                "D" => precision::whole((end_date - start_date).num_days()),
                 "M" => {
                     // Complete months between dates
                     // (whole numbers, exact as floats)
@@ -120,7 +120,7 @@ pub fn try_evaluate(
                     }
                     .ok_or_else(|| EvalError::new("DATEDIF: invalid anniversary date"))?;
 
-                    (end_date - anniversary).num_days() as f64
+                    precision::whole((end_date - anniversary).num_days())
                 },
                 _ => return Err(EvalError::new(format!("DATEDIF: unknown unit '{unit}'"))),
             };

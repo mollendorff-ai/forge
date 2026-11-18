@@ -1,5 +1,6 @@
 //! Date arithmetic and extraction functions: YEAR, MONTH, DAY, DATE, EDATE, EOMONTH, DAYS
 
+use crate::core::precision;
 use chrono::{Days, Months, NaiveDate};
 use num_traits::ToPrimitive;
 
@@ -8,9 +9,8 @@ use super::{
 };
 
 /// Try to evaluate a date arithmetic function.
-#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
-// A day count becomes a number. Splitting this match would fragment the date
-// function dispatch table.
+#[allow(clippy::too_many_lines)]
+// Splitting this match would fragment the date function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -91,7 +91,7 @@ pub fn try_evaluate(
             if date >= first {
                 Value::Text(date.format("%Y-%m-%d").to_string())
             } else {
-                Value::Number((date - excel_base).num_days() as f64)
+                Value::Number(precision::whole((date - excel_base).num_days()))
             }
         },
 
@@ -154,7 +154,7 @@ pub fn try_evaluate(
             let end_date = parse_date_value(&end)?;
             let start_date = parse_date_value(&start)?;
 
-            Value::Number((end_date - start_date).num_days() as f64)
+            Value::Number(precision::whole((end_date - start_date).num_days()))
         },
 
         _ => return Ok(None),

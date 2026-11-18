@@ -1,18 +1,18 @@
 //! String length and extraction functions: LEN, LEFT, RIGHT, MID
 
-// A count of characters becomes a number.
-#![allow(clippy::cast_precision_loss)]
-
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 use super::whole_arg;
+use crate::core::precision;
 
 /// LEN(text) - Returns the length of a text string
 pub fn eval_len(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("LEN", args, 1)?;
     let val = evaluate(&args[0], ctx)?;
-    Ok(Value::Number(val.as_text().chars().count() as f64))
+    Ok(Value::Number(precision::count(
+        val.as_text().chars().count(),
+    )))
 }
 
 /// LEFT(text, [`num_chars`]) - Returns the leftmost characters from a text string

@@ -2,10 +2,8 @@
 //!
 //! Functions: SUM, AVERAGE, MIN, MAX, COUNT, PRODUCT, COUNTA, MEDIAN
 
-// Aggregation casts: array lengths (usize) to f64 for AVERAGE/COUNT (bounded by worksheet size).
-#![allow(clippy::cast_precision_loss)]
-
 use super::{collect_numeric_values, evaluate, EvalContext, EvalError, Expr, Value};
+use crate::core::precision;
 
 /// Try to evaluate an aggregation function. Returns None if function not recognized.
 pub fn try_evaluate(
@@ -27,7 +25,7 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new("AVERAGE of empty set"));
             }
-            Value::Number(values.iter().sum::<f64>() / values.len() as f64)
+            Value::Number(values.iter().sum::<f64>() / precision::count(values.len()))
         },
 
         "MIN" => {
@@ -62,7 +60,7 @@ pub fn try_evaluate(
                     _ => {},
                 }
             }
-            Value::Number(count as f64)
+            Value::Number(precision::count(count))
         },
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -73,7 +71,7 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new("AVG of empty set"));
             }
-            Value::Number(values.iter().sum::<f64>() / values.len() as f64)
+            Value::Number(values.iter().sum::<f64>() / precision::count(values.len()))
         },
 
         "PRODUCT" => {
@@ -97,7 +95,7 @@ pub fn try_evaluate(
                 Value::Array(arr) => arr.iter().filter(|v| blank(v)).count(),
                 single => usize::from(blank(&single)),
             };
-            Value::Number(count as f64)
+            Value::Number(precision::count(count))
         },
 
         "COUNTA" => {
@@ -112,7 +110,7 @@ pub fn try_evaluate(
                     _ => count += 1,
                 }
             }
-            Value::Number(count as f64)
+            Value::Number(precision::count(count))
         },
 
         "MEDIAN" => {
