@@ -358,6 +358,35 @@ mod tests {
         }
     }
 
+    mod fund_goal_seek {
+        //! examples/fund: how much better every exit must be for the investors
+        //! to earn 15% after fees and carry. The `flows` of the Python in
+        //! prediction/scenarios.rs (`fund_example`), solved with brentq on the
+        //! factor: 1.2323832625047246.
+
+        use crate::cli::goal_seek_core;
+        use std::path::Path;
+
+        #[test]
+        fn exits_a_quarter_better_give_the_investors_15_percent() {
+            let result = goal_seek_core(
+                Path::new("examples/fund/fund.yaml"),
+                "fund.net_irr",
+                0.15,
+                "market.multiple_factor",
+                (Some(0.5), Some(3.0)),
+                1e-12,
+            )
+            .unwrap();
+            assert!(result.converged);
+            assert!(
+                (result.solution - 1.232_383_262_504_724_6).abs() <= 1e-9,
+                "{}",
+                result.solution
+            );
+        }
+    }
+
     mod vineyard_break_even {
         //! examples/vineyard: the price a tonne at which the season breaks even.
         //! The `season` of the Python in prediction/scenarios.rs

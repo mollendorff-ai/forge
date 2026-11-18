@@ -285,11 +285,12 @@ tier1:
   # calculates for the goal's output only (ArrayCalculator::calculate_outputs),
   # as break-even does; the acquisition example's seek starts at 0.
 
-  - id: T1-UNWEIGHTED-SCENARIOS
-    title: "Scenarios to compare beside scenarios to weight"
-    why: "Found building examples/acquisition (2026-11-18): forge scenarios needs every scenario to have a probability, and the probabilities to add to 1, so a deal's payment structures (all cash, all shares, 60/40), which are choices and not chances, cannot sit in the same file as its weighted risk cases for forge compare. The example put the payment mix in a goal seek and the sensitivity table instead"
-    how: "Decide in an ADR whether forge scenarios weights only the scenarios that carry a probability (and says which it left out), or whether a model keeps a second, unweighted list for compare"
-    acceptance: "examples/acquisition has all_cash and all_shares beside its four weighted scenarios, forge compare shows the three structures side by side, and forge scenarios still weights the four and says so"
+  # T1-UNWEIGHTED-SCENARIOS is done (2026-11-18, ADR-067, option 1): forge
+  # scenarios weighs the scenarios that have a probability and names the rest
+  # (`unweighted`), where it refused the file. examples/acquisition has
+  # all_cash and all_shares beside its four weighted scenarios; forge compare
+  # shows the three structures, checked against the Python, and forge
+  # scenarios still weighs the four (139.49) and names the two.
 
   # Examples where no example has been (decided 2026-11-18). Building models
   # is what finds Forge's bugs: bagel found PR 76 and the rc.5 fixes,
@@ -340,12 +341,29 @@ tier1:
   # change a coefficient, and including the risk file does not calculate its
   # tables in the including model.
 
-  - id: T1-EXAMPLE-DATES
-    title: "An example on real dates: irregular cash flows, XNPV and XIRR"
-    run_with: "Opus 5.5, high effort: day counts and IRR conventions are easy to get subtly wrong, and the check must come from outside Forge"
-    why: "Every story example counts periods as rows; none uses XNPV, XIRR, DATE, VLOOKUP, LET, LAMBDA or IFERROR (one EOMONTH). rc.22 and rc.23 fixed eight wrong answers in date and financial functions, found by sweeps, not by a model; a model on real dates has never been built. Dates are where spreadsheets disagree most"
-    how: "examples/fund/: a small venture fund over ten years. Capital calls and distributions on irregular dates (DATE, EOMONTH, a date as a scalar per ADR-060), management fees looked up from a fee table by year (VLOOKUP or XLOOKUP), the fund's net return by XIRR and its value by XNPV, a LET or LAMBDA where it makes a formula clearer, IFERROR where a lookup may miss. Scenarios on exit timing (a year later costs IRR, not much NPV), a tornado, and goal-seek for the exit multiple that gives a 15% net IRR. Python: numpy-financial or scipy for XIRR and XNPV on actual/365 days, written from the README's dates; then forge export and recalculate the workbook in Gnumeric (validation/gnumeric harness) or LibreOffice so a spreadsheet agrees too"
-    acceptance: "examples/fund runs with every command its README names; XIRR, XNPV and the goal-seek answer agree with the Python to the cent (IRR to 1e-9), asserted in inline tests; the exported workbook recalculates to the same numbers outside Forge; Studio and forge-wasm have it"
+  # T1-EXAMPLE-DATES is done (2026-11-18): examples/fund. A venture fund's
+  # calls, fees and exits on their dates (EDATE, EOMONTH, DATE, XLOOKUP, LET,
+  # IFERROR), XIRR and XNPV agreeing with scipy to 1e-9 and the cent in the
+  # plan, four scenarios, a tornado and a goal seek. LibreOffice recalculates
+  # the exported workbook to Forge's digits; Gnumeric 1.12 has no XLOOKUP or
+  # LET, so the dated flows are a validation case it judges
+  # (edge_fund_cash_flows.yaml). It found the two items below. The roadmap's
+  # guess that a year's delay "costs IRR, not much NPV" was wrong: at 12% it
+  # costs 3.0 million of value as well as 1.8 points.
+
+  - id: T1-DATE-OF-MAX
+    title: "MAX of a date column is a number, and a date format on it is refused"
+    run_with: "Sonnet 5.5, medium effort: a contained decision under ADR-060, and a change test-first"
+    why: "Found building examples/fund (2026-11-18): fund.last_exit = MAX(deals.exit_date) is 47369, and format: \"d mmm yyyy\" on it is refused (\"is a date format, and the value is a number\"). In Excel MAX of dates is a day number too, and a date format shows it as a date, so a spreadsheet user writes exactly this. ADR-060 decision 3 lists the functions whose result is a date (EDATE, EOMONTH, DATE, IF, INDEX, XLOOKUP and the like); MAX, MIN, MAXIFS, MINIFS and LARGE of dates are not among them"
+    how: "An ADR-060 addendum: either MAX, MIN, MAXIFS, MINIFS, LARGE and SMALL of dates give a date (as XLOOKUP of a date does), or a date format on a number shows the day number as a date, as Excel does. Then the change, test-first, and examples/fund's last_exit gets its format"
+    acceptance: "fund.last_exit shows 8 Sep 2029 in forge calculate, the workbook and Studio; the addendum says which rule and why; a test fails on the commit before"
+
+  - id: T1-EXCEL-XNPV-ORDER
+    title: "Check in Excel what XNPV and XIRR do with a date before the first"
+    run_with: "Sonnet 5.5, low effort: measure in Excel, then write it down or follow it"
+    why: "Microsoft's documentation says XNPV and XIRR give #NUM! when any date precedes the first. Forge and LibreOffice 26.2 calculate anyway: dates 2021-01-01, 2020-01-01, 2022-01-01 with -100, -50, 200 give XNPV(0.1) 26.8038181349981 and XIRR 0.235869752954134. Gnumeric 1.12 gives the same XNPV and #VALUE! for XIRR (measured 2026-11-18, building examples/fund). Excel itself has not been asked"
+    how: "Those formulas in Excel (the maintainer has Excel for iPhone), with the dates in cells; if Excel gives #NUM!, Forge follows it test-first (the check goes in dated_cash_flows, src/core/array_calculator/evaluator/financial.rs, which is at 1,467 lines: split it first); otherwise VALIDATION.md says the documentation is wrong"
+    acceptance: "Excel's answer is in a validation case with the date it was measured, and Forge gives it or the difference is written down"
 
   - id: T1-EXAMPLE-EXCEL-ROUNDTRIP
     title: "An example that starts from a messy workbook: import, audit, change, export"

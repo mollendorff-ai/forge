@@ -320,7 +320,7 @@ Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular,
 
 #### `forge_scenarios`
 
-Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results.
+Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results. A scenario without a probability is left out of the weighting and named in `unweighted`; forge_compare puts it beside the others.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|

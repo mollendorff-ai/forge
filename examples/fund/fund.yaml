@@ -1,0 +1,125 @@
+_forge_version: "5.4.0"
+# Corvane Seed Fund I: a fictional venture fund, seen by one of its investors
+# (a limited partner). Every company, date and figure is made up.
+
+terms:
+  # What the investors promised to pay in when the fund asked
+  committed: {value: 40000000, format: "$#,##0"}
+  first_close: {value: 2020-03-02, format: "d mmm yyyy"}
+  # The fund runs ten years from its first close
+  term_end:
+    formula: "=DATE(YEAR(first_close) + 10, MONTH(first_close), DAY(first_close))"
+    format: "d mmm yyyy"
+  # The managers' share of the profit, once the investors have their money back
+  carry_rate: {value: 0.20, format: "0%"}
+  # What an investor could earn elsewhere for this risk
+  investor_rate: {value: 0.12, format: "0%"}
+
+# What the plan assumes about exits, for scenarios and the tornado
+market:
+  # Every company sells for this times its planned multiple
+  multiple_factor: {value: 1.0, format: "0.00"}
+  # Every exit comes this many months after its planned date
+  delay_months: 0
+
+# The eight companies the fund invested in
+deals:
+  company: [halden, mirefield, quarto, ossory, telmar, brisk, vantor, lumen]
+  invested: [2020-04-15, 2020-09-01, 2021-01-20, 2021-06-10, 2021-11-30, 2022-05-16, 2022-10-03, 2023-03-08]
+  cost: {value: [3000000, 4000000, 3500000, 4500000, 3000000, 4000000, 3500000, 4500000], format: "$#,##0"}
+  # Months from the investment to the sale, as planned
+  hold_months: [60, 72, 48, 84, 36, 66, 54, 78]
+  # What each sale returns, as a multiple of the cost: two fail, one carries the fund
+  multiple: {value: [0, 1.2, 3.5, 0.5, 0, 8.0, 1.8, 2.5], format: "0.0\"x\""}
+  exit_date:
+    formula: "=EDATE(invested, hold_months + market.delay_months)"
+    format: "d mmm yyyy"
+  proceeds:
+    formula: "=cost * multiple * market.multiple_factor"
+    format: "$#,##0"
+
+# The management fee, a share of the commitment, called each March for the year
+fees:
+  year: [year_1, year_2, year_3, year_4, year_5, year_6, year_7, year_8, year_9, year_10]
+  n: "=ROW()"
+  rate: {value: [0.02, 0.02, 0.02, 0.02, 0.02, 0.0175, 0.015, 0.0125, 0.01, 0.01], format: "0.00%"}
+  due:
+    formula: "=EOMONTH(terms.first_close, 12 * (n - 1))"
+    format: "d mmm yyyy"
+
+# The investors' account, one row a cash flow, in the order of the plan's dates.
+# A call is money in (negative to the investors), an exit money out.
+ledger:
+  kind: [fee, call, call, call, fee, call, call, fee, call, call, call, fee, fee, exit, exit, fee, exit, fee, exit, fee, exit, exit, fee, exit, fee, exit]
+  item: [year_1, halden, mirefield, quarto, year_2, ossory, telmar, year_3, brisk, vantor, lumen, year_4, year_5, telmar, quarto, year_6, halden, year_7, mirefield, year_8, vantor, brisk, year_9, ossory, year_10, lumen]
+  date:
+    formula: "=IF(kind = \"fee\", XLOOKUP(item, fees.year, fees.due), IF(kind = \"call\", XLOOKUP(item, deals.company, deals.invested), XLOOKUP(item, deals.company, deals.exit_date)))"
+    format: "d mmm yyyy"
+  # Before fees and carry: what the fund paid for and sold the companies for
+  gross:
+    formula: "=IF(kind = \"call\", -XLOOKUP(item, deals.company, deals.cost), IF(kind = \"exit\", XLOOKUP(item, deals.company, deals.proceeds), 0))"
+    format: "$#,##0"
+  fee:
+    formula: "=IF(kind = \"fee\", -terms.committed * IFERROR(XLOOKUP(item, fees.year, fees.rate), 0), 0)"
+    format: "$#,##0"
+  # The managers' carry, taken from the last exit
+  carry:
+    formula: "=IF(AND(kind = \"exit\", date = fund.last_exit), -fund.carry, 0)"
+    format: "$#,##0"
+  net:
+    formula: "=gross + fee + carry"
+    format: "$#,##0"
+
+fund:
+  paid_in: {formula: "=SUM(deals.cost) + terms.committed * SUM(fees.rate)", format: "$#,##0"}
+  gross_proceeds: {formula: "=SUM(deals.proceeds)", format: "$#,##0"}
+  # 20% of what the investors get back beyond what they paid in, fees included
+  carry: {formula: "=terms.carry_rate * MAX(0, gross_proceeds - paid_in)", format: "$#,##0"}
+  last_exit: {formula: "=MAX(deals.exit_date)"}
+  # Exits after the fund's ten years, which need the investors to extend it
+  exits_after_term: {formula: "=COUNTIF(deals.exit_date, \">\" & terms.term_end)"}
+  # The return on the companies alone, and the investors' return after fees and carry
+  gross_irr: {formula: "=XIRR(ledger.gross, ledger.date)", format: "0.00%"}
+  net_irr: {formula: "=XIRR(ledger.net, ledger.date)", format: "0.00%"}
+  # What the investors' cash flows are worth at the return they could earn elsewhere
+  net_value: {formula: "=XNPV(terms.investor_rate, ledger.net, ledger.date)", format: "$#,##0"}
+  # Total value to paid-in: what came back for each dollar paid in
+  tvpi:
+    formula: "=LET(back, SUMIF(ledger.net, \">0\"), paid, -SUMIF(ledger.net, \"<0\"), back / paid)"
+    format: "0.00\"x\""
+  gross_multiple: {formula: "=gross_proceeds / SUM(deals.cost)", format: "0.00\"x\""}
+
+scenarios:
+  base:
+    probability: 0.40
+    description: Exits as planned
+    scalars: {}
+  late:
+    probability: 0.25
+    description: Every exit comes a year late, for the same price
+    scalars:
+      market.delay_months: 12
+  cold:
+    probability: 0.20
+    description: A cold market for exits; every company sells for a quarter less
+    scalars:
+      market.multiple_factor: 0.75
+  cold_and_late:
+    probability: 0.15
+    description: Both
+    scalars:
+      market.delay_months: 12
+      market.multiple_factor: 0.75
+
+tornado:
+  output: fund.net_irr
+  inputs:
+    - name: market.multiple_factor
+      low: 0.7
+      high: 1.3
+    - name: market.delay_months
+      low: -12
+      high: 12
+    - name: terms.carry_rate
+      low: 0.1
+      high: 0.3

@@ -461,6 +461,7 @@ Scenario Analysis models strategic decision-making through distinct future state
 
 **Key Features:**
 - Define 2-10 scenarios with probability weights (must sum to 1.0)
+- Keep choices beside them: a scenario without a probability is left out of the weighting, named in the output, and compared with `forge compare`
 - Override any scalar variable per scenario
 - Calculate expected values across all scenarios
 - Full integration with existing Forge models
