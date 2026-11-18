@@ -359,4 +359,32 @@ mod tests {
             );
         }
     }
+
+    mod realestate_break_even {
+        //! examples/realestate: the price at which Linden Court is worth what it
+        //! costs. The `run` of the Python in prediction/scenarios.rs
+        //! (`realestate_example`), bisected on the price: 4753414.102522027.
+
+        use crate::cli::goal_seek_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_building_is_worth_its_cost_at_4_75_million() {
+            let result = goal_seek_core(
+                Path::new("examples/realestate/realestate.yaml"),
+                "value.npv",
+                0.0,
+                "deal.price",
+                (Some(4_000_000.0), Some(5_500_000.0)),
+                0.0001,
+            )
+            .unwrap();
+            assert!(result.converged);
+            assert!(
+                (result.solution - 4_753_414.102_522_027).abs() <= 1e-3,
+                "{}",
+                result.solution
+            );
+        }
+    }
 }

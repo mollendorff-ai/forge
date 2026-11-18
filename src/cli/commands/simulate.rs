@@ -1323,4 +1323,65 @@ revenue:
             }
         }
     }
+
+    mod realestate_example {
+        //! `examples/realestate/realestate_risk.yaml`: futures for Linden Court.
+        //! The README quotes the file's 10,000 runs; this runs 1,000. Three of the
+        //! uncertain inputs lean against the buyer (vacancy, the exit cap rate and
+        //! the running costs have their mean on the bad side of the plan), so the
+        //! mean value falls below the value at plan, which is realestate.yaml's
+        //! (prediction/scenarios.rs, `realestate_example`). Rent growth drives the
+        //! value most, as in the tornado. Three of the futures are calculated again
+        //! by the plain model with that future's inputs.
+
+        use crate::cli::{simulate_core, SimulateOptions};
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/realestate/realestate_risk.yaml";
+
+        #[test]
+        fn the_futures_lean_below_the_plan_and_rent_growth_drives_them() {
+            let options = SimulateOptions {
+                iterations: Some(1000),
+                ..SimulateOptions::default()
+            };
+            let result = simulate_core(Path::new(MODEL), options).unwrap();
+            assert_eq!(result.iterations_completed, 1000);
+            let npv = &result.outputs["value.npv"];
+            let at_plan = npv.at_plan.unwrap();
+            assert!(
+                (at_plan - 155_715.314_059_857_28).abs() <= 1e-6,
+                "{at_plan}"
+            );
+            assert!(npv.statistics.mean < at_plan, "{}", npv.statistics.mean);
+            assert_eq!(npv.drivers[0].input, "market.rent_growth");
+            // The lender's cover depends on this year's rent and costs, not on growth
+            let dscr = &result.outputs["returns.min_dscr"];
+            let mut first_two = [
+                dscr.drivers[0].input.as_str(),
+                dscr.drivers[1].input.as_str(),
+            ];
+            first_two.sort_unstable();
+            assert_eq!(
+                first_two,
+                ["building.opex_per_unit_year", "building.vacancy"]
+            );
+
+            for run in [0, 499, 999] {
+                let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+                for (input, samples) in &result.input_samples {
+                    model
+                        .override_scalar(input, Some(samples[run]), None)
+                        .unwrap();
+                }
+                let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
+                let value = calculated.scalars["value.npv"].value.unwrap();
+                assert!(
+                    (value - npv.samples[run]).abs() <= 1e-6,
+                    "run {run}: {value}"
+                );
+            }
+        }
+    }
 }
