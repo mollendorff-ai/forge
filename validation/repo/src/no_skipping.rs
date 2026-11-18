@@ -20,8 +20,8 @@ use std::collections::BTreeMap;
 /// What is left of each kind on 2026-11-16, when the rule was made. Lower a
 /// number when a change removes some; never raise one.
 pub const BUDGET: [(&str, usize); 8] = [
-    ("lint allow or expect attributes", 52),
-    ("lints allowed in a Cargo.toml", 14),
+    ("lint allow or expect attributes", 38),
+    ("lints allowed in a Cargo.toml", 13),
     ("lint groups a crate does not enable", 2),
     ("code compiled only for or only without coverage", 5),
     ("ignored tests", 2),

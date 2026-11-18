@@ -437,7 +437,6 @@ impl Dates<'_> {
         }
     }
 
-    #[allow(clippy::too_many_lines)] // one rule per family of functions
     pub(super) fn write_call(
         &mut self,
         name: &str,
@@ -478,92 +477,10 @@ impl Dates<'_> {
                     written.push(self.write(arg, read, whole)?);
                 }
             },
-            "SWITCH" => {
-                let results = switch_results(args.len());
-                let compared: Vec<Kind> = (0..args.len())
-                    .filter(|i| !results.contains(i))
-                    .map(|i| self.kind(&args[i]))
-                    .collect();
-                let compare = if compared.contains(&Kind::Mixed) {
-                    // Text with text; with a number Forge may find a date
-                    // equal to its day number
-                    if compared
-                        .iter()
-                        .all(|k| matches!(k, Kind::Mixed | Kind::Text | Kind::Written))
-                    {
-                        Read::Text
-                    } else {
-                        return Err(
-                            "SWITCH compares text that may be a date with a number".to_string()
-                        );
-                    }
-                } else if compared.iter().any(|k| k.is_date()) {
-                    if compared.iter().all(|k| k.is_date() || *k == Kind::Number) {
-                        Read::Number
-                    } else {
-                        return Err(
-                            "SWITCH compares a date with values that are not dates".to_string()
-                        );
-                    }
-                } else {
-                    Read::Text
-                };
-                for (i, arg) in args.iter().enumerate() {
-                    let read = if results.contains(&i) { read } else { compare };
-                    written.push(self.write(arg, read, whole)?);
-                }
-            },
-            "INDEX" => {
-                for (i, arg) in args.iter().enumerate() {
-                    let read = if i == 0 {
-                        self.handed_on(arg)
-                    } else {
-                        Read::Number
-                    };
-                    written.push(self.write(arg, read, whole_arg(i))?);
-                }
-                let result = call(name, written);
-                return Ok(if kind == Kind::Date && read == Read::Text {
-                    as_text(&result)
-                } else {
-                    result
-                });
-            },
+            "SWITCH" => written = self.write_switch(args, read, whole)?,
+            "INDEX" => return self.write_index(name, upper, args, read, whole, kind),
             "MATCH" | "XLOOKUP" => {
-                let [value, array, ..] = args else {
-                    return Err(format!("{upper} needs a value and an array"));
-                };
-                let value_read = self.looked_up(value, array)?;
-                written.push(self.write(value, value_read, whole_arg(0))?);
-                let array_read = self.handed_on(array);
-                written.push(self.write(array, array_read, whole_arg(1))?);
-                if upper == "XLOOKUP" {
-                    let found = args.get(2).map_or(Kind::Unknown, |a| self.kind(a));
-                    if found.is_date() && kind != Kind::Date {
-                        return Err(
-                            "XLOOKUP gives a date, or a value that is not a date when none is found"
-                                .to_string(),
-                        );
-                    }
-                }
-                // What is found, and what is given when nothing is: dates as
-                // day numbers if both are dates, otherwise as they are
-                let rest = if kind == Kind::Date {
-                    Read::Number
-                } else {
-                    Read::Text
-                };
-                for (i, arg) in args.iter().enumerate().skip(2) {
-                    written.push(self.write(arg, rest, whole_arg(i))?);
-                }
-                let result = call(name, written);
-                return Ok(
-                    if upper == "XLOOKUP" && kind == Kind::Date && read == Read::Text {
-                        as_text(&result)
-                    } else {
-                        result
-                    },
-                );
+                return self.write_match(name, upper, args, read, whole, kind);
             },
             "TEXT" => {
                 // TEXT formats the day number of a date, in Forge as in Excel
@@ -572,86 +489,9 @@ impl Dates<'_> {
                     written.push(self.write(arg, read, whole)?);
                 }
             },
-            "LET" => {
-                // A name bound to a date is the day number; where the body
-                // reads it as text it is written as text there
-                let before = self.locals.len();
-                let last = args.len().saturating_sub(1);
-                for (i, arg) in args.iter().enumerate() {
-                    if i < last && i % 2 == 0 {
-                        written.push(arg.clone());
-                    } else if i < last {
-                        let value_kind = self.kind(arg);
-                        let read = if value_kind.is_date() {
-                            Read::Number
-                        } else {
-                            Read::Text
-                        };
-                        written.push(self.write(arg, read, whole)?);
-                        if let Expr::Reference(bound) = &args[i - 1] {
-                            let kind = if value_kind.is_date() {
-                                Kind::Date
-                            } else {
-                                value_kind
-                            };
-                            self.locals.push((Self::word(bound), kind));
-                        }
-                    } else {
-                        written.push(self.write(arg, read, whole)?);
-                    }
-                }
-                self.locals.truncate(before);
-            },
+            "LET" => written = self.write_let(args, read, whole)?,
             _ if CRITERIA.iter().any(|(n, _)| *n == upper) => {
-                let first = CRITERIA
-                    .iter()
-                    .find(|(n, _)| *n == upper)
-                    .map_or(0, |(_, first)| *first);
-                // SUMIF(range, criterion, to add up): the third is added up
-                let added_up = if first == 0 { 2 } else { 0 };
-                let has_values = !upper.starts_with("COUNT");
-                for (i, arg) in args.iter().enumerate() {
-                    // Ranges are at first, first + 2, ...; a criterion follows each
-                    let is_criterion = i > first && (i - first) % 2 == 1;
-                    let read = if is_criterion {
-                        let range = self.kind(&args[i - 1]);
-                        if range == Kind::Mixed && !Self::plain_text(arg) {
-                            return Err(format!(
-                                "{upper}: the criterion is for text that may be a date, which Forge compares as a number"
-                            ));
-                        }
-                        // Over dates or numbers, a criterion's date is its day
-                        // number: Excel would read `">=2026-02-01"` in the
-                        // language it runs in
-                        if matches!(range, Kind::Date | Kind::Number) {
-                            if let Some(criterion) = self.criterion(arg, whole_arg(i))? {
-                                written.push(criterion);
-                                continue;
-                            }
-                        }
-                        match (self.kind(arg), range) {
-                            (Kind::Date, Kind::Date | Kind::Number) => Read::Number,
-                            (Kind::Date, Kind::Unknown | Kind::Written) => {
-                                return Err(format!(
-                                    "{upper}: a date is the criterion for values Forge cannot type"
-                                ))
-                            },
-                            // Excel would read the text in the language it runs in
-                            (Kind::Mixed, Kind::Date | Kind::Number | Kind::Unknown) => {
-                                return Err(format!(
-                                    "{upper}: text that may be a date is the criterion for dates or numbers"
-                                ))
-                            },
-                            // A date as the criterion for text is that text
-                            _ => Read::Text,
-                        }
-                    } else if has_values && i == added_up {
-                        Read::Number
-                    } else {
-                        self.handed_on(arg)
-                    };
-                    written.push(self.write(arg, read, whole_arg(i))?);
-                }
+                written = self.write_criteria(upper, args, whole)?;
             },
             _ if READ_NUMBERS.contains(&upper) => {
                 for (i, arg) in args.iter().enumerate() {
@@ -707,6 +547,220 @@ impl Dates<'_> {
         } else {
             result
         })
+    }
+
+    /// The arguments of `SWITCH`: the value and the cases read alike, the
+    /// results as the reader of the whole reads them.
+    fn write_switch(
+        &mut self,
+        args: &[Expr],
+        read: Read,
+        whole: bool,
+    ) -> Result<Vec<Expr>, String> {
+        let mut written = Vec::with_capacity(args.len());
+        let results = switch_results(args.len());
+        let compared: Vec<Kind> = (0..args.len())
+            .filter(|i| !results.contains(i))
+            .map(|i| self.kind(&args[i]))
+            .collect();
+        let compare = if compared.contains(&Kind::Mixed) {
+            // Text with text; with a number Forge may find a date
+            // equal to its day number
+            if compared
+                .iter()
+                .all(|k| matches!(k, Kind::Mixed | Kind::Text | Kind::Written))
+            {
+                Read::Text
+            } else {
+                return Err("SWITCH compares text that may be a date with a number".to_string());
+            }
+        } else if compared.iter().any(|k| k.is_date()) {
+            if compared.iter().all(|k| k.is_date() || *k == Kind::Number) {
+                Read::Number
+            } else {
+                return Err("SWITCH compares a date with values that are not dates".to_string());
+            }
+        } else {
+            Read::Text
+        };
+        for (i, arg) in args.iter().enumerate() {
+            let read = if results.contains(&i) { read } else { compare };
+            written.push(self.write(arg, read, whole)?);
+        }
+        Ok(written)
+    }
+
+    /// `LET`: a name bound to a date is the day number, and where the body
+    /// reads it as text it is written as text there.
+    fn write_let(&mut self, args: &[Expr], read: Read, whole: bool) -> Result<Vec<Expr>, String> {
+        let mut written = Vec::with_capacity(args.len());
+        // A name bound to a date is the day number; where the body
+        // reads it as text it is written as text there
+        let before = self.locals.len();
+        let last = args.len().saturating_sub(1);
+        for (i, arg) in args.iter().enumerate() {
+            if i < last && i % 2 == 0 {
+                written.push(arg.clone());
+            } else if i < last {
+                let value_kind = self.kind(arg);
+                let read = if value_kind.is_date() {
+                    Read::Number
+                } else {
+                    Read::Text
+                };
+                written.push(self.write(arg, read, whole)?);
+                if let Expr::Reference(bound) = &args[i - 1] {
+                    let kind = if value_kind.is_date() {
+                        Kind::Date
+                    } else {
+                        value_kind
+                    };
+                    self.locals.push((Self::word(bound), kind));
+                }
+            } else {
+                written.push(self.write(arg, read, whole)?);
+            }
+        }
+        self.locals.truncate(before);
+        Ok(written)
+    }
+
+    /// `SUMIF`, `COUNTIFS` and the rest that take a criterion for a range.
+    fn write_criteria(
+        &mut self,
+        upper: &str,
+        args: &[Expr],
+        whole: bool,
+    ) -> Result<Vec<Expr>, String> {
+        let whole_arg = |i: usize| whole || is_whole_column(upper, args.len(), i);
+        let mut written = Vec::with_capacity(args.len());
+        let first = CRITERIA
+            .iter()
+            .find(|(n, _)| *n == upper)
+            .map_or(0, |(_, first)| *first);
+        // SUMIF(range, criterion, to add up): the third is added up
+        let added_up = if first == 0 { 2 } else { 0 };
+        let has_values = !upper.starts_with("COUNT");
+        for (i, arg) in args.iter().enumerate() {
+            // Ranges are at first, first + 2, ...; a criterion follows each
+            let is_criterion = i > first && (i - first) % 2 == 1;
+            let read = if is_criterion {
+                let range = self.kind(&args[i - 1]);
+                if range == Kind::Mixed && !Self::plain_text(arg) {
+                    return Err(format!(
+                        "{upper}: the criterion is for text that may be a date, which Forge compares as a number"
+                    ));
+                }
+                // Over dates or numbers, a criterion's date is its day
+                // number: Excel would read `">=2026-02-01"` in the
+                // language it runs in
+                if matches!(range, Kind::Date | Kind::Number) {
+                    if let Some(criterion) = self.criterion(arg, whole_arg(i))? {
+                        written.push(criterion);
+                        continue;
+                    }
+                }
+                match (self.kind(arg), range) {
+                    (Kind::Date, Kind::Date | Kind::Number) => Read::Number,
+                    (Kind::Date, Kind::Unknown | Kind::Written) => {
+                        return Err(format!(
+                            "{upper}: a date is the criterion for values Forge cannot type"
+                        ))
+                    },
+                    // Excel would read the text in the language it runs in
+                    (Kind::Mixed, Kind::Date | Kind::Number | Kind::Unknown) => {
+                        return Err(format!(
+                            "{upper}: text that may be a date is the criterion for dates or numbers"
+                        ))
+                    },
+                    // A date as the criterion for text is that text
+                    _ => Read::Text,
+                }
+            } else if has_values && i == added_up {
+                Read::Number
+            } else {
+                self.handed_on(arg)
+            };
+            written.push(self.write(arg, read, whole_arg(i))?);
+        }
+        Ok(written)
+    }
+
+    /// `INDEX`, with the date it gives written as text where the reader
+    /// wants text.
+    fn write_index(
+        &mut self,
+        name: &str,
+        upper: &str,
+        args: &[Expr],
+        read: Read,
+        whole: bool,
+        kind: Kind,
+    ) -> Result<Expr, String> {
+        let whole_arg = |i: usize| whole || is_whole_column(upper, args.len(), i);
+        let mut written = Vec::with_capacity(args.len());
+        for (i, arg) in args.iter().enumerate() {
+            let read = if i == 0 {
+                self.handed_on(arg)
+            } else {
+                Read::Number
+            };
+            written.push(self.write(arg, read, whole_arg(i))?);
+        }
+        let result = call(name, written);
+        Ok(if kind == Kind::Date && read == Read::Text {
+            as_text(&result)
+        } else {
+            result
+        })
+    }
+
+    /// `MATCH`, `XMATCH` and `XLOOKUP`: the value is read as the array is.
+    fn write_match(
+        &mut self,
+        name: &str,
+        upper: &str,
+        args: &[Expr],
+        read: Read,
+        whole: bool,
+        kind: Kind,
+    ) -> Result<Expr, String> {
+        let whole_arg = |i: usize| whole || is_whole_column(upper, args.len(), i);
+        let mut written = Vec::with_capacity(args.len());
+        let [value, array, ..] = args else {
+            return Err(format!("{upper} needs a value and an array"));
+        };
+        let value_read = self.looked_up(value, array)?;
+        written.push(self.write(value, value_read, whole_arg(0))?);
+        let array_read = self.handed_on(array);
+        written.push(self.write(array, array_read, whole_arg(1))?);
+        if upper == "XLOOKUP" {
+            let found = args.get(2).map_or(Kind::Unknown, |a| self.kind(a));
+            if found.is_date() && kind != Kind::Date {
+                return Err(
+                    "XLOOKUP gives a date, or a value that is not a date when none is found"
+                        .to_string(),
+                );
+            }
+        }
+        // What is found, and what is given when nothing is: dates as
+        // day numbers if both are dates, otherwise as they are
+        let rest = if kind == Kind::Date {
+            Read::Number
+        } else {
+            Read::Text
+        };
+        for (i, arg) in args.iter().enumerate().skip(2) {
+            written.push(self.write(arg, rest, whole_arg(i))?);
+        }
+        let result = call(name, written);
+        Ok(
+            if upper == "XLOOKUP" && kind == Kind::Date && read == Read::Text {
+                as_text(&result)
+            } else {
+                result
+            },
+        )
     }
 }
 
