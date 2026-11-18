@@ -349,6 +349,127 @@ scalars:
         }
     }
 
+    mod fund_example {
+        //! The returns of examples/fund, as computed outside Forge.
+        //!
+        //! Corvane Seed Fund I, an investor's cash flows on their dates, written
+        //! from the README's terms and not from the model's formulas, with scipy
+        //! 1.18:
+        //! ```python
+        //! from datetime import date
+        //! import calendar
+        //! from scipy.optimize import brentq
+        //! def add_months(d, m):  # Excel's EDATE: the same day, or the month's last
+        //!     y, mo = divmod(d.month - 1 + m, 12)
+        //!     y += d.year; mo += 1
+        //!     return date(y, mo, min(d.day, calendar.monthrange(y, mo)[1]))
+        //! DEALS = {  # invested, cost, months held, multiple
+        //!     "halden": (date(2020, 4, 15), 3.0e6, 60, 0.0), "mirefield": (date(2020, 9, 1), 4.0e6, 72, 1.2),
+        //!     "quarto": (date(2021, 1, 20), 3.5e6, 48, 3.5), "ossory": (date(2021, 6, 10), 4.5e6, 84, 0.5),
+        //!     "telmar": (date(2021, 11, 30), 3.0e6, 36, 0.0), "brisk": (date(2022, 5, 16), 4.0e6, 66, 8.0),
+        //!     "vantor": (date(2022, 10, 3), 3.5e6, 54, 1.8), "lumen": (date(2023, 3, 8), 4.5e6, 78, 2.5)}
+        //! FEES = [0.02] * 5 + [0.0175, 0.015, 0.0125, 0.01, 0.01]
+        //! def flows(factor=1.0, delay=0, carry_rate=0.2):
+        //!     gross = [(inv, -cost) for inv, cost, _, _ in DEALS.values()]
+        //!     net = list(gross)
+        //!     exits = [(add_months(inv, hold + delay), cost * mult * factor)
+        //!              for inv, cost, hold, mult in DEALS.values()]
+        //!     for n, rate in enumerate(FEES):  # each March 31 from 2020
+        //!         net.append((date(2020 + n, 3, 31), -40e6 * rate))
+        //!     paid = sum(c for _, c, _, _ in DEALS.values()) + 40e6 * sum(FEES)
+        //!     carry = carry_rate * max(0.0, sum(p for _, p in exits) - paid)
+        //!     last = max(d for d, _ in exits)
+        //!     gross += exits
+        //!     net += [(d, p - (carry if d == last else 0.0)) for d, p in exits]
+        //!     return sorted(gross), sorted(net), carry
+        //! def xnpv(rate, cf):  # actual/365 days from the first date
+        //!     return sum(a / (1 + rate) ** ((d - cf[0][0]).days / 365) for d, a in cf)
+        //! def xirr(cf):
+        //!     return brentq(lambda r: xnpv(r, cf), -0.9, 10, xtol=1e-15, rtol=1e-15)
+        //! ```
+        //! For each scenario, `g, n, carry = flows(...)`, then `xirr(g)`,
+        //! `xirr(n)` and `xnpv(0.12, n)`:
+        //! - plan: 0.15675607686941964, 0.10826144576361177, -1599342.071630658
+        //! - `delay=12`: 0.13160355764556161, 0.0900660541848615, -4633065.970461081
+        //! - `factor=0.75`: 0.09932808465767194, 0.05553937152662101, -8040127.253786546
+        //! - both: 0.08385358625992839, 0.0464737043725587, -10382636.160815407
+        //!
+        //! Weighted 0.40 / 0.25 / 0.20 / 0.15, the value is -4963424.196147154.
+        //! The tornado and the goal seek are this function with other arguments;
+        //! their tests are with those commands.
+
+        use crate::cli::scenarios_core;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/fund/fund.yaml";
+
+        #[test]
+        fn the_returns_of_each_scenario_match_the_independent_calculation() {
+            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let expected = [
+                (
+                    "base",
+                    0.156_756_076_869_419_64,
+                    0.108_261_445_763_611_77,
+                    -1_599_342.071_630_658,
+                    0.0,
+                ),
+                (
+                    "late",
+                    0.131_603_557_645_561_61,
+                    0.090_066_054_184_861_5,
+                    -4_633_065.970_461_081,
+                    1.0,
+                ),
+                (
+                    "cold",
+                    0.099_328_084_657_671_94,
+                    0.055_539_371_526_621_01,
+                    -8_040_127.253_786_546,
+                    0.0,
+                ),
+                (
+                    "cold_and_late",
+                    0.083_853_586_259_928_39,
+                    0.046_473_704_372_558_7,
+                    -10_382_636.160_815_407,
+                    1.0,
+                ),
+            ];
+            assert_eq!(results.scenarios.len(), expected.len());
+            for (name, gross, net, value, after_term) in expected {
+                let scenario = results.scenarios.iter().find(|s| s.name == name).unwrap();
+                let out = |key: &str| scenario.outputs[key];
+                // IRRs to 1e-9 and the value to the cent
+                assert!(
+                    (out("fund.gross_irr") - gross).abs() <= 1e-9,
+                    "{name} gross"
+                );
+                assert!((out("fund.net_irr") - net).abs() <= 1e-9, "{name} net");
+                assert!(
+                    (out("fund.net_value") - value).abs() <= 0.005,
+                    "{name} value"
+                );
+                // A year late, the last exit (lumen, 8 Sep 2030) is after the
+                // fund's ten years (2 Mar 2030)
+                assert!(
+                    (out("fund.exits_after_term") - after_term).abs() < 1e-12,
+                    "{name}"
+                );
+            }
+            let base = &results.scenarios[0].outputs;
+            assert!((base["fund.paid_in"] - 36_600_000.0).abs() <= 1e-6);
+            assert!((base["fund.carry"] - 6_450_000.0).abs() <= 1e-6);
+            assert!((base["fund.tvpi"] - 62_400_000.0 / 36_600_000.0).abs() <= 1e-12);
+            assert!((base["fund.gross_multiple"] - 2.295).abs() <= 1e-12);
+            let weighted = results.expected_values["fund.net_value"];
+            assert!(
+                (weighted + 4_963_424.196_147_154).abs() <= 0.005,
+                "{weighted}"
+            );
+        }
+    }
+
     mod vineyard_example {
         //! The plan and scenarios of examples/vineyard, as computed outside Forge.
         //!

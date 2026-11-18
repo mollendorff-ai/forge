@@ -341,6 +341,49 @@ plan:
         }
     }
 
+    mod fund_example {
+        //! The tornado of examples/fund: each input moved alone, as the `flows`
+        //! of the Python in prediction/scenarios.rs (`fund_example`) gives it,
+        //! then `xirr(n)`:
+        //! ```python
+        //! flows(factor=0.7), flows(factor=1.3)          # 0.04373687769500806 0.16112291601241527
+        //! flows(delay=-12), flows(delay=12)             # 0.1355861504581191 0.0900660541848615
+        //! flows(carry_rate=0.1), flows(carry_rate=0.3)  # 0.11649677373176905 0.09940917752524847
+        //! ```
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_exit_market_moves_the_investors_return_most() {
+            let result = tornado_core(Path::new("examples/fund/fund.yaml"), None).unwrap();
+            let expected = [
+                (
+                    "market.multiple_factor",
+                    0.043_736_877_695_008_06,
+                    0.161_122_916_012_415_27,
+                ),
+                (
+                    "market.delay_months",
+                    0.135_586_150_458_119_1,
+                    0.090_066_054_184_861_5,
+                ),
+                (
+                    "terms.carry_rate",
+                    0.116_496_773_731_769_05,
+                    0.099_409_177_525_248_47,
+                ),
+            ];
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!((bar.output_at_low - low).abs() <= 1e-9, "{name} low");
+                assert!((bar.output_at_high - high).abs() <= 1e-9, "{name} high");
+            }
+        }
+    }
+
     mod vineyard_example {
         //! The tornado of examples/vineyard: each input moved alone, as the
         //! `season` of the Python in prediction/scenarios.rs (`vineyard_example`)
