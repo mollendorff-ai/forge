@@ -41,7 +41,7 @@ await page.waitForFunction(() => document.body.dataset.state === "ready", null, 
 
 const result = await page.evaluate(async () => {
   const { call } = await import("./forge.js");
-  const { functionsOf, suggestInFormula, formulaContext, suggestKeys, schemaOf, apply } = await import("./suggest.js");
+  const { functionsOf, letBindings, suggestInFormula, formulaContext, suggestKeys, schemaOf, apply } = await import("./suggest.js");
   const sets = await (await fetch("examples.json")).json();
   const functions = functionsOf(await call("functions", {}));
   const schema = schemaOf(await call("schema", { version: "v5.1.0" }));
@@ -50,7 +50,8 @@ const result = await page.evaluate(async () => {
   // A formula in a file: `key: "=..."` or `key: '=...'`
   const LINE = /^(\s*)(-\s+)?(?:"[^"]+"|'[^']+'|[^\s:#"'-][^:#"']*?)\s*:\s+(["'])(=.*)\3\s*(?:#.*)?$/;
   const wordsOf = (formula) => {
-    const plain = formula.replace(/\\"|""/g, "  ").replace(/"(?:[^"\\]|\\.)*"/g, (m) => '"' + " ".repeat(m.length - 2) + '"');
+    // A quote written \" in a double-quoted YAML text still opens or closes a text in the formula
+    const plain = formula.replace(/\\"/g, ' "').replace(/""/g, "  ").replace(/"(?:[^"\\]|\\.)*"/g, (m) => '"' + " ".repeat(m.length - 2) + '"');
     return [...plain.matchAll(/(?<![A-Za-z0-9_.@])(@?[A-Za-z_][A-Za-z0-9_.@]*)(\()?/g)].map((m) => ({ word: m[1], call: !!m[2], index: m.index }));
   };
   for (const set of sets) {
@@ -67,7 +68,10 @@ const result = await page.evaluate(async () => {
         const formula = m[4];
         const start = lines[i].indexOf(m[3] + "=", m[0].indexOf(":")) + 1;
         const above = lines.slice(0, i).join("\n") + (i ? "\n" : "");
+        // A name a LET declares is not offered where it is declared, only after
+        const declares = new Set(letBindings(formula).map((b) => b.start));
         for (const { word, call: isCall, index } of wordsOf(formula)) {
+          if (declares.has(index)) continue;
           words++;
           const typed = word.slice(0, Math.min(3, word.length));
           const upto = above + lines[i].slice(0, start + index) + typed;

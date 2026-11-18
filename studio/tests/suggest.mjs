@@ -91,6 +91,10 @@ const result = await page.evaluate(async () => {
   if (suggest(probe, "ZZNOPE", 6).length) problems.push("a function Forge does not list was offered");
   if (suggest(probe, '="SU', 4).length) problems.push("something was offered inside a text");
   if (suggest(probe, "=12", 3).length || suggest(probe, "=1.5", 4).length) problems.push("something was offered for a number");
+  // A name a LET declares is offered after its declaration, not at it
+  const letText = "=LET(gain, 1, cost, 2, ga";
+  if (!suggest(probe, letText, letText.length).some((s) => s.label === "gain" && s.insert === "gain")) problems.push("a name a LET declared was not offered after it");
+  if (suggest(probe, "=LET(ga", 7).some((s) => s.label === "gain")) problems.push("a LET name was offered before it was declared");
   return { problems, formulas, words, offered, total: answer.total, count: functions.length };
 });
 for (const p of result.problems) fail(p);
