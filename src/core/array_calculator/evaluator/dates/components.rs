@@ -159,11 +159,17 @@ pub fn try_evaluate(
 
 /// The second of the day a time holds, rounded to the nearest second; a time
 /// that rounds up to midnight is the next day's 0 (`HOUR(0.9999999)` is 0).
-/// A negative number is no time in Excel's calendar (#NUM!).
+/// A negative number, or one from the day after 9999-12-31 (serial 2,958,466),
+/// is no time in Excel's calendar (#NUM!).
 fn seconds_of_day(name: &str, n: f64) -> Result<u32, EvalError> {
     if n < 0.0 {
         return Err(EvalError::new(format!(
             "#NUM!: {name}: {n} is before the first day Excel holds"
+        )));
+    }
+    if n >= 2_958_466.0 {
+        return Err(EvalError::new(format!(
+            "#NUM!: {name}: {n} is past the last day Excel holds, 9999-12-31"
         )));
     }
     // From 0 to 86,400, a whole number: a u32 holds it
@@ -223,6 +229,34 @@ mod tests {
         assert_eq!(eval("HOUR(0.5)", &ctx).unwrap(), Value::Number(12.0));
         // 0.75 = 6pm = 18:00
         assert_eq!(eval("HOUR(0.75)", &ctx).unwrap(), Value::Number(18.0));
+    }
+
+    /// Excel's calendar ends on 9999-12-31, serial 2,958,465: a time from a
+    /// day after it is #NUM!, where Forge gave the time of day (12) or 0
+    /// (HOUR(1E+20)). Checked in Excel for iOS on 2026-11-18: HOUR(2958465.5)
+    /// is 12; HOUR(2958466.5), HOUR(1E+10), and HOUR, MINUTE and SECOND of
+    /// 1E+20 are #NUM!. Gnumeric gives 12 for the day after and #NUM! only far
+    /// out; `LibreOffice` gives 0 for 1E+20.
+    #[test]
+    fn a_time_past_the_last_day_of_the_calendar_is_an_error() {
+        let ctx = EvalContext::new();
+        let number = |text: &str| eval(text, &ctx).unwrap();
+        let error = |text: &str| eval(text, &ctx).unwrap_err().to_string();
+        assert_eq!(number("HOUR(2958465.5)"), Value::Number(12.0));
+        assert_eq!(number("MINUTE(2958465.75)"), Value::Number(0.0));
+        assert_eq!(number("SECOND(2958465.5)"), Value::Number(0.0));
+        for text in [
+            "HOUR(2958466.5)",
+            "MINUTE(2958466.75)",
+            "SECOND(2958467.5)",
+            "HOUR(2958466)",
+            "HOUR(1E+10)",
+            "HOUR(1E+20)",
+            "MINUTE(1E+20)",
+            "SECOND(1E+20)",
+        ] {
+            assert!(error(text).contains("#NUM!"), "{text}: {}", error(text));
+        }
     }
 
     #[test]

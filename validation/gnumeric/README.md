@@ -11,7 +11,7 @@ All validation comes from trusted third-party sources.
 
 ### Test Coverage
 
-- **2,156 formula tests** across 64 YAML files (`VALIDATION.md` has the latest run)
+- **2,160 formula tests** across 64 YAML files (`VALIDATION.md` has the latest run)
 - **32 function test files** covering math, text, date, financial, lookup, aggregation, statistical, trigonometric, logical, and information functions
 - **19 edge case test files** covering boundary conditions, type coercion, error propagation, and numeric precision
 

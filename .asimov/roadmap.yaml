@@ -187,10 +187,14 @@ tier1:
   # first. Found on the way and not casts, so left for their own change:
   # VLOOKUP and HLOOKUP ignored col_index and row_index (fixed 2026-11-17:
   # #VALUE! below 1, #REF! past the one column or row, and the approximate
-  # search is MATCH's); ROUND(x, -400) is
-  # #NUM! (Gnumeric 0); DB with a fractional period cuts it (Gnumeric 0);
-  # TIME(1, -30, 0) is 0:30 (Gnumeric #NUM!); HOUR(1E+20) is 0 (Gnumeric
-  # #NUM!). cast_precision_loss is done too (2026-11-18): no allow is left, in
+  # search is MATCH's). The other four were checked against Gnumeric,
+  # LibreOffice and the Excel cases in validation/gnumeric (2026-11-18):
+  # ROUND(x, -400) was #NUM! and is 0, as both engines give (fixed);
+  # DB with a fractional period is right (Excel 3690, edge_excel_checks_2;
+  # only Gnumeric gives 0); TIME(1, -30, 0) is 0:30 as in LibreOffice (only
+  # Gnumeric gives #NUM!); HOUR(1E+20) was 0 and is #NUM! (Excel for iOS,
+  # 2026-11-18: HOUR, MINUTE and SECOND past 9999-12-31, serial 2,958,466,
+  # are #NUM!; fixed). cast_precision_loss is done too (2026-11-18): no allow is left, in
   # Cargo.toml or in an attribute. A count, a place in an array or a day count
   # becomes a number through precision::count, whole and unsigned, built from
   # 32-bit halves that convert without loss and give the bits `as f64` gives
