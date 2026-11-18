@@ -18,18 +18,18 @@ The building is worth what it costs at a price of 4,753,414.10 (`forge break-eve
 
 - `realestate_risk.yaml`: the same building with five inputs uncertain: rent growth (normal, 3% ± 1.2), vacancy (triangular, 3% to 12%, most likely 6%), running costs (PERT, 4,600 to 6,200 a flat) and their growth (normal, 2.5% ± 1), and the exit cap rate (triangular, 5% to 7%, most likely 5.75%). In 10,000 futures the purchase is worth -28,741.40 at the median and more than nothing in 48.2% of them; the worst 5% lose 1,279,267.07 on average. Three of the five lean against the buyer, so the mean falls below the plan: this is the flaw of averages, and why one pro forma overstates the building. The bank's usual covenant, a cover of 1.20, is broken in about 55% of futures.
 
-- `realestate_flex.yaml`: the flexibility to sell early, after Geltner and de Neufville's *Flexibility and Real Estate Valuation under Uncertainty* (2018). The building is bought for cash, and each future is a path: every year from the second, the market's rent takes a shock of its own (normal, 6%) on top of the 3% trend, and 30% of the gap from the trend closes each year, so the market runs in cycles. The exit cap rate is uncertain as above. In each future the building is owned two ways: held ten years, as the pro forma says, or sold at the end of the first year from year 3 in which it would fetch, net, 135% of its price. The right to sell early is worth the difference.
+- `realestate_flex.yaml`: the flexibility to sell early, after Geltner and de Neufville's *Flexibility and Real Estate Valuation under Uncertainty* (2018). The building is bought for cash, and each future is a path: every year from the second, the market's rent takes a shock of its own (normal, 6%, one draw per row of the column `years.shock`) on top of the 3% trend, and 30% of the gap from the trend closes each year, so the market runs in cycles. The exit cap rate is uncertain as above. In each future the building is owned two ways: held ten years, as the pro forma says, or sold at the end of the first year from year 3 in which it would fetch, net, 135% of its price. The right to sell early is worth the difference.
 
   | 10,000 futures | Held 10 years | Sold by the rule |
   |---|---|---|
-  | Mean value less cost | 88,156.11 | 192,901.30 |
-  | Median | 79,978.54 | 214,298.69 |
-  | 5th percentile | -626,158.74 | -617,724.57 |
-  | Worth more than it costs | 56.9% | 62.9% |
+  | Mean value less cost | 87,995.39 | 188,577.55 |
+  | Median | 76,292.98 | 211,522.98 |
+  | 5th percentile | -631,629.60 | -627,939.59 |
+  | Worth more than it costs | 56.8% | 62.8% |
 
-  The rule sells early in 44.8% of futures, and the right to do so is worth 104,745.19 on average: more than the plan's whole margin over the price. It never costs anything at plan, where the market follows its trend and the rule never fires. A lower bar, 125% (`--scenario sell_above_125`), sells in 69% of futures and is worth 112,868.19; a higher one, 150%, sells in 15% and is worth 45,986.24.
+  The rule sells early in 44.2% of futures, and the right to do so is worth 100,582.17 on average, two thirds of the plan's margin over the price. It never costs anything at plan, where the market follows its trend and the rule never fires. A lower bar, 125% (`--scenario sell_above_125`), sells in 69% of futures and is worth 112,484.05; a higher one, 150%, sells in 15% and is worth 42,272.80.
 
-  The cycles are what make it pay. In a random walk (`--scenario random_walk`, where a gap from the trend never closes), the same rule is worth -54,113.77: selling after a rise gives up growth as likely to last as to reverse. Whether flexibility is worth anything is a question about the market, not the building.
+  The cycles are what make it pay. In a random walk (`--scenario random_walk`, where a gap from the trend never closes), the same rule is worth -54,006.87: selling after a rise gives up growth as likely to last as to reverse. Whether flexibility is worth anything is a question about the market, not the building.
 
 ```bash
 forge calculate examples/realestate/realestate.yaml --dry-run
@@ -45,4 +45,4 @@ forge simulate examples/realestate/realestate_flex.yaml --scenario random_walk
 
 **Checked outside Forge:** the building was written again in Python from this description, not from the model's formulas, and its plan, scenarios, tornado and break-even agree with Forge's to 1e-6. The Python is in `src/cli/commands/prediction/scenarios.rs`, and the tests are in a `realestate_*` module beside each command. For the flexibility, three market paths (the plan, a bust then a boom, and an early boom that lasts) were written again in Python, and Forge's value held, value sold by the rule and year of sale agree with them; a test also checks that the right to sell early is worth more than nothing with cycles and less in a random walk (`src/cli/commands/simulate/mod.rs`, `realestate_flexibility`). Tests calculate three of each simulation's futures again with the plain model. The simulations' percentiles are Forge's own.
 
-**What the model leaves out:** in `realestate_risk.yaml` each future draws one rent growth for all ten years, so the paths spread less than a real market's; `realestate_flex.yaml` moves the market year by year, but its buyers pay the same cap rate at a peak as in a trough, and its only flexibility is when to sell (not to expand, phase or refinance). Forge draws an uncertain input once per future, not per row of a table, so the ten yearly shocks are ten inputs. Taxes, depreciation, refinancing and a monthly loan are not in it either.
+**What the model leaves out:** in `realestate_risk.yaml` each future draws one rent growth for all ten years, so the paths spread less than a real market's; `realestate_flex.yaml` moves the market year by year, but its buyers pay the same cap rate at a peak as in a trough, and its only flexibility is when to sell (not to expand, phase or refinance). Taxes, depreciation, refinancing and a monthly loan are not in it either.

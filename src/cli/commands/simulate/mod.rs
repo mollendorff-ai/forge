@@ -30,9 +30,10 @@ fn evaluate_iteration(
     inputs: &HashMap<String, f64>,
 ) -> Result<HashMap<String, f64>, String> {
     let mut iter_model = model.clone();
-    // Replace MC.* distribution formulas with the sampled values
+    // Replace MC.* distribution formulas with the sampled values: a scalar's,
+    // or one row of an uncertain column's
     for (var_name, &value) in inputs {
-        iter_model.override_scalar(var_name, Some(value), None)?;
+        iter_model.set_input(var_name, value)?;
     }
 
     // Every iteration has the same formulas, so they are parsed and ordered once
@@ -1135,6 +1136,7 @@ revenue:
         //!          # an early boom that lasts: 1597783.8654967323 held,
         //!          # 1330940.9913548753 sold in year 3
         //! ```
+        //! The shocks are one column, `years.shock`, drawn for each row on its own.
         //! The simulation is this function over 10,000 paths. With cycles the
         //! right to sell early is worth more than nothing on average; in a random
         //! walk it is worth less, since selling gives up growth as likely to last
@@ -1148,13 +1150,14 @@ revenue:
 
         fn path(shocks: &[(usize, f64)], reversion: f64) -> (f64, f64, f64) {
             let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
-            for year in 2..=11 {
+            // Year 1's shock is drawn but not used, so it is set to 0 here
+            for year in 1..=11 {
                 let shock = shocks
                     .iter()
                     .find(|(y, _)| *y == year)
                     .map_or(0.0, |(_, s)| *s);
                 model
-                    .override_scalar(&format!("market.shock_{year}"), Some(shock), None)
+                    .set_input(&format!("years.shock (row {year})"), shock)
                     .unwrap();
             }
             model
@@ -1230,9 +1233,7 @@ revenue:
                         .unwrap();
                 }
                 for (input, samples) in &result.input_samples {
-                    model
-                        .override_scalar(input, Some(samples[run]), None)
-                        .unwrap();
+                    model.set_input(input, samples[run]).unwrap();
                 }
                 let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
                 let value = calculated.scalars["value.npv_flex"].value.unwrap();
@@ -1247,6 +1248,84 @@ revenue:
             assert!(cycles > 50_000.0, "{cycles}");
             let random_walk = mean_flexibility(Some("random_walk"));
             assert!(random_walk < -20_000.0, "{random_walk}");
+        }
+    }
+
+    mod uncertain_rows {
+        //! A table column whose formula is a distribution draws each row on its
+        //! own. Three rows of MC.Normal(0, 0.1): their sum has a standard
+        //! deviation of sqrt(3) * 0.1 = 0.1732, where one draw for the whole
+        //! column would give 3 * 0.1 = 0.3, and two rows are not correlated.
+
+        use super::super::{simulate_core, SimulateOptions};
+        use super::write;
+
+        const MODEL: &str = r#"_forge_version: "5.2.0"
+t:
+  n: [1, 2, 3]
+  shock: "=MC.Normal(0, 0.1)"
+  level: "=10 + shock"
+s:
+  total: {formula: "=SUM(t.shock)"}
+monte_carlo:
+  iterations: 2000
+  seed: 5
+  outputs:
+    - variable: s.total
+    - variable: t.level
+"#;
+
+        #[test]
+        fn each_row_is_drawn_on_its_own() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = write(dir.path(), "m.yaml", MODEL);
+            let result = simulate_core(&path, SimulateOptions::default()).unwrap();
+            let mut names: Vec<&String> = result.input_samples.keys().collect();
+            names.sort();
+            assert_eq!(
+                names,
+                ["t.shock (row 1)", "t.shock (row 2)", "t.shock (row 3)"]
+            );
+
+            let total = &result.outputs["s.total"];
+            let sd = total.statistics.std_dev;
+            assert!((sd - 0.173_205).abs() < 0.01, "{sd}");
+            assert!(total.at_plan.unwrap().abs() <= 1e-12);
+            // Each future's total is the sum of its three draws
+            let rows: Vec<&Vec<f64>> = (1..=3)
+                .map(|r| &result.input_samples[&format!("t.shock (row {r})")])
+                .collect();
+            for (i, total) in total.samples.iter().enumerate() {
+                let sum: f64 = rows.iter().map(|r| r[i]).sum();
+                assert!((total - sum).abs() <= 1e-12, "run {i}");
+            }
+            // A column that reads the draws gets that row's draw
+            let level = &result.outputs["t.level (row 2)"].samples;
+            for (l, s) in level.iter().zip(rows[1]) {
+                assert!((l - 10.0 - s).abs() <= 1e-12);
+            }
+            // Rows 1 and 2 are independent
+            let mean = |v: &[f64]| v.iter().sum::<f64>() / 2000.0;
+            let (a, b) = (rows[0], rows[1]);
+            let (ma, mb) = (mean(a), mean(b));
+            let cov: f64 = a
+                .iter()
+                .zip(b)
+                .map(|(x, y)| (x - ma) * (y - mb))
+                .sum::<f64>()
+                / 2000.0;
+            let corr = cov / (0.1 * 0.1);
+            assert!(corr.abs() < 0.1, "{corr}");
+        }
+
+        #[test]
+        fn calculate_names_the_column_it_cannot_draw() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = write(dir.path(), "m.yaml", MODEL);
+            let err = crate::cli::calculate_core(&path, true, None)
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("t.shock use MC.* distributions"), "{err}");
         }
     }
 }

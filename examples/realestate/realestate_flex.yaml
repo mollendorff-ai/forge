@@ -3,8 +3,8 @@ _forge_version: "5.4.0"
 # sell early (after Geltner and de Neufville, Flexibility and Real Estate
 # Valuation under Uncertainty, 2018). The building of realestate.yaml, bought
 # for cash. Each year the market's rents take a shock of their own on top of
-# the 3% trend, so a future is a path, not one growth rate; the exit cap rate
-# is uncertain too. Everything else is the plan.
+# the 3% trend (one draw per row of years.shock), so a future is a path, not
+# one growth rate; the exit cap rate is uncertain too. Everything else is the plan.
 #
 # Two ways to own it in each future: hold ten years and sell, as the pro forma
 # says; or sell at the end of the first year, from year 3, in which the
@@ -28,19 +28,6 @@ building:
 market:
   rent_growth: {value: 0.03, format: "0.0%"}
   expense_growth: {value: 0.025, format: "0.0%"}
-  # A shock to the market's rents in each year from the second, on top of the
-  # trend: 6% of the rent a year. Year 11's is the rent the buyer of year 10
-  # pays for.
-  shock_2: {value: 0, formula: "=MC.Normal(0, 0.06)"}
-  shock_3: {value: 0, formula: "=MC.Normal(0, 0.06)"}
-  shock_4: {value: 0, formula: "=MC.Normal(0, 0.06)"}
-  shock_5: {value: 0, formula: "=MC.Normal(0, 0.06)"}
-  shock_6: {value: 0, formula: "=MC.Normal(0, 0.06)"}
-  shock_7: {value: 0, formula: "=MC.Normal(0, 0.06)"}
-  shock_8: {value: 0, formula: "=MC.Normal(0, 0.06)"}
-  shock_9: {value: 0, formula: "=MC.Normal(0, 0.06)"}
-  shock_10: {value: 0, formula: "=MC.Normal(0, 0.06)"}
-  shock_11: {value: 0, formula: "=MC.Normal(0, 0.06)"}
   # How much of the gap from the trend closes each year; 0 is a random walk
   reversion: {value: 0.3, format: "0%"}
   exit_cap_rate: {value: 0.0575, formula: "=MC.Triangular(0.05, 0.0575, 0.07)", format: "0.00%"}
@@ -65,11 +52,14 @@ flex:
 years:
   year: {start: 2027, count: 11, unit: year}
   n: "=ROW()"
-  shock: "=CHOOSE(n, 0, market.shock_2, market.shock_3, market.shock_4, market.shock_5, market.shock_6, market.shock_7, market.shock_8, market.shock_9, market.shock_10, market.shock_11)"
+  # A shock to the market's rents each year, on top of the trend: 6% of the
+  # rent, drawn for each row on its own. Year 11's is the rent the buyer of
+  # year 10 pays for; year 1's rent is known, so its shock is not used.
+  shock: "=MC.Normal(0, 0.06)"
   # How far the market's rent is above (or below) its trend: each year it
   # keeps (1 - reversion) of last year's gap and takes the year's shock, so
   # the market runs in cycles around the trend
-  gap: "=PREV(gap, 0) * (1 - market.reversion) + shock"
+  gap: "=IF(n = 1, 0, PREV(gap, 0) * (1 - market.reversion) + shock)"
   # The market's rent, 1 in the first year
   rent_index: "=(1 + market.rent_growth) ^ (n - 1) * (1 + gap)"
   potential_rent: "=building.units * building.rent_per_unit_month * 12 * rent_index"
