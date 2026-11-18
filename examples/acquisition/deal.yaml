@@ -12,6 +12,7 @@ _forge_version: "5.4.0"
 #   forge scenarios deal.yaml
 #   forge tornado deal.yaml
 #   forge break-even deal.yaml --output valuation.value_created --vary offer.premium
+#   forge compare deal.yaml --scenarios base,all_cash,all_shares
 _includes:
   - file: buyer.yaml
     as: buyer
@@ -203,6 +204,16 @@ scenarios:
     scalars:
       financing.debt_rate: 0.08
       case.discount_rate: 0.09
+  # Choices, not chances: how Valdane pays. No probability, so forge scenarios
+  # leaves them out and names them; forge compare puts them beside the plan's 60/40
+  all_cash:
+    description: Valdane pays everything in borrowed cash
+    scalars:
+      financing.cash_share: 1
+  all_shares:
+    description: Valdane pays everything in new Valdane shares
+    scalars:
+      financing.cash_share: 0
 
 tornado:
   output: valuation.value_created

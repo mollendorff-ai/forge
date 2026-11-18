@@ -34,16 +34,14 @@ pub fn scenarios_core(
 
         let mut config = ScenarioConfig::default();
         for (name, def) in scenarios_map {
-            // `forge compare` needs no probability; this command weighs by it
+            // A scenario without a probability is a choice to compare, not a
+            // chance to weigh: it is left out and named (ADR-067)
             if def
                 .as_mapping()
                 .is_some_and(|m| !m.contains_key("probability"))
             {
-                return Err(ForgeError::Validation(format!(
-                    "scenario '{name}' has no probability. forge scenarios weighs the scenarios \
-                     by it, and the probabilities of all scenarios must sum to 1 (forge compare \
-                     does not need it)"
-                )));
+                config.unweighted.push(name);
+                continue;
             }
             let scenario_def = yaml_serde::from_value(def)
                 .map_err(|e| ForgeError::Validation(format!("scenario '{name}' error: {e}")))?;
@@ -57,6 +55,13 @@ pub fn scenarios_core(
     };
 
     if let Some(name) = scenario_filter {
+        if config.unweighted.iter().any(|u| u == name) {
+            return Err(ForgeError::Validation(format!(
+                "Scenario '{name}' has no probability, so forge scenarios does not weigh it. \
+                 forge calculate --scenario {name} calculates it, and forge compare puts it \
+                 beside the others"
+            )));
+        }
         if !config.scenarios.contains_key(name) {
             let mut available: Vec<_> = config.scenarios.keys().cloned().collect();
             available.sort();
@@ -132,6 +137,22 @@ pub fn scenarios(
         for (var, value) in &result.outputs {
             outln!(c, "      {}: {}", var.cyan(), shown(var, *value));
         }
+        outln!(c);
+    }
+
+    if !results.unweighted.is_empty() {
+        outln!(
+            c,
+            "   {} {}",
+            "Not weighted (no probability):".bold(),
+            results.unweighted.join(", ")
+        );
+        outln!(
+            c,
+            "      forge compare {} --scenarios {}",
+            file.display(),
+            results.unweighted.join(",")
+        );
         outln!(c);
     }
 
@@ -644,6 +665,8 @@ scalars:
         //!         target_cash = 62 * (1 + growth) ** (y - 1); synergy_cash = (syn - ig) * 0.75
         //!     # each cash stream: discounted at r, year 5 * tm as a value at year 5
         //!     value = standalone + synergies - paid; irr by bisection
+        //!     leverage = (1200 + 100 + debt) / (950 + 160)
+        //!     per_share = value / (200 + new_shares); own = new_shares / (200 + new_shares)
         //! run()  # value 224.50793341829012, standalone 1312.5581578338633, synergies
         //!        # 603.149775584427, irr 0.10893359643045575, accretion year 1
         //!        # -0.11989974311402884, year 3 -0.011433658663979496, year 5
@@ -654,10 +677,19 @@ scalars:
         //! run(rev=0)                        # no revenue synergies: 28.3974515996465
         //! run(debt_rate=0.08, r=0.09)       # rates up: -89.5534775250062
         //! # weighted 0.45 / 0.25 / 0.20 / 0.10: 139.48530352061945
+        //! # how Valdane pays, a choice and not weighted: value 224.50793341829012 in each
+        //! run()            # 60/40: per share 1.0413169453538502, own 0.07235621521335808,
+        //!                  # new shares 15.600000000000003
+        //! run(cash=1.0)    # all cash: per share 1.1225396670914507, year 3
+        //!                  # 0.012613291470434218, leverage 2.6046846846846847, new shares 0
+        //! run(cash=0.0)    # all shares: per share 0.9393637381518415, year 3
+        //!                  # -0.041618114899645064, leverage 1.1992792792792792, new shares
+        //!                  # 39.00000000000001, own 0.16317991631799167
         //! ```
         //! The tornado, the walk-away price, the goal seeks, the sensitivity table,
         //! the year-one variance and the bidding tree are this function with other
-        //! arguments; their tests are with those commands (`acquisition_*`).
+        //! arguments; their tests are with those commands (`acquisition_*`). The payment
+        //! structures are `forge compare`'s (`compare::tests::acquisition_example`).
 
         use crate::cli::scenarios_core;
         use std::path::Path;
@@ -719,6 +751,8 @@ scalars:
             // weighted, it creates little more than half the plan's value
             let weighted = results.expected_values["valuation.value_created"];
             assert!(close(weighted, 139.485_303_520_619_45, 1e-9), "{weighted}");
+            // How Valdane pays is a choice: left out of the weighting, and named
+            assert_eq!(results.unweighted, ["all_cash", "all_shares"]);
             assert!(close(
                 results.probability_positive["valuation.value_created"],
                 0.9,
