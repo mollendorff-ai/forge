@@ -62,7 +62,6 @@ pub fn eval_log(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 }
 
 #[cfg(test)]
-#[allow(clippy::approx_constant)]
 mod tests {
     use super::super::super::tests::eval;
     use super::super::super::{EvalContext, Value};

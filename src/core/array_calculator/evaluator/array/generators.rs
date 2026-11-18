@@ -205,8 +205,6 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
 
@@ -277,8 +275,6 @@ mod integration_tests {
 
 #[cfg(test)]
 mod edge_case_tests {
-    #![allow(clippy::approx_constant)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 

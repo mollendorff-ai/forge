@@ -181,8 +181,10 @@ tier1:
   # 32-bit halves that convert without loss and give the bits `as f64` gives
   # (not a try_from: a count past 2^53 cannot exist in memory, and an error
   # branch no test can reach breaks the coverage rule). The two validation
-  # suites do not link Forge, so each has its own small conversion. 70 allows
-  # left in attributes and 14 in Cargo.toml files.
+  # suites do not link Forge, so each has its own small conversion.
+  # approx_constant is done too (2026-11-18): 18 allows, 17 of which hid
+  # nothing; the 3 literals that did became FRAC_1_SQRT_2. 52 allows left in
+  # attributes and 14 in Cargo.toml files.
   # T1-NO-SKIPPING, float_cmp is done (2026-11-17): no allow is left. Tests
   # assert an exact number with assert_exact! (the same bits, src/lib.rs),
   # and the ten exact comparisons in the engine (MODE, a variance on budget,
