@@ -1472,7 +1472,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         name: "MC.Discrete",
         category: Category::MonteCarlo,
         description: "Discrete distribution",
-        syntax: "=MC.Discrete(values, probabilities)",
+        syntax: "=MC.Discrete({values}, {probabilities})",
         scalar: true,
     },
 ];

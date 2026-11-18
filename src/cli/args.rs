@@ -400,7 +400,7 @@ DISTRIBUTIONS:
   MC.Uniform(min, max)          - Equal probability in range
   MC.PERT(min, mode, max)       - Smooth project estimates
   MC.Lognormal(mean, stdev)     - Non-negative values (prices, revenue)
-  MC.Discrete(vals, probs)      - Custom scenarios with probabilities
+  MC.Discrete({0, 0.3}, {0.9, 0.1}) - A few outcomes, each with its probability
 
 YAML CONFIGURATION:
   monte_carlo:

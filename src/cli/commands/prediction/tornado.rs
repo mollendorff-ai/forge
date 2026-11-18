@@ -341,6 +341,83 @@ plan:
         }
     }
 
+    mod fund_example {
+        //! The tornado of examples/fund: each input moved alone, as the `flows`
+        //! of the Python in prediction/scenarios.rs (`fund_example`) gives it,
+        //! then `xirr(n)`:
+        //! ```python
+        //! flows(factor=0.7), flows(factor=1.3)          # 0.04373687769500806 0.16112291601241527
+        //! flows(delay=-12), flows(delay=12)             # 0.1355861504581191 0.0900660541848615
+        //! flows(carry_rate=0.1), flows(carry_rate=0.3)  # 0.11649677373176905 0.09940917752524847
+        //! ```
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_exit_market_moves_the_investors_return_most() {
+            let result = tornado_core(Path::new("examples/fund/fund.yaml"), None).unwrap();
+            let expected = [
+                (
+                    "market.multiple_factor",
+                    0.043_736_877_695_008_06,
+                    0.161_122_916_012_415_27,
+                ),
+                (
+                    "market.delay_months",
+                    0.135_586_150_458_119_1,
+                    0.090_066_054_184_861_5,
+                ),
+                (
+                    "terms.carry_rate",
+                    0.116_496_773_731_769_05,
+                    0.099_409_177_525_248_47,
+                ),
+            ];
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!((bar.output_at_low - low).abs() <= 1e-9, "{name} low");
+                assert!((bar.output_at_high - high).abs() <= 1e-9, "{name} high");
+            }
+        }
+    }
+
+    mod vineyard_example {
+        //! The tornado of examples/vineyard: each input moved alone, as the
+        //! `season` of the Python in prediction/scenarios.rs (`vineyard_example`)
+        //! gives it:
+        //! ```python
+        //! season(y=0.5), season(y=1.3)                # -90429.99999999997 169682.00000000006
+        //! season(price=1500), season(price=2500)      # -16659.99999999994 160940.00000000006
+        //! season(frost=0), season(frost=0.3)          # 72140.00000000006 -25401.99999999997
+        //! ```
+        //! Moved alone, the crop swings the season most. Under uncertainty it
+        //! barely moves it (`monte_carlo/correlation.rs`, `vineyard_example`): the
+        //! price moves against it, which a tornado cannot show.
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_crop_moves_the_season_most_when_moved_alone() {
+            let result = tornado_core(Path::new("examples/vineyard/vineyard.yaml"), None).unwrap();
+            let expected = [
+                ("harvest.yield_factor", -90_430.0, 169_682.0),
+                ("harvest.price_per_tonne", -16_660.0, 160_940.0),
+                ("harvest.frost_loss", 72_140.0, -25_402.0),
+            ];
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!((bar.output_at_low - low).abs() <= 1e-6, "{name} low");
+                assert!((bar.output_at_high - high).abs() <= 1e-6, "{name} high");
+            }
+        }
+    }
+
     mod realestate_example {
         //! The tornado of examples/realestate: each input of `tornado:` moved alone
         //! to its low and high, as the `run` of the Python in
