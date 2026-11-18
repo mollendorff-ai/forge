@@ -20,7 +20,15 @@
 
 state:
   version: >-
-    10.0.0-rc.27, released 2026-11-15: easier to start with an AI
+    10.0.0-rc.28, released 2026-11-18: fixes from the evaluation of rc.27
+    and uncertainty that moves year by year (a table column drawn for each
+    row, examples/realestate). forge mcp keeps paths in one folder by
+    default and a formula nested past 128 levels is refused. Eight wrong
+    answers fixed (comparisons by Excel's rule, ADR-065; VLOOKUP and HLOOKUP
+    indexes; PERCENTILE.EXC at its lowest k; an uncertain input exported
+    empty; four more), so the two weeks in docs/STABILITY.md start again
+    from rc.28: no earlier than 2026-12-02. A difference from Excel that
+    T1-EXCEL-EQUALITY finds in ADR-065 would restart them. rc.27 (2026-11-15): easier to start with an AI
     (install.sh, tested prompts, workflows) and every item the agents and
     Sentinel reported fixed; -o is always the output file and -v always
     --verbose; a constant where COUNTIF and its family read a range is

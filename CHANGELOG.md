@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Fixes from the evaluation of rc.27 (2026-11-15).
+## [10.0.0-rc.28] - 2026-11-18
+
+Fixes from the evaluation of rc.27 (2026-11-15), and uncertainty that moves year by year. **Two changes can break a setup someone wrote:** `forge mcp` keeps file paths inside the folder it starts in unless given `--root` or `--any-path`, and a formula nested more than 128 levels is refused (split it into named values or columns). Eight wrong answers are fixed, among them comparisons that now follow Excel's rule (`0.1 + 0.2 = 0.3` and `0.1 + 0.2 > 0.3` were both TRUE; ADR-065), `VLOOKUP` and `HLOOKUP` reading their index, `PERCENTILE.EXC` at its lowest k reading the value before the first, and `forge export` leaving an uncertain input's cell empty. A table column can now be an uncertain input drawn for each row on its own, and `examples/realestate` values a building under uncertainty, with the flexibility to sell early. By docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-12-02. ADR-065's comparisons are from Microsoft's documentation and not yet checked in Excel (roadmap T1-EXCEL-EQUALITY).
 
 ### Changed
 - **No `too_many_lines` allow is left in the main crate or `forge-wasm`: 14 functions of 131 to 572 lines are split by what they do (roadmap T1-NO-SKIPPING).** The five evaluator dispatch tables (financial, statistical, date arithmetic, `DATEDIF` and Forge's own functions) have one function per spreadsheet function, listed in one table with a line each; `is_excel_function` is a sorted list searched by bisection, with a test that it stays sorted and has no repeats; the two Excel formula translators are a sequence of named passes, and the two passes that were written twice are shared; `translate` in the workbook references, `write_call` in the date rewriter, `write_number` for `TEXT` and the `calculate` command are cut at their stages. Nothing was rewritten: each part is the code that was there. The Gnumeric `Cargo.toml` allow hid nothing, and the R suite's three long functions are split too.
