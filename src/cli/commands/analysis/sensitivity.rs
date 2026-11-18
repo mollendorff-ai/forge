@@ -680,4 +680,42 @@ out:
             assert_eq!(uses_it.matches("ERR").count(), 2, "{uses_it}");
         }
     }
+
+    mod acquisition_example {
+        //! The banker's table of examples/acquisition: the value created at each
+        //! premium and each run rate of cost synergies. Two corners, as the `run`
+        //! of the Python in prediction/scenarios.rs (`acquisition_example`) gives
+        //! them: run(premium=0.45, cost=30) -77.39138476481048 and
+        //! run(premium=0.2, cost=60) 583.5065697844925; the plan, 224.50793341829012,
+        //! is in the middle.
+
+        use super::super::sensitivity_core;
+        use crate::cli::commands::results::SensitivityData;
+        use std::path::Path;
+
+        #[test]
+        fn the_table_runs_from_a_loss_to_more_than_twice_the_plan() {
+            let result = sensitivity_core(
+                Path::new("examples/acquisition/deal.yaml"),
+                "offer.premium",
+                "0.20,0.50,0.05",
+                Some("synergies.cost_run_rate"),
+                Some("20,60,10"),
+                "valuation.value_created",
+            )
+            .unwrap();
+            let SensitivityData::TwoVar { matrix, .. } = result.data else {
+                panic!("two inputs")
+            };
+            assert_eq!((matrix.len(), matrix[0].len()), (7, 5));
+            let cell = |row: usize, col: usize| matrix[row][col].unwrap();
+            for (got, want) in [
+                (cell(2, 2), 224.507_933_418_290_12),
+                (cell(5, 1), -77.391_384_764_810_48),
+                (cell(0, 4), 583.506_569_784_492_5),
+            ] {
+                assert!((got - want).abs() <= 1e-9, "{got}, not {want}");
+            }
+        }
+    }
 }

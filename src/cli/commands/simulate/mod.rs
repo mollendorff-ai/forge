@@ -1329,4 +1329,88 @@ monte_carlo:
             assert!(err.contains("t.shock use MC.* distributions"), "{err}");
         }
     }
+
+    mod acquisition_example {
+        //! `examples/acquisition/deal_risk.yaml`: futures for Project Kittiwake.
+        //! The README quotes the file's 10,000 runs; this runs 1,000. Every
+        //! uncertain synergy leans against Valdane (PERT(20, 40, 50) has mean
+        //! 38.33, triangular(0, 60, 80) 46.67 and triangular(90, 100, 170) 120),
+        //! so the mean value falls below the value at plan, which is deal.yaml's
+        //! (prediction/scenarios.rs, `acquisition_example`). Quillon's own growth
+        //! drives the value most. The earn-out pays when Quillon grows at least
+        //! 9% a year, so in 1 - Phi((0.09 - 0.07) / 0.025) = 0.2119 of futures,
+        //! and it takes the worst of them away. Three of the futures are
+        //! calculated again by the plain model with that future's inputs.
+
+        use crate::cli::{simulate_core, SimulateOptions};
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/acquisition/deal_risk.yaml";
+
+        fn run(scenario: Option<&str>) -> crate::monte_carlo::SimulationResult {
+            let options = SimulateOptions {
+                iterations: Some(1000),
+                scenario,
+                ..SimulateOptions::default()
+            };
+            simulate_core(Path::new(MODEL), options).unwrap()
+        }
+
+        #[test]
+        fn the_synergies_lean_short_and_quillons_growth_drives_the_value() {
+            let result = run(None);
+            assert_eq!(result.iterations_completed, 1000);
+            let value = &result.outputs["valuation.value_created"];
+            let at_plan = value.at_plan.unwrap();
+            assert!(
+                (at_plan - 224.507_933_418_290_12).abs() <= 1e-9,
+                "{at_plan}"
+            );
+            assert!(
+                value.statistics.mean < at_plan - 50.0,
+                "{}",
+                value.statistics.mean
+            );
+            assert_eq!(value.drivers[0].input, "case.quillon_growth");
+            let synergies = &result.outputs["valuation.synergies"];
+            assert!(synergies.statistics.mean < synergies.at_plan.unwrap() - 50.0);
+            // Switched off, the earn-out is never paid
+            let paid = &result.outputs["earnout.paid"];
+            assert!(paid.statistics.max.abs() <= 0.0, "{}", paid.statistics.max);
+
+            for future in [0, 499, 999] {
+                let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+                for (input, samples) in &result.input_samples {
+                    model
+                        .override_scalar(input, Some(samples[future]), None)
+                        .unwrap();
+                }
+                let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
+                let got = calculated.scalars["valuation.value_created"].value.unwrap();
+                assert!(
+                    (got - value.samples[future]).abs() <= 1e-9,
+                    "future {future}: {got}"
+                );
+            }
+        }
+
+        #[test]
+        fn the_earnout_is_paid_a_fifth_of_the_time_and_cuts_the_losses() {
+            let plain = run(None);
+            let earnout = run(Some("earnout"));
+            let paid = &earnout.outputs["earnout.paid"];
+            let share = paid.threshold_probabilities["> 0"];
+            assert!((share - 0.2119).abs() <= 0.02, "{share}");
+            assert!((paid.statistics.max - 240.0).abs() <= 0.0);
+            let shortfall = |r: &crate::monte_carlo::SimulationResult| {
+                r.outputs["valuation.value_created"].expected_shortfall[0].1
+            };
+            assert!(shortfall(&earnout) > shortfall(&plain) + 50.0);
+            let positive = |r: &crate::monte_carlo::SimulationResult| {
+                r.outputs["valuation.value_created"].threshold_probabilities["> 0"]
+            };
+            assert!(positive(&earnout) > positive(&plain));
+        }
+    }
 }

@@ -410,4 +410,57 @@ mod tests {
             );
         }
     }
+
+    mod acquisition_example {
+        //! examples/acquisition: the most Valdane can pay, and the synergies or
+        //! the cash it needs for earnings a share not to fall in year 3. The `run`
+        //! of the Python in prediction/scenarios.rs (`acquisition_example`),
+        //! bisected: a premium of 0.4834215142306294 (35.60 a share), cost synergies
+        //! of 49.4216 a year, or 79.77% of the price in cash.
+
+        use crate::cli::goal_seek_core;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/acquisition/deal.yaml";
+
+        #[test]
+        fn valdane_walks_away_above_35_60_a_share() {
+            let result = goal_seek_core(
+                Path::new(MODEL),
+                "valuation.value_created",
+                0.0,
+                "offer.premium",
+                (Some(0.3), Some(0.6)),
+                1e-9,
+            )
+            .unwrap();
+            assert!(result.converged);
+            assert!(
+                (result.solution - 0.483_421_514_230_629_4).abs() <= 1e-9,
+                "{}",
+                result.solution
+            );
+        }
+
+        #[test]
+        fn earnings_a_share_hold_in_year_3_with_more_synergies_or_more_cash() {
+            let seek = |vary: &str, bounds: (f64, f64)| {
+                let result = goal_seek_core(
+                    Path::new(MODEL),
+                    "eps.year_3_accretion",
+                    0.0,
+                    vary,
+                    (Some(bounds.0), Some(bounds.1)),
+                    1e-12,
+                )
+                .unwrap();
+                assert!(result.converged, "{vary}");
+                result.solution
+            };
+            let cost = seek("synergies.cost_run_rate", (0.0, 200.0));
+            assert!((cost - 49.421_6).abs() <= 1e-3, "{cost}");
+            let cash = seek("financing.cash_share", (0.0, 1.0));
+            assert!((cash - 0.797_691_888).abs() <= 1e-6, "{cash}");
+        }
+    }
 }

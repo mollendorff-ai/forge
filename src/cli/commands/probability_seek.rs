@@ -326,4 +326,37 @@ mod tests {
             assert!(!text.contains("18.324083"), "{text}");
         }
     }
+
+    mod acquisition_example {
+        //! `examples/acquisition/deal_risk.yaml`: the highest premium at which the
+        //! deal creates value in three futures of four. deal.yaml's walk-away
+        //! premium is 0.4834 (`goal_seek.rs`, `acquisition_example`); under
+        //! uncertainty it is lower. The README quotes 10,000 runs (0.3424); this
+        //! runs 1,000 of the same draws, so the answer moves by sampling noise.
+
+        use super::super::{probability_seek_core, SeekGoal};
+        use crate::cli::SimulateOptions;
+        use std::path::Path;
+
+        #[test]
+        fn three_futures_in_four_allow_a_smaller_premium_than_the_plan() {
+            let goal = SeekGoal::parse("P(valuation.value_created > 0) = 0.75").unwrap();
+            let options = SimulateOptions {
+                iterations: Some(1000),
+                ..SimulateOptions::default()
+            };
+            let r = probability_seek_core(
+                Path::new("examples/acquisition/deal_risk.yaml"),
+                options,
+                &goal,
+                "offer.premium",
+                0.1,
+                0.6,
+            )
+            .unwrap();
+            assert!((r.value - 0.342_4).abs() <= 0.02, "{}", r.value);
+            assert!((r.probability - 0.75).abs() <= 0.01, "{}", r.probability);
+            assert!(r.value < 0.483_4);
+        }
+    }
 }

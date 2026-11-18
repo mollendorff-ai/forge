@@ -1,0 +1,210 @@
+_forge_version: "5.4.0"
+# Project Kittiwake under uncertainty (fictional): deal.yaml with the five
+# numbers a deal team can least promise drawn at random, each with the
+# board's figure as its value:. Synergy plans lean one way: costs come in
+# late and short, revenue synergies often not at all, integration runs over.
+#
+# An earn-out is written in, switched off: with --scenario earnout, Valdane
+# pays a 20% premium now and 4.80 a share more at the end of year 2, only if
+# Quillon's revenue that year reaches its own management's plan.
+#
+#   forge simulate deal_risk.yaml
+#   forge simulate deal_risk.yaml --scenario earnout
+#   forge simulate deal_risk.yaml --seek "P(valuation.value_created > 0) = 0.75" --vary offer.premium --min 0.1 --max 0.6
+_includes:
+  - file: buyer.yaml
+    as: buyer
+  - file: target.yaml
+    as: target
+
+# Valdane's own case for Quillon, which its deal team underwrites
+case:
+  # Quillon's earnings, revenue and cash, a year, for five years;
+  # Quillon's management plans 9% (target.yaml)
+  quillon_growth: {value: 0.07, formula: "=MC.Normal(0.07, 0.025)", format: "0.0%"}
+  # Growth for ever after year 5
+  terminal_growth: {value: 0.025, format: "0.0%"}
+  # The return Valdane's investors ask for on a business like Quillon's
+  discount_rate: {value: 0.08, format: "0.0%"}
+
+offer:
+  premium: {value: 0.30, format: "0%"}
+  price_per_share:
+    formula: "=@target.company.unaffected_price * (1 + premium)"
+    format: "$#,##0.00"
+  equity_value:
+    formula: "=price_per_share * @target.company.shares"
+    format: "$#,##0"
+  # The debt comes with the company
+  enterprise_value:
+    formula: "=equity_value + @target.company.net_debt"
+    format: "$#,##0"
+  ev_to_ebitda:
+    formula: "=enterprise_value / @target.company.ebitda"
+    format: "0.0\"x\""
+  price_to_earnings:
+    formula: "=equity_value / @target.company.net_income_next_year"
+    format: "0.0\"x\""
+  # What Quillon's shareholders get above what the market said their shares were worth
+  premium_paid:
+    formula: "=equity_value - @target.company.unaffected_price * @target.company.shares"
+    format: "$#,##0"
+
+financing:
+  # The share of the price paid in cash; the rest in new Valdane shares
+  cash_share: {value: 0.60, format: "0%"}
+  debt_rate: {value: 0.065, format: "0.00%"}
+  # Bankers, lawyers and the bridge loan, as a share of the equity value
+  fees_rate: {value: 0.02, format: "0.0%"}
+  fees:
+    formula: "=offer.equity_value * fees_rate"
+    format: "$#,##0"
+  # The cash part and the fees, all borrowed
+  new_debt:
+    formula: "=offer.equity_value * cash_share + fees"
+    format: "$#,##0"
+  # The share part, at Valdane's share price
+  new_shares:
+    formula: "=offer.equity_value * (1 - cash_share) / @buyer.company.share_price"
+    format: "#,##0.0"
+  # Of the combined company, the share Quillon's shareholders end up owning
+  quillon_holders_own:
+    formula: "=new_shares / (@buyer.company.shares + new_shares)"
+    format: "0.0%"
+  # Net debt over EBITDA on the day of closing; the rating agencies are
+  # comfortable up to 2.5
+  leverage_at_close:
+    formula: "=(@buyer.company.net_debt + @target.company.net_debt + new_debt) / (@buyer.company.ebitda + @target.company.ebitda)"
+    format: "0.00\"x\""
+
+synergies:
+  # Costs taken out a year once fully in place: two plants into one,
+  # purchasing, a head office. They reach the full amount over cost_ramp_earnings.
+  cost_run_rate: {value: 40, formula: "=MC.PERT(20, 40, 50)"}
+  cost_ramp_years: {value: 3, formula: "=MC.Triangular(2, 3, 5)"}
+  # Sales of Quillon's sensors through Valdane's channels, a year once in
+  # place, at the margin they earn; they start in year 2
+  revenue_run_rate: {value: 60, formula: "=MC.Triangular(0, 60, 80)"}
+  revenue_margin: {value: 0.30, format: "0%"}
+  revenue_ramp_years: 4
+  # One-off cost of getting the synergies: severance, systems, the plant move
+  integration_cost: {value: 100, formula: "=MC.Triangular(90, 100, 170)"}
+  # Customer lists and technology valued at closing, and written off over
+  # ten years: a cost in the accounts, not in cash
+  intangibles: 400
+  amortisation_years: 10
+
+# Paid at the end of year 2 if Quillon's revenue that year reaches its
+# management's plan (9% a year); off unless --scenario earnout
+earnout:
+  on: 0
+  per_share: {value: 4.80, format: "$#,##0.00"}
+  revenue_hurdle:
+    formula: "=@target.company.revenue_next_year * (1 + @target.company.management_growth)"
+    format: "#,##0.0"
+  paid:
+    formula: "=IF(AND(on = 1, INDEX(earnings.target_revenue, 2) >= revenue_hurdle), per_share * @target.company.shares, 0)"
+    format: "$#,##0"
+
+# The five years after closing, in the accounts
+earnings:
+  year: {start: 2027, count: 5, unit: year}
+  n: "=ROW()"
+  buyer_net_income: "=@buyer.company.net_income_next_year * (1 + @buyer.company.earnings_growth) ^ (n - 1)"
+  target_revenue: "=@target.company.revenue_next_year * (1 + case.quillon_growth) ^ (n - 1)"
+  target_net_income: "=@target.company.net_income_next_year * (1 + case.quillon_growth) ^ (n - 1)"
+  cost_synergies: "=synergies.cost_run_rate * MIN(1, n / synergies.cost_ramp_years)"
+  revenue_synergies: "=synergies.revenue_run_rate * MIN(1, (n - 1) / synergies.revenue_ramp_years)"
+  synergy_profit: "=cost_synergies + revenue_synergies * synergies.revenue_margin"
+  # Half the integration bill in the first year, then 35% and 15%
+  integration_phasing: [0.5, 0.35, 0.15, 0, 0]
+  integration: "=synergies.integration_cost * integration_phasing"
+  interest: "=financing.new_debt * financing.debt_rate"
+  amortisation: "=synergies.intangibles / synergies.amortisation_years"
+  # Both companies' earnings, the synergies less what they cost, the new
+  # interest and the amortisation, all after tax
+  pro_forma_net_income: "=buyer_net_income + target_net_income + (synergy_profit - integration - interest - amortisation) * (1 - @buyer.company.tax_rate)"
+  pro_forma_eps: {formula: "=pro_forma_net_income / (@buyer.company.shares + financing.new_shares)", format: "$#,##0.00"}
+  standalone_eps: {formula: "=buyer_net_income / @buyer.company.shares", format: "$#,##0.00"}
+  accretion: {formula: "=pro_forma_eps / standalone_eps - 1", format: "0.0%"}
+  # The way the press release will count it: before amortisation and
+  # integration costs
+  adjusted_eps: {formula: "=(pro_forma_net_income + (integration + amortisation) * (1 - @buyer.company.tax_rate)) / (@buyer.company.shares + financing.new_shares)", format: "$#,##0.00"}
+  adjusted_accretion: {formula: "=adjusted_eps / standalone_eps - 1", format: "0.0%"}
+
+# The same five years in cash, which is what the deal is worth: Quillon's on
+# its own, and what the synergies add after tax
+cash:
+  year: {start: 2027, count: 5, unit: year}
+  n: "=ROW()"
+  target_cash: {formula: "=@target.company.free_cash_flow_next_year * (1 + case.quillon_growth) ^ (n - 1)", format: "#,##0.0"}
+  synergy_cash: {formula: "=(earnings.synergy_profit - earnings.integration) * (1 - @buyer.company.tax_rate)", format: "#,##0.0"}
+  discount: "=1 / (1 + case.discount_rate) ^ n"
+
+valuation:
+  # Year 5's cash growing for ever, as a value at the end of year 5
+  terminal_multiple:
+    formula: "=(1 + case.terminal_growth) / (case.discount_rate - case.terminal_growth)"
+    format: "0.0"
+  # What Quillon is worth on its own, with its debt
+  standalone:
+    formula: "=SUMPRODUCT(cash.target_cash, cash.discount) + INDEX(cash.target_cash, 5) * terminal_multiple * INDEX(cash.discount, 5)"
+    format: "$#,##0"
+  # What the synergies are worth, net of the integration bill
+  synergies:
+    formula: "=SUMPRODUCT(cash.synergy_cash, cash.discount) + INDEX(cash.synergy_cash, 5) * terminal_multiple * INDEX(cash.discount, 5)"
+    format: "$#,##0"
+  # Everything Valdane pays: the shares, the debt it takes on and the fees
+  price_paid:
+    formula: "=offer.enterprise_value + financing.fees"
+    format: "$#,##0"
+  # The question: is Quillon, with the synergies, worth more than it costs?
+  value_created:
+    formula: "=standalone + synergies - price_paid - earnout.paid * INDEX(cash.discount, 2)"
+    format: "$#,##0"
+  # Value created a Valdane share, counting the new ones
+  value_created_per_share:
+    formula: "=value_created / (@buyer.company.shares + financing.new_shares)"
+    format: "$#,##0.00"
+  # How many times the synergies cover the premium
+  synergy_cover:
+    formula: "=synergies / offer.premium_paid"
+    format: "0.00\"x\""
+  # Of the synergies' value, the share that comes after year 5
+  synergies_after_year_5:
+    formula: "=INDEX(cash.synergy_cash, 5) * terminal_multiple * INDEX(cash.discount, 5) / synergies"
+    format: "0%"
+  deal_irr:
+    formula: "=IRR(-price_paid, cash.target_cash + cash.synergy_cash + IF(cash.n = 5, (INDEX(cash.target_cash, 5) + INDEX(cash.synergy_cash, 5)) * terminal_multiple, 0))"
+    format: "0.00%"
+
+eps:
+  year_1_accretion: {formula: "=INDEX(earnings.accretion, 1)", format: "0.0%"}
+  year_3_accretion: {formula: "=INDEX(earnings.accretion, 3)", format: "0.0%"}
+  year_5_accretion: {formula: "=INDEX(earnings.accretion, 5)", format: "0.0%"}
+  year_1_adjusted_accretion: {formula: "=INDEX(earnings.adjusted_accretion, 1)", format: "0.0%"}
+  # The first year the deal adds to reported earnings a share; 0 if none does
+  first_accretive_year:
+    formula: "=MINIFS(earnings.n, earnings.accretion, \">0\")"
+
+monte_carlo:
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 29
+  outputs:
+    - variable: valuation.value_created
+      percentiles: [5, 25, 50, 75, 95]
+      thresholds: ["> 0", "< -200"]
+      expected_shortfall: [5]
+    - variable: valuation.synergies
+      percentiles: [5, 50, 95]
+    - variable: eps.year_3_accretion
+      thresholds: ["> 0"]
+    - variable: earnout.paid
+      thresholds: ["> 0"]
+
+# forge simulate deal_risk.yaml --scenario earnout
+scenarios:
+  earnout:
+    offer.premium: 0.20
+    earnout.on: 1
