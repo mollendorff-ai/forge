@@ -1,0 +1,142 @@
+# How two numbers compare (ADR-065, 2026-11-17).
+#
+# Excel's comparison operators and the number criteria of COUNTIF and its
+# family compare two numbers rounded to 15 significant digits, so binary noise
+# (0.1 + 0.2 is 0.30000000000000004) is equal; an exact lookup (MATCH 0,
+# VLOOKUP FALSE, XLOOKUP) compares exactly. Taken from Microsoft's
+# documentation and Q&A answers, not checked in Excel by hand: ADR-065 lists
+# the checks. Gnumeric 1.12 compares exactly everywhere, so the cases of the
+# first kind are judged by LibreOffice 26.2, which compares to about 15
+# digits (each says so). Before, Forge compared = and <> with an absolute
+# tolerance of 1E-10 and <, <=, >, >= exactly: 0.1 + 0.2 = 0.3 and
+# 0.1 + 0.2 > 0.3 were both TRUE, -1E-12 = 0 was TRUE, and MATCH found 0.3
+# for 0.1 + 0.2.
+#
+# A boolean is an IF giving 1 or 0, and an error IFERROR(..., -1).
+#
+# eq.v: 0.3, 0.3. eq.n: 110.00000000000001 (100 * 1.1). eq.z: 0.
+
+_forge_version: "5.4.0"
+
+eq:
+  v: [0.3, 0.3]
+  n: "=v * 0 + 100 * 1.1"
+  z: [0, 0]
+
+assumptions:
+  # ── The comparison operators: 15 significant digits ───────────────────────
+  test_equal_binary_noise:
+    value: null
+    formula: "=IF(0.1 + 0.2 = 0.3, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits"
+  # The other operators by the same rule: equal, so not above
+  test_at_most_binary_noise:
+    value: null
+    formula: "=IF(0.1 + 0.2 <= 0.3, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits"
+  test_above_binary_noise:
+    value: null
+    formula: "=IF(0.1 + 0.2 > 0.3, 1, 0)"
+    expected: 0
+    libreoffice: "Gnumeric 1.12 compares exactly (1); LibreOffice and Excel's documentation compare to 15 digits"
+  test_below_binary_noise:
+    value: null
+    formula: "=IF(0.3 - 0.1 < 0.2, 1, 0)"
+    expected: 0
+    libreoffice: "Gnumeric 1.12 compares exactly (1); LibreOffice and Excel's documentation compare to 15 digits"
+  test_equal_product:
+    value: null
+    formula: "=IF(100 * 1.1 = 110, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits"
+  # The 16th digit does not count, the 15th does
+  test_equal_sixteenth_digit:
+    value: null
+    formula: "=IF(1 + 1E-15 = 1, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits"
+  test_equal_fifteenth_digit:
+    value: null
+    formula: "=IF(1 + 1E-14 = 1, 1, 0)"
+    expected: 0
+  test_equal_thirteenth_digit:
+    value: null
+    formula: "=IF(1 + 1E-13 = 1, 1, 0)"
+    expected: 0
+  # 1000000000000001 is 1.00000000000000E+15 to 15 digits
+  test_equal_sixteen_digit_whole_number:
+    value: null
+    formula: "=IF(1E15 + 1 = 1E15, 1, 0)"
+    expected: 1
+    gnumeric_skip: "Rounded to 15 digits, as Microsoft describes Excel's comparison, the two are equal; Gnumeric 1.12 (exact) and LibreOffice 26.2 (a relative tolerance below 1E-15) give 0. Not checked in Excel (ADR-065)"
+  # ── No tolerance near zero ────────────────────────────────────────────────
+  test_equal_tiny_and_zero:
+    value: null
+    formula: "=IF(-1E-12 = 0, 1, 0)"
+    expected: 0
+  test_equal_two_tiny:
+    value: null
+    formula: "=IF(1E-12 = 2E-12, 1, 0)"
+    expected: 0
+  test_equal_smallest_and_zero:
+    value: null
+    formula: "=IF(1E-300 = 0, 1, 0)"
+    expected: 0
+  test_below_tiny:
+    value: null
+    formula: "=IF(-1E-12 < 0, 1, 0)"
+    expected: 1
+  # ── Exact lookups: exact ──────────────────────────────────────────────────
+  test_match_exact_binary_noise:
+    value: null
+    formula: "=IFERROR(MATCH(0.1 + 0.2, {0.3}, 0), -1)"
+    expected: -1
+  test_match_exact_tiny:
+    value: null
+    formula: "=IFERROR(MATCH(-1E-12, {0}, 0), -1)"
+    expected: -1
+  test_match_exact_same:
+    value: null
+    formula: "=MATCH(0.3, eq.v, 0)"
+    expected: 1
+  test_vlookup_exact_binary_noise:
+    value: null
+    formula: "=IFERROR(VLOOKUP(0.1 + 0.2, eq.v, 1, FALSE), -1)"
+    expected: -1
+  test_hlookup_exact_tiny:
+    value: null
+    formula: "=IFERROR(HLOOKUP(-1E-12, {0}, 1, FALSE), -1)"
+    expected: -1
+  test_xlookup_exact_binary_noise:
+    value: null
+    formula: "=IFERROR(XLOOKUP(0.1 + 0.2, eq.v, eq.v), -1)"
+    expected: -1
+    gnumeric_skip: "Gnumeric 1.12 has no XLOOKUP, and LibreOffice 26.2 finds 0.3 over a range of cells (and #N/A over the constant {0.3}); a Microsoft Q&A answer reports #N/A in Excel for a calculated value off in its last binary digit. Not checked in Excel by hand (ADR-065)"
+  # ── Criteria: 15 significant digits, as the operators ─────────────────────
+  test_countif_binary_noise:
+    value: null
+    formula: "=COUNTIF(eq.n, 110)"
+    expected: 2
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits"
+  test_countif_at_most_binary_noise:
+    value: null
+    formula: "=COUNTIF(eq.n, \"<=110\")"
+    expected: 2
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits"
+  test_countif_tiny:
+    value: null
+    formula: "=COUNTIF(eq.z, -1E-12)"
+    expected: 0
+  # ── SWITCH as =, RANK as a lookup (LibreOffice; not checked in Excel) ─────
+  test_switch_binary_noise:
+    value: null
+    formula: "=SWITCH(0.1 + 0.2, 0.3, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice matches as its = does. Not checked in Excel (ADR-065)"
+  test_rank_binary_noise:
+    value: null
+    formula: "=IFERROR(RANK(0.1 + 0.2, eq.v), -1)"
+    expected: -1
+    libreoffice: "Gnumeric 1.12 ranks a number that is not in the list (1); LibreOffice finds it exactly (#N/A), as Excel's lookups do. Not checked in Excel (ADR-065)"
