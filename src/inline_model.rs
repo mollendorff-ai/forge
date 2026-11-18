@@ -145,10 +145,8 @@ fn write_includes(
         written.insert(namespace.to_string(), relative.clone());
 
         let dest = dir.join(&relative);
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create dir for include '{file}': {e}"))?;
-        }
+        std::fs::create_dir_all(dest.parent().unwrap_or(dir))
+            .map_err(|e| format!("Failed to create dir for include '{file}': {e}"))?;
         std::fs::write(&dest, include_content)
             .map_err(|e| format!("Failed to write include '{file}': {e}"))?;
 
@@ -311,5 +309,33 @@ mod tests {
         let includes = map(&[("a", "_includes: nope\n")]);
         let err = resolve_model_input(None, None, Some(BASE), Some(&includes)).unwrap_err();
         assert_eq!(err, "_includes must be a sequence");
+    }
+
+    #[test]
+    fn an_include_without_a_file_or_a_name_is_refused() {
+        let no_file = "_includes:\n  - as: a\n";
+        let err = resolve_model_input(None, None, Some(no_file), Some(&map(&[]))).unwrap_err();
+        assert_eq!(err, "Each _includes entry must have a 'file' field");
+        let no_name = "_includes:\n  - file: a.yaml\n";
+        let err = resolve_model_input(None, None, Some(no_name), Some(&map(&[]))).unwrap_err();
+        assert_eq!(err, "Include 'a.yaml' must have an 'as' field");
+    }
+
+    #[test]
+    fn an_include_that_cannot_be_written_says_which() {
+        // `x` is a file where the second include wants a folder
+        let top = "_includes:\n  - file: x\n    as: a\n  - file: x/y.yaml\n    as: b\n";
+        let includes = map(&[("a", "k: 1\n"), ("b", "y: 2\n")]);
+        let err = resolve_model_input(None, None, Some(top), Some(&includes)).unwrap_err();
+        assert!(
+            err.contains("Failed to create dir for include 'x/y.yaml'"),
+            "{err}"
+        );
+
+        // `d` is a folder where the second include wants a file
+        let top = "_includes:\n  - file: d/f.yaml\n    as: a\n  - file: d\n    as: b\n";
+        let includes = map(&[("a", "k: 1\n"), ("b", "y: 2\n")]);
+        let err = resolve_model_input(None, None, Some(top), Some(&includes)).unwrap_err();
+        assert!(err.contains("Failed to write include 'd'"), "{err}");
     }
 }
