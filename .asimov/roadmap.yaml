@@ -354,12 +354,22 @@ tier1:
     how: "examples/inherited-budget/ with a .xlsx an FP&A analyst might inherit: a few sheets (assumptions, a monthly table, a summary), cross-sheet references, a named range, a hard-coded number where a formula should be, a merged header, a blank row inside a table, number formats. The workbook must not be written by forge export (that would check Forge against itself): write it with openpyxl or by hand in a spreadsheet, and record its calculated values from LibreOffice or Gnumeric (or Excel, when the maintainer has it at hand). Then: forge import, forge audit (the README says what it should flag, the hard-coded number at least), change one assumption with forge update or in the YAML, forge calculate, forge export, and recalculate the exported workbook outside Forge. Whatever import gets wrong or drops is the point of the item: each gets a failing test, then a fix or a written-down limit in docs"
     acceptance: "The workbook and the script or steps that made it are in the example; forge import of it calculates to the spreadsheet's own values, asserted in inline tests; forge audit's findings on it are asserted; the exported workbook after the change recalculates outside Forge to Forge's numbers; each limit found is fixed or written down in the README and the docs"
 
-  - id: T1-INTERFACE-PARITY
-    title: "MCP and the REST API give the examples' numbers"
-    run_with: "Sonnet 5.5, high effort: many tests of numbers already known, simple one by one; inline includes and path rules need care"
-    why: "The story examples' headline numbers are asserted through the command line only. The MCP tests run the one-command files (examples/tornado.yaml, decision-tree.yaml, real-options.yaml, bootstrap.yaml); the API tests use small inline models. An agent building a model through MCP is a main use, and bagel was first built that way (PR 76), so a difference between the doors is a wrong answer to someone"
-    how: "No new examples. For each of the 20 MCP tools (src/mcp/server/*_tools.rs), call the handler in-process on a story example (bagel for most, realestate or microgrid where bagel lacks the feature) and assert the same headline numbers the command-line tests assert, from the same constants where they can be shared. Once with file paths and once in inline content mode, including bagel's _includes passed inline (docs/MCP.md, Inline Includes) and a scenario that overrides a value in the included file. For the 5 REST endpoints (src/api/server.rs: validate, calculate, audit, export, import), one in-process test each on bagel with inline content, through build_router. Add a short request and response for each endpoint to the API docs. The analytics over REST stay T3-API; this item does not add endpoints. When the new examples above land, extend the matching tool's test to them"
-    acceptance: "Every MCP tool and every REST endpoint has an inline test that runs a story example and asserts a number the command-line test asserts; inline includes are covered; any difference found is fixed test-first as a wrong answer, with a CHANGELOG entry"
+  # T1-INTERFACE-PARITY is done (2026-11-18): every one of the 20 MCP tools and
+  # the 5 REST endpoints has an inline test that runs a story example and asserts
+  # a number the command-line tests assert, by file path and as inline content
+  # (bagel for most; the takeover's calculate, scenarios and break-even on an
+  # included input, and the vineyard's simulate, for the examples built since).
+  # The three discovery tools run no model, so they are checked against the
+  # models that use them. The tests are beside each tool (src/mcp/server/*_tools.rs)
+  # and in src/api/server.rs (bagel_over_http). One difference was found and fixed
+  # test-first: an included file that includes another (bagel_simulate.yaml ->
+  # costs_risk.yaml -> costs.yaml) failed as inline content, because only the
+  # files the model itself includes were written (src/inline_model.rs, CHANGELOG
+  # Fixed). Over REST, export and import take file paths only, so their bagel
+  # tests name files; the other three take the model as text. A failed operation
+  # answers HTTP 200 with success: true and the flag false (docs/FEATURES.md says so).
+  # The new examples still to come (T1-EXAMPLE-EXCEL-ROUNDTRIP, examples/fund when
+  # it merges) get their matching tool's test when they land.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)

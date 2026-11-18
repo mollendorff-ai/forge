@@ -614,4 +614,176 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // examples/bagel through the five endpoints (T1-INTERFACE-PARITY), called in
+    // process through `build_router`: the numbers are the ones the command-line
+    // tests assert (cli/commands/examples.rs, `bagel_example`, where the Python
+    // is quoted). validate, calculate and audit take the model as text with
+    // `costs.yaml` in `includes`; export and import name files.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    mod bagel_over_http {
+        use super::*;
+        use axum::body::Body;
+        use axum::http::{header, Method, Request, StatusCode};
+        use serde_json::{json, Value};
+        use tower::ServiceExt;
+
+        const PLAN: &str = "examples/bagel/bagel.yaml";
+
+        fn text(file: &str) -> String {
+            std::fs::read_to_string(format!("examples/bagel/{file}")).unwrap()
+        }
+
+        /// The plan as text, and `costs.yaml` for its `_includes`
+        fn inline() -> Value {
+            json!({"content": text("bagel.yaml"), "includes": {"costs": text("costs.yaml")}})
+        }
+
+        /// POST `body` to `path` on the router `forge serve` builds, as a request
+        /// from this machine; the `data` of the answer
+        async fn post(path: &str, body: &Value) -> Value {
+            let app = build_router(&ApiConfig::default()).unwrap();
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(path)
+                        .header(header::HOST, "localhost:8080")
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(body.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            let answer: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(answer["success"], true);
+            answer["data"].clone()
+        }
+
+        /// A dependency of the audited variable, wherever it is in the tree
+        fn find<'a>(deps: &'a Value, name: &str) -> Option<&'a Value> {
+            deps.as_array().into_iter().flatten().find_map(|d| {
+                (d["name"] == name)
+                    .then_some(d)
+                    .or_else(|| find(&d["children"], name))
+            })
+        }
+
+        fn close(a: &Value, b: f64, tolerance: f64) -> bool {
+            (a.as_f64().unwrap() - b).abs() <= tolerance
+        }
+
+        #[tokio::test]
+        async fn validate_counts_the_bagel_model() {
+            let data = post("/api/v1/validate", &inline()).await;
+            assert_eq!(data["valid"], true);
+            assert_eq!(data["message"], "Validation successful");
+            assert_eq!(data["file_path"], "");
+            assert_eq!(data["result"]["table_count"], 1);
+            assert_eq!(data["result"]["scalar_count"], 19);
+            assert_eq!(data["result"]["mismatches"], json!([]));
+        }
+
+        #[tokio::test]
+        async fn calculate_gives_the_years_profit_and_the_flour_shocks() {
+            let mut body = inline();
+            body["dry_run"] = json!(true);
+            let data = post("/api/v1/calculate", &body).await;
+            assert_eq!(data["calculated"], true);
+            let scalars = &data["result"]["scalars"];
+            assert!(close(&scalars["year.profit"], 786.320_361_7, 1e-6));
+            assert!(close(&scalars["year.revenue"], 386_827.449_537_8, 1e-6));
+            assert!(close(
+                &scalars["year.first_year_return"],
+                786.320_361_7 / 95_000.0,
+                1e-9
+            ));
+
+            // The scenario sets the flour price, a value in the included file
+            body["scenario"] = json!("flour_shock");
+            let shock = post("/api/v1/calculate", &body).await;
+            assert!(close(
+                &shock["result"]["scalars"]["year.profit"],
+                -16_943.271_075,
+                1e-6
+            ));
+        }
+
+        #[tokio::test]
+        async fn calculate_without_a_dry_run_returns_the_model_with_its_values() {
+            let data = post("/api/v1/calculate", &inline()).await;
+            assert_eq!(data["message"], "Calculation completed");
+            let model = data["calculated_content"].as_str().unwrap();
+            assert!(model.contains("=SUM(months.profit)"), "{model}");
+            assert!(model.contains("value: 786.3203617"), "{model}");
+        }
+
+        #[tokio::test]
+        async fn audit_follows_the_profit_down_to_the_included_costs() {
+            let mut body = inline();
+            body["variable"] = json!("year.profit");
+            let data = post("/api/v1/audit", &body).await;
+            assert_eq!(data["audited"], true);
+            assert_eq!(data["variable"], "year.profit");
+            let result = &data["result"];
+            assert!(close(&result["calculated_value"], 786.320_361_7, 1e-6));
+            let deps = &result["dependencies"];
+            assert_eq!(deps[0]["name"], "months.profit");
+            assert_eq!(deps[0]["values"].as_array().map(Vec::len), Some(12));
+            let wage = find(deps, "@costs.labour.loaded_wage").unwrap();
+            assert_eq!(wage["dep_type"], "Included scalar");
+            assert_eq!(wage["source"], "costs.yaml");
+            assert!(close(&wage["value"], 21.275, 1e-9));
+        }
+
+        #[tokio::test]
+        async fn export_writes_the_bagel_workbook() {
+            let dir = tempfile::tempdir().unwrap();
+            let excel = dir.path().join("bagel.xlsx");
+            let data = post(
+                "/api/v1/export",
+                &json!({"yaml_path": PLAN, "excel_path": excel.to_str().unwrap()}),
+            )
+            .await;
+            assert_eq!(data["exported"], true);
+            assert_eq!(data["message"], "Export completed");
+            let bytes = std::fs::read(&excel).unwrap();
+            assert_eq!(&bytes[..4], b"PK\x03\x04", "an xlsx is a zip file");
+        }
+
+        /// A workbook of the plan, imported over HTTP, with `costs.yaml` beside the
+        /// model: the model that comes back calculates the same year.
+        #[tokio::test]
+        async fn import_gives_the_bagel_year_back() {
+            let dir = tempfile::tempdir().unwrap();
+            let excel = dir.path().join("bagel.xlsx");
+            crate::cli::export_core(std::path::Path::new(PLAN), &excel).unwrap();
+            let yaml = dir.path().join("model.yaml");
+            let data = post(
+                "/api/v1/import",
+                &json!({"excel_path": excel.to_str().unwrap(), "yaml_path": yaml.to_str().unwrap()}),
+            )
+            .await;
+            assert_eq!(data["imported"], true);
+            assert_eq!(data["message"], "Import completed");
+            assert!(dir.path().join("costs.yaml").exists());
+
+            let back = post(
+                "/api/v1/calculate",
+                &json!({"file_path": yaml.to_str().unwrap(), "dry_run": true}),
+            )
+            .await;
+            assert!(close(
+                &back["result"]["scalars"]["year.profit"],
+                786.320_361_7,
+                1e-6
+            ));
+        }
+    }
 }

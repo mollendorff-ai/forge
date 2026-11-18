@@ -216,7 +216,9 @@ impl ForgeMcpServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mcp::server::tests::{err_text, ok_text};
+    use crate::mcp::server::tests::{
+        bagel_source, close, err_text, example_source, json, ok_text, Source,
+    };
     use rmcp::handler::server::wrapper::Parameters;
 
     const DATED: &str = r#"_forge_version: "5.4.0"
@@ -629,5 +631,322 @@ scalars:
             "{text}"
         );
         assert!(v["expected_values"]["inputs.rate"].is_number());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // The numbers of examples/bagel through the tools (T1-INTERFACE-PARITY):
+    // each is asserted by the command-line tests in cli/commands/examples.rs
+    // (`bagel_example`, the Python is quoted there), here by file path and as
+    // inline content with `costs.yaml` passed in `includes`.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// The bagel plan, by path or inline with `costs.yaml`
+    fn plan(inline: bool) -> Source {
+        bagel_source(inline, "bagel.yaml", &[("costs", "costs.yaml")])
+    }
+
+    /// `price_per_dozen` and `opening_dozens_per_day` moved together: the four
+    /// cells the tornado test asserts (14 and 18 dollars, 45 and 65 dozens, each
+    /// with the other at the plan) and the plan itself.
+    #[test]
+    fn sensitivity_gives_the_tornados_cells_by_path_and_inline() {
+        for inline in [false, true] {
+            let (file_path, content, includes) = plan(inline);
+            let result = json(&ok_text(ForgeMcpServer::new().sensitivity(Parameters(
+                SensitivityRequest {
+                    file_path,
+                    content,
+                    includes,
+                    vary: "assumptions.price_per_dozen".into(),
+                    range: "14,18,2".into(),
+                    output: "year.profit".into(),
+                    vary2: Some("assumptions.opening_dozens_per_day".into()),
+                    range2: Some("45,65,10".into()),
+                },
+            ))));
+            let grid = &result["data"]["TwoVar"];
+            assert_eq!(grid["row_values"], serde_json::json!([14.0, 16.0, 18.0]));
+            assert_eq!(grid["col_values"], serde_json::json!([45.0, 55.0, 65.0]));
+            let cell =
+                |price: usize, opening: usize| grid["matrix"][price][opening].as_f64().unwrap();
+            assert!(close(cell(0, 1), -46_309.92, 0.006), "inline {inline}");
+            assert!(close(cell(2, 1), 47_882.56, 0.006), "inline {inline}");
+            assert!(close(cell(1, 0), -56_463.56, 0.006), "inline {inline}");
+            assert!(close(cell(1, 2), 58_036.20, 0.006), "inline {inline}");
+            assert!(close(cell(1, 1), 786.320_361_7, 1e-6), "inline {inline}");
+        }
+    }
+
+    /// `break_even_price_and_staffing_for_sixty_thousand`, as a goal seek and
+    /// as a break-even.
+    #[test]
+    fn goal_seek_and_break_even_find_the_cli_prices_by_path_and_inline() {
+        let server = ForgeMcpServer::new();
+        for inline in [false, true] {
+            let (file_path, content, includes) = plan(inline);
+            let hours = json(&ok_text(server.goal_seek(Parameters(GoalSeekRequest {
+                file_path,
+                content,
+                includes,
+                target: "year.profit".into(),
+                value: 60_000.0,
+                vary: "assumptions.staff_hours_per_day".into(),
+                min: Some(8.0),
+                max: Some(40.0),
+                tolerance: 0.0001,
+            }))));
+            assert_eq!(hours["converged"], true);
+            let hours = hours["solution"].as_f64().unwrap();
+            assert!(close(hours, 24.268_7, 1e-3), "inline {inline}: {hours}");
+
+            let (file_path, content, includes) = plan(inline);
+            let price = json(&ok_text(server.break_even(Parameters(BreakEvenRequest {
+                file_path,
+                content,
+                includes,
+                output: "year.profit".into(),
+                vary: "assumptions.price_per_dozen".into(),
+                min: Some(10.0),
+                max: Some(30.0),
+            }))));
+            assert_eq!(price["converged"], true);
+            let price = price["solution"].as_f64().unwrap();
+            assert!(close(price, 15.966_6, 1e-3), "inline {inline}: {price}");
+        }
+    }
+
+    /// The flour price in the included file, which the scenario `flour_shock` sets
+    /// to 1.70. The year's profit is linear in it: 786.3203617 at 1.15 and
+    /// -16943.271075 at 1.70 (the two numbers of `flour_shock_changes_the_included_price`),
+    /// so it is zero at 1.15 + 786.3203617 / ((786.3203617 + 16943.271075) / 0.55).
+    #[test]
+    fn break_even_varies_a_value_in_the_included_file_by_path_and_inline() {
+        let zero = 1.15 + 786.320_361_7 / ((786.320_361_7 + 16_943.271_075) / 0.55);
+        for inline in [false, true] {
+            let (file_path, content, includes) = plan(inline);
+            let result = json(&ok_text(ForgeMcpServer::new().break_even(Parameters(
+                BreakEvenRequest {
+                    file_path,
+                    content,
+                    includes,
+                    output: "year.profit".into(),
+                    vary: "@costs.ingredients.flour_per_kg".into(),
+                    min: Some(0.5),
+                    max: Some(5.0),
+                },
+            ))));
+            let flour = result["solution"].as_f64().unwrap();
+            assert!(close(flour, zero, 1e-3), "inline {inline}: {flour}");
+        }
+    }
+
+    /// `variance_judges_costs_as_costs`: both files include `costs.yaml`, which
+    /// the one `includes` map gives for both.
+    #[test]
+    fn variance_judges_costs_as_costs_by_path_and_inline() {
+        for inline in [false, true] {
+            let (budget_path, budget_content, includes) = plan(inline);
+            let (actual_path, actual_content, _) =
+                bagel_source(inline, "actual.yaml", &[("costs", "costs.yaml")]);
+            let result = json(&ok_text(ForgeMcpServer::new().variance(Parameters(
+                VarianceRequest {
+                    budget_path,
+                    budget_content,
+                    actual_path,
+                    actual_content,
+                    includes,
+                    threshold: None,
+                },
+            ))));
+            let rows = result["results"].as_array().unwrap();
+            let get = |name: &str| rows.iter().find(|r| r["name"] == name).unwrap();
+            assert_eq!(get("assumptions.rent_per_month")["is_favorable"], false);
+            assert_eq!(get("assumptions.staff_hours_per_day")["better"], "lower");
+            assert_eq!(
+                get("assumptions.staff_hours_per_day")["is_favorable"],
+                false
+            );
+            assert!(get("assumptions.price_per_dozen")["is_favorable"].is_null());
+            let npv = get("year.npv_first_year");
+            let pct = npv["variance_pct"].as_f64().unwrap();
+            assert!(close(pct, -28.959_419, 1e-5), "inline {inline}: {pct}");
+            assert_eq!(npv["is_favorable"], false);
+            assert_eq!(result["not_compared"], serde_json::json!([]));
+        }
+    }
+
+    /// `first_year_return_is_defined_whatever_the_profit`: the base case and the
+    /// flour shock side by side.
+    #[test]
+    fn compare_sets_the_flour_shock_beside_the_plan_by_path_and_inline() {
+        for inline in [false, true] {
+            let (file_path, content, includes) = plan(inline);
+            let result = json(&ok_text(ForgeMcpServer::new().compare(Parameters(
+                CompareRequest {
+                    file_path,
+                    content,
+                    includes,
+                    scenarios: vec!["base".into(), "flour_shock".into()],
+                },
+            ))));
+            assert_eq!(
+                result["scenarios"],
+                serde_json::json!(["base", "flour_shock"])
+            );
+            let row = &result["values"]["year.first_year_return"];
+            assert!(close(
+                row["base"].as_f64().unwrap(),
+                786.320_361_7 / 95_000.0,
+                1e-9
+            ));
+            let shock = row["flour_shock"].as_f64().unwrap();
+            assert!(
+                close(shock, -16_943.271_075 / 95_000.0, 1e-9),
+                "inline {inline}: {shock}"
+            );
+            let profit = result["values"]["year.profit"]["flour_shock"]
+                .as_f64()
+                .unwrap();
+            assert!(
+                close(profit, -16_943.271_075, 1e-6),
+                "inline {inline}: {profit}"
+            );
+        }
+    }
+
+    /// `flour_shock_changes_the_included_price`: the shock's profit, and the
+    /// expected value over the four scenarios (0.5 x 786.32 + 0.1 x -16943.27 +
+    /// 0.2 x -71197.20 + 0.2 x 80811.24).
+    #[test]
+    fn scenarios_weight_the_four_by_path_and_inline() {
+        let server = ForgeMcpServer::new();
+        for inline in [false, true] {
+            let (file_path, content, includes) = plan(inline);
+            let all = json(&ok_text(server.scenarios(Parameters(ScenariosRequest {
+                file_path,
+                content,
+                includes,
+                scenario_filter: None,
+            }))));
+            let expected = all["expected_values"]["year.profit"].as_f64().unwrap();
+            assert!(
+                close(expected, 621.641_286, 1e-5),
+                "inline {inline}: {expected}"
+            );
+            assert_eq!(all["scenarios"].as_array().map(Vec::len), Some(4));
+
+            let (file_path, content, includes) = plan(inline);
+            let one = json(&ok_text(server.scenarios(Parameters(ScenariosRequest {
+                file_path,
+                content,
+                includes,
+                scenario_filter: Some("flour_shock".into()),
+            }))));
+            assert_eq!(one["scenarios"][0]["name"], "flour_shock");
+            let profit = one["scenarios"][0]["outputs"]["year.profit"]
+                .as_f64()
+                .unwrap();
+            assert!(
+                close(profit, -16_943.271_075, 1e-6),
+                "inline {inline}: {profit}"
+            );
+        }
+    }
+
+    /// `tornado_matches_the_independent_calculation`: each input alone at its
+    /// low and high, largest swing first.
+    #[test]
+    fn tornado_matches_the_independent_calculation_by_path_and_inline() {
+        let expected = [
+            ("assumptions.opening_dozens_per_day", -56_463.56, 58_036.20),
+            ("assumptions.price_per_dozen", -46_309.92, 47_882.56),
+            ("assumptions.staff_hours_per_day", 46_740.32, -29_849.68),
+            ("assumptions.rent_per_month", 10_386.32, -13_613.68),
+            ("assumptions.card_fee_rate", 3_880.94, -760.99),
+        ];
+        for inline in [false, true] {
+            let (file_path, content, includes) = plan(inline);
+            let result = json(&ok_text(ForgeMcpServer::new().tornado(Parameters(
+                TornadoRequest {
+                    file_path,
+                    content,
+                    includes,
+                    output_var: None,
+                },
+            ))));
+            let bars = result["bars"].as_array().unwrap();
+            assert_eq!(bars.len(), expected.len());
+            for (bar, (name, low, high)) in bars.iter().zip(expected) {
+                assert_eq!(bar["input_name"], name);
+                assert!(
+                    close(bar["output_at_low"].as_f64().unwrap(), low, 0.006),
+                    "{name}"
+                );
+                assert!(
+                    close(bar["output_at_high"].as_f64().unwrap(), high, 0.006),
+                    "{name}"
+                );
+            }
+        }
+    }
+
+    /// examples/acquisition, which includes the buyer and the target
+    fn takeover(inline: bool) -> Source {
+        example_source(
+            inline,
+            "acquisition",
+            "deal.yaml",
+            &[("buyer", "buyer.yaml"), ("target", "target.yaml")],
+        )
+    }
+
+    /// `each_scenario_matches_the_independent_calculation`: the four weighted
+    /// scenarios of the takeover create 139.4853 on average, against 224.5079
+    /// at the plan.
+    #[test]
+    fn scenarios_weight_the_takeovers_four_cases_by_path_and_inline() {
+        for inline in [false, true] {
+            let (file_path, content, includes) = takeover(inline);
+            let result = json(&ok_text(ForgeMcpServer::new().scenarios(Parameters(
+                ScenariosRequest {
+                    file_path,
+                    content,
+                    includes,
+                    scenario_filter: None,
+                },
+            ))));
+            let weighted = result["expected_values"]["valuation.value_created"]
+                .as_f64()
+                .unwrap();
+            assert!(
+                close(weighted, 139.485_303_520_619_45, 1e-9),
+                "inline {inline}: {weighted}"
+            );
+        }
+    }
+
+    /// `goal_seek_moves_an_input_of_an_included_file`: Quillon's free cash flow,
+    /// a value in `target.yaml`, at which the takeover creates nothing; the
+    /// README says 51.40 a year, from 62. Written as the scenarios write it.
+    #[test]
+    fn break_even_moves_an_input_of_the_included_target_by_path_and_inline() {
+        for inline in [false, true] {
+            let (file_path, content, includes) = takeover(inline);
+            let result = json(&ok_text(ForgeMcpServer::new().break_even(Parameters(
+                BreakEvenRequest {
+                    file_path,
+                    content,
+                    includes,
+                    output: "valuation.value_created".into(),
+                    vary: "@target.company.free_cash_flow_next_year".into(),
+                    min: None,
+                    max: None,
+                },
+            ))));
+            assert_eq!(result["converged"], true, "inline {inline}");
+            assert_eq!(result["vary"], "@target.company.free_cash_flow_next_year");
+            let cash = result["solution"].as_f64().unwrap();
+            assert!(close(cash, 51.40, 0.005), "inline {inline}: {cash}");
+        }
     }
 }

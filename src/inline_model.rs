@@ -61,54 +61,51 @@ fn check_inline_include_path(file: &str) -> Result<(), String> {
     }
 }
 
-/// Check the paths of any `_includes` nested inside inline include content.
-///
-/// Nested includes are not written to the temp directory, but the parser
-/// would still try to read them, so an unchecked path could read files
-/// outside it. Content that does not parse is left for the parser to report.
-fn check_nested_include_paths(include_content: &str) -> Result<(), String> {
-    let Ok(parsed) = yaml_serde::from_str::<yaml_serde::Value>(include_content) else {
-        return Ok(());
-    };
-    if let Some(yaml_serde::Value::Sequence(seq)) = parsed.get("_includes") {
-        for file in seq
-            .iter()
-            .filter_map(|entry| entry.get("file"))
-            .filter_map(yaml_serde::Value::as_str)
-        {
-            check_inline_include_path(file)?;
-        }
-    }
-    Ok(())
-}
-
 /// Write inline include files into the temp directory.
 ///
 /// Parses `_includes` entries from the YAML, matches each `as` namespace
 /// to the `includes` map, and writes the content using the `file` field
-/// as the filename (creating subdirectories if needed). Every path must stay
-/// inside the temp directory.
+/// as the filename (creating subdirectories if needed). An included file can
+/// include others (`bagel_simulate.yaml` includes `costs_risk.yaml`, which
+/// includes `costs.yaml`): they are written the same way, their `file`
+/// relative to the file that names them, their content in the same map.
+/// Every path must stay inside the temp directory.
 fn resolve_inline_includes(
     yaml: &str,
     includes: Option<&HashMap<String, String>>,
     dir: &Path,
 ) -> Result<(), String> {
-    // Quick check: does the YAML contain _includes?
     let parsed: yaml_serde::Value =
         yaml_serde::from_str(yaml).map_err(|e| format!("Invalid YAML: {e}"))?;
-
-    let includes_seq = match parsed.get("_includes") {
-        Some(yaml_serde::Value::Sequence(seq)) => seq,
-        Some(_) => return Err("_includes must be a sequence".into()),
-        None => return Ok(()), // No _includes — nothing to resolve
-    };
-
+    if parsed.get("_includes").is_none() {
+        return Ok(());
+    }
     let map = includes.ok_or(
         "Model has _includes but no 'includes' map was provided. \
          Pass inline content for each included namespace.",
     )?;
+    write_includes(&parsed, map, dir, Path::new(""), &mut HashMap::new())
+}
 
-    for entry in includes_seq {
+/// Write the files `model` includes, and the files those include in turn.
+///
+/// `from` is the folder of the file `model` is the text of, inside `dir`;
+/// `written` holds the path each namespace has been written to, so that a
+/// namespace is one file and a file that includes itself is written once.
+fn write_includes(
+    model: &yaml_serde::Value,
+    map: &HashMap<String, String>,
+    dir: &Path,
+    from: &Path,
+    written: &mut HashMap<String, PathBuf>,
+) -> Result<(), String> {
+    let entries = match model.get("_includes") {
+        Some(yaml_serde::Value::Sequence(seq)) => seq,
+        Some(_) => return Err("_includes must be a sequence".into()),
+        None => return Ok(()),
+    };
+
+    for entry in entries {
         let file = entry
             .get("file")
             .and_then(yaml_serde::Value::as_str)
@@ -119,6 +116,13 @@ fn resolve_inline_includes(
             .and_then(yaml_serde::Value::as_str)
             .ok_or_else(|| format!("Include '{file}' must have an 'as' field"))?;
 
+        check_inline_include_path(file)?;
+        let relative: PathBuf = from
+            .join(file)
+            .components()
+            .filter(|c| !matches!(c, Component::CurDir))
+            .collect();
+
         let include_content = map.get(namespace).ok_or_else(|| {
             format!(
                 "No content provided for include namespace '{namespace}'. \
@@ -126,16 +130,33 @@ fn resolve_inline_includes(
             )
         })?;
 
-        check_inline_include_path(file)?;
-        check_nested_include_paths(include_content)?;
+        match written.get(namespace) {
+            Some(earlier) if *earlier == relative => continue,
+            Some(earlier) => {
+                return Err(format!(
+                    "Include namespace '{namespace}' names two files, '{}' and '{}'. \
+                     Each namespace in the 'includes' map is the content of one file.",
+                    earlier.display(),
+                    relative.display()
+                ))
+            },
+            None => {},
+        }
+        written.insert(namespace.to_string(), relative.clone());
 
-        let dest = dir.join(file);
+        let dest = dir.join(&relative);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create dir for include '{file}': {e}"))?;
         }
         std::fs::write(&dest, include_content)
             .map_err(|e| format!("Failed to write include '{file}': {e}"))?;
+
+        // Content that does not parse is left for the parser to report
+        if let Ok(inner) = yaml_serde::from_str::<yaml_serde::Value>(include_content) {
+            let folder = relative.parent().unwrap_or_else(|| Path::new(""));
+            write_includes(&inner, map, dir, folder, written)?;
+        }
     }
 
     Ok(())
@@ -184,5 +205,111 @@ mod tests {
             result.unwrap_err(),
             "Either file_path or content is required"
         );
+    }
+
+    /// `includes` as text for each namespace
+    fn map(entries: &[(&str, &str)]) -> HashMap<String, String> {
+        entries
+            .iter()
+            .map(|(namespace, text)| (namespace.to_string(), text.to_string()))
+            .collect()
+    }
+
+    const BASE: &str = "_includes:\n  - file: a.yaml\n    as: a\n";
+
+    #[test]
+    fn a_file_an_included_file_includes_is_written_beside_it() {
+        // examples/bagel/bagel_simulate.yaml includes costs_risk.yaml, which
+        // includes costs.yaml: the agent names both, by their `as`
+        let includes = map(&[
+            ("a", "_includes:\n  - file: b.yaml\n    as: b\nx: 1\n"),
+            ("b", "y: 2\n"),
+        ]);
+        let (path, tmp) = resolve_model_input(None, None, Some(BASE), Some(&includes)).unwrap();
+        let dir = path.parent().unwrap();
+        assert!(tmp.is_some());
+        assert_eq!(
+            std::fs::read_to_string(dir.join("b.yaml")).unwrap(),
+            "y: 2\n"
+        );
+        assert!(std::fs::read_to_string(dir.join("a.yaml"))
+            .unwrap()
+            .contains("x: 1"));
+    }
+
+    #[test]
+    fn a_nested_include_is_relative_to_the_file_that_includes_it() {
+        let top = "_includes:\n  - file: ./data/a.yaml\n    as: a\n";
+        let includes = map(&[
+            ("a", "_includes:\n  - file: ./b.yaml\n    as: b\n"),
+            ("b", "y: 2\n"),
+        ]);
+        let (path, _tmp) = resolve_model_input(None, None, Some(top), Some(&includes)).unwrap();
+        let dir = path.parent().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.join("data/b.yaml")).unwrap(),
+            "y: 2\n"
+        );
+        assert!(!dir.join("b.yaml").exists());
+    }
+
+    #[test]
+    fn a_nested_include_without_content_is_named() {
+        let includes = map(&[("a", "_includes:\n  - file: b.yaml\n    as: b\n")]);
+        let err = resolve_model_input(None, None, Some(BASE), Some(&includes)).unwrap_err();
+        assert!(err.contains("namespace 'b'"), "{err}");
+    }
+
+    #[test]
+    fn a_nested_include_cannot_leave_the_folder() {
+        let includes = map(&[
+            ("a", "_includes:\n  - file: ../b.yaml\n    as: b\n"),
+            ("b", "y: 2\n"),
+        ]);
+        let err = resolve_model_input(None, None, Some(BASE), Some(&includes)).unwrap_err();
+        assert!(err.contains("not allowed"), "{err}");
+    }
+
+    #[test]
+    fn one_namespace_cannot_be_two_files() {
+        let includes = map(&[("a", "_includes:\n  - file: other.yaml\n    as: a\n")]);
+        let err = resolve_model_input(None, None, Some(BASE), Some(&includes)).unwrap_err();
+        assert!(
+            err.contains("namespace 'a'") && err.contains("a.yaml") && err.contains("other.yaml"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn a_file_included_twice_is_written_once() {
+        // The same file by two routes (and a file that includes itself)
+        let top = "_includes:\n  - file: a.yaml\n    as: a\n  - file: c.yaml\n    as: c\n";
+        let includes = map(&[
+            (
+                "a",
+                "_includes:\n  - file: ./c.yaml\n    as: c\n  - file: a.yaml\n    as: a\n",
+            ),
+            ("c", "z: 3\n"),
+        ]);
+        let (path, _tmp) = resolve_model_input(None, None, Some(top), Some(&includes)).unwrap();
+        let dir = path.parent().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.join("c.yaml")).unwrap(),
+            "z: 3\n"
+        );
+    }
+
+    #[test]
+    fn an_included_file_that_is_not_yaml_is_left_to_the_parser() {
+        let includes = map(&[("a", "key: [unclosed\n")]);
+        let (path, _tmp) = resolve_model_input(None, None, Some(BASE), Some(&includes)).unwrap();
+        assert!(path.parent().unwrap().join("a.yaml").exists());
+    }
+
+    #[test]
+    fn a_nested_includes_section_that_is_not_a_list_is_refused() {
+        let includes = map(&[("a", "_includes: nope\n")]);
+        let err = resolve_model_input(None, None, Some(BASE), Some(&includes)).unwrap_err();
+        assert_eq!(err, "_includes must be a sequence");
     }
 }
