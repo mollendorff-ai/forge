@@ -44,7 +44,7 @@ await page.waitForFunction(() => document.body.dataset.state === "ready", null, 
 // the suggestions for the first letters of each word in it
 const result = await page.evaluate(async () => {
   const { call } = await import("./forge.js");
-  const { scopeOf, namesFor, functionsOf, suggest, apply } = await import("./suggest.js");
+  const { scopeOf, namesFor, functionsOf, letBindings, suggest, apply } = await import("./suggest.js");
   const sets = await (await fetch("examples.json")).json();
   const answer = await call("functions", {});
   const functions = functionsOf(answer);
@@ -52,8 +52,9 @@ const result = await page.evaluate(async () => {
   const problems = [];
   let formulas = 0, words = 0, offered = 0;
   const wordsOf = (formula) => {
-    const plain = formula.replace(/"(?:[^"\\]|\\.)*"/g, '""');
-    return [...plain.matchAll(/(?<![A-Za-z0-9_.@])(@?[A-Za-z_][A-Za-z0-9_.@]*)(\()?/g)].map((m) => ({ word: m[1], call: !!m[2] }));
+    // A text is blanked, keeping every position
+    const plain = formula.replace(/"(?:[^"\\]|\\.)*"/g, (m) => '"' + " ".repeat(m.length - 2) + '"');
+    return [...plain.matchAll(/(?<![A-Za-z0-9_.@])(@?[A-Za-z_][A-Za-z0-9_.@]*)(\()?/g)].map((m) => ({ word: m[1], call: !!m[2], index: m.index }));
   };
   for (const set of sets) {
     const model = await call("model", { files: set.files, main: set.main });
@@ -68,16 +69,20 @@ const result = await page.evaluate(async () => {
       formulas++;
       const scope = scopeOf(model, path);
       const index = { names: namesFor(model, scope), functions };
-      for (const { word, call: isCall } of wordsOf(formula)) {
+      // A name a LET declares is offered after its declaration, not where it is declared
+      const declares = new Set(letBindings(formula).map((b) => b.start));
+      for (const { word, call: isCall, index: at } of wordsOf(formula)) {
+        if (declares.has(at)) continue;
         words++;
-        const typed = word.slice(0, Math.min(3, word.length));
+        const before = formula.slice(0, at);
+        const typed = before + word.slice(0, Math.min(3, word.length));
         const list = suggest(index, typed, typed.length);
         const want = isCall ? word + "(" : word;
         const hit = list.find((s) => s.label === want || (!isCall && s.insert === word));
         if (!hit) { problems.push(`${set.id}: ${path}: typing "${typed}" does not offer ${want}`); continue; }
         offered++;
         const after = apply(typed, hit).text;
-        if (after !== want) problems.push(`${set.id}: ${path}: taking ${hit.label} after "${typed}" gives "${after}", not "${want}"`);
+        if (after !== before + want) problems.push(`${set.id}: ${path}: taking ${hit.label} after "${typed}" gives "${after}", not "${before + want}"`);
         if (isCall && !listed.has(word)) problems.push(`${set.id}: ${path}: ${word} is not in Forge's function list`);
       }
     }
