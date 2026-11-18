@@ -91,23 +91,9 @@ pub fn calculate_with_override(
         );
     }
 
-    // Calculate
-    let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all()?;
-
-    // Get output value
-    result.scalars.get(output_name).map_or_else(
-        || {
-            Err(ForgeError::Validation(format!(
-                "Output variable '{output_name}' not found in model"
-            )))
-        },
-        |scalar| {
-            scalar.value.ok_or_else(|| {
-                ForgeError::Validation(format!("Output variable '{output_name}' has no value"))
-            })
-        },
-    )
+    // Calculate for the output alone: a formula it does not use may fail at
+    // this value of the input without failing the answer
+    ArrayCalculator::new(model).calculate_scalar(output_name)
 }
 
 /// Run sensitivity analysis and return structured results (no printing).
@@ -154,12 +140,8 @@ pub fn sensitivity_core(
                     s.value = Some(*val2);
                     s.formula = None;
                 }
-                let calculator = ArrayCalculator::new(model);
-                let cell = match calculator.calculate_all() {
-                    Ok(result) => result.scalars.get(output).and_then(|s| s.value),
-                    Err(_) => None,
-                };
-                row.push(cell);
+                // A formula the output does not use may fail here
+                row.push(ArrayCalculator::new(model).calculate_scalar(output).ok());
             }
             matrix.push(row);
         }
@@ -408,13 +390,10 @@ fn run_two_var_sensitivity(
             s.value = Some(val2);
             s.formula = None;
         }
-        match ArrayCalculator::new(model).calculate_all() {
-            Ok(result) => result.scalars.get(output).map_or_else(
-                || "?".to_string(),
-                |scalar| scalar.value.map_or_else(|| "-".to_string(), display_number),
-            ),
-            Err(_) => "ERR".to_string(),
-        }
+        // A formula the output does not use may fail here
+        ArrayCalculator::new(model)
+            .calculate_scalar(output)
+            .map_or_else(|_| "ERR".to_string(), display_number)
     };
     let rows: Vec<(String, Vec<String>)> = values1
         .iter()
@@ -455,8 +434,7 @@ fn run_two_var_sensitivity(
         out!(c, "{:>first_width$}", input.bright_yellow());
         for text in cells {
             match text.as_str() {
-                "ERR" | "?" => out!(c, "{:>width$}", text.red()),
-                "-" => out!(c, "{:>width$}", text.dimmed()),
+                "ERR" => out!(c, "{:>width$}", text.red()),
                 _ => out!(c, "{:>width$}", text.green()),
             }
         }
@@ -633,6 +611,73 @@ out:
             for (got, want) in solar.iter().zip(want) {
                 assert!((got - want).abs() <= 1e-6, "{got}, not {want}");
             }
+        }
+    }
+
+    mod two_inputs {
+        //! The matrix of two inputs: a formula the output does not use may fail
+        //! in a cell without blanking it. `s.per_point` divides by zero at
+        //! x = 1; `s.out` = x + y does not use it, so its row at x = 1 is
+        //! 1 + 0 and 1 + 1. Both cells were empty (`ERR` on the screen). An
+        //! output that uses the failing formula still has no value there.
+
+        use super::super::sensitivity_core;
+        use crate::cli::commands::results::SensitivityData;
+        use crate::cli::forge;
+
+        const MODEL: &str = "_forge_version: \"5.4.0\"\ns:\n  x: 2\n  y: 0\n  per_point: {formula: \"=1 / (x - 1)\"}\n  out: {formula: \"=x + y\"}\n  uses_it: {formula: \"=per_point + y\"}\n";
+
+        fn file() -> (tempfile::TempDir, std::path::PathBuf) {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, MODEL).unwrap();
+            (dir, path)
+        }
+
+        fn matrix(output: &str) -> Vec<Vec<Option<f64>>> {
+            let (_dir, path) = file();
+            let result =
+                sensitivity_core(&path, "s.x", "1,2,1", Some("s.y"), Some("0,1,1"), output)
+                    .unwrap();
+            match result.data {
+                SensitivityData::TwoVar { matrix, .. } => matrix,
+                SensitivityData::OneVar { .. } => panic!("one input"),
+            }
+        }
+
+        #[test]
+        fn a_failure_the_output_does_not_use_leaves_its_cells() {
+            assert_eq!(
+                matrix("s.out"),
+                [[Some(1.0), Some(2.0)], [Some(2.0), Some(3.0)]]
+            );
+            assert_eq!(matrix("s.uses_it"), [[None, None], [Some(1.0), Some(2.0)]]);
+        }
+
+        #[test]
+        fn the_printed_matrix_shows_err_only_where_the_output_fails() {
+            let (_dir, path) = file();
+            let run = |output: &str| {
+                forge(&[
+                    "sensitivity",
+                    path.to_str().unwrap(),
+                    "--vary",
+                    "s.x",
+                    "-r",
+                    "1,2,1",
+                    "--vary2",
+                    "s.y",
+                    "--range2",
+                    "0,1,1",
+                    "--output-var",
+                    output,
+                ])
+                .printed()
+            };
+            let out = run("s.out");
+            assert!(!out.contains("ERR"), "{out}");
+            let uses_it = run("s.uses_it");
+            assert_eq!(uses_it.matches("ERR").count(), 2, "{uses_it}");
         }
     }
 }

@@ -7,7 +7,7 @@ _forge_version: "5.4.0"
 #   forge calculate realestate.yaml --dry-run
 #   forge scenarios realestate.yaml
 #   forge tornado realestate.yaml
-#   forge break-even realestate.yaml --output valuation.npv --vary deal.price --min 4000000 --max 5500000
+#   forge break-even realestate.yaml --output valuation.npv --vary deal.price
 
 building:
   units: 24

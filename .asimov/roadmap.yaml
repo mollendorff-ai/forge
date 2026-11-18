@@ -27,8 +27,10 @@ state:
     answers fixed (comparisons by Excel's rule, ADR-065; VLOOKUP and HLOOKUP
     indexes; PERCENTILE.EXC at its lowest k; an uncertain input exported
     empty; four more), so the two weeks in docs/STABILITY.md start again
-    from rc.28: no earlier than 2026-12-02. A difference from Excel that
-    T1-EXCEL-EQUALITY finds in ADR-065 would restart them. rc.27 (2026-11-15): easier to start with an AI
+    from rc.28: no earlier than 2026-12-02. Excel confirmed ADR-065's 13
+    comparisons on 2026-11-18 (T1-EXCEL-EQUALITY), and Forge now follows
+    Excel's sum near zero (ADR-066, T1-EXCEL-SUBTRACTION), a wrong answer
+    fixed: the release that carries it starts the two weeks again. rc.27 (2026-11-15): easier to start with an AI
     (install.sh, tested prompts, workflows) and every item the agents and
     Sentinel reported fixed; -o is always the output file and -v always
     --verbose; a constant where COUNTIF and its family read a range is
@@ -238,11 +240,21 @@ tier1:
   # documentation and Q&A answers describe Excel; -1E-12 = 0 is FALSE. The
   # equal-near-zero rule in known.py is gone. Without Excel at hand, the rule
   # was taken from documentation: T1-EXCEL-EQUALITY checks it.
-  - id: T1-EXCEL-EQUALITY
-    title: "Check ADR-065's comparisons in Excel"
-    why: "ADR-065 follows Microsoft's description of Excel's comparison (15 significant digits for the operators and COUNTIF, exact for the lookups), not a check in Excel. Its table lists 13 formulas; 1E15+1=1E15 is TRUE in Forge by that rule and FALSE in LibreOffice and Gnumeric, and XLOOKUP over a range differs in LibreOffice. Also open: Excel sets a final subtraction near zero to 0 (=0.1+0.2-0.3, LibreOffice 0, Forge 5.55E-17)"
-    how: "Type ADR-065's table into Excel (desktop or the iPhone app) with 0.1+0.2-0.3 and 1E15+0.2-1E15; put Excel's answers into validation/gnumeric/tests/edge/edge_equality.yaml as edge_excel_checks*.yaml does; fix any difference test first; decide the subtraction separately"
-    acceptance: "ADR-065 says which rows Excel confirmed, edge_equality.yaml cites Excel for them, and a difference from Excel is fixed or written down"
+  # T1-EXCEL-EQUALITY is done (2026-11-18): Excel for iPhone gives Forge's
+  # answer to all 13 comparisons of ADR-065, 1E15+1=1E15 and XLOOKUP over a
+  # range among them; ADR-065, edge_equality.yaml and VALIDATION.md say so.
+  # The same sheet found the subtraction below.
+
+  # T1-EXCEL-SUBTRACTION is done (2026-11-18): Excel's rule measured in
+  # three sheets of 69 formulas and followed (ADR-066): a formula's last + or
+  # - and SUM's last addition are 0 below 8 units in the last place of the
+  # larger operand. The same sheets found the item below.
+
+  - id: T1-EXCEL-LITERAL-DIGITS
+    title: "Decide whether a number typed in a formula keeps more than 15 significant digits"
+    why: "Excel for iPhone showed =1E15+1-1000000000000000.5 as =1000000000000000+1-1000000000000000 and gave 1 (2026-11-18): Excel cuts a typed number to 15 significant digits when the formula is entered. Forge keeps every digit and gives 0 (0.5, 4 units in the last place, then ADR-066). A model rarely types 16 digits, so the two agree on everything else checked"
+    how: "Check in Excel where the cut applies (a number in a formula, a typed value in a cell, a value read from a workbook), and whether it rounds or truncates; then follow it in the parser and the importer, or write it down in VALIDATION.md"
+    acceptance: "Excel's answers for at least 5 placements are in an edge case file; the difference is fixed test-first or written down"
 
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"
