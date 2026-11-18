@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **The Validation workflow's installs stop after 45 minutes.** Installing Gnumeric, LibreOffice and R takes a few minutes as a rule; on 2026-11-18 the Ubuntu mirror was slow, two installs took 27 minutes and more, and nothing would have stopped one that hung before GitHub's six hours. A hang now fails the job within the hour, on the install step.
 - **ADR-065's comparisons are checked in Excel (roadmap T1-EXCEL-EQUALITY).** They were taken from Microsoft's documentation. In the Excel app for iPhone (2026-11-18), Excel gives Forge's answer to all 13 formulas of the ADR, among them `1E15 + 1 = 1E15` (TRUE, where Gnumeric and LibreOffice give FALSE) and `XLOOKUP(0.1 + 0.2, ...)` over a range of 0.3s (#N/A, where LibreOffice finds 0.3). No result changes. The same sheet gave `0.1 + 0.2 - 0.3` and `1E15 + 0.2 - 1E15` as 0, where Forge gives 5.55E-17 and 0.25: Excel sets a final subtraction near zero to zero. That is now roadmap T1-EXCEL-SUBTRACTION, and VALIDATION.md and docs/STABILITY.md say so. ADR-065, `validation/gnumeric/tests/edge/edge_equality.yaml` and VALIDATION.md give Excel's answers.
 
 ### Fixed
