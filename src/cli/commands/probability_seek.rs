@@ -150,7 +150,7 @@ pub fn probability_seek_core(
         trial
             .override_scalar(&resolved, Some(value), None)
             .map_err(ForgeError::Validation)?;
-        let result = run_model(&config, &trial, &plan)?;
+        let result = run_model(&config, &trial, &plan, true)?;
         simulations += 1;
         Ok(evaluate_threshold(
             &result.outputs[&goal.output].samples,
@@ -324,6 +324,103 @@ mod tests {
                 "{text}"
             );
             assert!(!text.contains("18.324083"), "{text}");
+        }
+    }
+
+    mod unused_formulas {
+        //! Roadmap T1-SEEK-UNUSED-FORMULA: a seek that moves an input to a value
+        //! where a formula its output does not use fails (`=1 / x` at 0) still
+        //! gives its answer; `forge simulate` itself, which calculates every
+        //! formula, still reports that failure.
+
+        use super::super::{probability_seek_core, SeekGoal};
+        use crate::cli::{simulate_core, SimulateOptions};
+
+        const MODEL: &str = "_forge_version: \"5.4.0\"\ns:\n  x: 1\n  noise: {value: 0, formula: \"=MC.Normal(0, 1)\"}\n  out: {formula: \"=x + noise\"}\n  ratio: {formula: \"=1 / x\"}\nmonte_carlo:\n  iterations: 400\n  seed: 5\n  outputs:\n    - variable: s.out\n      thresholds: [\"> 0\"]\n";
+
+        fn file() -> (tempfile::TempDir, std::path::PathBuf) {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, MODEL).unwrap();
+            (dir, path)
+        }
+
+        #[test]
+        fn the_seek_passes_through_a_value_the_output_does_not_depend_on() {
+            let (_dir, path) = file();
+            // x runs from 0, where 1 / x fails, to 2; out > 0 in 75% of futures
+            // when x is 0.674 (the 75th percentile of a standard normal)
+            let goal = SeekGoal::parse("P(s.out > 0) = 0.75").unwrap();
+            let r =
+                probability_seek_core(&path, SimulateOptions::default(), &goal, "s.x", 0.0, 2.0)
+                    .unwrap();
+            assert!((r.value - 0.674).abs() <= 0.05, "{}", r.value);
+            assert!((r.probability - 0.75).abs() <= 0.02, "{}", r.probability);
+            assert!(r.probability_at_min < 0.55 && r.probability_at_max > 0.95);
+        }
+
+        #[test]
+        fn a_row_of_a_table_column_is_an_output_too() {
+            let (dir, _) = file();
+            let path = dir.path().join("t.yaml");
+            let text = MODEL
+                .replace(
+                    "monte_carlo:",
+                    "t:\n  n: [1, 2]\n  y: \"=n - 1 + x + noise\"\nmonte_carlo:",
+                )
+                .replace("s.out", "t.y");
+            std::fs::write(&path, text).unwrap();
+            // Row 1 is x + noise, the same as s.out: the answer is the same, and
+            // 1 / x at 0 fails there too without stopping it
+            let goal = SeekGoal::parse("P(t.y (row 1) > 0) = 0.75").unwrap();
+            let r =
+                probability_seek_core(&path, SimulateOptions::default(), &goal, "s.x", 0.0, 2.0)
+                    .unwrap();
+            assert!((r.value - 0.674).abs() <= 0.05, "{}", r.value);
+        }
+
+        #[test]
+        fn a_failure_the_output_reads_still_stops_the_seek_and_simulate_reports_any() {
+            let (dir, path) = file();
+            let text = MODEL.replace("=x + noise", "=x + noise + 1 / x");
+            std::fs::write(&path, text).unwrap();
+            let goal = SeekGoal::parse("P(s.out > 0) = 0.75").unwrap();
+            let err =
+                probability_seek_core(&path, SimulateOptions::default(), &goal, "s.x", 0.0, 2.0)
+                    .unwrap_err()
+                    .to_string();
+            assert!(err.contains("Division by zero"), "{err}");
+            // Plain simulate calculates every formula, so a failure anywhere is reported
+            let other = dir.path().join("n.yaml");
+            std::fs::write(&other, MODEL.replace("x: 1", "x: 0")).unwrap();
+            let err = simulate_core(&other, SimulateOptions::default())
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("Division by zero"), "{err}");
+        }
+
+        #[test]
+        fn the_acquisition_seek_starts_at_a_premium_of_zero() {
+            let goal = SeekGoal::parse("P(valuation.value_created > 0) = 0.75").unwrap();
+            let options = SimulateOptions {
+                iterations: Some(200),
+                ..SimulateOptions::default()
+            };
+            let seek = |min: f64| {
+                probability_seek_core(
+                    std::path::Path::new("examples/acquisition/deal_risk.yaml"),
+                    options,
+                    &goal,
+                    "offer.premium",
+                    min,
+                    0.6,
+                )
+                .unwrap()
+            };
+            let from_zero = seek(0.0);
+            let from_a_tenth = seek(0.1);
+            assert!((from_zero.value - from_a_tenth.value).abs() <= 1e-3);
+            assert!((from_zero.probability_at_min - 1.0).abs() <= 0.01);
         }
     }
 

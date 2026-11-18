@@ -282,11 +282,9 @@ tier1:
   # The acquisition example's README breaks even on Quillon's free cash flow
   # through target.yaml.
 
-  - id: T1-SEEK-UNUSED-FORMULA
-    title: "forge simulate --seek is not stopped by a formula its output does not use"
-    why: "Found building examples/acquisition (2026-11-18): --seek 'P(valuation.value_created > 0) = 0.75' --vary offer.premium --min 0 failed on 'valuation.synergy_cover: Division by zero', a ratio over the premium that value_created does not read. break-even, goal-seek, sensitivity and tornado no longer fail this way (CHANGELOG, Unreleased); the seek still does, so the README's command starts at --min 0.1"
-    how: "Treat a failure in a formula the seek's output does not depend on as break-even does, test-first with deal_risk.yaml at --min 0"
-    acceptance: "The acquisition example's seek gives the same premium from --min 0 as from --min 0.1, and a failure in a formula the output reads still stops the seek with its message"
+  # T1-SEEK-UNUSED-FORMULA is done (2026-11-18): forge simulate --seek
+  # calculates for the goal's output only (ArrayCalculator::calculate_outputs),
+  # as break-even does; the acquisition example's seek starts at 0.
 
   - id: T1-UNWEIGHTED-SCENARIOS
     title: "Scenarios to compare beside scenarios to weight"

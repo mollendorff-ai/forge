@@ -98,7 +98,7 @@ forge compare examples/acquisition/deal.yaml --scenarios base,slow_integration,n
 forge export examples/acquisition/deal.yaml kittiwake.xlsx
 forge simulate examples/acquisition/deal_risk.yaml
 forge simulate examples/acquisition/deal_risk.yaml --scenario earnout
-forge simulate examples/acquisition/deal_risk.yaml --seek "P(valuation.value_created > 0) = 0.75" --vary offer.premium --min 0.1 --max 0.6
+forge simulate examples/acquisition/deal_risk.yaml --seek "P(valuation.value_created > 0) = 0.75" --vary offer.premium --min 0 --max 0.6
 forge decision-tree examples/acquisition/deal_bid.yaml
 forge bootstrap examples/acquisition/premiums.yaml
 forge real-options examples/acquisition/halo_option.yaml

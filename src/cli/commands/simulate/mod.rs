@@ -28,6 +28,7 @@ fn evaluate_iteration(
     plan: &std::rc::Rc<crate::core::array_calculator::CalcPlan>,
     output_vars: &[(String, Option<(String, usize)>)],
     inputs: &HashMap<String, f64>,
+    only_outputs: bool,
 ) -> Result<HashMap<String, f64>, String> {
     let mut iter_model = model.clone();
     // Replace MC.* distribution formulas with the sampled values: a scalar's,
@@ -37,9 +38,33 @@ fn evaluate_iteration(
     }
 
     // Every iteration has the same formulas, so they are parsed and ordered once
-    let calculated = ArrayCalculator::with_plan(iter_model, std::rc::Rc::clone(plan))
-        .calculate_all()
-        .map_err(|e| e.to_string())?;
+    let calculator = ArrayCalculator::with_plan(iter_model, std::rc::Rc::clone(plan));
+    let calculated = if only_outputs {
+        // A search over many simulations: a formula no output uses may fail
+        // at an input's end of the range without failing the answer
+        let (columns, scalars): (Vec<_>, Vec<_>) =
+            output_vars.iter().partition(|(_, row)| row.is_some());
+        let scalars: Vec<String> = scalars
+            .iter()
+            .flat_map(|(name, _)| {
+                [
+                    name.clone(),
+                    format!("outputs.{name}"),
+                    format!("scalars.{name}"),
+                ]
+            })
+            .collect();
+        let columns: Vec<(String, String)> = columns
+            .iter()
+            .filter_map(|(_, row)| row.as_ref())
+            .filter_map(|(column, _)| column.split_once('.'))
+            .map(|(table, column)| (table.to_string(), column.to_string()))
+            .collect();
+        calculator.calculate_outputs(&scalars, &columns)
+    } else {
+        calculator.calculate_all()
+    }
+    .map_err(|e| e.to_string())?;
 
     output_vars
         .iter()
@@ -210,6 +235,7 @@ pub fn simulate_core(
         &config,
         &model,
         &crate::core::array_calculator::CalcPlan::new(),
+        false,
     )
 }
 
@@ -257,6 +283,7 @@ pub(super) fn run_model(
     config: &MonteCarloConfig,
     model: &crate::types::ParsedModel,
     plan: &std::rc::Rc<crate::core::array_calculator::CalcPlan>,
+    only_outputs: bool,
 ) -> ForgeResult<crate::monte_carlo::SimulationResult> {
     let mut engine = MonteCarloEngine::new(config.clone()).map_err(ForgeError::Validation)?;
     engine
@@ -271,7 +298,7 @@ pub(super) fn run_model(
 
     engine
         .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-            evaluate_iteration(model, plan, &output_vars, inputs)
+            evaluate_iteration(model, plan, &output_vars, inputs, only_outputs)
         })
         .map_err(ForgeError::Eval)
 }
@@ -467,7 +494,7 @@ scalars:
         // Run with formula evaluation (the fix)
         let result = engine
             .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-                evaluate_iteration(&model, &plan, &output_vars, inputs)
+                evaluate_iteration(&model, &plan, &output_vars, inputs, false)
             })
             .unwrap();
 
