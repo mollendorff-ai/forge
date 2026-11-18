@@ -276,19 +276,75 @@ curl -X POST http://localhost:8080/api/v1/calculate \
 
 Give `file_path` or `content`, not both. Include paths in inline content must be relative and cannot use `..`.
 
-**Response:**
+**Response:** every answer is `{"success": true, "request_id": "...", "data": {...}}` with HTTP 200, also when the model could not be read or calculated: `success` says the request was handled, and the `data` says whether the operation worked (`valid`, `calculated`, `audited`, `exported`, `imported`) with the reason in `message`. Numbers have 15 significant digits.
+
+**Each endpoint**, on a model `model.yaml` with `sales.price: 40`, `sales.units: 120` and `sales.revenue: {formula: "=sales.price * sales.units"}`:
+
+`POST /api/v1/validate`: the formulas, the cycles and any value that differs from its formula.
 
 ```json
-{
-  "success": true,
-  "request_id": "550e8400-e29b-41d4-a716-446655440000",
-  "data": {
-    "valid": true,
-    "file_path": "model.yaml",
-    "message": "Validation successful"
-  }
-}
+{"file_path": "model.yaml"}
 ```
+
+```json
+{"success": true, "request_id": "c93c5b29-4564-4836-919d-ab5fd463a53b",
+ "data": {"valid": true, "file_path": "model.yaml", "message": "Validation successful",
+          "result": {"tables_valid": true, "scalars_valid": true, "table_count": 0,
+                     "scalar_count": 3, "mismatches": []}}}
+```
+
+`POST /api/v1/calculate`: every formula; without `"dry_run": true` the values are written into the file (for `content`, returned as `calculated_content`). `"scenario": "name"` applies a scenario's overrides first, including one for a value in an included file.
+
+```json
+{"file_path": "model.yaml", "dry_run": true}
+```
+
+```json
+{"success": true, "request_id": "deae6616-ca91-4ee9-9dd8-f487f8826b4c",
+ "data": {"calculated": true, "file_path": "model.yaml", "dry_run": true, "message": "Dry run completed",
+          "result": {"tables": {}, "scalars": {"sales.price": 40.0, "sales.revenue": 4800.0, "sales.units": 120.0},
+                     "unit_warnings": [], "file_updated": false, "dry_run": true}}}
+```
+
+`POST /api/v1/audit`: where one variable's value comes from, down to the inputs (and the included files).
+
+```json
+{"file_path": "model.yaml", "variable": "sales.revenue"}
+```
+
+```json
+{"success": true, "request_id": "f2ce4d6f-b7e5-4b34-8e29-39278e7c6011",
+ "data": {"audited": true, "file_path": "model.yaml", "variable": "sales.revenue", "message": "Audit completed",
+          "result": {"variable": "sales.revenue", "var_type": "Scalar", "current_value": null,
+                     "calculated_value": 4800.0, "formula": "=sales.price * sales.units",
+                     "dependencies": [{"name": "sales.price", "dep_type": "Scalar", "formula": null, "value": 40.0, "children": []},
+                                      {"name": "sales.units", "dep_type": "Scalar", "formula": null, "value": 120.0, "children": []}],
+                     "is_valid": true}}}
+```
+
+`POST /api/v1/export`: a model to an Excel workbook. It names files, on the machine that runs Forge; the other endpoints that take a model also take its text.
+
+```json
+{"yaml_path": "model.yaml", "excel_path": "model.xlsx"}
+```
+
+```json
+{"success": true, "request_id": "c00d5d55-7cdb-4203-95bc-0d635a3f7c23",
+ "data": {"exported": true, "yaml_path": "model.yaml", "excel_path": "model.xlsx", "message": "Export completed"}}
+```
+
+`POST /api/v1/import`: a workbook to a model, with the included files its sheets came from written beside it.
+
+```json
+{"excel_path": "model.xlsx", "yaml_path": "back.yaml"}
+```
+
+```json
+{"success": true, "request_id": "15c17987-ab60-4b0f-9afc-1d45ef0c4c0e",
+ "data": {"imported": true, "excel_path": "model.xlsx", "yaml_path": "back.yaml", "message": "Import completed"}}
+```
+
+A model that cannot be read answers in the same shape with the operation's flag false, for example `{"valid": false, "file_path": "missing.yaml", "message": "IO error: No such file or directory (os error 2)"}`. The tests in `src/api/server.rs` (`bagel_over_http`) run each endpoint on `examples/bagel` and assert the numbers the command-line tests assert.
 
 ---
 
