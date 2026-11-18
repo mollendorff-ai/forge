@@ -65,3 +65,21 @@ assumptions:
     value: null
     formula: "=COUNTIF(d.day, \"*\")"
     expected: 0
+  # HOUR of a number far past the last day of the calendar (9999-12-31):
+  # Forge gave 0; Excel for iOS gives #NUM! (checked 2026-11-18), as Gnumeric
+  # 1.12 does; LibreOffice 26.2 gives 0
+  test_excel2_hour_far_past_the_calendar:
+    value: null
+    formula: "=IFERROR(HOUR(1E+20), -1)"
+    expected: -1
+  # HOUR of the day after the last one: Forge and Gnumeric gave 12
+  test_excel2_hour_day_after_the_calendar:
+    value: null
+    formula: "=IFERROR(HOUR(2958466.5), -1)"
+    expected: -1
+    gnumeric_skip: "Excel for iOS gives #NUM! (checked 2026-11-18), as Forge does; Gnumeric 1.12 gives 12"
+  # The last day itself is a day: noon on 9999-12-31
+  test_excel2_hour_last_day_of_the_calendar:
+    value: null
+    formula: "=HOUR(2958465.5)"
+    expected: 12

@@ -192,8 +192,9 @@ tier1:
   # ROUND(x, -400) was #NUM! and is 0, as both engines give (fixed);
   # DB with a fractional period is right (Excel 3690, edge_excel_checks_2;
   # only Gnumeric gives 0); TIME(1, -30, 0) is 0:30 as in LibreOffice (only
-  # Gnumeric gives #NUM!); HOUR(1E+20) is 0 as in LibreOffice (Gnumeric
-  # #NUM!), left until it is checked in Excel. cast_precision_loss is done too (2026-11-18): no allow is left, in
+  # Gnumeric gives #NUM!); HOUR(1E+20) was 0 and is #NUM! (Excel for iOS,
+  # 2026-11-18: HOUR, MINUTE and SECOND past 9999-12-31, serial 2,958,466,
+  # are #NUM!; fixed). cast_precision_loss is done too (2026-11-18): no allow is left, in
   # Cargo.toml or in an attribute. A count, a place in an array or a day count
   # becomes a number through precision::count, whole and unsigned, built from
   # 32-bit halves that convert without loss and give the bits `as f64` gives
