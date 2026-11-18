@@ -146,6 +146,41 @@ impl ArrayCalculator {
             .ok_or_else(|| ForgeError::Validation(format!("Output variable '{name}' has no value")))
     }
 
+    /// Calculate the model for some outputs, scalars and columns of tables,
+    /// and return it. As [`Self::calculate_scalar`] does for one scalar, a
+    /// failed formula that none of them uses does not fail the answer: a
+    /// search that moves an input through many simulations (`forge simulate
+    /// --seek`) can pass through values where a result it does not ask for
+    /// has no answer, such as a ratio over an input at 0.
+    ///
+    /// # Errors
+    ///
+    /// Returns the calculation's report when an output failed or uses a failed
+    /// cell, or when the model cannot be calculated at all (a cycle, a table
+    /// of uneven columns).
+    pub fn calculate_outputs(
+        mut self,
+        scalars: &[String],
+        columns: &[(String, String)],
+    ) -> ForgeResult<ParsedModel> {
+        let outcome = self.calculate_cells()?;
+        let asked =
+            scalars
+                .iter()
+                .map(|name| Cell::Scalar(name.clone()))
+                .chain(columns.iter().map(|(table, column)| Cell::Column {
+                    table: table.clone(),
+                    column: column.clone(),
+                }));
+        if asked.into_iter().any(|cell| outcome.failed.contains(&cell)) {
+            return Err(outcome.report());
+        }
+        if outcome.failures.is_empty() {
+            check_formula_formats(&self.model)?;
+        }
+        Ok(self.model)
+    }
+
     /// Calculate every cell of the model in order. A failing cell does not
     /// stop the calculation: every cell that does not use it is still
     /// calculated, so all errors are reported at once. A failed cell gets no

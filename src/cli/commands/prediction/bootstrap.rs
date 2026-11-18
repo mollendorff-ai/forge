@@ -225,4 +225,37 @@ bootstrap:
             serde_json::from_str(&std::fs::read_to_string(&json_out).unwrap()).unwrap();
         assert_eq!(doc["original_estimate"].as_f64(), Some(3.0));
     }
+
+    mod acquisition_example {
+        //! examples/acquisition/premiums.yaml: the median premium of 24 comparable
+        //! takeovers is 0.335, and 8 of the 24 paid less than 30%. numpy, 200,000
+        //! resamples: standard error 0.0225, 90% interval [0.30, 0.375], 95%
+        //! [0.29, 0.38]. Forge's own resampler (seed 11) must agree within
+        //! resampling noise: a 30% offer sits at the bottom of the 90% interval.
+
+        use super::super::bootstrap_core;
+        use std::path::Path;
+
+        #[test]
+        fn a_30_percent_premium_is_at_the_bottom_of_the_range() {
+            let r = bootstrap_core(
+                Path::new("examples/acquisition/premiums.yaml"),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            assert!((r.original_estimate - 0.335).abs() <= 1e-12);
+            assert!((r.bootstrap_std_error - 0.0225).abs() <= 0.002);
+            for (level, lower, upper) in [(0.90, 0.30, 0.375), (0.95, 0.29, 0.38)] {
+                let ci = r
+                    .confidence_intervals
+                    .iter()
+                    .find(|c| (c.level - level).abs() <= 1e-12)
+                    .unwrap();
+                assert!((ci.lower - lower).abs() <= 0.006, "{level}: {}", ci.lower);
+                assert!((ci.upper - upper).abs() <= 0.006, "{level}: {}", ci.upper);
+            }
+        }
+    }
 }

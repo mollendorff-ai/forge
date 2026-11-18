@@ -411,4 +411,80 @@ plan:
             }
         }
     }
+
+    mod acquisition_example {
+        //! The tornado of examples/acquisition: each input of `tornado:` moved alone
+        //! to its low and high, as the `run` of the Python in
+        //! prediction/scenarios.rs (`acquisition_example`) gives it:
+        //! ```python
+        //! run(r=0.075), run(r=0.09)            # 428.94317671721774 -89.5534775250062
+        //! run(tg=0.015), run(tg=0.03)          # -32.02129424545046 391.2519313997218
+        //! run(cost=20), run(cost=55)           # -12.090702947912177 401.9569106929416
+        //! run(premium=0.20), run(premium=0.45) # 346.90793341829067 40.90793341829067
+        //! run(rev=0), run(rev=90)              # 28.3974515996465 322.5631743276117
+        //! run(growth=0.04), run(growth=0.10)   # 98.45464031669553 361.1597890195958
+        //! run(integ=80), run(integ=170)        # 237.73952921161435 178.1973481416553
+        //! ```
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_valuation_assumptions_move_the_value_more_than_any_synergy() {
+            let result = tornado_core(Path::new("examples/acquisition/deal.yaml"), None).unwrap();
+            let expected = [
+                (
+                    "case.discount_rate",
+                    428.943_176_717_217_74,
+                    -89.553_477_525_006_2,
+                ),
+                (
+                    "case.terminal_growth",
+                    -32.021_294_245_450_46,
+                    391.251_931_399_721_8,
+                ),
+                (
+                    "synergies.cost_run_rate",
+                    -12.090_702_947_912_177,
+                    401.956_910_692_941_6,
+                ),
+                (
+                    "offer.premium",
+                    346.907_933_418_290_67,
+                    40.907_933_418_290_67,
+                ),
+                (
+                    "synergies.revenue_run_rate",
+                    28.397_451_599_646_5,
+                    322.563_174_327_611_7,
+                ),
+                (
+                    "case.quillon_growth",
+                    98.454_640_316_695_53,
+                    361.159_789_019_595_8,
+                ),
+                (
+                    "synergies.integration_cost",
+                    237.739_529_211_614_35,
+                    178.197_348_141_655_3,
+                ),
+            ];
+            // In order of the swing, largest first
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!(
+                    (bar.output_at_low - low).abs() <= 1e-9,
+                    "{name} low {}",
+                    bar.output_at_low
+                );
+                assert!(
+                    (bar.output_at_high - high).abs() <= 1e-9,
+                    "{name} high {}",
+                    bar.output_at_high
+                );
+            }
+        }
+    }
 }
