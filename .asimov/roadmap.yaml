@@ -267,11 +267,30 @@ tier1:
     how: "permissions: contents: read at the top of each workflow, widened per job where a job writes; pin each action by commit with its tag in a comment; commit studio/package-lock.json and use npm ci; drop the stale audit ignore"
     acceptance: "Every workflow starts with a permissions: block; no uses: line ends in a branch or tag name that can move; npm ci works in studio/ and CI uses it; cargo audit passes with no ignore for a crate absent from Cargo.lock"
 
-  - id: T1-MA-EXAMPLE
-    title: "An acquisition example: what Forge already does for a deal"
-    why: "Asked 2026-11-16 why Forge has nothing for mergers and acquisitions, which large companies do all the time. Most of a deal model is not game theory but arithmetic Forge already has: a price and how it is paid, synergies by year, the buyer's earnings per share before and after (accretion or dilution), an earn-out, scenarios, a tornado and a simulation on the synergies. examples/ has a bagel shop, a household, a mortgage and a capital plan, and no deal"
-    how: "examples/acquisition/, as examples/bagel is built: a buyer and a target as included files, a deal table by year (price, debt and shares issued, synergies, integration cost), accretion or dilution per year, NPV and IRR of the deal, three scenarios, a tornado, and a Monte Carlo on the synergies. Invented companies and round numbers, with a README that says what each file shows. No engine change; what the example makes hard goes here as tier items"
-    acceptance: "The example runs from a fresh install with every analytics command it names, its headline numbers are asserted in a test against an independent calculation (as src/cli/commands/examples.rs (its bagel_example tests) does), and docs/EXAMPLES.md lists it"
+  # T1-MA-EXAMPLE is done (2026-11-18): examples/acquisition, Project
+  # Kittiwake, runs every analytics command on one takeover (calculate,
+  # scenarios, tornado, break-even, goal-seek, sensitivity, compare, export,
+  # simulate with a scenario and --seek, decision-tree, real-options,
+  # bootstrap, bayesian, variance). Its numbers were written again in Python
+  # and are asserted beside each command (acquisition_example). It needed no
+  # engine change; what it made hard is the three items below
+  # (T1-VARY-INCLUDED done since).
+
+  # T1-VARY-INCLUDED is done (2026-11-18): tornado, goal-seek, break-even
+  # and sensitivity find `@alias.name` in the included file (names.rs) and
+  # set it there (ParsedModel::set_input); a date there is refused up front.
+  # The acquisition example's README breaks even on Quillon's free cash flow
+  # through target.yaml.
+
+  # T1-SEEK-UNUSED-FORMULA is done (2026-11-18): forge simulate --seek
+  # calculates for the goal's output only (ArrayCalculator::calculate_outputs),
+  # as break-even does; the acquisition example's seek starts at 0.
+
+  - id: T1-UNWEIGHTED-SCENARIOS
+    title: "Scenarios to compare beside scenarios to weight"
+    why: "Found building examples/acquisition (2026-11-18): forge scenarios needs every scenario to have a probability, and the probabilities to add to 1, so a deal's payment structures (all cash, all shares, 60/40), which are choices and not chances, cannot sit in the same file as its weighted risk cases for forge compare. The example put the payment mix in a goal seek and the sensitivity table instead"
+    how: "Decide in an ADR whether forge scenarios weights only the scenarios that carry a probability (and says which it left out), or whether a model keeps a second, unweighted list for compare"
+    acceptance: "examples/acquisition has all_cash and all_shares beside its four weighted scenarios, forge compare shows the three structures side by side, and forge scenarios still weights the four and says so"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)

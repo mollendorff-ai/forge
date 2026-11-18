@@ -699,6 +699,13 @@ impl ParsedModel {
     ///
     /// Returns the message, naming the scalar and the command.
     pub fn refuse_date_input(&self, name: &str, command: &str) -> Result<(), String> {
+        if let Some((alias, inner)) = name.strip_prefix('@').and_then(|r| r.split_once('.')) {
+            return self.resolved_includes.get(alias).map_or(Ok(()), |file| {
+                file.model
+                    .refuse_date_input(inner, command)
+                    .map_err(|e| format!("{e} (in the file included as '{alias}')"))
+            });
+        }
         let found = self.scalars.get(name).or_else(|| {
             self.resolve_scalar_name(name)
                 .ok()
@@ -1391,6 +1398,35 @@ mod tests {
             // A table must follow the include's name
             let err = model.set_input("@rates.shock (row 1)", 1.0).unwrap_err();
             assert!(err.contains("has no table ''"), "{err}");
+        }
+
+        /// A date in an included file is refused as one in the model is
+        /// (roadmap T1-VARY-INCLUDED); a number there, or an include that is
+        /// not there, is not this check's to refuse.
+        #[test]
+        fn a_date_in_an_included_file_is_refused() {
+            let mut included = self::model();
+            let mut day = Variable::new("a.closing".to_string(), Some(46_000.0), None);
+            day.is_date = true;
+            included.scalars.insert("a.closing".to_string(), day);
+            let mut model = ParsedModel::new();
+            model.resolved_includes.insert(
+                "deal".to_string(),
+                ResolvedInclude {
+                    include: Include::new("deal.yaml".to_string(), "deal".to_string()),
+                    resolved_path: std::path::PathBuf::from("deal.yaml"),
+                    model: included,
+                },
+            );
+            let err = model
+                .refuse_date_input("@deal.a.closing", "tornado")
+                .unwrap_err();
+            assert!(err.contains("'a.closing' is a date"), "{err}");
+            assert!(err.ends_with("(in the file included as 'deal')"), "{err}");
+            assert!(model.refuse_date_input("@deal.a.x", "tornado").is_ok());
+            assert!(model
+                .refuse_date_input("@other.a.closing", "tornado")
+                .is_ok());
         }
     }
 }

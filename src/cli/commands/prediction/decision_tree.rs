@@ -415,4 +415,74 @@ decision_tree:
             }
         }
     }
+
+    mod acquisition_example {
+        //! `examples/acquisition/deal_bid.yaml`: open at 30% and risk Thornvale's
+        //! counter, or knock it out at 40%.
+        //!
+        //! Its three deal values are deal.yaml calculated at each premium, so the
+        //! first test calculates them again and fails when the model and the tree
+        //! part. The expected values, from the tree's own numbers:
+        //! ```python
+        //! fee = 30 - 12                                     # break fee less costs
+        //! after = max(0.35 * fee + 0.65 * 40.91, fee)       # raise to 45%: 32.8915
+        //! offer_30 = 0.4 * 224.51 + 0.6 * after             # 109.5389
+        //! knockout = 0.85 * 102.11 + 0.15 * after           # 91.727225
+        //! # opening at 30% is better while Thornvale counters it less than
+        //! # (224.51 - knockout) / (224.51 - after) = 0.6929538379644973 of the time
+        //! ```
+
+        use crate::cli::decision_tree_core;
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const TREE: &str = "examples/acquisition/deal_bid.yaml";
+
+        fn close(a: f64, b: f64, tol: f64) -> bool {
+            (a - b).abs() <= tol
+        }
+
+        #[test]
+        fn every_deal_value_in_the_tree_is_the_model_at_that_price() {
+            let text = std::fs::read_to_string(TREE).unwrap();
+            let doc: yaml_serde::Value = yaml_serde::from_str(&text).unwrap();
+            let nodes = &doc["decision_tree"]["nodes"];
+            for (premium, node, branch) in [
+                (0.30, "thornvale_after_30", "stays_out"),
+                (0.40, "thornvale_after_40", "stays_out"),
+                (0.45, "thornvale_after_45", "gives_up"),
+            ] {
+                let mut model =
+                    crate::parser::parse_model(Path::new("examples/acquisition/deal.yaml"))
+                        .unwrap();
+                model
+                    .override_scalar("offer.premium", Some(premium), None)
+                    .unwrap();
+                let result = ArrayCalculator::new(model).calculate_all().unwrap();
+                let value = result.scalars["valuation.value_created"].value.unwrap();
+                let written = nodes[node]["branches"][branch]["value"].as_f64().unwrap();
+                // Each number in the file is rounded to the cent
+                assert!(
+                    close(written, value, 0.005),
+                    "{premium}: the tree says {written}, the model {value}"
+                );
+            }
+        }
+
+        #[test]
+        fn open_at_30_percent_and_raise_if_thornvale_counters() {
+            let result = decision_tree_core(Path::new(TREE)).unwrap();
+            assert!(close(result.root_expected_value, 109.538_9, 1e-9));
+            let root = &result.node_results["root"];
+            assert_eq!(root.optimal_choice.as_deref(), Some("offer_30_percent"));
+            assert!(close(
+                root.branch_values["knockout_40_percent"],
+                91.727_225,
+                1e-9
+            ));
+            let after = &result.node_results["valdane_after_counter"];
+            assert_eq!(after.optimal_choice.as_deref(), Some("raise_to_45_percent"));
+            assert!(close(result.risk_profile.worst_case, 18.0, 1e-12));
+        }
+    }
 }

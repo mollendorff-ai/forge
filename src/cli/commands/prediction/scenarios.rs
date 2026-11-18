@@ -446,4 +446,107 @@ scalars:
             ));
         }
     }
+
+    mod acquisition_example {
+        //! The numbers in examples/acquisition/README.md, as computed outside Forge.
+        //!
+        //! Project Kittiwake, written from the model's description and not from
+        //! its formulas:
+        //! ```python
+        //! def run(premium=0.30, cash=0.60, debt_rate=0.065, cost=40.0, cost_ramp=3, rev=60.0,
+        //!         rev_ramp=4, integ=100.0, growth=0.07, tg=0.025, r=0.08):
+        //!     equity = 24.0 * (1 + premium) * 50; fees = 0.02 * equity
+        //!     debt = cash * equity + fees; new_shares = (1 - cash) * equity / 40.0
+        //!     paid = equity + 100 + fees; tm = (1 + tg) / (r - tg)
+        //!     for y in 1..5:
+        //!         buyer = 520 * 1.05 ** (y - 1); target = 78 * (1 + growth) ** (y - 1)
+        //!         syn = cost * min(1, y / cost_ramp) + rev * min(1, (y - 1) / rev_ramp) * 0.30
+        //!         ig = integ * [0.5, 0.35, 0.15, 0, 0][y - 1]
+        //!         ni = buyer + target + (syn - ig - debt * debt_rate - 40) * 0.75
+        //!         accretion = (ni / (200 + new_shares)) / (buyer / 200) - 1
+        //!         target_cash = 62 * (1 + growth) ** (y - 1); synergy_cash = (syn - ig) * 0.75
+        //!     # each cash stream: discounted at r, year 5 * tm as a value at year 5
+        //!     value = standalone + synergies - paid; irr by bisection
+        //! run()  # value 224.50793341829012, standalone 1312.5581578338633, synergies
+        //!        # 603.149775584427, irr 0.10893359643045575, accretion year 1
+        //!        # -0.11989974311402884, year 3 -0.011433658663979496, year 5
+        //!        # 0.02831107907802166, adjusted year 1 0.0005155558726985809, first
+        //!        # accretive year 4, leverage 2.042522522522523, cover 1.6754160432900738,
+        //!        # synergies after year 5 0.9147585656658958
+        //! run(cost_ramp=5, integ=150)       # slow integration: 166.93036365984085
+        //! run(rev=0)                        # no revenue synergies: 28.3974515996465
+        //! run(debt_rate=0.08, r=0.09)       # rates up: -89.5534775250062
+        //! # weighted 0.45 / 0.25 / 0.20 / 0.10: 139.48530352061945
+        //! ```
+        //! The tornado, the walk-away price, the goal seeks, the sensitivity table,
+        //! the year-one variance and the bidding tree are this function with other
+        //! arguments; their tests are with those commands (`acquisition_*`).
+
+        use crate::cli::scenarios_core;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/acquisition/deal.yaml";
+
+        fn close(a: f64, b: f64, tol: f64) -> bool {
+            (a - b).abs() <= tol
+        }
+
+        #[test]
+        fn the_plan_matches_the_independent_calculation() {
+            let results = scenarios_core(Path::new(MODEL), Some("base")).unwrap();
+            let base = &results.scenarios[0].outputs;
+            let expected = [
+                ("valuation.value_created", 224.507_933_418_290_12, 1e-9),
+                ("valuation.standalone", 1_312.558_157_833_863_3, 1e-9),
+                ("valuation.synergies", 603.149_775_584_427, 1e-9),
+                ("valuation.deal_irr", 0.108_933_596_430_455_75, 1e-9),
+                ("valuation.synergy_cover", 1.675_416_043_290_073_8, 1e-12),
+                (
+                    "valuation.synergies_after_year_5",
+                    0.914_758_565_665_895_8,
+                    1e-12,
+                ),
+                ("eps.year_1_accretion", -0.119_899_743_114_028_84, 1e-12),
+                ("eps.year_3_accretion", -0.011_433_658_663_979_496, 1e-12),
+                ("eps.year_5_accretion", 0.028_311_079_078_021_66, 1e-12),
+                (
+                    "eps.year_1_adjusted_accretion",
+                    0.000_515_555_872_698_580_9,
+                    1e-12,
+                ),
+                ("eps.first_accretive_year", 4.0, 0.0),
+                ("financing.leverage_at_close", 2.042_522_522_522_523, 1e-12),
+            ];
+            for (name, want, tol) in expected {
+                let got = base[name];
+                assert!(close(got, want, tol), "{name}: {got}, not {want}");
+            }
+        }
+
+        #[test]
+        fn each_scenario_matches_the_independent_calculation() {
+            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let expected = [
+                ("base", 224.507_933_418_290_12),
+                ("slow_integration", 166.930_363_659_840_85),
+                ("no_revenue_synergies", 28.397_451_599_646_5),
+                ("rates_up", -89.553_477_525_006_2),
+            ];
+            assert_eq!(results.scenarios.len(), expected.len());
+            for (name, value) in expected {
+                let scenario = results.scenarios.iter().find(|s| s.name == name).unwrap();
+                let got = scenario.outputs["valuation.value_created"];
+                assert!(close(got, value, 1e-9), "{name}: {got}, not {value}");
+            }
+            // Without the revenue synergies the deal barely pays for itself, and
+            // weighted, it creates little more than half the plan's value
+            let weighted = results.expected_values["valuation.value_created"];
+            assert!(close(weighted, 139.485_303_520_619_45, 1e-9), "{weighted}");
+            assert!(close(
+                results.probability_positive["valuation.value_created"],
+                0.9,
+                1e-12
+            ));
+        }
+    }
 }

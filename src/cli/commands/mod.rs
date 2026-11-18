@@ -31,6 +31,7 @@ mod examples;
 mod excel_io;
 mod functions;
 mod names;
+pub(crate) use names::{input_name, scalar};
 mod prediction;
 mod probability_seek;
 mod report;

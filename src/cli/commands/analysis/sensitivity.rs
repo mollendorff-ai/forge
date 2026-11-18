@@ -78,18 +78,10 @@ pub fn calculate_with_override(
         .refuse_date_input(var_name, "this command")
         .map_err(ForgeError::Validation)?;
     let mut model = base_model.clone();
-
-    // Override the variable
-    if let Some(scalar) = model.scalars.get_mut(var_name) {
-        scalar.value = Some(var_value);
-        scalar.formula = None; // Clear formula since we're using override
-    } else {
-        // Create new scalar
-        model.scalars.insert(
-            var_name.to_string(),
-            crate::types::Variable::new(var_name.to_string(), Some(var_value), None),
-        );
-    }
+    // The model's scalar, or an included file's (`@costs.flour`)
+    model
+        .set_input(var_name, var_value)
+        .map_err(ForgeError::Validation)?;
 
     // Calculate for the output alone: a formula it does not use may fail at
     // this value of the input without failing the answer
@@ -132,14 +124,10 @@ pub fn sensitivity_core(
             let mut row = Vec::new();
             for val2 in &values2 {
                 let mut model = base_model.clone();
-                if let Some(s) = model.scalars.get_mut(vary) {
-                    s.value = Some(*val1);
-                    s.formula = None;
-                }
-                if let Some(s) = model.scalars.get_mut(v2) {
-                    s.value = Some(*val2);
-                    s.formula = None;
-                }
+                model
+                    .set_input(vary, *val1)
+                    .map_err(ForgeError::Validation)?;
+                model.set_input(v2, *val2).map_err(ForgeError::Validation)?;
                 // A formula the output does not use may fail here
                 row.push(ArrayCalculator::new(model).calculate_scalar(output).ok());
             }
@@ -382,18 +370,14 @@ fn run_two_var_sensitivity(
     // Calculate every cell first, so the columns can be as wide as their numbers
     let cell = |val1: f64, val2: f64| {
         let mut model = base_model.clone();
-        if let Some(s) = model.scalars.get_mut(vary) {
-            s.value = Some(val1);
-            s.formula = None;
-        }
-        if let Some(s) = model.scalars.get_mut(v2) {
-            s.value = Some(val2);
-            s.formula = None;
-        }
-        // A formula the output does not use may fail here
-        ArrayCalculator::new(model)
-            .calculate_scalar(output)
-            .map_or_else(|_| "ERR".to_string(), display_number)
+        // A refused input, like a formula the output does not use, fails
+        // its cell
+        model
+            .set_input(vary, val1)
+            .and_then(|()| model.set_input(v2, val2))
+            .ok()
+            .and_then(|()| ArrayCalculator::new(model).calculate_scalar(output).ok())
+            .map_or_else(|| "ERR".to_string(), display_number)
     };
     let rows: Vec<(String, Vec<String>)> = values1
         .iter()
@@ -678,6 +662,116 @@ out:
             assert!(!out.contains("ERR"), "{out}");
             let uses_it = run("s.uses_it");
             assert_eq!(uses_it.matches("ERR").count(), 2, "{uses_it}");
+        }
+    }
+
+    mod acquisition_example {
+        //! The banker's table of examples/acquisition: the value created at each
+        //! premium and each run rate of cost synergies. Two corners, as the `run`
+        //! of the Python in prediction/scenarios.rs (`acquisition_example`) gives
+        //! them: run(premium=0.45, cost=30) -77.39138476481048 and
+        //! run(premium=0.2, cost=60) 583.5065697844925; the plan, 224.50793341829012,
+        //! is in the middle.
+
+        use super::super::sensitivity_core;
+        use crate::cli::commands::results::SensitivityData;
+        use std::path::Path;
+
+        #[test]
+        fn the_table_runs_from_a_loss_to_more_than_twice_the_plan() {
+            let result = sensitivity_core(
+                Path::new("examples/acquisition/deal.yaml"),
+                "offer.premium",
+                "0.20,0.50,0.05",
+                Some("synergies.cost_run_rate"),
+                Some("20,60,10"),
+                "valuation.value_created",
+            )
+            .unwrap();
+            let SensitivityData::TwoVar { matrix, .. } = result.data else {
+                panic!("two inputs")
+            };
+            assert_eq!((matrix.len(), matrix[0].len()), (7, 5));
+            let cell = |row: usize, col: usize| matrix[row][col].unwrap();
+            for (got, want) in [
+                (cell(2, 2), 224.507_933_418_290_12),
+                (cell(5, 1), -77.391_384_764_810_48),
+                (cell(0, 4), 583.506_569_784_492_5),
+            ] {
+                assert!((got - want).abs() <= 1e-9, "{got}, not {want}");
+            }
+        }
+    }
+
+    mod included_inputs {
+        //! Roadmap T1-VARY-INCLUDED: a sensitivity table over an input of a file
+        //! the model includes, in one direction and in two, is what the plain
+        //! model gives with each value.
+
+        use super::super::sensitivity_core;
+        use crate::cli::commands::results::SensitivityData;
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/acquisition/deal.yaml";
+        const CASH: &str = "@target.company.free_cash_flow_next_year";
+
+        fn value_created(inputs: &[(&str, f64)]) -> f64 {
+            let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+            for (name, value) in inputs {
+                model.override_scalar(name, Some(*value), None).unwrap();
+            }
+            let result = ArrayCalculator::new(model).calculate_all().unwrap();
+            result.scalars["valuation.value_created"].value.unwrap()
+        }
+
+        #[test]
+        fn one_input_of_an_included_file() {
+            let result = sensitivity_core(
+                Path::new(MODEL),
+                CASH,
+                "50,70,10",
+                None,
+                None,
+                "value_created",
+            )
+            .unwrap();
+            assert_eq!(result.vary, CASH);
+            let SensitivityData::OneVar { entries } = result.data else {
+                panic!("one input")
+            };
+            assert_eq!(entries.len(), 3);
+            for entry in entries {
+                let want = value_created(&[(CASH, entry.input)]);
+                assert!(
+                    (entry.output.unwrap() - want).abs() <= 1e-9,
+                    "{}",
+                    entry.input
+                );
+            }
+        }
+
+        #[test]
+        fn two_inputs_one_of_them_included() {
+            let result = sensitivity_core(
+                Path::new(MODEL),
+                "offer.premium",
+                "0.2,0.4,0.2",
+                Some(CASH),
+                Some("50,70,20"),
+                "valuation.value_created",
+            )
+            .unwrap();
+            let SensitivityData::TwoVar { matrix, .. } = result.data else {
+                panic!("two inputs")
+            };
+            for (row, premium) in [0.2, 0.4].into_iter().enumerate() {
+                for (col, cash) in [50.0, 70.0].into_iter().enumerate() {
+                    let want = value_created(&[("offer.premium", premium), (CASH, cash)]);
+                    let got = matrix[row][col].unwrap();
+                    assert!((got - want).abs() <= 1e-9, "{premium} {cash}: {got}");
+                }
+            }
         }
     }
 }
