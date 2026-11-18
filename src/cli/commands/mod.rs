@@ -312,12 +312,21 @@ pub fn calculate_core(
 /// `calculate` and `validate` are deterministic and cannot evaluate `MC.*` distributions; say so
 /// up front instead of failing later with an unknown-function or unknown-column error.
 fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
-    let mut names: Vec<&str> = model
+    let mut names: Vec<String> = model
         .scalars
         .iter()
         .filter(|(_, v)| v.formula.as_deref().is_some_and(|f| f.contains("MC.")))
-        .map(|(name, _)| name.as_str())
+        .map(|(name, _)| name.clone())
         .collect();
+    for (table_name, table) in &model.tables {
+        names.extend(
+            table
+                .row_formulas
+                .iter()
+                .filter(|(_, f)| f.contains("MC."))
+                .map(|(column, _)| format!("{table_name}.{column}")),
+        );
+    }
     if names.is_empty() {
         return Ok(());
     }

@@ -41,7 +41,7 @@ use super::sampler::{Sampler, SamplingMethod};
 use super::statistics::{
     calculate_percentiles, evaluate_threshold, parse_threshold, Histogram, Statistics,
 };
-use crate::types::ParsedModel;
+use crate::types::{row_input_name, ParsedModel};
 
 /// The value an uncertain input is planned at, which the model is calculated
 /// with once to give each output's value at plan.
@@ -259,6 +259,27 @@ impl MonteCarloEngine {
                         self.planned.insert(variable.clone(), value);
                     }
                     self.add_distribution(&variable, dist);
+                }
+            }
+        }
+        // A table column whose formula is a distribution draws each row on
+        // its own: one input per row, named as a row of an output is
+        for (table_name, table) in &model.tables {
+            let rows = table.row_count();
+            for (column, formula) in &table.row_formulas {
+                let formula = formula.trim();
+                let content = formula.strip_prefix('=').unwrap_or(formula);
+                if !content.starts_with("MC.") {
+                    continue;
+                }
+                let table = format!("{prefix}{table_name}");
+                let dist =
+                    parse_distribution(content).map_err(|e| format!("{table}.{column}: {e}"))?;
+                for row in 0..rows {
+                    let one = Distribution {
+                        dist_type: dist.dist_type.clone(),
+                    };
+                    self.add_distribution(&row_input_name(&table, column, row), one);
                 }
             }
         }
@@ -891,5 +912,53 @@ mod tests {
         let samples1 = &result1.input_samples["revenue"];
         let samples2 = &result2.input_samples["revenue"];
         assert_eq!(samples1, samples2);
+    }
+
+    mod uncertain_rows {
+        //! A table column whose formula is a distribution is one input per row.
+
+        use super::*;
+        use crate::types::{Column, ColumnValue, Table};
+
+        fn model(formula: &str) -> ParsedModel {
+            let mut table = Table::new("t".to_string());
+            table.add_column(Column::new(
+                "n".to_string(),
+                ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+            ));
+            table.add_row_formula("shock".to_string(), formula.to_string());
+            table.add_row_formula("twice".to_string(), "=n * 2".to_string());
+            let mut model = ParsedModel::new();
+            model.add_table(table);
+            model
+        }
+
+        #[test]
+        fn each_row_is_an_input_at_its_plan() {
+            let mut engine = MonteCarloEngine::new(MonteCarloConfig::default()).unwrap();
+            engine
+                .parse_distributions_from_model(&model("=MC.Triangular(1, 2, 4)"))
+                .unwrap();
+            let plan = engine.plan_inputs();
+            let names: Vec<&str> = plan.keys().map(String::as_str).collect();
+            // The column of plain formulas draws nothing
+            assert_eq!(
+                names,
+                ["t.shock (row 1)", "t.shock (row 2)", "t.shock (row 3)"]
+            );
+            for input in plan.values() {
+                assert!((input.value - 2.0).abs() <= 0.0);
+                assert_eq!(input.from, "mode");
+            }
+        }
+
+        #[test]
+        fn a_column_whose_distribution_does_not_parse_is_named() {
+            let mut engine = MonteCarloEngine::new(MonteCarloConfig::default()).unwrap();
+            let err = engine
+                .parse_distributions_from_model(&model("=MC.Normal(0, -1)"))
+                .unwrap_err();
+            assert!(err.starts_with("t.shock: "), "{err}");
+        }
     }
 }

@@ -348,4 +348,102 @@ scalars:
             ));
         }
     }
+
+    mod realestate_example {
+        //! The numbers in examples/realestate/README.md, as computed outside Forge.
+        //!
+        //! Linden Court, written from the model's description and not from its
+        //! formulas:
+        //! ```python
+        //! def run(rent=1450.0, growth=0.03, vac=0.06, opex=5200.0, egrowth=0.025,
+        //!         cap=0.0575, price=4.6e6, rate=0.08, loan_rate=0.06, units=24):
+        //!     def noi(y):  # rent and other income less vacancy, 4% management, costs
+        //!         g = (1 + growth) ** (y - 1)
+        //!         gross = units * 12 * (rent + 60) * g - units * 12 * rent * g * (vac + 0.01)
+        //!         return gross * 0.96 - units * opex * (1 + egrowth) ** (y - 1)
+        //!     cash = [noi(y) - units * 350 * (1 + egrowth) ** (y - 1) for y in range(1, 11)]
+        //!     sale = noi(11) / cap * 0.98; cost = price * 1.015
+        //!     dcf = sum(c / (1 + rate) ** y for y, c in enumerate(cash, 1)) + sale / (1 + rate) ** 10
+        //!     loan = price * 0.65; pay = loan * loan_rate / (1 - (1 + loan_rate) ** -30)
+        //!     # balance after 10 payments; irr by bisection; dscr = noi / pay
+        //! run()  # dcf 4824715.314059857, npv 155715.31405985728, unlevered irr
+        //!        # 0.08443306153837382, equity irr 0.11365179107917645, multiple
+        //!        # 2.683287063848492, lowest dscr 1.2182201505538217, going-in cap
+        //!        # 0.057526539130434776, sale 6196943.26019236
+        //! run(growth=0.01, vac=0.10, cap=0.0675)       # soft: -1350622.8124960382, dscr 1.1443971973858285
+        //! run(growth=0.045, vac=0.04, cap=0.0525)      # strong: 1487629.9493778758, dscr 1.2551316271378186
+        //! run(loan_rate=0.08, rate=0.10, cap=0.07)     # rates up: -925263.637700696, dscr 0.9963404830928924
+        //! # weighted 0.50 / 0.25 / 0.15 / 0.10: -129179.91745746916
+        //! ```
+        //! The tornado and the break-even price of the README are this function with
+        //! other arguments; their tests are with those commands.
+
+        use crate::cli::scenarios_core;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/realestate/realestate.yaml";
+
+        fn close(a: f64, b: f64, tol: f64) -> bool {
+            (a - b).abs() <= tol
+        }
+
+        #[test]
+        fn the_plan_matches_the_independent_calculation() {
+            let results = scenarios_core(Path::new(MODEL), Some("base")).unwrap();
+            let base = &results.scenarios[0].outputs;
+            let expected = [
+                ("valuation.dcf", 4_824_715.314_059_857, 1e-6),
+                ("valuation.npv", 155_715.314_059_857_28, 1e-6),
+                ("returns.unlevered_irr", 0.084_433_061_538_373_82, 1e-9),
+                ("returns.equity_irr", 0.113_651_791_079_176_45, 1e-9),
+                ("returns.equity_multiple", 2.683_287_063_848_492, 1e-9),
+                ("returns.min_dscr", 1.218_220_150_553_821_7, 1e-12),
+                (
+                    "valuation.going_in_cap_rate",
+                    0.057_526_539_130_434_776,
+                    1e-12,
+                ),
+                ("sale.net_proceeds", 6_196_943.260_192_36, 1e-6),
+            ];
+            for (name, want, tol) in expected {
+                let got = base[name];
+                assert!(close(got, want, tol), "{name}: {got}, not {want}");
+            }
+        }
+
+        #[test]
+        fn each_scenario_matches_the_independent_calculation() {
+            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let expected = [
+                ("base", 155_715.314_059_857_28, 1.218_220_150_553_821_7),
+                (
+                    "soft_market",
+                    -1_350_622.812_496_038_2,
+                    1.144_397_197_385_828_5,
+                ),
+                (
+                    "strong_market",
+                    1_487_629.949_377_875_8,
+                    1.255_131_627_137_818_6,
+                ),
+                ("rates_up", -925_263.637_700_696, 0.996_340_483_092_892_4),
+            ];
+            assert_eq!(results.scenarios.len(), expected.len());
+            for (name, npv, dscr) in expected {
+                let scenario = results.scenarios.iter().find(|s| s.name == name).unwrap();
+                let got = scenario.outputs["valuation.npv"];
+                assert!(close(got, npv, 1e-6), "{name}: npv {got}, not {npv}");
+                let got = scenario.outputs["returns.min_dscr"];
+                assert!(close(got, dscr, 1e-12), "{name}: dscr {got}, not {dscr}");
+            }
+            // Worth buying in the plan, but not once the scenarios are weighted
+            let weighted = results.expected_values["valuation.npv"];
+            assert!(close(weighted, -129_179.917_457_469_16, 1e-6), "{weighted}");
+            assert!(close(
+                results.probability_positive["valuation.npv"],
+                0.65,
+                1e-12
+            ));
+        }
+    }
 }
