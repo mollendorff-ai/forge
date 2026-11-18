@@ -20,17 +20,22 @@
 
 state:
   version: >-
-    10.0.0-rc.28, released 2026-11-18: fixes from the evaluation of rc.27
+    10.0.0-rc.29, released 2026-11-18: a sum near zero is 0, as in Excel
+    (ADR-066, measured on 69 formulas in Excel for iPhone), and break-even,
+    goal-seek, sensitivity and tornado are not stopped by a formula their
+    output does not use. A wrong answer fixed, so the two weeks in
+    docs/STABILITY.md start again from rc.29: no earlier than 2026-12-02.
+    Excel confirmed ADR-065's 13 comparisons (T1-EXCEL-EQUALITY); Excel cuts
+    a typed number to 15 digits and Forge does not (T1-EXCEL-LITERAL-DIGITS).
+    rc.28 (2026-11-18): fixes from the evaluation of rc.27
     and uncertainty that moves year by year (a table column drawn for each
     row, examples/realestate). forge mcp keeps paths in one folder by
     default and a formula nested past 128 levels is refused. Eight wrong
     answers fixed (comparisons by Excel's rule, ADR-065; VLOOKUP and HLOOKUP
     indexes; PERCENTILE.EXC at its lowest k; an uncertain input exported
     empty; four more), so the two weeks in docs/STABILITY.md start again
-    from rc.28: no earlier than 2026-12-02. Excel confirmed ADR-065's 13
-    comparisons on 2026-11-18 (T1-EXCEL-EQUALITY), and Forge now follows
-    Excel's sum near zero (ADR-066, T1-EXCEL-SUBTRACTION), a wrong answer
-    fixed: the release that carries it starts the two weeks again. rc.27 (2026-11-15): easier to start with an AI
+    from rc.28 (rc.29 started them again). Excel confirmed ADR-065's 13
+    comparisons on 2026-11-18 (T1-EXCEL-EQUALITY). rc.27 (2026-11-15): easier to start with an AI
     (install.sh, tested prompts, workflows) and every item the agents and
     Sentinel reported fixed; -o is always the output file and -v always
     --verbose; a constant where COUNTIF and its family read a range is
