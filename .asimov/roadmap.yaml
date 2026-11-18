@@ -273,13 +273,14 @@ tier1:
   # simulate with a scenario and --seek, decision-tree, real-options,
   # bootstrap, bayesian, variance). Its numbers were written again in Python
   # and are asserted beside each command (acquisition_example). It needed no
-  # engine change; what it made hard is the three items below.
+  # engine change; what it made hard is the three items below
+  # (T1-VARY-INCLUDED done since).
 
-  - id: T1-VARY-INCLUDED
-    title: "Let tornado, goal-seek, break-even and sensitivity move an input of an included file"
-    why: "Found building examples/acquisition (2026-11-18): Quillon's growth and Valdane's discount rate lived in the included target.yaml and buyer.yaml, and forge tornado refused '@target.company.growth' ('not found; use an existing scalar ID'); goal-seek, break-even and sensitivity refuse '@target.company.free_cash_flow_next_year' the same way. forge scenarios overrides the same name (bagel's flour_shock does), and forge simulate draws an uncertain input in an included file (bagel's costs_risk.yaml). The example moved the deal team's assumptions into deal.yaml as a case group to get its tornado, which is a fair modelling choice, but a model split into files should not have to"
-    how: "Resolve an @alias.group.name input as forge scenarios does, in the one place the four commands share (names::scalar_name and the tornado's resolve_scalar_name), test-first with the acquisition example's target.yaml"
-    acceptance: "forge tornado, goal-seek, break-even and sensitivity each move '@target.company.free_cash_flow_next_year' in examples/acquisition/deal.yaml and give what the plain model gives with that value; an alias that does not exist is refused with the aliases listed"
+  # T1-VARY-INCLUDED is done (2026-11-18): tornado, goal-seek, break-even
+  # and sensitivity find `@alias.name` in the included file (names.rs) and
+  # set it there (ParsedModel::set_input); a date there is refused up front.
+  # The acquisition example's README breaks even on Quillon's free cash flow
+  # through target.yaml.
 
   - id: T1-SEEK-UNUSED-FORMULA
     title: "forge simulate --seek is not stopped by a formula its output does not use"

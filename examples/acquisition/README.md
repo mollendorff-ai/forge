@@ -44,6 +44,8 @@ Valdane's deal team underwrites its own case for Quillon: 7% growth a year for f
 
 **The walk-away price is 35.60 a share** (`forge break-even`, a 48.3% premium): above it the deal destroys value even if everything goes to plan.
 
+**Quillon's free cash flow can fall to 51.40 a year from 62, 17% below plan, before the deal creates nothing** (`forge break-even --vary @target.company.free_cash_flow_next_year`: an input of the included `target.yaml` is named as a scenario names it).
+
 **For earnings per share not to fall in year 3,** Valdane needs cost synergies of 49.4 a year instead of 40, or to pay 79.8% of the price in cash instead of 60% (`forge goal-seek`). More cash is cheaper than Valdane's shares: debt costs 4.9% after tax, and Valdane's shares earn their buyers 6.5%. It is also more debt.
 
 **Four scenarios** (`forge scenarios`): as the board was shown (45%), 224.51; a slow integration, five years to merge the plants and a bill 50% over (25%), 166.93; Valdane's sales teams never selling Quillon's sensors (20%), 28.40; rates up 1.5 points before the debt is fixed and investors asking 9% (10%), -89.55. Weighted, 139.49. Without the revenue synergies, the deal barely pays for itself.
@@ -88,6 +90,7 @@ forge calculate examples/acquisition/deal.yaml --dry-run
 forge scenarios examples/acquisition/deal.yaml
 forge tornado examples/acquisition/deal.yaml
 forge break-even examples/acquisition/deal.yaml --output valuation.value_created --vary offer.premium
+forge break-even examples/acquisition/deal.yaml --output valuation.value_created --vary @target.company.free_cash_flow_next_year
 forge goal-seek examples/acquisition/deal.yaml --target eps.year_3_accretion --value 0 --vary synergies.cost_run_rate --min 0 --max 200
 forge goal-seek examples/acquisition/deal.yaml --target eps.year_3_accretion --value 0 --vary financing.cash_share --min 0 --max 1
 forge sensitivity examples/acquisition/deal.yaml --vary offer.premium --vary2 synergies.cost_run_rate --range 0.20,0.50,0.10 --range2 20,60,10 --output-var valuation.value_created
