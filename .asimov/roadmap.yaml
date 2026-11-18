@@ -233,11 +233,10 @@ tier1:
     how: "An ADR or a short decision first: refuse an output whose values cannot be summarized, or report the standard deviation by scaling (the largest deviation out, then back in) and the variance as too large to show. Keep the results of every model that calculates today the same to the last digit (compute the plain way first, as triangular_quantile does)"
     acceptance: "forge simulate on MC.Triangular(-1E+307, 0, 1E+307) prints no inf and no NaN, or exits 1 saying why; the decision is written down; the refused_everywhere tests in src/monte_carlo/distributions.rs no longer allow the one inf line"
 
-  - id: T1-DISCRETE
-    title: "MC.Discrete is documented and cannot be used"
-    why: "Found 2026-11-16: docs/FEATURES.md, docs/FUNCTIONS.md, docs/MCP.md, docs/FPA-PREDICTION-METHODS.md and forge simulate --help list MC.Discrete(values, probabilities), but parse_distribution (src/monte_carlo/distributions.rs) has no branch for it: MC.Discrete(1, 0.5, 2, 0.5) gives 'Unknown distribution type: Discrete', and with array constants {1,2} or [1, 2] the arguments do not parse. Distribution::discrete exists, is checked, and is reached only from tests"
-    how: "Decide the syntax (array constants, ADR-064, are the Excel way: MC.Discrete({1,2,3}, {0.2,0.5,0.3})) and parse it, with an example and a test against a hand calculation; or take MC.Discrete out of the five places that list it, until it is built"
-    acceptance: "Either a model with MC.Discrete simulates and its probabilities are checked in a test, or no document or help text names it"
+  # T1-DISCRETE is done (2026-11-18): MC.Discrete takes two array constants,
+  # the values and their probabilities, each a row or a column:
+  # MC.Discrete({0, 0.3}, {0.9, 0.1}) (distributions.rs, its discrete_*
+  # tests). examples/vineyard draws a spring frost with it.
 
   # T1-EQUAL-NEAR-ZERO is done (2026-11-17, ADR-065): the six operators and
   # the COUNTIF-family criteria compare two numbers rounded to 15 significant
@@ -330,12 +329,16 @@ tier1:
   #   wrong answer first) or added here as its own item; the example is not
   #   bent around it.
 
-  - id: T1-EXAMPLE-CORRELATION
-    title: "A simulation example where correlated inputs change the answer"
-    run_with: "Opus 5.5, high effort: simulation statistics checked against an outside calculation, where a wrong answer is plausible and hard to see"
-    why: "src/monte_carlo/correlation.rs implements correlations: (a Gaussian copula with Cholesky; docs/FEATURES.md says each input keeps its own distribution and the resulting rank correlation is a little lower, 0.58 for 0.6), but no example uses it, nor sampling: monte_carlo against the default latin_hypercube. MC.Lognormal and MC.Discrete appear once each in examples/. In a real model uncertain inputs move together, and a simulation that ignores it gets the risk wrong"
-    how: "examples/vineyard/ (or a farm): a few years of a vineyard's harvest. Yield (MC.PERT or MC.Triangular) and price per tonne (MC.Lognormal) are negatively correlated, a big harvest lowers the price, which partly hedges revenue; a frost year is an MC.Discrete event; costs as an included file. vineyard.yaml is the plan; vineyard_risk.yaml the simulation, run with and without the correlation (a scenario or a second file) so the README can show the probability of a loss and the 5% worst year moving. Run both sampling methods once with the same seed and show they agree within sampling error. Python with numpy and scipy: (1) from the draws Forge writes or reports, the realized rank correlation against the copula's (6/pi) asin(rho/2), and each input's marginal against its distribution (a KS test); (2) the outputs (mean, percentiles, P(loss)) recomputed from Forge's own samples; (3) an independent simulation in numpy with the same copula, agreeing within a tolerance stated from the number of runs. A correlation matrix that is not positive definite (three inputs, pairwise values that cannot hold together) must be refused with a reason: check it"
-    acceptance: "examples/vineyard runs with every command its README names; the realized correlation, the marginals and the headline outputs agree with the Python within stated tolerances, asserted in inline tests; the README shows the loss probability with and without the correlation; a non-positive-definite matrix is refused, tested; Studio and forge-wasm have it"
+  # T1-EXAMPLE-CORRELATION is done (2026-11-18): examples/vineyard. A
+  # vineyard's crop and price correlated at -0.7 cut the chance of a losing
+  # season from 33% to 26%, and the mean with it. numpy and scipy checked the
+  # draws (rank correlation, marginals, the frost), every season from them,
+  # and ran 2,000,000 seasons of their own (monte_carlo/correlation.rs,
+  # vineyard_example). It found T1-DISCRETE still open (built here) and a
+  # refusal that named a matrix cell instead of the inputs (fixed). The
+  # "same file with the correlation at 0" is a second file: a scenario cannot
+  # change a coefficient, and including the risk file does not calculate its
+  # tables in the including model.
 
   - id: T1-EXAMPLE-DATES
     title: "An example on real dates: irregular cash flows, XNPV and XIRR"

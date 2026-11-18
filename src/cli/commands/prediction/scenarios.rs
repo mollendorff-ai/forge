@@ -349,6 +349,62 @@ scalars:
         }
     }
 
+    mod vineyard_example {
+        //! The plan and scenarios of examples/vineyard, as computed outside Forge.
+        //!
+        //! Les Trois Pentes, written from the README's description and not from
+        //! the model's formulas:
+        //! ```python
+        //! HA, TPH, PF = [10, 8, 6], [7.5, 5.5, 8.0], [1.00, 1.35, 0.90]
+        //! def season(y=1.0, price=2000.0, frost=0.0):
+        //!     tonnes = sum(h * t for h, t in zip(HA, TPH)) * y * (1 - frost)
+        //!     revenue = sum(h * t * f for h, t, f in zip(HA, TPH, PF)) * y * (1 - frost) * price
+        //!     return revenue - 24 * 7000 - 180 * tonnes - 45000 - 40000, revenue, tonnes
+        //! season()                  # 72140.00000000006, 355200.00000000006, 167.0
+        //! season(1.25, 1550)        # glut: 53525.00000000006
+        //! season(0.7, 2500)         # short crop: 36758.0
+        //! season(frost=0.3)         # frost: -25401.99999999997
+        //! # weighted 0.6 / 0.15 / 0.15 / 0.1: 54286.250000000044
+        //! ```
+        //! The tornado and the break-even price are this function with other
+        //! arguments; their tests are with those commands. The simulation's are
+        //! in `monte_carlo/correlation.rs` (`vineyard_example`).
+
+        use crate::cli::scenarios_core;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/vineyard/vineyard.yaml";
+
+        #[test]
+        fn the_plan_and_each_scenario_match_the_independent_calculation() {
+            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let expected = [
+                ("base", 72_140.0, 355_200.0, 167.0),
+                ("glut", 53_525.0, 344_100.0, 208.75),
+                ("short_crop", 36_758.0, 310_800.0, 116.9),
+                ("frost", -25_402.0, 248_640.0, 116.9),
+            ];
+            assert_eq!(results.scenarios.len(), expected.len());
+            for (name, profit, revenue, tonnes) in expected {
+                let scenario = results.scenarios.iter().find(|s| s.name == name).unwrap();
+                for (output, want) in [
+                    ("season.profit", profit),
+                    ("season.revenue", revenue),
+                    ("season.tonnes", tonnes),
+                ] {
+                    let got = scenario.outputs[output];
+                    assert!((got - want).abs() <= 1e-6, "{name} {output}: {got}");
+                }
+            }
+            let base = &results.scenarios[0].outputs;
+            assert!((base["season.margin"] - 0.203_096_846_846_846_98).abs() <= 1e-12);
+            // A big crop or a short one costs less than a frost, because the
+            // price moves the other way; a frost is this vineyard's alone
+            let weighted = results.expected_values["season.profit"];
+            assert!((weighted - 54_286.25).abs() <= 1e-6, "{weighted}");
+        }
+    }
+
     mod realestate_example {
         //! The numbers in examples/realestate/README.md, as computed outside Forge.
         //!
