@@ -553,7 +553,7 @@ summary:
             let mut older = json;
             older.as_object_mut().unwrap().remove("unweighted");
             let read: crate::scenarios::ScenarioResults = serde_json::from_value(older).unwrap();
-            assert!(read.unweighted.is_empty());
+            assert_eq!(read.unweighted, Vec::<String>::new());
             assert_eq!(read.scenarios.len(), 2);
         }
     }
