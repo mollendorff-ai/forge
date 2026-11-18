@@ -32,6 +32,7 @@ pub use engine::{BootstrapEngine, BootstrapResult, ConfidenceInterval};
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::precision;
 
     mod integration {
         //! Bootstrap Integration Tests
@@ -109,9 +110,9 @@ mod tests {
             let result = engine.analyze().unwrap();
 
             // Calculate expected std
-            let mean = data.iter().sum::<f64>() / data.len() as f64;
-            let var =
-                data.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (data.len() - 1) as f64;
+            let mean = data.iter().sum::<f64>() / precision::count(data.len());
+            let var = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                / precision::count(data.len() - 1);
             let expected_std = var.sqrt();
 
             assert!(
@@ -135,9 +136,9 @@ mod tests {
             let result = engine.analyze().unwrap();
 
             // Calculate expected variance
-            let mean = data.iter().sum::<f64>() / data.len() as f64;
-            let expected_var =
-                data.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (data.len() - 1) as f64;
+            let mean = data.iter().sum::<f64>() / precision::count(data.len());
+            let expected_var = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                / precision::count(data.len() - 1);
 
             assert!(
                 (result.original_estimate - expected_var).abs() < 0.01,

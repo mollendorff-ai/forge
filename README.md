@@ -22,7 +22,7 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 | Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Paste one prompt into your AI and it installs Forge and runs the bagel example; or install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
 | [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Prompt for your AI →](#try-it-with-your-ai) · [Quick start](#quick-start) · [For AI agents](#for-ai-agents) |
 
-**Checked, not trusted.** 2,092 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. On every pull request, 2,660 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 26,600 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+**Checked, not trusted.** 2,151 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
 ## Four ways to use Forge
 
@@ -99,13 +99,13 @@ It needs an AI that can run commands. Tried by the maintainer on 2026-11-15: it 
 
 ## Status and known limitations
 
-Forge is a release candidate (v10.0.0-rc.27) and an R&D prototype: read its claims as hypotheses to check, not facts to trust. It was built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
+Forge is a release candidate (v10.0.0-rc.29) and an R&D prototype: read its claims as hypotheses to check, not facts to trust. It was built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
 
 Forge began in 2025 as the core of a trading-engine idea, built closed-source for a few months. Making the YAML calculator showed it was worth more as a financial-modelling tool, and it was opened under MIT OR Apache-2.0 in February 2026; it is not a trading engine and does not plan to become one ([ADR-063](docs/architecture/ADR-063-ORIGIN-OF-FORGE.md)).
 
 Known problems as of 2026-11-12 (what is planned, and in what order, is in the [roadmap](.asimov/roadmap.yaml)):
 
-- `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value and lists it.
+- `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value, an uncertain input (`MC.*`) as its plan value, and lists it. `forge import` brings such a cell back as that value: the distribution stays in the YAML file.
 - `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
 - A two-dimensional array constant such as `{1,2;3,4}` is refused (Forge has no two-dimensional values), and `forge import` brings a formula with one in as its values.
 - `forge calculate` cannot evaluate `MC.*` distributions (for example `examples/monte-carlo.yaml`); it says so and points to `forge simulate`.
@@ -312,8 +312,8 @@ Forge's results are checked against engines it does not control, and none of the
 
 | Check | What it covers | Latest result |
 | --- | --- | --- |
-| Unit tests (this repo) | over 2,050 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
-| [forge-e2e-gnumeric](validation/gnumeric) | 2,092 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 158 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,091 pass, 0 fail, 1 skipped, the 158 by LibreOffice included (2026-11-15); CI runs them on every pull request |
+| Unit tests (this repo) | over 2,150 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
+| [forge-e2e-gnumeric](validation/gnumeric) | 2,151 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 175 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,137 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); CI runs them on every pull request |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).

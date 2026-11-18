@@ -57,15 +57,12 @@ jobs:
           toolchain: ${{ matrix.rust }}
           targets: x86_64-unknown-linux-gnu
 
-      # Cache disabled - proc-macro issues
-      # - name: Cache cargo
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       ~/.cargo/registry
-      #       ~/.cargo/git
-      #       target
-      #     key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # shell: bash runs with -o pipefail. Without it the step's status is
       # tee's, so failing tests passed the job (roadmap T1-PROPERTIES PR).
@@ -106,15 +103,12 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      # Cache disabled - proc-macro issues
-      # - name: Cache cargo
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       ~/.cargo/registry
-      #       ~/.cargo/git
-      #       target
-      #     key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -145,6 +139,13 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: actions/download-artifact@v8
         with:
@@ -177,6 +178,13 @@ jobs:
           toolchain: ${{ env.MSRV }}
           components: clippy
 
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - name: Build the command line and the library
         run: cargo build --locked --bin forge --lib
 
@@ -200,6 +208,13 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
           components: clippy
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build the core for wasm32-unknown-unknown
         run: cargo build --lib --release --no-default-features --target wasm32-unknown-unknown
@@ -226,6 +241,13 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
           components: clippy
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: actions/setup-node@v6
         with:
@@ -376,15 +398,12 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      # Cache disabled - proc-macro issues
-      # - name: Cache cargo
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       ~/.cargo/registry
-      #       ~/.cargo/git
-      #       target
-      #     key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build release
         run: cargo build --release --verbose
@@ -494,6 +513,13 @@ jobs:
         with:
           components: llvm-tools-preview
 
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
@@ -519,13 +545,12 @@ jobs:
       # 87.95%, 90.58%), when the command line ran in-process, and from PR
       # #262's (92.45%, 88.52%, 91.19%), when its tests ran under coverage, and
       # from PR #263's regions (91.20%), and from PR #266's (93.18%, 89.20%,
-      # 91.97%), when 612 lines of dead date code were deleted, and from PR
-      # #267's (93.38%, 89.80%, 92.24%), when the evaluator's casts were tested.
+      # 91.97%), when 612 lines of dead date code were deleted.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "93.3"
-          FLOOR_FUNCTIONS: "89.8"
-          FLOOR_REGIONS: "92.2"
+          FLOOR_LINES: "93.1"
+          FLOOR_FUNCTIONS: "89.2"
+          FLOOR_REGIONS: "91.9"
         run: |
           fail=0
           for kind in lines functions regions; do

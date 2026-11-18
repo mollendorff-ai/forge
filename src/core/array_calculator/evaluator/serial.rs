@@ -1,5 +1,6 @@
 //! Excel's day numbers for dates written `YYYY-MM-DD` (ADR-054, ADR-060).
 
+use crate::core::precision;
 use num_traits::ToPrimitive;
 
 /// The day number of a date written `YYYY-MM-DD`: the days since 1899-12-30,
@@ -8,8 +9,7 @@ use num_traits::ToPrimitive;
 pub fn date_serial(text: &str) -> Option<f64> {
     let date = chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?;
     let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30)?;
-    #[allow(clippy::cast_precision_loss)] // a day count is far below 2^52
-    Some((date - base).num_days() as f64)
+    Some(precision::whole((date - base).num_days()))
 }
 
 /// The day number of a date Excel holds, written `YYYY-MM-DD`.

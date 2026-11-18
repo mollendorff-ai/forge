@@ -1,0 +1,35 @@
+_forge_version: "5.1.0"
+# Project Kittiwake (fictional): in the data room, Quillon's last quarter
+# shows a spike in sales, and the money owed by its customers has jumped.
+# Was revenue pulled forward (channel stuffing: distributors loaded up with
+# stock they did not order), or did a big grid contract land? A spike can
+# have either cause; receivables jump far more often when sales were stuffed.
+#
+#   forge bayesian diligence.yaml -q stuffing -e q4_spike=yes -e receivables=jumped
+bayesian_network:
+  name: "Quillon's last quarter"
+  nodes:
+    stuffing:
+      type: discrete
+      states: ["yes", "no"]
+      prior: [0.08, 0.92]
+    grid_contract:
+      type: discrete
+      states: ["yes", "no"]
+      prior: [0.25, 0.75]
+    q4_spike:
+      type: discrete
+      states: ["yes", "no"]
+      parents: ["stuffing", "grid_contract"]
+      cpt:
+        "yes, yes": [0.95, 0.05]
+        "yes, no": [0.85, 0.15]
+        "no, yes": [0.70, 0.30]
+        "no, no": [0.10, 0.90]
+    receivables:
+      type: discrete
+      states: ["jumped", "normal"]
+      parents: ["stuffing"]
+      cpt:
+        "yes": [0.80, 0.20]
+        "no": [0.15, 0.85]

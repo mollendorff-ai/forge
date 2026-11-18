@@ -8,6 +8,7 @@
 
 use super::workbook_refs::dates::{excel_date, Holds};
 use super::workbook_refs::{column_letter, Context, ReverseRefs, SheetKind, WorkbookRefs};
+use crate::core::precision;
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 use calamine::{open_workbook, Data, Range, Reader, Xlsx};
@@ -172,11 +173,10 @@ fn date_of(cell: &Data) -> Option<String> {
 }
 
 /// The number a cell holds; a date or a time as Excel's day number.
-#[allow(clippy::cast_precision_loss)] // Excel integers fit in f64
 fn number_of(cell: &Data) -> Option<f64> {
     match cell {
         Data::Float(f) => Some(*f),
-        Data::Int(i) => Some(*i as f64),
+        Data::Int(i) => Some(precision::whole(*i)),
         Data::DateTime(value) => Some(value.as_f64()),
         _ => None,
     }
@@ -1033,8 +1033,6 @@ impl ExcelImporter {
             Data::Float(_) | Data::Int(_) | Data::DateTime(_) => {
                 // Number column: dates with a time of day, times and durations
                 // are Excel's day numbers
-                #[allow(clippy::cast_precision_loss)]
-                // Excel integer values fit within f64 precision
                 let numbers: Vec<f64> = data
                     .iter()
                     // An empty cell, or one that holds text, is 0; a date

@@ -20,7 +20,22 @@
 
 state:
   version: >-
-    10.0.0-rc.27, released 2026-11-15: easier to start with an AI
+    10.0.0-rc.29, released 2026-11-18: a sum near zero is 0, as in Excel
+    (ADR-066, measured on 69 formulas in Excel for iPhone), and break-even,
+    goal-seek, sensitivity and tornado are not stopped by a formula their
+    output does not use. A wrong answer fixed, so the two weeks in
+    docs/STABILITY.md start again from rc.29: no earlier than 2026-12-02.
+    Excel confirmed ADR-065's 13 comparisons (T1-EXCEL-EQUALITY); Excel cuts
+    a typed number to 15 digits and Forge does not (T1-EXCEL-LITERAL-DIGITS).
+    rc.28 (2026-11-18): fixes from the evaluation of rc.27
+    and uncertainty that moves year by year (a table column drawn for each
+    row, examples/realestate). forge mcp keeps paths in one folder by
+    default and a formula nested past 128 levels is refused. Eight wrong
+    answers fixed (comparisons by Excel's rule, ADR-065; VLOOKUP and HLOOKUP
+    indexes; PERCENTILE.EXC at its lowest k; an uncertain input exported
+    empty; four more), so the two weeks in docs/STABILITY.md start again
+    from rc.28 (rc.29 started them again). Excel confirmed ADR-065's 13
+    comparisons on 2026-11-18 (T1-EXCEL-EQUALITY). rc.27 (2026-11-15): easier to start with an AI
     (install.sh, tested prompts, workflows) and every item the agents and
     Sentinel reported fixed; -o is always the output file and -v always
     --verbose; a constant where COUNTIF and its family read a range is
@@ -170,12 +185,23 @@ tier1:
   # TIME, SEQUENCE, RANDARRAY, DB and PERCENTILE.EXC past an i32) and two
   # wrong answers (ISEVEN past 2^63, WORKDAY past the calendar), fixed test
   # first. Found on the way and not casts, so left for their own change:
-  # VLOOKUP and HLOOKUP ignore col_index and row_index
-  # (VLOOKUP(2, {1;2;3}, 5, FALSE) is 2, Excel #REF!); ROUND(x, -400) is
+  # VLOOKUP and HLOOKUP ignored col_index and row_index (fixed 2026-11-17:
+  # #VALUE! below 1, #REF! past the one column or row, and the approximate
+  # search is MATCH's); ROUND(x, -400) is
   # #NUM! (Gnumeric 0); DB with a fractional period cuts it (Gnumeric 0);
   # TIME(1, -30, 0) is 0:30 (Gnumeric #NUM!); HOUR(1E+20) is 0 (Gnumeric
-  # #NUM!). Next: cast_precision_loss with its two Cargo.toml allows. 95
-  # allows left.
+  # #NUM!). cast_precision_loss is done too (2026-11-18): no allow is left, in
+  # Cargo.toml or in an attribute. A count, a place in an array or a day count
+  # becomes a number through precision::count, whole and unsigned, built from
+  # 32-bit halves that convert without loss and give the bits `as f64` gives
+  # (not a try_from: a count past 2^53 cannot exist in memory, and an error
+  # branch no test can reach breaks the coverage rule). The two validation
+  # suites do not link Forge, so each has its own small conversion.
+  # approx_constant is done too (2026-11-18): 18 allows, 17 of which hid
+  # nothing; the 3 literals that did became FRAC_1_SQRT_2. too_many_lines is done too (2026-11-18): 14 functions of 131 to 572
+  # lines split by what they do, none rewritten (the dispatch tables keep one
+  # line per function), and the stale allows in the Gnumeric Cargo.toml and
+  # the R suite gone. 38 allows left in attributes and 13 in Cargo.toml files.
   # T1-NO-SKIPPING, float_cmp is done (2026-11-17): no allow is left. Tests
   # assert an exact number with assert_exact! (the same bits, src/lib.rs),
   # and the ten exact comparisons in the engine (MODE, a variance on budget,
@@ -213,17 +239,58 @@ tier1:
     how: "Decide the syntax (array constants, ADR-064, are the Excel way: MC.Discrete({1,2,3}, {0.2,0.5,0.3})) and parse it, with an example and a test against a hand calculation; or take MC.Discrete out of the five places that list it, until it is built"
     acceptance: "Either a model with MC.Discrete simulates and its probabilities are checked in a test, or no document or help text names it"
 
+  # T1-EQUAL-NEAR-ZERO is done (2026-11-17, ADR-065): the six operators and
+  # the COUNTIF-family criteria compare two numbers rounded to 15 significant
+  # digits, the exact lookups and RANK's membership exactly, as Microsoft's
+  # documentation and Q&A answers describe Excel; -1E-12 = 0 is FALSE. The
+  # equal-near-zero rule in known.py is gone. Without Excel at hand, the rule
+  # was taken from documentation: T1-EXCEL-EQUALITY checks it.
+  # T1-EXCEL-EQUALITY is done (2026-11-18): Excel for iPhone gives Forge's
+  # answer to all 13 comparisons of ADR-065, 1E15+1=1E15 and XLOOKUP over a
+  # range among them; ADR-065, edge_equality.yaml and VALIDATION.md say so.
+  # The same sheet found the subtraction below.
+
+  # T1-EXCEL-SUBTRACTION is done (2026-11-18): Excel's rule measured in
+  # three sheets of 69 formulas and followed (ADR-066): a formula's last + or
+  # - and SUM's last addition are 0 below 8 units in the last place of the
+  # larger operand. The same sheets found the item below.
+
+  - id: T1-EXCEL-LITERAL-DIGITS
+    title: "Decide whether a number typed in a formula keeps more than 15 significant digits"
+    why: "Excel for iPhone showed =1E15+1-1000000000000000.5 as =1000000000000000+1-1000000000000000 and gave 1 (2026-11-18): Excel cuts a typed number to 15 significant digits when the formula is entered. Forge keeps every digit and gives 0 (0.5, 4 units in the last place, then ADR-066). A model rarely types 16 digits, so the two agree on everything else checked"
+    how: "Check in Excel where the cut applies (a number in a formula, a typed value in a cell, a value read from a workbook), and whether it rounds or truncates; then follow it in the parser and the importer, or write it down in VALIDATION.md"
+    acceptance: "Excel's answers for at least 5 placements are in an edge case file; the difference is fixed test-first or written down"
+
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"
     why: "Checked on f77fa0a. Release attestations are done (d335791). Left: six of seven workflows have no top-level permissions: block (pages.yml has one); actions are pinned by tag or branch (actions/checkout@v7, dtolnay/rust-toolchain@stable and @master, taiki-e/install-action@cargo-llvm-cov), not by commit; studio/ has a package.json but no lockfile and CI and pages.yml run npm install; .cargo/audit.toml ignores RUSTSEC-2024-0436 (paste), but Cargo.lock has pastey, not paste, so the ignore is stale"
     how: "permissions: contents: read at the top of each workflow, widened per job where a job writes; pin each action by commit with its tag in a comment; commit studio/package-lock.json and use npm ci; drop the stale audit ignore"
     acceptance: "Every workflow starts with a permissions: block; no uses: line ends in a branch or tag name that can move; npm ci works in studio/ and CI uses it; cargo audit passes with no ignore for a crate absent from Cargo.lock"
 
-  - id: T1-MA-EXAMPLE
-    title: "An acquisition example: what Forge already does for a deal"
-    why: "Asked 2026-11-16 why Forge has nothing for mergers and acquisitions, which large companies do all the time. Most of a deal model is not game theory but arithmetic Forge already has: a price and how it is paid, synergies by year, the buyer's earnings per share before and after (accretion or dilution), an earn-out, scenarios, a tornado and a simulation on the synergies. examples/ has a bagel shop, a household, a mortgage and a capital plan, and no deal"
-    how: "examples/acquisition/, as examples/bagel is built: a buyer and a target as included files, a deal table by year (price, debt and shares issued, synergies, integration cost), accretion or dilution per year, NPV and IRR of the deal, three scenarios, a tornado, and a Monte Carlo on the synergies. Invented companies and round numbers, with a README that says what each file shows. No engine change; what the example makes hard goes here as tier items"
-    acceptance: "The example runs from a fresh install with every analytics command it names, its headline numbers are asserted in a test against an independent calculation (as src/cli/commands/examples.rs (its bagel_example tests) does), and docs/EXAMPLES.md lists it"
+  # T1-MA-EXAMPLE is done (2026-11-18): examples/acquisition, Project
+  # Kittiwake, runs every analytics command on one takeover (calculate,
+  # scenarios, tornado, break-even, goal-seek, sensitivity, compare, export,
+  # simulate with a scenario and --seek, decision-tree, real-options,
+  # bootstrap, bayesian, variance). Its numbers were written again in Python
+  # and are asserted beside each command (acquisition_example). It needed no
+  # engine change; what it made hard is the three items below
+  # (T1-VARY-INCLUDED done since).
+
+  # T1-VARY-INCLUDED is done (2026-11-18): tornado, goal-seek, break-even
+  # and sensitivity find `@alias.name` in the included file (names.rs) and
+  # set it there (ParsedModel::set_input); a date there is refused up front.
+  # The acquisition example's README breaks even on Quillon's free cash flow
+  # through target.yaml.
+
+  # T1-SEEK-UNUSED-FORMULA is done (2026-11-18): forge simulate --seek
+  # calculates for the goal's output only (ArrayCalculator::calculate_outputs),
+  # as break-even does; the acquisition example's seek starts at 0.
+
+  - id: T1-UNWEIGHTED-SCENARIOS
+    title: "Scenarios to compare beside scenarios to weight"
+    why: "Found building examples/acquisition (2026-11-18): forge scenarios needs every scenario to have a probability, and the probabilities to add to 1, so a deal's payment structures (all cash, all shares, 60/40), which are choices and not chances, cannot sit in the same file as its weighted risk cases for forge compare. The example put the payment mix in a goal seek and the sensitivity table instead"
+    how: "Decide in an ADR whether forge scenarios weights only the scenarios that carry a probability (and says which it left out), or whether a model keeps a second, unweighted list for compare"
+    acceptance: "examples/acquisition has all_cash and all_shares beside its four weighted scenarios, forge compare shows the three structures side by side, and forge scenarios still weights the four and says so"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)

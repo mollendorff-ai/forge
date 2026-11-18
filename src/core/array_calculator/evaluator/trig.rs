@@ -114,11 +114,10 @@ pub fn try_evaluate(
 }
 
 #[cfg(test)]
-#[allow(clippy::approx_constant)]
 mod tests {
     use super::super::tests::eval;
     use super::*;
-    use std::f64::consts::PI;
+    use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
     #[test]
     fn test_sin() {
@@ -259,7 +258,7 @@ mod tests {
             ColumnValue::Number(nums) => {
                 assert!((nums[0] - 0.0).abs() < 0.0001); // sin(0) = 0
                 assert!((nums[1] - 0.5).abs() < 0.0001); // sin(π/6) = 0.5
-                assert!((nums[2] - 0.7071).abs() < 0.001); // sin(π/4) ≈ 0.7071
+                assert!((nums[2] - FRAC_1_SQRT_2).abs() < 0.001); // sin(π/4) = 1/√2
                 assert!((nums[3] - 0.866).abs() < 0.001); // sin(π/3) ≈ 0.866
                 assert!((nums[4] - 1.0).abs() < 0.0001); // sin(π/2) = 1
             },
@@ -287,7 +286,7 @@ mod tests {
         match &sine.values {
             ColumnValue::Number(nums) => {
                 assert!((nums[0] - (-1.0)).abs() < 0.0001); // sin(-π/2) = -1
-                assert!((nums[1] - (-0.7071)).abs() < 0.001); // sin(-π/4) ≈ -0.7071
+                assert!((nums[1] + FRAC_1_SQRT_2).abs() < 0.001); // sin(-π/4) = -1/√2
                 assert!((nums[2] - 0.0).abs() < 0.0001); // sin(0) = 0
             },
             _ => panic!("Expected Number array"),
@@ -334,7 +333,7 @@ mod tests {
             ColumnValue::Number(nums) => {
                 assert!((nums[0] - 1.0).abs() < 0.0001); // cos(0) = 1
                 assert!((nums[1] - 0.866).abs() < 0.001); // cos(π/6) ≈ 0.866
-                assert!((nums[2] - 0.7071).abs() < 0.001); // cos(π/4) ≈ 0.7071
+                assert!((nums[2] - FRAC_1_SQRT_2).abs() < 0.001); // cos(π/4) = 1/√2
                 assert!((nums[3] - 0.5).abs() < 0.0001); // cos(π/3) = 0.5
                 assert!((nums[4] - 0.0).abs() < 0.0001); // cos(π/2) ≈ 0
             },

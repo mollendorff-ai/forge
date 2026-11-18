@@ -19,6 +19,9 @@ Each has a README with the numbers it should print. All figures are made up.
 | [`periods/`](periods/) | Two small models over time: a monthly plan and a five-year DCF, using period columns and `PREV`. |
 | [`rolling-forecast/`](rolling-forecast/) | The model an FP&A team updates every month: actuals up to October, forecast for the rest. |
 | [`capex-plan/`](capex-plan/) | A machine bought on a loan: payment schedule, depreciation and a revenue trend. |
+| [`microgrid/`](microgrid/) | An island trading diesel for solar and a battery over 20 years: the battery's replacement, the loan, scenarios, a simulation and a decision tree. |
+| [`realestate/`](realestate/) | A building of 24 flats valued under uncertainty: ten years of rent and costs, a sale at an exit cap rate, a loan, scenarios, a tornado, 10,000 simulated futures, and what the right to sell early is worth in a market that moves in cycles. |
+| [`acquisition/`](acquisition/) | Project Kittiwake: a listed company bids 30% over the market for a smaller rival, part cash, part shares. Value created against the premium, earnings per share year by year (dilutive, then accretive), the walk-away price, an earn-out that moves the risk to the sellers, a rival bidder, comparable premiums, a diligence red flag, and the deal a year after closing. |
 | [`options/`](options/compare-options.yaml) | Two rentals compared. |
 
 Studio opens all of these except the one-command files below.

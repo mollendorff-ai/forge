@@ -29,6 +29,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+
+      # The cargo-audit binary is built once and restored: `cargo install`
+      # then finds it and does nothing, until a newer cargo-audit is released.
+      # Only main saves; its advisory database is fetched on every run.
+      - name: Cache cargo-audit
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
       # Fails on any vulnerability. Ignored advisories are listed, with reasons,

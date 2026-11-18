@@ -4,152 +4,167 @@ use super::{evaluate, require_args, require_args_range, EvalContext, EvalError, 
 
 /// Try to evaluate a Forge-specific function. Returns None if function not recognized.
 // Dispatch table for Forge-specific functions; splitting would fragment the logic.
-#[allow(clippy::too_many_lines)]
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     let result = match name {
-        "BREAKEVEN_UNITS" => {
-            require_args(name, args, 3)?;
-            let fixed_costs = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("BREAKEVEN_UNITS requires numbers"))?;
-            let price_per_unit = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("BREAKEVEN_UNITS requires numbers"))?;
-            let variable_cost_per_unit = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("BREAKEVEN_UNITS requires numbers"))?;
-
-            let contribution_margin = price_per_unit - variable_cost_per_unit;
-            if contribution_margin <= 0.0 {
-                return Err(EvalError::new(
-                    "unit_price must be greater than variable_cost",
-                ));
-            }
-            Value::Number(fixed_costs / contribution_margin)
-        },
-
-        "BREAKEVEN_REVENUE" => {
-            require_args(name, args, 2)?;
-            let fixed_costs = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("BREAKEVEN_REVENUE requires numbers"))?;
-            let contribution_margin_ratio = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("BREAKEVEN_REVENUE requires numbers"))?;
-
-            if contribution_margin_ratio <= 0.0 || contribution_margin_ratio > 1.0 {
-                return Err(EvalError::new(
-                    "contribution_margin_pct must be between 0 and 1 (exclusive of 0)",
-                ));
-            }
-            Value::Number(fixed_costs / contribution_margin_ratio)
-        },
-
-        "VARIANCE" => {
-            require_args(name, args, 2)?;
-            let actual = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("VARIANCE requires numbers"))?;
-            let budget = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("VARIANCE requires numbers"))?;
-            Value::Number(actual - budget)
-        },
-
-        "VARIANCE_PCT" => {
-            require_args(name, args, 2)?;
-            let actual = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("VARIANCE_PCT requires numbers"))?;
-            let budget = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("VARIANCE_PCT requires numbers"))?;
-            if budget == 0.0 {
-                return Err(EvalError::new("VARIANCE_PCT: budget cannot be zero"));
-            }
-            // Divide by the size of the budget, so a worse result is negative
-            // even when the budget is negative (a loss): -120 vs -100 is -20%.
-            Value::Number((actual - budget) / budget.abs())
-        },
-
-        "VARIANCE_STATUS" => {
-            // VARIANCE_STATUS(actual, budget, [threshold_or_type])
-            // Third arg: number = threshold (e.g., 0.10 = 10%), string "cost" = cost type
-            // Returns: 1 = favorable, -1 = unfavorable, 0 = on budget (within threshold)
-            require_args_range(name, args, 2, 3)?;
-            let actual = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("VARIANCE_STATUS requires numbers"))?;
-            let budget = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("VARIANCE_STATUS requires numbers"))?;
-
-            let (threshold, is_cost) = if args.len() > 2 {
-                let third_val = evaluate(&args[2], ctx)?;
-                match &third_val {
-                    Value::Text(s) => (0.01, s.to_lowercase() == "cost"),
-                    Value::Number(n) => (*n, false),
-                    _ => (0.01, false),
-                }
-            } else {
-                (0.01, false)
-            };
-
-            if budget == 0.0 {
-                return Ok(Some(Value::Number(if actual > 0.0 {
-                    1.0
-                } else if actual < 0.0 {
-                    -1.0
-                } else {
-                    0.0
-                })));
-            }
-
-            let variance_pct = (actual - budget) / budget.abs();
-            let status = if variance_pct.abs() <= threshold {
-                0.0
-            } else if is_cost {
-                if variance_pct < 0.0 {
-                    1.0
-                } else {
-                    -1.0
-                }
-            } else if variance_pct > 0.0 {
-                1.0
-            } else {
-                -1.0
-            };
-            Value::Number(status)
-        },
-
-        "SCENARIO" => {
-            require_args(name, args, 2)?;
-            let scenario_name = evaluate(&args[0], ctx)?.as_text();
-            let var_name = evaluate(&args[1], ctx)?.as_text();
-
-            if let Some(scenario) = ctx.scenarios.get(&scenario_name) {
-                if let Some(&value) = scenario.get(&var_name) {
-                    Value::Number(value)
-                } else {
-                    return Err(EvalError::new(format!(
-                        "Variable '{var_name}' not found in scenario '{scenario_name}'"
-                    )));
-                }
-            } else {
-                return Err(EvalError::new(format!(
-                    "Scenario '{scenario_name}' not found"
-                )));
-            }
-        },
-
+        "BREAKEVEN_UNITS" => eval_breakeven_units(name, args, ctx)?,
+        "BREAKEVEN_REVENUE" => eval_breakeven_revenue(name, args, ctx)?,
+        "VARIANCE" => eval_variance(name, args, ctx)?,
+        "VARIANCE_PCT" => eval_variance_pct(name, args, ctx)?,
+        "VARIANCE_STATUS" => eval_variance_status(name, args, ctx)?,
+        "SCENARIO" => eval_scenario(name, args, ctx)?,
         _ => return Ok(None),
     };
 
     Ok(Some(result))
+}
+
+/// Evaluate `BREAKEVEN_UNITS`.
+fn eval_breakeven_units(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 3)?;
+    let fixed_costs = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("BREAKEVEN_UNITS requires numbers"))?;
+    let price_per_unit = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("BREAKEVEN_UNITS requires numbers"))?;
+    let variable_cost_per_unit = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("BREAKEVEN_UNITS requires numbers"))?;
+
+    let contribution_margin = price_per_unit - variable_cost_per_unit;
+    if contribution_margin <= 0.0 {
+        return Err(EvalError::new(
+            "unit_price must be greater than variable_cost",
+        ));
+    }
+    Ok(Value::Number(fixed_costs / contribution_margin))
+}
+
+/// Evaluate `BREAKEVEN_REVENUE`.
+fn eval_breakeven_revenue(
+    name: &str,
+    args: &[Expr],
+    ctx: &EvalContext,
+) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let fixed_costs = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("BREAKEVEN_REVENUE requires numbers"))?;
+    let contribution_margin_ratio = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("BREAKEVEN_REVENUE requires numbers"))?;
+
+    if contribution_margin_ratio <= 0.0 || contribution_margin_ratio > 1.0 {
+        return Err(EvalError::new(
+            "contribution_margin_pct must be between 0 and 1 (exclusive of 0)",
+        ));
+    }
+    Ok(Value::Number(fixed_costs / contribution_margin_ratio))
+}
+
+/// Evaluate `VARIANCE`.
+fn eval_variance(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let actual = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("VARIANCE requires numbers"))?;
+    let budget = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("VARIANCE requires numbers"))?;
+    Ok(Value::Number(actual - budget))
+}
+
+/// Evaluate `VARIANCE_PCT`.
+fn eval_variance_pct(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let actual = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("VARIANCE_PCT requires numbers"))?;
+    let budget = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("VARIANCE_PCT requires numbers"))?;
+    if budget == 0.0 {
+        return Err(EvalError::new("VARIANCE_PCT: budget cannot be zero"));
+    }
+    // Divide by the size of the budget, so a worse result is negative
+    // even when the budget is negative (a loss): -120 vs -100 is -20%.
+    Ok(Value::Number((actual - budget) / budget.abs()))
+}
+
+/// Evaluate `VARIANCE_STATUS`.
+fn eval_variance_status(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    // VARIANCE_STATUS(actual, budget, [threshold_or_type])
+    // Third arg: number = threshold (e.g., 0.10 = 10%), string "cost" = cost type
+    // Returns: 1 = favorable, -1 = unfavorable, 0 = on budget (within threshold)
+    require_args_range(name, args, 2, 3)?;
+    let actual = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("VARIANCE_STATUS requires numbers"))?;
+    let budget = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("VARIANCE_STATUS requires numbers"))?;
+
+    let (threshold, is_cost) = if args.len() > 2 {
+        let third_val = evaluate(&args[2], ctx)?;
+        match &third_val {
+            Value::Text(s) => (0.01, s.to_lowercase() == "cost"),
+            Value::Number(n) => (*n, false),
+            _ => (0.01, false),
+        }
+    } else {
+        (0.01, false)
+    };
+
+    if budget == 0.0 {
+        return Ok(Value::Number(if actual > 0.0 {
+            1.0
+        } else if actual < 0.0 {
+            -1.0
+        } else {
+            0.0
+        }));
+    }
+
+    let variance_pct = (actual - budget) / budget.abs();
+    let status = if variance_pct.abs() <= threshold {
+        0.0
+    } else if is_cost {
+        if variance_pct < 0.0 {
+            1.0
+        } else {
+            -1.0
+        }
+    } else if variance_pct > 0.0 {
+        1.0
+    } else {
+        -1.0
+    };
+    Ok(Value::Number(status))
+}
+
+/// Evaluate `SCENARIO`.
+fn eval_scenario(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let scenario_name = evaluate(&args[0], ctx)?.as_text();
+    let var_name = evaluate(&args[1], ctx)?.as_text();
+
+    Ok(if let Some(scenario) = ctx.scenarios.get(&scenario_name) {
+        if let Some(&value) = scenario.get(&var_name) {
+            Value::Number(value)
+        } else {
+            return Err(EvalError::new(format!(
+                "Variable '{var_name}' not found in scenario '{scenario_name}'"
+            )));
+        }
+    } else {
+        return Err(EvalError::new(format!(
+            "Scenario '{scenario_name}' not found"
+        )));
+    })
 }
 
 #[cfg(test)]
@@ -371,8 +386,6 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Scenario, Table, Variable};
 

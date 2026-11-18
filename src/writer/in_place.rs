@@ -1130,8 +1130,12 @@ prices:
   b: 404.22
   total:
     formula: "=a + b"
-  # The noise itself, which the engine keeps: about 5.7e-14, not 0
+  # The noise itself, which the engine keeps: about 5.7e-14, not 0. In
+  # parentheses, as in Excel, where the last - of a formula that nearly
+  # cancels is 0 (ADR-066): bare, the residual is 0 in both
   residual:
+    formula: "=((a + b) - 418.33)"
+  bare:
     formula: "=(a + b) - 418.33"
 "#,
             )
@@ -1143,6 +1147,7 @@ prices:
             let residual = result.scalars["prices.residual"].unwrap();
             assert!(residual > 5e-14 && residual < 6e-14, "{residual}");
             assert!(text.contains("    value: 5.6843418860808e-14\n"), "{text}");
+            assert_eq!(result.scalars["prices.bare"], Some(0.0));
         }
     }
 }

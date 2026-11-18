@@ -3,6 +3,8 @@
 //! reads as a number or a date included; `&` joins.
 
 use super::{date_serial, EvalError, Value};
+use crate::core::precision::{excel_equal, excel_order, final_sum};
+use std::cmp::Ordering;
 
 /// Evaluate a binary operation, element by element when an operand is an array.
 ///
@@ -13,47 +15,58 @@ pub(super) fn evaluate_binary_op(
     left: &Value,
     right: &Value,
 ) -> Result<Value, EvalError> {
-    match (left, right) {
-        (Value::Array(l), Value::Array(r)) if l.len() == r.len() => l
-            .iter()
-            .zip(r.iter())
-            .map(|(a, b)| evaluate_binary_op(op, a, b))
+    element_by_element(op, left, right, evaluate_scalar_binary_op)
+}
+
+/// The last operation of a cell's formula, a `+` or `-`: as
+/// [`evaluate_binary_op`], with each result that nearly cancels set to 0, as
+/// Excel sets it (ADR-066, [`final_sum`]).
+pub(super) fn evaluate_final_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
+    element_by_element(op, left, right, |op, l, r| {
+        let result = evaluate_scalar_binary_op(op, l, r)?;
+        Ok(match (&result, l.as_number(), r.as_number()) {
+            (Value::Number(n), Some(a), Some(b)) => Value::Number(final_sum(a, b, *n)),
+            _ => result,
+        })
+    })
+}
+
+/// A scalar operation `scalar`, applied element by element when an operand is
+/// an array: equal lengths pair up, and a scalar or one-element array applies
+/// to every element.
+fn element_by_element(
+    op: &str,
+    left: &Value,
+    right: &Value,
+    scalar: impl Fn(&str, &Value, &Value) -> Result<Value, EvalError> + Copy,
+) -> Result<Value, EvalError> {
+    let each = |pairs: &mut dyn Iterator<Item = (&Value, &Value)>| {
+        pairs
+            .map(|(a, b)| element_by_element(op, a, b, scalar))
             .collect::<Result<Vec<_>, _>>()
-            .map(|items| Value::Array(items.into())),
-        (Value::Array(l), Value::Array(r)) if r.len() == 1 => broadcast_left(op, l, &r[0]),
-        (Value::Array(l), Value::Array(r)) if l.len() == 1 => broadcast_right(op, &l[0], r),
+            .map(|items| Value::Array(items.into()))
+    };
+    match (left, right) {
+        (Value::Array(l), Value::Array(r)) if l.len() == r.len() => {
+            each(&mut l.iter().zip(r.iter()))
+        },
+        (Value::Array(l), Value::Array(r)) if r.len() == 1 => {
+            each(&mut l.iter().map(|item| (item, &r[0])))
+        },
+        (Value::Array(l), Value::Array(r)) if l.len() == 1 => {
+            each(&mut r.iter().map(|item| (&l[0], item)))
+        },
         (Value::Array(l), Value::Array(r)) => Err(EvalError::new(format!(
             "Array length mismatch for '{op}': {} and {}",
             l.len(),
             r.len()
         ))),
-        (Value::Array(l), scalar) => broadcast_left(op, l, scalar),
-        (scalar, Value::Array(r)) => broadcast_right(op, scalar, r),
-        _ => evaluate_scalar_binary_op(op, left, right),
+        (Value::Array(l), scalar_right) => each(&mut l.iter().map(|item| (item, scalar_right))),
+        (scalar_left, Value::Array(r)) => each(&mut r.iter().map(|item| (scalar_left, item))),
+        _ => scalar(op, left, right),
     }
 }
 
-/// Apply `op` between each element of `items` and a single right operand.
-fn broadcast_left(op: &str, items: &[Value], right: &Value) -> Result<Value, EvalError> {
-    items
-        .iter()
-        .map(|item| evaluate_binary_op(op, item, right))
-        .collect::<Result<Vec<_>, _>>()
-        .map(|items| Value::Array(items.into()))
-}
-
-/// Apply `op` between a single left operand and each element of `items`.
-fn broadcast_right(op: &str, left: &Value, items: &[Value]) -> Result<Value, EvalError> {
-    items
-        .iter()
-        .map(|item| evaluate_binary_op(op, left, item))
-        .collect::<Result<Vec<_>, _>>()
-        .map(|items| Value::Array(items.into()))
-}
-
-/// Evaluate a binary operation on two non-array values
-// Arithmetic + comparison + logical operators require many match arms.
-#[allow(clippy::too_many_lines)]
 /// `base ^ exponent` as Excel computes it, for `^`, `POWER` and `POW`: 0^0
 /// and a negative base with a fractional exponent are #NUM!, and 0 to a
 /// negative power is #DIV/0!.
@@ -171,21 +184,16 @@ fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Va
         // Comparison operators
         "=" => Ok(Value::Boolean(values_equal(left, right))),
         "<>" => Ok(Value::Boolean(!values_equal(left, right))),
-        "<" => {
+        // To 15 significant digits, as `=` (ADR-065)
+        "<" | ">" | "<=" | ">=" => {
             let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l < r))
-        },
-        ">" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l > r))
-        },
-        "<=" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l <= r))
-        },
-        ">=" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l >= r))
+            let order = excel_order(l, r);
+            Ok(Value::Boolean(match op {
+                "<" => order == Some(Ordering::Less),
+                ">" => order == Some(Ordering::Greater),
+                "<=" => matches!(order, Some(Ordering::Less | Ordering::Equal)),
+                _ => matches!(order, Some(Ordering::Greater | Ordering::Equal)),
+            }))
         },
 
         _ => Err(EvalError::new(format!("Unknown operator: {op}"))),
@@ -195,7 +203,8 @@ fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Va
 /// Check if two values are equal
 pub fn values_equal(left: &Value, right: &Value) -> bool {
     match (left, right) {
-        (Value::Number(l), Value::Number(r)) => (l - r).abs() < 1e-10,
+        // Rounded to 15 significant digits, as Excel's `=` (ADR-065)
+        (Value::Number(l), Value::Number(r)) => excel_equal(*l, *r),
         (Value::Text(l), Value::Text(r)) => l.to_lowercase() == r.to_lowercase(),
         (Value::Boolean(l), Value::Boolean(r)) => l == r,
         (Value::Null, Value::Null) => true,
@@ -212,7 +221,7 @@ pub fn values_equal(left: &Value, right: &Value) -> bool {
         // A date is equal to its day number: `d = DATE(2026, 1, 31)` (ADR-054).
         // Other text is never equal to a number, as in Excel (`"5" = 5` is FALSE).
         (Value::Text(text), Value::Number(n)) | (Value::Number(n), Value::Text(text)) => {
-            date_serial(text).is_some_and(|serial| (serial - n).abs() < 1e-10)
+            date_serial(text).is_some_and(|serial| excel_equal(serial, *n))
         },
         // Boolean vs Number is never equal: in Excel and Gnumeric `TRUE = 1`
         // and `FALSE = 0` are FALSE (arithmetic still coerces: TRUE + 1 = 2).
@@ -245,6 +254,105 @@ pub(super) fn evaluate_unary_op(op: &str, operand: &Value) -> Result<Value, Eval
 
 #[cfg(test)]
 mod tests {
+
+    /// The last `+` or `-` of a cell (ADR-066): element by element, and only
+    /// where both operands are numbers
+    mod final_op {
+        use super::super::{evaluate_final_op, Value};
+
+        fn numbers(value: &Value) -> Vec<f64> {
+            match value {
+                Value::Array(items) => items.iter().map(|v| v.as_number().unwrap()).collect(),
+                other => vec![other.as_number().unwrap()],
+            }
+        }
+
+        #[test]
+        fn each_element_that_nearly_cancels_is_zero() {
+            let sums = Value::Array(vec![Value::Number(0.1 + 0.2), Value::Number(1.0)].into());
+            let result = evaluate_final_op("-", &sums, &Value::Number(0.3)).unwrap();
+            let got = numbers(&result);
+            assert!(got[0].abs() <= 0.0, "{got:?}");
+            assert!((got[1] - 0.7).abs() <= 0.0, "{got:?}");
+        }
+
+        #[test]
+        fn an_empty_cell_is_zero_and_cancels_nothing() {
+            let result = evaluate_final_op("+", &Value::Null, &Value::Number(5e-17)).unwrap();
+            assert!((numbers(&result)[0] - 5e-17).abs() <= 0.0);
+        }
+    }
+
+    /// Excel's comparison operators compare two numbers rounded to 15
+    /// significant digits (ADR-065), all six alike: Microsoft's floating-point
+    /// article and Q&A. `LibreOffice` 26.2 gives each of these; Gnumeric 1.12
+    /// compares exactly.
+    mod fifteen_digits {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        fn holds(formula: &str) -> bool {
+            h::truth(formula)
+        }
+
+        #[test]
+        fn binary_noise_is_equal_and_neither_above_nor_below() {
+            for (a, b) in [
+                ("0.1 + 0.2", "0.3"),
+                ("100 * 1.1", "110"),
+                ("0.3 - 0.1", "0.2"),
+            ] {
+                assert!(holds(&format!("{a} = {b}")), "{a} = {b}");
+                assert!(!holds(&format!("{a} <> {b}")), "{a} <> {b}");
+                assert!(holds(&format!("{a} <= {b}")), "{a} <= {b}");
+                assert!(holds(&format!("{a} >= {b}")), "{a} >= {b}");
+                assert!(!holds(&format!("{a} < {b}")), "{a} < {b}");
+                assert!(!holds(&format!("{a} > {b}")), "{a} > {b}");
+            }
+        }
+
+        /// The sixteenth digit does not count, the fifteenth does
+        #[test]
+        fn the_fifteenth_digit_counts() {
+            assert!(holds("1 + 1E-15 = 1"));
+            assert!(!holds("1 + 1E-14 = 1"));
+            assert!(holds("1 + 1E-14 > 1"));
+            assert!(!holds("1 + 1E-13 = 1"));
+            assert!(!holds("1 + 5E-11 = 1"));
+            assert!(holds("1E15 + 0.2 = 1E15"));
+            assert!(holds("1E10 + 1E-6 = 1E10"));
+            assert!(holds("123456789.12345678 = 123456789.12345679"));
+            // 1000000000000001 is 1.00000000000000E+15 to 15 digits. LibreOffice
+            // and Gnumeric find it unequal; the rule as Microsoft describes it
+            // finds it equal (not checked in Excel: ADR-065)
+            assert!(holds("1E15 + 1 = 1E15"));
+            assert!(!holds("1E15 + 10 = 1E15"));
+        }
+
+        /// Fifteen digits of each number, however small: no tolerance near 0
+        #[test]
+        fn a_tiny_number_is_not_zero() {
+            assert!(!holds("-1E-12 = 0"));
+            assert!(holds("-1E-12 < 0"));
+            assert!(!holds("1E-12 = 2E-12"));
+            assert!(!holds("1E-300 = 0"));
+            assert!(holds("1E-300 > 0"));
+            assert!(holds("0 = -0"));
+        }
+
+        /// A date and its day number, by the same rule
+        #[test]
+        fn a_date_and_its_day_number() {
+            assert!(holds("\"2026-01-31\" = 46053"));
+            assert!(!holds("\"2026-01-31\" = 46053.0001"));
+        }
+
+        /// SWITCH matches as = does (`LibreOffice`; not checked in Excel)
+        #[test]
+        fn switch_matches_as_equals_does() {
+            h::is_exactly("SWITCH(0.1 + 0.2, 0.3, 1, 0)", 1.0);
+            h::is_exactly("SWITCH(-1E-12, 0, 1, 2)", 2.0);
+        }
+    }
     use super::*;
     use crate::core::array_calculator::evaluator::tests::{array_ctx, eval};
     use crate::core::array_calculator::evaluator::EvalContext;
@@ -395,10 +503,8 @@ mod tests {
     #[test]
     fn test_eval_floating_point_precision() {
         let ctx = EvalContext::new();
-        // Note: Forge uses epsilon comparison (1e-10) for floating point equality
-        // 0.1 + 0.2 = 0.3 = true (difference is ~5.5e-17, less than epsilon)
-        // In strict floating point: this would be false
-        // Forge's epsilon comparison makes this true to avoid precision issues
+        // Two numbers are compared to 15 significant digits, as in Excel
+        // (ADR-065): 0.1 + 0.2 is 0.30000000000000004, and 0.3 to 15 digits
         assert_eq!(eval("0.1 + 0.2 = 0.3", &ctx).unwrap(), Value::Boolean(true));
         // ROUND also ensures equality
         assert_eq!(

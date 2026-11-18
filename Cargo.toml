@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-rc.27"
+version = "10.0.0-rc.29"
 edition = "2021"
 # The oldest Rust that builds Forge; CI builds on it (the MSRV job) and
 # clippy.toml has the same version. Raise both together, on purpose.
@@ -212,9 +212,6 @@ nursery = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
 # Transitive deps pull different versions of the same crate; unfixable without swapping dependencies
 multiple_crate_versions = "allow"
-# Rust has no f64::from(usize) or f64::from(i64) — these casts are unavoidable in numeric code.
-# Precision loss only matters for values > 2^52 (~4.5e15), which never occur in financial math.
-cast_precision_loss = "allow"
 
 [profile.release]
 # Optimize for size and performance

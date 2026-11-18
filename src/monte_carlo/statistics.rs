@@ -6,6 +6,7 @@
 //! - Probability thresholds (P(X > target))
 //! - Histogram bin data
 
+use crate::core::precision;
 use num_traits::ToPrimitive;
 use std::collections::BTreeMap;
 
@@ -43,7 +44,7 @@ impl Statistics {
         }
 
         let count = samples.len();
-        let n = count as f64;
+        let n = precision::count(count);
 
         // Sort for percentiles
         let mut sorted = samples.to_vec();
@@ -129,7 +130,7 @@ impl Statistics {
             return 0.0;
         }
         let count = samples.iter().filter(|&&x| x > threshold).count();
-        count as f64 / samples.len() as f64
+        precision::count(count) / precision::count(samples.len())
     }
 
     /// Calculate probability of being less than a threshold
@@ -139,7 +140,7 @@ impl Statistics {
             return 0.0;
         }
         let count = samples.iter().filter(|&&x| x < threshold).count();
-        count as f64 / samples.len() as f64
+        precision::count(count) / precision::count(samples.len())
     }
 
     /// Get specific percentiles by list
@@ -161,7 +162,7 @@ fn percentile_sorted(sorted: &[f64], p: f64) -> f64 {
         return sorted[0];
     }
 
-    let n = sorted.len() as f64;
+    let n = precision::count(sorted.len());
     // Below 0 is the smallest value and above 100 the largest; a NaN
     // percentile reads the smallest
     let rank = (p / 100.0 * (n - 1.0)).clamp(0.0, n - 1.0);
@@ -171,7 +172,7 @@ fn percentile_sorted(sorted: &[f64], p: f64) -> f64 {
     if lower == upper {
         sorted[lower]
     } else {
-        let frac = rank - lower as f64;
+        let frac = rank - precision::count(lower);
         sorted[lower].mul_add(1.0 - frac, sorted[upper] * frac)
     }
 }
@@ -224,11 +225,11 @@ impl Histogram {
             (min, max)
         };
 
-        let bin_width = (actual_max - actual_min) / num_bins as f64;
+        let bin_width = (actual_max - actual_min) / precision::count(num_bins);
 
         // Create bin edges
         let bin_edges: Vec<f64> = (0..=num_bins)
-            .map(|i| (i as f64).mul_add(bin_width, actual_min))
+            .map(|i| precision::count(i).mul_add(bin_width, actual_min))
             .collect();
 
         // Count samples per bin
@@ -244,8 +245,11 @@ impl Histogram {
         }
 
         // Calculate frequencies
-        let total = samples.len() as f64;
-        let frequencies: Vec<f64> = counts.iter().map(|&c| c as f64 / total).collect();
+        let total = precision::count(samples.len());
+        let frequencies: Vec<f64> = counts
+            .iter()
+            .map(|&c| precision::count(c) / total)
+            .collect();
 
         Self {
             bin_edges,
@@ -310,7 +314,7 @@ pub fn evaluate_threshold(samples: &[f64], operator: &str, value: f64) -> f64 {
         _ => 0,
     };
 
-    count as f64 / samples.len() as f64
+    precision::count(count) / precision::count(samples.len())
 }
 
 // Financial math: exact float comparison validated against Excel/Gnumeric/R

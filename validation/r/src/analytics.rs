@@ -4,9 +4,9 @@
 //! the matching R validator, and compares the two. Forge's answer always comes
 //! from the real binary; R's answer comes from the validator script.
 
-// The runners are long straight-line sequences (build model, run, compare); splitting
-// them further would only scatter that sequence.
-#![allow(clippy::too_many_lines, clippy::format_push_string)]
+// The runners build their YAML models a line at a time with
+// `push_str(&format!(..))`. (Roadmap T1-NO-SKIPPING: this allow goes too.)
+#![allow(clippy::format_push_string)]
 
 use std::fs;
 use std::path::Path;
@@ -353,76 +353,9 @@ fn verdict(spec: &AnalyticsTestSpec, problems: &[String], ok: &str) -> TestResul
 // Tornado
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn tornado(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
-    let model_kind = spec
-        .raw
-        .get("model")
-        .and_then(|m| m.as_str())
-        .unwrap_or("linear");
-    let Some(variables) = spec.raw.get("variables").and_then(|v| v.as_sequence()) else {
-        return error(spec, "Spec has no 'variables' list".to_string());
-    };
-    let coefficients = spec.raw.get("coefficients");
-    let has_flat_range = variables
-        .iter()
-        .any(|v| v.get("low").and_then(yaml_f64) == v.get("high").and_then(yaml_f64));
-    if has_flat_range {
-        return skip(spec, "Forge rejects an input whose low equals its high");
-    }
-    let coef = |name: &str| coefficients.and_then(|c| c.get(name)).and_then(yaml_f64);
-
-    let mut assumptions = String::new();
-    let mut inputs = String::new();
-    let mut terms = Vec::new();
-    for v in variables {
-        let (Some(name), Some(low), Some(high), Some(base)) = (
-            v.get("name").and_then(|n| n.as_str()),
-            v.get("low").and_then(yaml_f64),
-            v.get("high").and_then(yaml_f64),
-            v.get("base").and_then(yaml_f64),
-        ) else {
-            return error(spec, "Variable needs name, low, high and base".to_string());
-        };
-        assumptions.push_str(&format!(
-            "  {name}:\n    value: {base}\n    formula: null\n"
-        ));
-        inputs.push_str(&format!(
-            "    - name: {name}\n      low: {low}\n      high: {high}\n"
-        ));
-        if let Some(c) = coef(name) {
-            terms.push(if model_kind == "multiplicative" {
-                format!("(assumptions.{name} ^ ({c}))")
-            } else {
-                format!("(assumptions.{name} * ({c}))")
-            });
-        }
-    }
-    let joiner = if model_kind == "multiplicative" {
-        " * "
-    } else {
-        " + "
-    };
-    let model = format!(
-        "_forge_version: \"5.0.0\"\n\ntornado:\n  output: result.total\n  inputs:\n{inputs}\nassumptions:\n{assumptions}\nresult:\n  total:\n    value: null\n    formula: \"={}\"\n",
-        terms.join(joiner)
-    );
-
-    let forge = match forge_json(env, "tornado", &model) {
-        Ok(j) => j,
-        Err(e) => return error(spec, e),
-    };
-    let r_params = json!({
-        "base_value": spec.raw.get("base_value").map_or(Json::Null, to_json),
-        "variables": variables.iter().map(to_json).collect::<Vec<_>>(),
-        "model": model_kind,
-        "coefficients": coefficients.map_or(Json::Null, to_json),
-    });
-    let r = match r_results(env, "tornado_validator.R", &r_params) {
-        Ok(r) => r,
-        Err(e) => return error(spec, e),
-    };
-
-    let tol = tolerance(spec, "swing", 0.001);
+/// Where Forge's tornado differs from R's: each bar's swing and outputs, and
+/// the ranking wherever R's swings clearly differ.
+fn tornado_problems(forge: &Json, r: &Json, tol: f64) -> Vec<String> {
     let mut problems = Vec::new();
     let bars = forge
         .get("bars")
@@ -497,6 +430,80 @@ fn tornado(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
             }
         }
     }
+    problems
+}
+
+fn tornado(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
+    let model_kind = spec
+        .raw
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("linear");
+    let Some(variables) = spec.raw.get("variables").and_then(|v| v.as_sequence()) else {
+        return error(spec, "Spec has no 'variables' list".to_string());
+    };
+    let coefficients = spec.raw.get("coefficients");
+    let has_flat_range = variables
+        .iter()
+        .any(|v| v.get("low").and_then(yaml_f64) == v.get("high").and_then(yaml_f64));
+    if has_flat_range {
+        return skip(spec, "Forge rejects an input whose low equals its high");
+    }
+    let coef = |name: &str| coefficients.and_then(|c| c.get(name)).and_then(yaml_f64);
+
+    let mut assumptions = String::new();
+    let mut inputs = String::new();
+    let mut terms = Vec::new();
+    for v in variables {
+        let (Some(name), Some(low), Some(high), Some(base)) = (
+            v.get("name").and_then(|n| n.as_str()),
+            v.get("low").and_then(yaml_f64),
+            v.get("high").and_then(yaml_f64),
+            v.get("base").and_then(yaml_f64),
+        ) else {
+            return error(spec, "Variable needs name, low, high and base".to_string());
+        };
+        assumptions.push_str(&format!(
+            "  {name}:\n    value: {base}\n    formula: null\n"
+        ));
+        inputs.push_str(&format!(
+            "    - name: {name}\n      low: {low}\n      high: {high}\n"
+        ));
+        if let Some(c) = coef(name) {
+            terms.push(if model_kind == "multiplicative" {
+                format!("(assumptions.{name} ^ ({c}))")
+            } else {
+                format!("(assumptions.{name} * ({c}))")
+            });
+        }
+    }
+    let joiner = if model_kind == "multiplicative" {
+        " * "
+    } else {
+        " + "
+    };
+    let model = format!(
+        "_forge_version: \"5.0.0\"\n\ntornado:\n  output: result.total\n  inputs:\n{inputs}\nassumptions:\n{assumptions}\nresult:\n  total:\n    value: null\n    formula: \"={}\"\n",
+        terms.join(joiner)
+    );
+
+    let forge = match forge_json(env, "tornado", &model) {
+        Ok(j) => j,
+        Err(e) => return error(spec, e),
+    };
+    let r_params = json!({
+        "base_value": spec.raw.get("base_value").map_or(Json::Null, to_json),
+        "variables": variables.iter().map(to_json).collect::<Vec<_>>(),
+        "model": model_kind,
+        "coefficients": coefficients.map_or(Json::Null, to_json),
+    });
+    let r = match r_results(env, "tornado_validator.R", &r_params) {
+        Ok(r) => r,
+        Err(e) => return error(spec, e),
+    };
+
+    let tol = tolerance(spec, "swing", 0.001);
+    let problems = tornado_problems(&forge, &r, tol);
     verdict(spec, &problems, "Forge tornado matches the R reference")
 }
 
@@ -635,6 +642,65 @@ fn numeric_rows(stdout: &str) -> Vec<Vec<f64>> {
         .collect()
 }
 
+/// Where Forge's two-way table differs from R's grid.
+fn two_way_problems(rows: &[Vec<f64>], data: &Json, tol: f64) -> Vec<String> {
+    let mut problems = Vec::new();
+    // Forge's first row is the column header (second variable's values).
+    let grid: Vec<Vec<f64>> = data
+        .get("grid")
+        .and_then(Json::as_array)
+        .map(|g| {
+            g.iter()
+                .map(|row| {
+                    row.as_array()
+                        .map(|r| r.iter().filter_map(Json::as_f64).collect())
+                        .unwrap_or_default()
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    // Rows of the table: [row_value, out, out, ...]
+    let body: Vec<&Vec<f64>> = rows
+        .iter()
+        .filter(|r| r.len() == grid.first().map_or(0, Vec::len) + 1)
+        .collect();
+    if body.len() != grid.len() {
+        problems.push(format!(
+            "grid has {} rows in forge, {} in R",
+            body.len(),
+            grid.len()
+        ));
+    }
+    for (i, (f_row, r_row)) in body.iter().zip(&grid).enumerate() {
+        for (j, (f, rv)) in f_row[1..].iter().zip(r_row).enumerate() {
+            check(&mut problems, &format!("grid[{i}][{j}]"), *f, *rv, tol);
+        }
+    }
+    problems
+}
+
+/// Where Forge's one-way table differs from R's outputs.
+fn one_way_problems(rows: &[Vec<f64>], data: &Json, tol: f64) -> Vec<String> {
+    let mut problems = Vec::new();
+    let r_values: Vec<f64> = data
+        .get("outputs")
+        .and_then(Json::as_array)
+        .map(|a| a.iter().filter_map(Json::as_f64).collect())
+        .unwrap_or_default();
+    let body: Vec<&Vec<f64>> = rows.iter().filter(|r| r.len() == 2).collect();
+    if body.len() != r_values.len() {
+        problems.push(format!(
+            "{} points in forge, {} in R",
+            body.len(),
+            r_values.len()
+        ));
+    }
+    for (i, (f_row, rv)) in body.iter().zip(&r_values).enumerate() {
+        check(&mut problems, &format!("output[{i}]"), f_row[1], *rv, tol);
+    }
+    problems
+}
+
 fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
     let kind = spec
         .raw
@@ -720,58 +786,11 @@ fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
     };
     let data = r.get("data").cloned().unwrap_or(Json::Null);
     let tol = tolerance(spec, "output", 0.001);
-    let mut problems = Vec::new();
-
-    if kind == "two_way" {
-        // Forge's first row is the column header (second variable's values).
-        let grid: Vec<Vec<f64>> = data
-            .get("grid")
-            .and_then(Json::as_array)
-            .map(|g| {
-                g.iter()
-                    .map(|row| {
-                        row.as_array()
-                            .map(|r| r.iter().filter_map(Json::as_f64).collect())
-                            .unwrap_or_default()
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        // Rows of the table: [row_value, out, out, ...]
-        let body: Vec<&Vec<f64>> = rows
-            .iter()
-            .filter(|r| r.len() == grid.first().map_or(0, Vec::len) + 1)
-            .collect();
-        if body.len() != grid.len() {
-            problems.push(format!(
-                "grid has {} rows in forge, {} in R",
-                body.len(),
-                grid.len()
-            ));
-        }
-        for (i, (f_row, r_row)) in body.iter().zip(&grid).enumerate() {
-            for (j, (f, rv)) in f_row[1..].iter().zip(r_row).enumerate() {
-                check(&mut problems, &format!("grid[{i}][{j}]"), *f, *rv, tol);
-            }
-        }
+    let problems = if kind == "two_way" {
+        two_way_problems(&rows, &data, tol)
     } else {
-        let r_values: Vec<f64> = data
-            .get("outputs")
-            .and_then(Json::as_array)
-            .map(|a| a.iter().filter_map(Json::as_f64).collect())
-            .unwrap_or_default();
-        let body: Vec<&Vec<f64>> = rows.iter().filter(|r| r.len() == 2).collect();
-        if body.len() != r_values.len() {
-            problems.push(format!(
-                "{} points in forge, {} in R",
-                body.len(),
-                r_values.len()
-            ));
-        }
-        for (i, (f_row, rv)) in body.iter().zip(&r_values).enumerate() {
-            check(&mut problems, &format!("output[{i}]"), f_row[1], *rv, tol);
-        }
-    }
+        one_way_problems(&rows, &data, tol)
+    };
     verdict(
         spec,
         &problems,

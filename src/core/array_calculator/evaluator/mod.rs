@@ -5,10 +5,6 @@
 //!
 //! Function implementations are organized into submodules by category.
 
-// Counts and places in an array become numbers (ROWS, MATCH, COUNT): a
-// usize is f64-exact up to 2^53, far past any array a model holds.
-#![allow(clippy::cast_precision_loss)]
-
 mod aggregation;
 mod criterion;
 mod dates;
@@ -35,7 +31,7 @@ pub(crate) use values::{is_na_error, paired_numbers};
 
 mod operators;
 mod value;
-use operators::{evaluate_binary_op, evaluate_unary_op};
+use operators::{evaluate_binary_op, evaluate_final_op, evaluate_unary_op};
 pub(crate) use operators::{power, values_equal};
 pub use value::Value;
 
@@ -165,6 +161,56 @@ impl std::fmt::Display for EvalError {
 }
 
 impl std::error::Error for EvalError {}
+
+/// Evaluate a cell's formula: a scalar's, or one row of a row formula.
+///
+/// When its last operation is a `+` or `-` that `body` (the formula's text
+/// after `=`) does not wrap in parentheses, a result that nearly cancels is
+/// 0, as in Excel (ADR-066); anything else is [`evaluate`].
+///
+/// # Errors
+///
+/// Returns `EvalError` as [`evaluate`] does.
+pub fn evaluate_cell(expr: &Expr, body: &str, ctx: &EvalContext) -> Result<Value, EvalError> {
+    match expr {
+        Expr::BinaryOp { op, left, right }
+            if (op == "+" || op == "-") && !wrapped_in_parentheses(body) =>
+        {
+            let left_val = evaluate(left, ctx)?;
+            let right_val = evaluate(right, ctx)?;
+            evaluate_final_op(op, &left_val, &right_val)
+        },
+        _ => evaluate(expr, ctx),
+    }
+}
+
+/// Whether a formula's text is wrapped in one pair of parentheses: `(a+b-c)`,
+/// not `(a+b)-c`. Parentheses inside a text in quotes do not count.
+#[must_use]
+pub fn wrapped_in_parentheses(body: &str) -> bool {
+    let body = body.trim().trim_start_matches('=').trim();
+    if !body.starts_with('(') {
+        return false;
+    }
+    let mut depth = 0_usize;
+    let mut in_text = false;
+    for (at, c) in body.char_indices() {
+        match c {
+            '"' => in_text = !in_text,
+            '(' if !in_text => depth += 1,
+            ')' if !in_text => {
+                depth = depth.saturating_sub(1);
+                // The first parenthesis closes: the formula is wrapped only if
+                // nothing follows
+                if depth == 0 {
+                    return body[at + 1..].trim().is_empty();
+                }
+            },
+            _ => {},
+        }
+    }
+    false
+}
 
 /// Evaluate an expression in the given context
 ///
@@ -621,6 +667,32 @@ pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalErr
 
 #[cfg(test)]
 mod tests {
+
+    mod wrapped {
+        //! A formula wrapped in one pair of parentheses has no last `+` or
+        //! `-` of its own, as Excel reads it (ADR-066)
+
+        use super::super::wrapped_in_parentheses;
+
+        #[test]
+        fn only_one_pair_around_the_whole_formula_wraps_it() {
+            for wrapped in ["=(a+b-c)", "((a+b-c))", " = ( a - b ) ", "(\"(\" & a)"] {
+                assert!(wrapped_in_parentheses(wrapped), "{wrapped}");
+            }
+            for not in [
+                "=a+b-c",
+                "=(a+b)-c",
+                "=(a)+(b)",
+                "=a-(b+c)",
+                "=(\")\" & a)-b",
+                "=(a+b",
+                "=)a(",
+                "",
+            ] {
+                assert!(!wrapped_in_parentheses(not), "{not}");
+            }
+        }
+    }
     use super::*;
     use crate::core::array_calculator::parser::parse;
     use crate::core::array_calculator::tokenizer::tokenize;

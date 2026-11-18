@@ -31,6 +31,7 @@ mod examples;
 mod excel_io;
 mod functions;
 mod names;
+pub(crate) use names::{input_name, scalar};
 mod prediction;
 mod probability_seek;
 mod report;
@@ -100,7 +101,7 @@ use crate::core::precision::to_15_digits;
 use crate::core::{ArrayCalculator, UnitValidator};
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
-use crate::types::ColumnValue;
+use crate::types::{ColumnValue, ParsedModel};
 use crate::writer;
 use colored::Colorize;
 use std::path::Path;
@@ -312,12 +313,21 @@ pub fn calculate_core(
 /// `calculate` and `validate` are deterministic and cannot evaluate `MC.*` distributions; say so
 /// up front instead of failing later with an unknown-function or unknown-column error.
 fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
-    let mut names: Vec<&str> = model
+    let mut names: Vec<String> = model
         .scalars
         .iter()
         .filter(|(_, v)| v.formula.as_deref().is_some_and(|f| f.contains("MC.")))
-        .map(|(name, _)| name.as_str())
+        .map(|(name, _)| name.clone())
         .collect();
+    for (table_name, table) in &model.tables {
+        names.extend(
+            table
+                .row_formulas
+                .iter()
+                .filter(|(_, f)| f.contains("MC."))
+                .map(|(column, _)| format!("{table_name}.{column}")),
+        );
+    }
     if names.is_empty() {
         return Ok(());
     }
@@ -328,13 +338,127 @@ fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
     )))
 }
 
+/// Print the unit warnings of a model, if it has any.
+fn print_unit_warnings(c: &mut Console<'_>, model: &ParsedModel) {
+    let unit_validator = UnitValidator::new(model);
+    let unit_warnings = unit_validator.validate();
+    if !unit_warnings.is_empty() {
+        outln!(c, "{}", "⚠️  Unit Consistency Warnings:".yellow().bold());
+        for warning in &unit_warnings {
+            outln!(c, "   {}", warning.to_string().yellow());
+        }
+        outln!(c);
+    }
+}
+
+/// Print each table's columns, in the order of the file, which is the same on
+/// every run.
+fn print_table_results(c: &mut Console<'_>, result: &ParsedModel) {
+    // same on every run
+    for (table_name, table) in &result.tables {
+        outln!(c, "   📊 Table: {}", table_name.bright_blue().bold());
+        for col_name in table.column_names() {
+            let Some(column) = table.columns.get(col_name) else {
+                continue;
+            };
+            let raw = format_column_values(&column.values);
+            // With a format (ADR-061): the values as it shows them, then the
+            // full values underneath, which are what the file holds
+            match table.format_of(col_name) {
+                Some(format) => {
+                    // `;` between values, since a format may put commas in them
+                    let shown = formatted_column(&column.values, format).join("; ");
+                    outln!(c, "      {} = [{shown}]", col_name.cyan());
+                    outln!(
+                        c,
+                        "      {}   {}",
+                        " ".repeat(col_name.chars().count()),
+                        raw.dimmed()
+                    );
+                },
+                None => outln!(c, "      {} = {raw}", col_name.cyan()),
+            }
+        }
+    }
+}
+
+/// Print each scalar's value, with the formatted one beside it where it differs.
+fn print_scalar_results(c: &mut Console<'_>, result: &ParsedModel) {
+    if !result.scalars.is_empty() {
+        outln!(c, "\n   📐 Scalars:");
+        for (name, var) in &result.scalars {
+            if let Some(value) = var.value {
+                let full = var
+                    .date_text()
+                    .unwrap_or_else(|| to_15_digits(value).to_string());
+                // With a format (ADR-061): as it shows the value, then the
+                // full value when the two differ
+                match var.formatted().filter(|f| *f != full) {
+                    Some(shown) => outln!(
+                        c,
+                        "      {} = {}  {}",
+                        name.bright_blue(),
+                        shown.bold(),
+                        format!("({full})").dimmed()
+                    ),
+                    None => outln!(c, "      {} = {}", name.bright_blue(), full.bold()),
+                }
+            }
+        }
+    }
+}
+
+/// Write the results into the file, or say that a dry run wrote nothing.
+fn write_back(
+    c: &mut Console<'_>,
+    file: &Path,
+    result: &ParsedModel,
+    dry_run: bool,
+) -> ForgeResult<()> {
+    if dry_run {
+        outln!(c, "{}", "📋 Dry run complete - no changes written".yellow());
+    } else {
+        match writer::write_calculated_results(file, result)? {
+            0 => {
+                outln!(
+                    c,
+                    "{}",
+                    format!(
+                        "✅ {} is up to date (no stored result changed)",
+                        file.display()
+                    )
+                    .green()
+                );
+            },
+            n => {
+                outln!(
+                    c,
+                    "{}",
+                    format!(
+                        "💾 {n} value{} updated in {}",
+                        if n == 1 { "" } else { "s" },
+                        file.display()
+                    )
+                    .bold()
+                    .green()
+                );
+                outln!(
+                    c,
+                    "{}",
+                    format!("   Backup saved to {}.bak", file.display()).dimmed()
+                );
+            },
+        }
+    }
+    Ok(())
+}
+
 /// Execute the calculate command
 ///
 /// # Errors
 ///
 /// Returns an error if the file cannot be parsed, calculation fails,
 /// or results cannot be written back to the file.
-#[allow(clippy::too_many_lines)]
 pub fn calculate(
     c: &mut Console<'_>,
     file: &Path,
@@ -395,16 +519,7 @@ pub fn calculate(
         }
     }
 
-    // Unit consistency validation (v4.0)
-    let unit_validator = UnitValidator::new(&model);
-    let unit_warnings = unit_validator.validate();
-    if !unit_warnings.is_empty() {
-        outln!(c, "{}", "⚠️  Unit Consistency Warnings:".yellow().bold());
-        for warning in &unit_warnings {
-            outln!(c, "   {}", warning.to_string().yellow());
-        }
-        outln!(c);
-    }
+    print_unit_warnings(c, &model);
 
     // Calculate using ArrayCalculator
     if verbose {
@@ -417,95 +532,12 @@ pub fn calculate(
     // Display results
     outln!(c, "{}", "✅ Calculation Results:".bold().green());
 
-    // Show table results in model order (the order of the file), which is the
-    // same on every run
-    for (table_name, table) in &result.tables {
-        outln!(c, "   📊 Table: {}", table_name.bright_blue().bold());
-        for col_name in table.column_names() {
-            let Some(column) = table.columns.get(col_name) else {
-                continue;
-            };
-            let raw = format_column_values(&column.values);
-            // With a format (ADR-061): the values as it shows them, then the
-            // full values underneath, which are what the file holds
-            match table.format_of(col_name) {
-                Some(format) => {
-                    // `;` between values, since a format may put commas in them
-                    let shown = formatted_column(&column.values, format).join("; ");
-                    outln!(c, "      {} = [{shown}]", col_name.cyan());
-                    outln!(
-                        c,
-                        "      {}   {}",
-                        " ".repeat(col_name.chars().count()),
-                        raw.dimmed()
-                    );
-                },
-                None => outln!(c, "      {} = {raw}", col_name.cyan()),
-            }
-        }
-    }
+    print_table_results(c, &result);
 
-    // Show scalar results
-    if !result.scalars.is_empty() {
-        outln!(c, "\n   📐 Scalars:");
-        for (name, var) in &result.scalars {
-            if let Some(value) = var.value {
-                let full = var
-                    .date_text()
-                    .unwrap_or_else(|| to_15_digits(value).to_string());
-                // With a format (ADR-061): as it shows the value, then the
-                // full value when the two differ
-                match var.formatted().filter(|f| *f != full) {
-                    Some(shown) => outln!(
-                        c,
-                        "      {} = {}  {}",
-                        name.bright_blue(),
-                        shown.bold(),
-                        format!("({full})").dimmed()
-                    ),
-                    None => outln!(c, "      {} = {}", name.bright_blue(), full.bold()),
-                }
-            }
-        }
-    }
+    print_scalar_results(c, &result);
     outln!(c);
 
-    // Write results back to file (v4.3.0)
-    if dry_run {
-        outln!(c, "{}", "📋 Dry run complete - no changes written".yellow());
-    } else {
-        match writer::write_calculated_results(file, &result)? {
-            0 => {
-                outln!(
-                    c,
-                    "{}",
-                    format!(
-                        "✅ {} is up to date (no stored result changed)",
-                        file.display()
-                    )
-                    .green()
-                );
-            },
-            n => {
-                outln!(
-                    c,
-                    "{}",
-                    format!(
-                        "💾 {n} value{} updated in {}",
-                        if n == 1 { "" } else { "s" },
-                        file.display()
-                    )
-                    .bold()
-                    .green()
-                );
-                outln!(
-                    c,
-                    "{}",
-                    format!("   Backup saved to {}.bak", file.display()).dimmed()
-                );
-            },
-        }
-    }
+    write_back(c, file, &result, dry_run)?;
 
     Ok(())
 }

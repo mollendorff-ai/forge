@@ -792,4 +792,52 @@ mod tests {
             assert!(!text.contains("386827.449538"), "{text}");
         }
     }
+
+    mod acquisition_example {
+        //! examples/acquisition/actual.yaml: the deal underwritten again a year
+        //! after closing. The `run` of the Python in prediction/scenarios.rs
+        //! (`acquisition_example`) with the year's news,
+        //! `run(growth=0.05, debt_rate=0.0685, cost=46, rev=35, integ=125)`: value
+        //! created 112.05793522726526, standalone 1227.3807642324014, synergies
+        //! 575.8771709948642. Half the value is gone, and most of it with
+        //! Quillon's own growth, not with the synergies.
+
+        use crate::cli::variance_core;
+        use std::path::Path;
+
+        #[test]
+        fn half_the_value_is_gone_and_most_of_it_is_not_the_synergies() {
+            let v = variance_core(
+                Path::new("examples/acquisition/deal.yaml"),
+                Path::new("examples/acquisition/actual.yaml"),
+                10.0,
+            )
+            .unwrap();
+            let get = |n: &str| v.results.iter().find(|r| r.name == n).unwrap();
+            let close = |a: f64, b: f64| (a - b).abs() <= 1e-9;
+            let value = get("valuation.value_created");
+            assert!(
+                close(value.actual, 112.057_935_227_265_26),
+                "{}",
+                value.actual
+            );
+            assert_eq!(value.is_favorable, Some(false));
+            let standalone = get("valuation.standalone");
+            assert!(close(standalone.actual, 1_227.380_764_232_401_4));
+            let synergies = get("valuation.synergies");
+            assert!(close(synergies.actual, 575.877_170_994_864_2));
+            assert!(standalone.variance < 3.0 * synergies.variance);
+            // More cost out than planned; the rest of the news is bad
+            assert_eq!(get("synergies.cost_run_rate").is_favorable, Some(true));
+            for bad in [
+                "synergies.revenue_run_rate",
+                "synergies.integration_cost",
+                "case.quillon_growth",
+                "financing.debt_rate",
+            ] {
+                assert_eq!(get(bad).is_favorable, Some(false), "{bad}");
+            }
+            assert!(v.not_compared.is_empty(), "{:?}", v.not_compared);
+        }
+    }
 }

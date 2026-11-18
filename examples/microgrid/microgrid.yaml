@@ -1,0 +1,201 @@
+_forge_version: "5.4.0"
+# Ilha Corva: should a small island trade its diesel generators for solar and
+# a battery? (fictional; every figure is a made-up assumption)
+#
+# 20 years, one row a year. The island keeps its generators as backup and for
+# the hours the sun and the battery cannot cover. How much solar the grid can
+# take depends on how big the battery is next to a day's demand, and the
+# battery fades every year until it is replaced.
+#
+#   forge calculate microgrid.yaml --dry-run
+#   forge scenarios microgrid.yaml
+#   forge tornado microgrid.yaml
+#   forge sensitivity microgrid.yaml --vary system.battery_mwh -r 4,16,2 --output-var verdict.project_npv
+#   forge break-even microgrid.yaml --output verdict.project_npv --vary fuel.diesel_price
+
+demand:
+  first_year_mwh: {value: 4200, format: "#,##0"}
+  growth: {value: 0.025, format: "0.0%"}
+
+fuel:
+  diesel_price: {value: 1.45, format: "$#,##0.00"}     # per litre, delivered by boat
+  price_escalation: {value: 0.03, format: "0.0%"}
+  kwh_per_litre: 3.5          # what the island's generators get from a litre
+  diesel_om_per_mwh: 35       # maintenance per MWh the generators make
+  backup_fixed_per_year: 60000  # keeping the generators ready, used or not
+  co2_kg_per_litre: 2.68
+
+system:
+  solar_mwp: 3.4
+  solar_yield_mwh_per_mwp: 1550
+  solar_degradation: {value: 0.005, format: "0.0%"}
+  battery_mwh: 10
+  battery_fade: {value: 0.025, format: "0.0%"}
+  battery_replace_year: 11
+  # A grid with no storage takes about 30% solar before it wobbles; each
+  # day's worth of storage lets in 90 points more, up to 90%.
+  base_share: 0.30
+  share_per_day_stored: 0.90
+  max_share: 0.90
+
+costs:
+  solar_per_mwp: 1100000
+  battery_per_mwh: 380000
+  controls_and_grid: 600000
+  # By year 11 batteries are expected to cost 55% of today's price
+  replacement_cost_share: 0.55
+  solar_om_per_mwp: 18000
+  battery_om_per_mwh: 8000
+
+finance:
+  debt_share: {value: 0.70, format: "0%"}
+  interest_rate: {value: 0.065, format: "0.0%"}
+  tenor_years: 10
+  discount_rate: {value: 0.08, format: "0.0%"}
+
+capex:
+  solar:
+    formula: "=system.solar_mwp * costs.solar_per_mwp"
+  battery:
+    formula: "=system.battery_mwh * costs.battery_per_mwh"
+  total:
+    formula: "=solar + battery + costs.controls_and_grid"
+    format: "$#,##0"
+  debt:
+    formula: "=total * finance.debt_share"
+  equity:
+    formula: "=total - debt"
+  debt_service:
+    formula: "=PMT(finance.interest_rate, finance.tenor_years, -debt)"
+    format: "$#,##0"
+
+# The island's power, year by year
+energy:
+  year: {start: 2027, count: 20, unit: year}
+  n: "=ROW()"
+  demand_mwh: "=demand.first_year_mwh * (1 + demand.growth) ^ (n - 1)"
+  solar_mwh: "=system.solar_mwp * system.solar_yield_mwh_per_mwp * (1 - system.solar_degradation) ^ (n - 1)"
+  # The battery's age starts again the year it is replaced
+  battery_age: "=IF(n >= system.battery_replace_year, n - system.battery_replace_year, n - 1)"
+  battery_mwh: "=system.battery_mwh * (1 - system.battery_fade) ^ battery_age"
+  days_stored: "=battery_mwh / (demand_mwh / 365)"
+  share_cap: "=MIN(system.max_share, system.base_share + system.share_per_day_stored * days_stored)"
+  solar_used: "=MIN(solar_mwh, demand_mwh * share_cap)"
+  curtailed: "=solar_mwh - solar_used"
+  diesel_mwh: "=demand_mwh - solar_used"
+  renewable_share: {formula: "=solar_used / demand_mwh", format: "0.0%"}
+  # Litres burnt if the island changes nothing, and with the microgrid
+  baseline_litres: "=demand_mwh * 1000 / fuel.kwh_per_litre"
+  project_litres: "=diesel_mwh * 1000 / fuel.kwh_per_litre"
+  co2_avoided_t: "=(baseline_litres - project_litres) * fuel.co2_kg_per_litre / 1000"
+
+# The island's money, the same years row by row
+money:
+  year: {start: 2027, count: 20, unit: year}
+  n: "=ROW()"
+  diesel_price: "=fuel.diesel_price * (1 + fuel.price_escalation) ^ (n - 1)"
+  # What the island pays if it changes nothing
+  baseline_cost: "=energy.baseline_litres * diesel_price + energy.demand_mwh * fuel.diesel_om_per_mwh + fuel.backup_fixed_per_year"
+  # What it pays with solar and the battery
+  project_opex: "=energy.project_litres * diesel_price + energy.diesel_mwh * fuel.diesel_om_per_mwh + fuel.backup_fixed_per_year + system.solar_mwp * costs.solar_om_per_mwp + energy.battery_mwh * costs.battery_om_per_mwh"
+  replacement: "=IF(n = system.battery_replace_year, capex.battery * costs.replacement_cost_share, 0)"
+  savings: {formula: "=baseline_cost - project_opex", format: "#,##0"}
+  # Cash available for debt service: the savings, less the new battery
+  cfads: {formula: "=savings - replacement", format: "#,##0"}
+  debt_service: "=IF(n <= finance.tenor_years, capex.debt_service, 0)"
+  dscr: {formula: "=IF(debt_service > 0, cfads / debt_service, 0)", format: "0.00"}
+  equity_cash: "=cfads - debt_service"
+  cumulative: "=PREV(cumulative, -capex.total) + cfads"
+  discount: "=1 / (1 + finance.discount_rate) ^ n"
+
+verdict:
+  project_npv:
+    formula: "=NPV(finance.discount_rate, money.cfads) - capex.total"
+    format: "$#,##0"
+  project_irr:
+    formula: "=IRR(-capex.total, money.cfads)"
+    format: "0.0%"
+  equity_irr:
+    formula: "=IRR(-capex.equity, money.equity_cash)"
+    format: "0.0%"
+  payback_year:
+    formula: "=MINIFS(money.n, money.cumulative, \">=0\")"
+  min_dscr:
+    formula: "=MINIFS(money.dscr, money.debt_service, \">0\")"
+    format: "0.00"
+  min_dscr_year:
+    formula: "=INDEX(money.n, MATCH(min_dscr, money.dscr, 0))"
+  first_year_renewable_share:
+    formula: "=INDEX(energy.renewable_share, 1)"
+    format: "0.0%"
+  last_year_renewable_share:
+    formula: "=INDEX(energy.renewable_share, 20)"
+    format: "0.0%"
+  solar_curtailed_share:
+    formula: "=SUM(energy.curtailed) / SUM(energy.solar_mwh)"
+    format: "0.0%"
+  co2_avoided_t:
+    formula: "=SUM(energy.co2_avoided_t)"
+    format: "#,##0"
+  # Cost of a MWh over 20 years, both ways, in today's money
+  pv_mwh:
+    formula: "=SUMPRODUCT(energy.demand_mwh, money.discount)"
+  lcoe_diesel:
+    formula: "=SUMPRODUCT(money.baseline_cost, money.discount) / pv_mwh"
+    format: "$#,##0"
+  lcoe_microgrid:
+    formula: "=(capex.total + SUMPRODUCT(money.project_opex + money.replacement, money.discount)) / pv_mwh"
+    format: "$#,##0"
+  # Negative: each tonne of CO2 avoided also saves money
+  cost_per_tonne_avoided:
+    formula: "=-project_npv / co2_avoided_t"
+    format: "$#,##0.00"
+
+scenarios:
+  base:
+    probability: 0.45
+    description: As planned
+    scalars: {}
+  cheap_diesel:
+    probability: 0.20
+    description: Oil stays cheap for twenty years
+    scalars:
+      fuel.diesel_price: 1.10
+      fuel.price_escalation: 0.01
+  fuel_shock:
+    probability: 0.15
+    description: Shipping and oil prices both jump
+    scalars:
+      fuel.diesel_price: 1.95
+      fuel.price_escalation: 0.045
+  cloudy_and_hungry:
+    probability: 0.20
+    description: Poorer solar than measured, and a hotel boom lifts demand
+    scalars:
+      system.solar_yield_mwh_per_mwp: 1350
+      demand.growth: 0.05
+
+tornado:
+  output: verdict.project_npv
+  inputs:
+    - name: fuel.diesel_price
+      low: 1.10
+      high: 1.95
+    - name: fuel.price_escalation
+      low: 0.01
+      high: 0.045
+    - name: system.battery_mwh
+      low: 7
+      high: 13
+    - name: system.solar_yield_mwh_per_mwp
+      low: 1350
+      high: 1700
+    - name: demand.growth
+      low: 0.0
+      high: 0.05
+    - name: costs.battery_per_mwh
+      low: 280000
+      high: 480000
+    - name: finance.discount_rate
+      low: 0.06
+      high: 0.10

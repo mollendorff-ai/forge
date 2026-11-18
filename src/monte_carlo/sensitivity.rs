@@ -3,6 +3,7 @@
 //! Computes Spearman rank correlation coefficients between inputs and outputs
 //! to identify which input variables have the greatest impact on results.
 
+use crate::core::precision;
 use std::collections::HashMap;
 
 /// Sensitivity analysis results
@@ -142,7 +143,7 @@ fn compute_ranks(values: &[f64]) -> Vec<f64> {
         }
 
         // Average rank for tied elements
-        let avg_rank = (i + j + 1) as f64 / 2.0; // Ranks are 1-based
+        let avg_rank = precision::count(i + j + 1) / 2.0; // Ranks are 1-based
 
         for item in indexed.iter().take(j).skip(i) {
             ranks[item.0] = avg_rank;
@@ -156,7 +157,7 @@ fn compute_ranks(values: &[f64]) -> Vec<f64> {
 
 /// Compute Pearson correlation coefficient
 fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
-    let n_samples = x.len() as f64;
+    let n_samples = precision::count(x.len());
 
     let mean_x: f64 = x.iter().sum::<f64>() / n_samples;
     let mean_y: f64 = y.iter().sum::<f64>() / n_samples;

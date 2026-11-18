@@ -267,4 +267,222 @@ decision_tree:
             assert_eq!(json["root_expected_value"], 61_500.0);
         }
     }
+
+    mod microgrid_example {
+        //! `examples/microgrid/microgrid_decision.yaml`: which system for Ilha
+        //! Corva, and now or in a year.
+        //!
+        //! Its 36 numbers are microgrid.yaml calculated for each branch, so the
+        //! first test calculates them again and fails when the model and the
+        //! tree part. The expected values are the `run` of the Python in
+        //! prediction/scenarios.rs (`microgrid_example`), branch by branch:
+        //! ```python
+        //! # now: (capex, npv + capex); a year later, with demand 4305, diesel
+        //! # grown a year and the battery at 266000 or 380000 a MWh:
+        //! # (capex / 1.08, (npv + capex - year 20's present value) / 1.08)
+        //! # diesel cheap / plan / shock 0.25 / 0.5 / 0.25, sun 1550 / 1350 0.7 / 0.3
+        //! # expected net value: big now 13792484.177027194, small now 12826402.581436146,
+        //! # wait 0.5 * 14349941.950175395 + 0.5 * 13045396.067948803 = 13697669.0090621
+        //! ```
+
+        use crate::cli::decision_tree_core;
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/microgrid/microgrid.yaml";
+        const TREE: &str = "examples/microgrid/microgrid_decision.yaml";
+
+        fn close(a: f64, b: f64, tol: f64) -> bool {
+            (a - b).abs() <= tol
+        }
+
+        /// The model with these inputs: capex, NPV and the present value of
+        /// year 20's cash.
+        fn island(inputs: &[(&str, f64)]) -> (f64, f64, f64) {
+            let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+            for (name, value) in inputs {
+                model.override_scalar(name, Some(*value), None).unwrap();
+            }
+            let result = ArrayCalculator::new(model).calculate_all().unwrap();
+            let scalar = |name: &str| result.scalars[name].value.unwrap();
+            let column = |name: &str| {
+                result.tables["money"].columns[name]
+                    .values
+                    .numbers()
+                    .unwrap()
+                    .to_vec()
+            };
+            let last_year = column("cfads")[19] * column("discount")[19];
+            (
+                scalar("capex.total"),
+                scalar("verdict.project_npv"),
+                last_year,
+            )
+        }
+
+        #[test]
+        fn every_number_in_the_tree_is_the_model_for_that_branch() {
+            let text = std::fs::read_to_string(TREE).unwrap();
+            let doc: yaml_serde::Value = yaml_serde::from_str(&text).unwrap();
+            let tree = &doc["decision_tree"];
+            let systems = [("small", 2.8, 9.0), ("big", 3.4, 10.0)];
+            let diesel = [
+                ("cheap", 1.10, 0.01),
+                ("plan", 1.45, 0.03),
+                ("shock", 1.95, 0.045),
+            ];
+            let sun = [("sunny", 1550.0), ("cloudy", 1350.0)];
+            let mut checked = 0;
+            for (system, mwp, mwh) in systems {
+                for timing in ["now", "fall", "flat"] {
+                    for (outlook, price, growth) in diesel {
+                        for (weather, yield_per_mwp) in sun {
+                            let mut inputs = vec![
+                                ("system.solar_mwp", mwp),
+                                ("system.battery_mwh", mwh),
+                                ("fuel.price_escalation", growth),
+                                ("system.solar_yield_mwh_per_mwp", yield_per_mwp),
+                            ];
+                            let (cost, value) = if timing == "now" {
+                                inputs.push(("fuel.diesel_price", price));
+                                let (capex, npv, _) = island(&inputs);
+                                let cost = &tree["root"]["branches"][format!("build_{system}_now")];
+                                (capex - cost["cost"].as_f64().unwrap(), npv + capex)
+                            } else {
+                                inputs.push(("fuel.diesel_price", price * (1.0 + growth)));
+                                inputs.push(("demand.first_year_mwh", 4305.0));
+                                let battery = if timing == "fall" {
+                                    266_000.0
+                                } else {
+                                    380_000.0
+                                };
+                                inputs.push(("costs.battery_per_mwh", battery));
+                                let (capex, npv, last_year) = island(&inputs);
+                                let cost = &tree["nodes"][format!("choose_after_{timing}")]
+                                    ["branches"][format!("build_{system}")];
+                                (
+                                    capex / 1.08 - cost["cost"].as_f64().unwrap(),
+                                    (npv + capex - last_year) / 1.08,
+                                )
+                            };
+                            // Each number in the file is rounded to the dollar
+                            assert!(cost.abs() <= 0.5, "{system} {timing}: capex off by {cost}");
+                            let written = tree["nodes"][format!("outcome_{timing}_{system}")]
+                                ["branches"][format!("{outlook}_{weather}")]["value"]
+                                .as_f64()
+                                .unwrap();
+                            assert!(
+                                close(written, value, 0.5),
+                                "{system} {timing} {outlook} {weather}: the tree says {written}, \
+                                 the model {value}"
+                            );
+                            checked += 1;
+                        }
+                    }
+                }
+            }
+            assert_eq!(checked, 36);
+            // Waiting costs nothing in itself; its cost is the year it loses
+            let wait = tree["root"]["branches"]["wait_a_year"]["cost"].as_f64();
+            assert!(close(wait.unwrap(), 0.0, 0.0), "{wait:?}");
+        }
+
+        #[test]
+        fn build_the_larger_system_now() {
+            let result = decision_tree_core(Path::new(TREE)).unwrap();
+            // The leaves are rounded to the dollar, the Python is not
+            assert!(close(
+                result.root_expected_value,
+                13_792_484.177_027_194,
+                1.0
+            ));
+            let root = &result.node_results["root"];
+            assert_eq!(root.optimal_choice.as_deref(), Some("build_big_now"));
+            assert!(close(
+                root.branch_values["build_small_now"],
+                12_826_402.581_436_146,
+                1.0
+            ));
+            assert!(close(
+                root.branch_values["wait_a_year"],
+                13_697_669.009_062_1,
+                1.0
+            ));
+            // A year later the larger system is the better one either way
+            for node in ["choose_after_fall", "choose_after_flat"] {
+                let choice = result.node_results[node].optimal_choice.as_deref();
+                assert_eq!(choice, Some("build_big"), "{node}");
+            }
+        }
+    }
+
+    mod acquisition_example {
+        //! `examples/acquisition/deal_bid.yaml`: open at 30% and risk Thornvale's
+        //! counter, or knock it out at 40%.
+        //!
+        //! Its three deal values are deal.yaml calculated at each premium, so the
+        //! first test calculates them again and fails when the model and the tree
+        //! part. The expected values, from the tree's own numbers:
+        //! ```python
+        //! fee = 30 - 12                                     # break fee less costs
+        //! after = max(0.35 * fee + 0.65 * 40.91, fee)       # raise to 45%: 32.8915
+        //! offer_30 = 0.4 * 224.51 + 0.6 * after             # 109.5389
+        //! knockout = 0.85 * 102.11 + 0.15 * after           # 91.727225
+        //! # opening at 30% is better while Thornvale counters it less than
+        //! # (224.51 - knockout) / (224.51 - after) = 0.6929538379644973 of the time
+        //! ```
+
+        use crate::cli::decision_tree_core;
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const TREE: &str = "examples/acquisition/deal_bid.yaml";
+
+        fn close(a: f64, b: f64, tol: f64) -> bool {
+            (a - b).abs() <= tol
+        }
+
+        #[test]
+        fn every_deal_value_in_the_tree_is_the_model_at_that_price() {
+            let text = std::fs::read_to_string(TREE).unwrap();
+            let doc: yaml_serde::Value = yaml_serde::from_str(&text).unwrap();
+            let nodes = &doc["decision_tree"]["nodes"];
+            for (premium, node, branch) in [
+                (0.30, "thornvale_after_30", "stays_out"),
+                (0.40, "thornvale_after_40", "stays_out"),
+                (0.45, "thornvale_after_45", "gives_up"),
+            ] {
+                let mut model =
+                    crate::parser::parse_model(Path::new("examples/acquisition/deal.yaml"))
+                        .unwrap();
+                model
+                    .override_scalar("offer.premium", Some(premium), None)
+                    .unwrap();
+                let result = ArrayCalculator::new(model).calculate_all().unwrap();
+                let value = result.scalars["valuation.value_created"].value.unwrap();
+                let written = nodes[node]["branches"][branch]["value"].as_f64().unwrap();
+                // Each number in the file is rounded to the cent
+                assert!(
+                    close(written, value, 0.005),
+                    "{premium}: the tree says {written}, the model {value}"
+                );
+            }
+        }
+
+        #[test]
+        fn open_at_30_percent_and_raise_if_thornvale_counters() {
+            let result = decision_tree_core(Path::new(TREE)).unwrap();
+            assert!(close(result.root_expected_value, 109.538_9, 1e-9));
+            let root = &result.node_results["root"];
+            assert_eq!(root.optimal_choice.as_deref(), Some("offer_30_percent"));
+            assert!(close(
+                root.branch_values["knockout_40_percent"],
+                91.727_225,
+                1e-9
+            ));
+            let after = &result.node_results["valdane_after_counter"];
+            assert_eq!(after.optimal_choice.as_deref(), Some("raise_to_45_percent"));
+            assert!(close(result.risk_profile.worst_case, 18.0, 1e-12));
+        }
+    }
 }

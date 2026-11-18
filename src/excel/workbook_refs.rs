@@ -27,8 +27,10 @@ use std::fmt::Write as _;
 /// Sheet that holds scalars without a group.
 pub const UNGROUPED_SHEET: &str = "Scalars";
 
-/// Functions Excel evaluates differently from Forge: Forge's `VLOOKUP` takes
-/// one column and ignores the column index, `ROW`/`COLUMN`/`OFFSET`/`INDIRECT`
+/// Functions Excel evaluates differently from Forge: Forge's `VLOOKUP` and
+/// `HLOOKUP` read a table of one column or one row, which a workbook's range
+/// need not be (the export writes them where Excel's table is that too:
+/// [`WorkbookRefs::one_line_lookup`]), `ROW`/`COLUMN`/`OFFSET`/`INDIRECT`
 /// work on Forge names rather than sheet cells (`ROW()` alone is the table's
 /// row and is translated: `previous_row`), `NOW` returns text instead of a
 /// date serial, and `UNIQUE`/`SORT`/`FILTER`/`SEQUENCE` spill in Excel.
@@ -463,6 +465,53 @@ impl WorkbookRefs {
         Err(format!("unknown name '{word}'"))
     }
 
+    /// `VLOOKUP` or `HLOOKUP` called at `tokens[at]` means in Excel what it
+    /// means in Forge only where Excel's table is one column (`VLOOKUP`) or
+    /// one row (`HLOOKUP`) too, since Forge reads every table that way
+    /// (ADR-064): a table column, a range of one column in the workbook, or a
+    /// column constant `{1;2;3}` for `VLOOKUP`; a row constant `{1,2,3}` for
+    /// `HLOOKUP`. The index and both searches are then Excel's. Anything else
+    /// (an `HLOOKUP` over a column, which Excel reads as a table of one column
+    /// and many rows; a computed table) is an error, and the formula's values
+    /// are written.
+    fn one_line_lookup(
+        &self,
+        upper: &str,
+        tokens: &[Token],
+        at: usize,
+        ctx: Context<'_>,
+    ) -> Result<(), String> {
+        let vertical = upper == "VLOOKUP";
+        let table = matching_paren(tokens, at + 1)
+            .map(|close| split_arguments(&tokens[at + 2..close]))
+            .and_then(|args| args.get(1).copied());
+        let across = if vertical {
+            Token::Comma
+        } else {
+            Token::Semicolon
+        };
+        let one_line = match table {
+            Some([Token::Identifier(word)]) if vertical => {
+                let mut range = false;
+                self.reference(word, ctx, true, &mut range).is_ok() && range
+            },
+            Some([Token::OpenBrace, items @ .., Token::CloseBrace]) => !items.contains(&across),
+            _ => false,
+        };
+        if one_line {
+            return Ok(());
+        }
+        Err(if vertical {
+            "VLOOKUP's table in Excel is one column only when it is a table column or a \
+             column constant {1;2;3}"
+                .to_string()
+        } else {
+            "HLOOKUP's table in Excel is one row only when it is a row constant {1,2,3}: \
+             a table column is a column of the sheet"
+                .to_string()
+        })
+    }
+
     /// Translate a Forge formula to Excel.
     ///
     /// # Errors
@@ -521,7 +570,6 @@ impl WorkbookRefs {
     }
 
     /// Translate a run of tokens; `outer` are the calls it sits inside.
-    #[allow(clippy::too_many_lines)] // one match over the token kinds
     fn translate(
         &self,
         tokens: &[Token],
@@ -539,6 +587,14 @@ impl WorkbookRefs {
         while i < tokens.len() {
             let token = &tokens[i];
             let next_is_paren = matches!(tokens.get(i + 1), Some(Token::OpenParen));
+            if let Some((text, end)) =
+                self.translate_whole(tokens, i, ctx, &calls, locals, has_range)?
+            {
+                out.push_str(&text);
+                after_value = true;
+                i = end;
+                continue;
+            }
             match token {
                 // An array constant (ADR-064), written as Excel writes it
                 Token::OpenBrace => {
@@ -556,59 +612,6 @@ impl WorkbookRefs {
                     let _ = write!(out, "\"{}\"", t.replace('"', "\"\""));
                 },
                 Token::Boolean(b) => out.push_str(if *b { "TRUE" } else { "FALSE" }),
-                // Forge's own functions, written out as the Excel expression
-                // that computes the same thing
-                Token::Identifier(word)
-                    if next_is_paren && FORGE_FUNCTIONS.contains(&word.to_uppercase().as_str()) =>
-                {
-                    let close = matching_paren(tokens, i + 1)
-                        .ok_or_else(|| format!("{word}: missing )"))?;
-                    let args = split_arguments(&tokens[i + 2..close])
-                        .into_iter()
-                        .map(|arg| {
-                            if arg.is_empty() {
-                                return Err(format!("{word}: an argument is empty"));
-                            }
-                            self.translate(arg, ctx, &calls, locals, has_range)
-                        })
-                        .collect::<Result<Vec<String>, String>>()?;
-                    let third = split_arguments(&tokens[i + 2..close])
-                        .get(2)
-                        .map(|t| t.to_vec());
-                    out.push_str(&forge_function(word, &args, third.as_deref())?);
-                    after_value = true;
-                    i = close + 1;
-                    continue;
-                },
-                // LET, LAMBDA called at once and COUNTUNIQUE: written as the
-                // Excel expression that means the same (`local_names`)
-                Token::Identifier(word)
-                    if next_is_paren
-                        && local_names::HANDLED.contains(&word.to_uppercase().as_str()) =>
-                {
-                    let (text, end) =
-                        self.translate_special(tokens, i, ctx, &calls, locals, has_range)?;
-                    out.push_str(&text);
-                    after_value = true;
-                    i = end;
-                    continue;
-                },
-                // PREV and ROW(): the row above, and the table's row number
-                Token::Identifier(word)
-                    if next_is_paren
-                        && (word.eq_ignore_ascii_case("PREV")
-                            || word.eq_ignore_ascii_case("ROW")) =>
-                {
-                    let (text, end) = if word.eq_ignore_ascii_case("PREV") {
-                        self.translate_prev(tokens, i, ctx, &calls, locals, has_range)?
-                    } else {
-                        Self::translate_row(tokens, i, ctx, locals)?
-                    };
-                    out.push_str(&text);
-                    after_value = true;
-                    i = end;
-                    continue;
-                },
                 Token::Identifier(word) if next_is_paren && locals.get(word).is_some() => {
                     return Err(format!(
                         "{word} is a name of a LET or LAMBDA, not a function"
@@ -619,15 +622,7 @@ impl WorkbookRefs {
                     let _ = write!(out, "_xlpm.{}", locals.get(word).unwrap_or(word));
                 },
                 Token::Identifier(word) if next_is_paren => {
-                    let upper = word.to_uppercase();
-                    if !super::FormulaTranslator::is_excel_function(word)
-                        || DIFFERENT_IN_EXCEL.contains(&upper.as_str())
-                    {
-                        return Err(format!("function {word} has no Excel equivalent"));
-                    }
-                    if upper == "E" && !matches!(tokens.get(i + 2), Some(Token::CloseParen)) {
-                        return Err("E takes no arguments".to_string());
-                    }
+                    let upper = self.call_head(word, tokens, i, ctx)?;
                     out.push_str(excel_name(&upper));
                     pending_function = Some(upper);
                 },
@@ -640,14 +635,7 @@ impl WorkbookRefs {
                     out.push_str(&self.table_range(word));
                 },
                 Token::Identifier(word) => {
-                    // A range argument (ADR-058), or inside one
-                    let whole_column = calls.iter().any(|(name, arg, count)| {
-                        name.as_deref().is_some_and(|n| {
-                            crate::core::array_calculator::whole_column::is_whole_column(
-                                n, *count, *arg,
-                            )
-                        })
-                    });
+                    let whole_column = Self::in_whole_column_call(&calls);
                     out.push_str(&self.reference(word, ctx, whole_column, has_range)?);
                 },
                 Token::Operator(op) => {
@@ -692,6 +680,103 @@ impl WorkbookRefs {
             i += 1;
         }
         Ok(out)
+    }
+
+    /// A construct that is written out as a whole: one of Forge's own
+    /// functions, `LET` and `LAMBDA` called at once, `COUNTUNIQUE`, `PREV` or
+    /// `ROW()`. Its Excel text, and the index of the token after it; `None`
+    /// when the token starts none of them.
+    fn translate_whole(
+        &self,
+        tokens: &[Token],
+        i: usize,
+        ctx: Context<'_>,
+        calls: &[Call],
+        locals: &Locals,
+        has_range: &mut bool,
+    ) -> Result<Option<(String, usize)>, String> {
+        let next_is_paren = matches!(tokens.get(i + 1), Some(Token::OpenParen));
+        match &tokens[i] {
+            // Forge's own functions, written out as the Excel expression
+            // that computes the same thing
+            Token::Identifier(word)
+                if next_is_paren && FORGE_FUNCTIONS.contains(&word.to_uppercase().as_str()) =>
+            {
+                let close =
+                    matching_paren(tokens, i + 1).ok_or_else(|| format!("{word}: missing )"))?;
+                let args = split_arguments(&tokens[i + 2..close])
+                    .into_iter()
+                    .map(|arg| {
+                        if arg.is_empty() {
+                            return Err(format!("{word}: an argument is empty"));
+                        }
+                        self.translate(arg, ctx, calls, locals, has_range)
+                    })
+                    .collect::<Result<Vec<String>, String>>()?;
+                let third = split_arguments(&tokens[i + 2..close])
+                    .get(2)
+                    .map(|t| t.to_vec());
+                Ok(Some((
+                    forge_function(word, &args, third.as_deref())?,
+                    close + 1,
+                )))
+            },
+            // LET, LAMBDA called at once and COUNTUNIQUE: written as the
+            // Excel expression that means the same (`local_names`)
+            Token::Identifier(word)
+                if next_is_paren
+                    && local_names::HANDLED.contains(&word.to_uppercase().as_str()) =>
+            {
+                let (text, end) =
+                    self.translate_special(tokens, i, ctx, calls, locals, has_range)?;
+                Ok(Some((text, end)))
+            },
+            // PREV and ROW(): the row above, and the table's row number
+            Token::Identifier(word)
+                if next_is_paren
+                    && (word.eq_ignore_ascii_case("PREV") || word.eq_ignore_ascii_case("ROW")) =>
+            {
+                let (text, end) = if word.eq_ignore_ascii_case("PREV") {
+                    self.translate_prev(tokens, i, ctx, calls, locals, has_range)?
+                } else {
+                    Self::translate_row(tokens, i, ctx, locals)?
+                };
+                Ok(Some((text, end)))
+            },
+            _ => Ok(None),
+        }
+    }
+
+    /// The name of a function being called, upper case, once it is known to
+    /// have an Excel equivalent.
+    fn call_head(
+        &self,
+        word: &str,
+        tokens: &[Token],
+        i: usize,
+        ctx: Context<'_>,
+    ) -> Result<String, String> {
+        let upper = word.to_uppercase();
+        if upper == "VLOOKUP" || upper == "HLOOKUP" {
+            self.one_line_lookup(&upper, tokens, i, ctx)?;
+        } else if !super::FormulaTranslator::is_excel_function(word)
+            || DIFFERENT_IN_EXCEL.contains(&upper.as_str())
+        {
+            return Err(format!("function {word} has no Excel equivalent"));
+        }
+        if upper == "E" && !matches!(tokens.get(i + 2), Some(Token::CloseParen)) {
+            return Err("E takes no arguments".to_string());
+        }
+        Ok(upper)
+    }
+
+    /// Whether a name here is a range argument (ADR-058), or inside one.
+    fn in_whole_column_call(calls: &[Call]) -> bool {
+        calls.iter().any(|(name, arg, count)| {
+            name.as_deref().is_some_and(|n| {
+                crate::core::array_calculator::whole_column::is_whole_column(n, *count, *arg)
+            })
+        })
     }
 }
 
@@ -1028,14 +1113,54 @@ mod tests {
         );
     }
 
+    /// VLOOKUP and HLOOKUP are written where Excel's table is one column or
+    /// one row too, and only there
+    #[test]
+    fn lookups_on_one_column_or_row_are_written() {
+        assert_eq!(
+            row("=VLOOKUP(revenue, other.x, 1, FALSE)").unwrap(),
+            "=VLOOKUP(A3, 'other'!$A$2:$A$4, 1, FALSE)"
+        );
+        assert_eq!(
+            row("=VLOOKUP(year, revenue, 1)").unwrap(),
+            "=VLOOKUP(C3, $A$2:$A$4, 1)"
+        );
+        assert_eq!(
+            scalar("=VLOOKUP(2, other.x, 1, TRUE)", Some("valuation"))
+                .unwrap()
+                .formula,
+            "=VLOOKUP(2, 'other'!$A$2:$A$4, 1, TRUE)"
+        );
+        assert_eq!(
+            row("=VLOOKUP(year, {1;2;3}, 1)").unwrap(),
+            "=VLOOKUP(C3, {1;2;3}, 1)"
+        );
+        assert_eq!(
+            row("=HLOOKUP(year, {1,2,3}, 1, FALSE)").unwrap(),
+            "=HLOOKUP(C3, {1,2,3}, 1, FALSE)"
+        );
+        // A one-item constant is one row and one column
+        assert_eq!(row("=HLOOKUP(1, {7}, 1)").unwrap(), "=HLOOKUP(1, {7}, 1)");
+        for (f, why) in [
+            // A table column is a column of the sheet: Excel's HLOOKUP would
+            // search its first cell only
+            ("=HLOOKUP(1, revenue, 1)", "HLOOKUP's table"),
+            ("=HLOOKUP(1, other.x, 1)", "HLOOKUP's table"),
+            ("=HLOOKUP(1, {1;2;3}, 1)", "HLOOKUP's table"),
+            // A row constant is one row of three columns in Excel
+            ("=VLOOKUP(1, {1,2,3}, 1)", "VLOOKUP's table"),
+            // A scalar is one cell, and a computed table no range
+            ("=VLOOKUP(1, tax, 1)", "VLOOKUP's table"),
+            ("=VLOOKUP(1, other.x * 2, 1)", "VLOOKUP's table"),
+            ("=VLOOKUP(1)", "VLOOKUP's table"),
+        ] {
+            assert!(row(f).unwrap_err().contains(why), "{f}");
+        }
+    }
+
     #[test]
     fn functions_that_differ_in_excel_are_not_translated() {
-        for f in [
-            "=VLOOKUP(1, revenue, 2)",
-            "=NOW()",
-            "=ROW(revenue)",
-            "=COLUMN()",
-        ] {
+        for f in ["=NOW()", "=ROW(revenue)", "=COLUMN()"] {
             assert!(row(f).unwrap_err().contains("no Excel equivalent"), "{f}");
         }
         // COUNTUNIQUE has an Excel form only in a scalar (local_names)

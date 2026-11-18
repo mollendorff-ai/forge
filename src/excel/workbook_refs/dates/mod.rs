@@ -427,6 +427,24 @@ mod tests {
         assert!(!refs().to_excel("=YEAR(d)", ROW).unwrap().is_date);
     }
 
+    /// A lookup that touches a date has no rule, so its values are written;
+    /// one beside a date, but not over one, is written as a formula
+    #[test]
+    fn a_lookup_over_dates_is_written_as_values() {
+        for formula in [
+            "=VLOOKUP(d, t.e, 1, FALSE)",
+            "=VLOOKUP(v, t.d, 1)",
+            "=HLOOKUP(d, {1,2}, 1)",
+        ] {
+            let reason = excel(formula, ROW, Holds::Other).unwrap_err();
+            assert!(reason.contains("a date in"), "{formula}: {reason}");
+        }
+        assert_eq!(
+            row("=IF(YEAR(d) > 2020, VLOOKUP(v, t.v, 1, FALSE), 0)"),
+            "=IF(YEAR(A2) > 2020, VLOOKUP(C2, $C$2:$C$5, 1, FALSE), 0)"
+        );
+    }
+
     #[test]
     fn a_value_passed_on_is_read_as_its_reader_reads_it() {
         // Text or a date: the date is its text
