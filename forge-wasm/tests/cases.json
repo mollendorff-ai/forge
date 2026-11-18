@@ -26,6 +26,7 @@
   {"name": "calculate capex", "tool": "calculate", "dir": "capex-plan", "files": ["capex.yaml"], "main": "capex.yaml"},
   {"name": "calculate rolling forecast", "tool": "calculate", "dir": "rolling-forecast", "files": ["forecast.yaml"], "main": "forecast.yaml"},
   {"name": "calculate microgrid", "tool": "calculate", "dir": "microgrid", "files": ["microgrid.yaml"], "main": "microgrid.yaml"},
+  {"name": "calculate realestate", "tool": "calculate", "dir": "realestate", "files": ["realestate.yaml"], "main": "realestate.yaml"},
   {"name": "calculate starter", "tool": "calculate", "dir": "", "files": ["starter.yaml"], "main": "starter.yaml"},
   {"name": "calculate household", "tool": "calculate", "dir": "household", "files": ["budget.yaml"], "main": "budget.yaml"},
   {"name": "calculate options", "tool": "calculate", "dir": "options", "files": ["compare-options.yaml"], "main": "compare-options.yaml"},

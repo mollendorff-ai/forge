@@ -22,7 +22,11 @@ fn load_for_export(input: &Path) -> ForgeResult<(crate::types::ParsedModel, Opti
     let plan: Vec<(String, f64, Option<String>)> = plan_values(&model)
         .into_iter()
         .map(|(name, plan)| {
-            let formula = formula_of(&model, &name);
+            // A row of an uncertain column keeps its column's formula, below
+            let formula = crate::types::parse_row_input_name(&name)
+                .is_none()
+                .then(|| formula_of(&model, &name))
+                .flatten();
             (name, plan.value, formula)
         })
         .collect();
@@ -30,14 +34,32 @@ fn load_for_export(input: &Path) -> ForgeResult<(crate::types::ParsedModel, Opti
     // calculator, which cannot draw it, sees the value alone
     let mut at_plan = model.clone();
     for (name, value, formula) in &plan {
-        let _ = model.override_scalar(name, Some(*value), formula.clone());
-        let _ = at_plan.override_scalar(name, Some(*value), None);
+        if crate::types::parse_row_input_name(name).is_none() {
+            let _ = model.override_scalar(name, Some(*value), formula.clone());
+        }
+        let _ = at_plan.set_input(name, *value);
     }
     Ok(
         match crate::core::ArrayCalculator::new(at_plan).calculate_all() {
             Ok(mut calculated) => {
                 for (name, value, formula) in &plan {
                     let _ = calculated.override_scalar(name, Some(*value), formula.clone());
+                }
+                // An uncertain column keeps its formula beside its plan values,
+                // so the workbook writes the values with the formula in a note
+                for (table_name, t) in &mut calculated.tables {
+                    let source = &model.tables[table_name];
+                    for (column, formula) in &source.row_formulas {
+                        if formula.contains("MC.") {
+                            t.row_formulas.insert(column.clone(), formula.clone());
+                            t.formula_metadata.extend(
+                                source
+                                    .formula_metadata
+                                    .get(column)
+                                    .map(|meta| (column.clone(), meta.clone())),
+                            );
+                        }
+                    }
                 }
                 (calculated, ragged)
             },
@@ -373,6 +395,35 @@ r:
             let mut book: Xlsx<_> = open_workbook(&output).unwrap();
             let profit = cell(&mut book, "year", 2);
             assert!((profit - 786.320_361_7).abs() <= 1e-6, "{profit}");
+        }
+
+        /// A table column whose formula is a distribution is written as its
+        /// plan values, one a row (the triangular's mode, 2), with the formula
+        /// in a note; the total that reads it is 2 + 2 + 2 = 6.
+        #[test]
+        fn an_uncertain_column_is_written_as_its_plan_values() {
+            let dir = tempfile::tempdir().unwrap();
+            let input = dir.path().join("m.yaml");
+            std::fs::write(
+                &input,
+                "_forge_version: \"5.4.0\"\nt:\n  n: [1, 2, 3]\n  shock: {formula: \"=MC.Triangular(1, 2, 4)\", format: \"0.0\"}\n  noise: \"=MC.Uniform(0, 1)\"\ns:\n  total: {formula: \"=SUM(t.shock)\"}\n",
+            )
+            .unwrap();
+            let output = dir.path().join("m.xlsx");
+            let warnings = export_core(&input, &output).unwrap().warnings.join("\n");
+            assert!(!warnings.contains("does not calculate"), "{warnings}");
+            assert!(
+                warnings.contains(
+                    "t.shock: written as values (function MC.Triangular has no Excel \
+                     equivalent): =MC.Triangular(1, 2, 4)"
+                ),
+                "{warnings}"
+            );
+            let mut book: Xlsx<_> = open_workbook(&output).unwrap();
+            for row in 1..=3 {
+                assert!((cell(&mut book, "t", row) - 2.0).abs() <= 0.0, "row {row}");
+            }
+            assert!((cell(&mut book, "s", 1) - 6.0).abs() <= 0.0);
         }
 
         /// A distribution that does not parse has no plan: the model does not

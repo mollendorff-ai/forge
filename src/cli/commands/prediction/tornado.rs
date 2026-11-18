@@ -340,4 +340,75 @@ plan:
             assert!(battery.output_at_high < result.base_value);
         }
     }
+
+    mod realestate_example {
+        //! The tornado of examples/realestate: each input of `tornado:` moved alone
+        //! to its low and high, as the `run` of the Python in
+        //! prediction/scenarios.rs (`realestate_example`) gives it:
+        //! ```python
+        //! run(growth=0.01), run(growth=0.05)    # -803372.9902072488 1278481.6636162195
+        //! run(cap=0.05), run(cap=0.07)          # 586272.8786825631 -356853.2152528884
+        //! run(rate=0.07), run(rate=0.09)        # 531800.6356661897 -186627.01265773457
+        //! run(vac=0.03), run(vac=0.12)          # 374118.4634693004 -281090.98475902807
+        //! run(opex=4600), run(opex=6000)        # 407814.1831154749 -180416.51134763286
+        //! run(egrowth=0.015), run(egrowth=0.04) # 311693.32743657194 -102450.19643294066
+        //! ```
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn rent_growth_moves_the_value_most() {
+            let result =
+                tornado_core(Path::new("examples/realestate/realestate.yaml"), None).unwrap();
+            let expected = [
+                (
+                    "market.rent_growth",
+                    -803_372.990_207_248_8,
+                    1_278_481.663_616_219_5,
+                ),
+                (
+                    "market.exit_cap_rate",
+                    586_272.878_682_563_1,
+                    -356_853.215_252_888_4,
+                ),
+                (
+                    "deal.discount_rate",
+                    531_800.635_666_189_7,
+                    -186_627.012_657_734_57,
+                ),
+                (
+                    "building.vacancy",
+                    374_118.463_469_300_4,
+                    -281_090.984_759_028_07,
+                ),
+                (
+                    "building.opex_per_unit_year",
+                    407_814.183_115_474_9,
+                    -180_416.511_347_632_86,
+                ),
+                (
+                    "market.expense_growth",
+                    311_693.327_436_571_94,
+                    -102_450.196_432_940_66,
+                ),
+            ];
+            // In order of the swing, largest first
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!(
+                    (bar.output_at_low - low).abs() <= 1e-6,
+                    "{name} low {}",
+                    bar.output_at_low
+                );
+                assert!(
+                    (bar.output_at_high - high).abs() <= 1e-6,
+                    "{name} high {}",
+                    bar.output_at_high
+                );
+            }
+        }
+    }
 }

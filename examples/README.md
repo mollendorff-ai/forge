@@ -20,6 +20,7 @@ Each has a README with the numbers it should print. All figures are made up.
 | [`rolling-forecast/`](rolling-forecast/) | The model an FP&A team updates every month: actuals up to October, forecast for the rest. |
 | [`capex-plan/`](capex-plan/) | A machine bought on a loan: payment schedule, depreciation and a revenue trend. |
 | [`microgrid/`](microgrid/) | An island trading diesel for solar and a battery over 20 years: the battery's replacement, the loan, scenarios, a simulation and a decision tree. |
+| [`realestate/`](realestate/) | A building of 24 flats valued under uncertainty: ten years of rent and costs, a sale at an exit cap rate, a loan, scenarios, a tornado, 10,000 simulated futures, and what the right to sell early is worth in a market that moves in cycles. |
 | [`options/`](options/compare-options.yaml) | Two rentals compared. |
 
 Studio opens all of these except the one-command files below.
