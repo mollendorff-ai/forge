@@ -13,7 +13,7 @@ What Forge promises once it leaves beta, and what it does not. Forge is at a rel
 
 ## What stable does not promise
 
-- **Excel itself.** Formulas are compared with Gnumeric, LibreOffice and R, and the Excel export is recalculated by Gnumeric or LibreOffice, not by Excel. Real Excel was checked by hand in four rounds (18 financial and date results on 2026-11-06, 40 edge formulas on 2026-11-14, 10 more on 2026-11-15, 13 comparisons on 2026-11-18; see [VALIDATION.md](../VALIDATION.md)); it is not repeated automatically. Excel sets a final subtraction near zero to zero (`=0.1+0.2-0.3` is 0) and Forge does not (5.55E-17).
+- **Excel itself.** Formulas are compared with Gnumeric, LibreOffice and R, and the Excel export is recalculated by Gnumeric or LibreOffice, not by Excel. Real Excel was checked by hand in five rounds (18 financial and date results on 2026-11-06, 40 edge formulas on 2026-11-14, 10 more on 2026-11-15, 13 comparisons and 69 sums near zero on 2026-11-18; see [VALIDATION.md](../VALIDATION.md)); it is not repeated automatically. A number typed in a formula keeps every digit in Forge, where Excel keeps 15.
 - **Everything in the analytics is checked.** 70 of 77 analytics specs are compared with R; the exponential distribution, the elasticity command, one-point ranges and an input with equal low and high are not covered. Real options are compared on price only.
 - **Numbers to the last digit.** Floating-point results can differ from other engines in the last digits; the suites use tolerances (listed in VALIDATION.md).
 - **Financial, legal or tax advice.** Check results that matter independently.

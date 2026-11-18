@@ -35,7 +35,7 @@ The other engines measured on 2026-11-17 (`validation/gnumeric/tests/edge/edge_e
 2. **The number criteria of `COUNTIF`, `SUMIF`, `AVERAGEIF`, the `...IFS` functions, `MAXIFS` and `MINIFS` compare by the same rule.** This applies to `=`, `<>`, `<`, `<=`, `>` and `>=` in a criterion, and to a criterion that is a number.
 3. **The exact lookups compare numbers exactly** (IEEE equality, `core::precision::same`). This covers `MATCH` 0, `XMATCH` and `XLOOKUP` in their exact modes, and `VLOOKUP` and `HLOOKUP` with FALSE, a date against its day number included. Text compares as before, ignoring case, with wildcards. The approximate searches (`MATCH` 1 and -1, the next smaller or larger) order numbers exactly, as before.
 4. **`RANK` finds its number in the list exactly**, as an exact lookup does, as LibreOffice does. Counting the values above it was already exact.
-5. **Arithmetic does not change.** Excel sets a final subtraction that is very close to zero to zero (`=0.1+0.2-0.3` is 0 in LibreOffice too); Forge gives 5.55E-17. That is a rule about arithmetic, not comparison, and is left for its own item.
+5. **Arithmetic does not change.** Excel sets a final subtraction that is very close to zero to zero (`=0.1+0.2-0.3` is 0 in LibreOffice too); Forge gives 5.55E-17. That is a rule about arithmetic, not comparison, and is left for its own item. *(2026-11-18: ADR-066 follows Excel there: a formula's last `+` or `-`, and `SUM`'s last addition, are 0 below 8 units in the last place.)*
 
 ## Checked in Excel
 
@@ -59,7 +59,7 @@ The rule came from documentation. These are the cases where the engines differ, 
 
 `1E15+1=1E15` is the one where Forge follows the documented rule against both engines, and Excel agrees with Forge: `1000000000000001` has 16 significant digits, and to 15 it is `1E15`. `XLOOKUP` over a range of cells gives #N/A in Excel, as in Forge, where LibreOffice finds 0.3.
 
-The same sheet had the two subtractions of point 5: Excel gives `=0.1+0.2-0.3` as 0 (Forge 5.55E-17) and `=1E15+0.2-1E15` as 0 (Forge 0.25), so Excel sets a final subtraction near zero to zero. Forge does not; that is a difference from Excel in arithmetic, not in comparison, and roadmap T1-EXCEL-SUBTRACTION decides it.
+The same sheet had the two subtractions of point 5: Excel gives `=0.1+0.2-0.3` as 0 (Forge 5.55E-17) and `=1E15+0.2-1E15` as 0 (Forge 0.25), so Excel sets a final subtraction near zero to zero. That is a difference in arithmetic, not in comparison; ADR-066 measures Excel's rule in three more sheets and follows it.
 
 ## Consequences
 

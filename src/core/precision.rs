@@ -8,7 +8,9 @@
 //!
 //! Forge does the same at its edges: a number written to a file or printed is
 //! rounded to 15 significant digits, so `418.3299999999999` is stored as
-//! `418.33`. The calculation itself is not rounded.
+//! `418.33`. The calculation itself is not rounded, except where Excel rounds
+//! it: a formula's last `+` or `-`, and the last addition of `SUM`, are 0 when
+//! they nearly cancel ([`final_sum`], ADR-066).
 
 use crate::core::array_calculator::evaluator::text::number_format::rounded_digits;
 use serde::ser::{
@@ -100,6 +102,39 @@ pub fn excel_order(a: f64, b: f64) -> Option<std::cmp::Ordering> {
 pub fn excel_equal(a: f64, b: f64) -> bool {
     excel_order(a, b) == Some(std::cmp::Ordering::Equal)
 }
+
+/// The result of a formula's last `+` or `-`, as Excel gives it (ADR-066).
+///
+/// It is 0 when `result` is less than 8 units in the last place of the larger
+/// of the two operands `a` and `b`, which can only happen when they nearly
+/// cancel. `0.1 + 0.2 - 0.3` is 5.55E-17, a unit in the last place of
+/// 0.30000000000000004, and so 0; `1E15 + 1 - 1E15` is 1, 8 units of
+/// 1000000000000001, and stays 1. Excel for iPhone draws the line there on
+/// every case checked, near 1E-10, 1, 512 and 1E15 (2026-11-18).
+///
+/// The unit is the larger operand's: 2^e for the power of two at or below
+/// it, times 2^-52. Adding 0, or numbers of one sign, never falls below 8 of
+/// them; a subnormal operand has no such unit, and nothing is changed.
+#[must_use]
+pub fn final_sum(a: f64, b: f64, result: f64) -> f64 {
+    // The power of two at or below the larger operand: its exponent bits alone
+    let larger = a.abs().max(b.abs());
+    let power = f64::from_bits(larger.to_bits() & 0x7ff0_0000_0000_0000);
+    // 8 units in the last place of `power` is power * 2^-49
+    let line = if larger.is_normal() {
+        power * EIGHT_UNITS
+    } else {
+        0.0
+    };
+    if result.abs() < line {
+        0.0
+    } else {
+        result
+    }
+}
+
+/// 2^-49: 8 units in the last place of 1
+const EIGHT_UNITS: f64 = 1.0 / 562_949_953_421_312.0;
 
 /// `value` rounded to 15 significant digits: the number Forge writes and
 /// prints. Zero, infinities and NaN are returned as they are.
@@ -434,6 +469,29 @@ impl<C: SerializeStructVariant> SerializeStructVariant for Compound<C> {
 mod tests {
     use super::*;
     use std::cmp::Ordering::{Equal, Greater, Less};
+
+    /// Excel's last addition (ADR-066): 0 under 8 units in the last place of
+    /// the larger operand, the result itself from 8 on
+    #[test]
+    fn a_last_sum_under_eight_units_is_zero() {
+        let unit = 2f64.powi(-52);
+        let (two, seven, eight) = (2.0 * unit, 7.0 * unit, 8.0 * unit);
+        assert_exact!(final_sum(1.0 + seven, -1.0, seven), 0.0);
+        assert_exact!(final_sum(1.0 + eight, -1.0, eight), eight);
+        // Below zero alike
+        assert_exact!(final_sum(-1.0 - two, 1.0, -two), 0.0);
+        // The larger operand's unit: 1E15 + 1 is 8 units of 1000000000000001
+        assert_exact!(final_sum(1e15 + 1.0, -1e15, 1.0), 1.0);
+        assert_exact!(final_sum(1e15 + 0.5, -1e15, 0.5), 0.0);
+        // Nothing cancels: adding 0, or numbers of one sign
+        assert_exact!(final_sum(5e-17, 0.0, 5e-17), 5e-17);
+        assert_exact!(final_sum(1.0, unit, 1.0 + unit), 1.0 + unit);
+        assert_exact!(final_sum(0.0, 0.0, 0.0), 0.0);
+        // A subnormal operand has no such unit, and an infinity is kept
+        let tiny = f64::MIN_POSITIVE / 4.0;
+        assert_exact!(final_sum(tiny, -tiny / 2.0, tiny / 2.0), tiny / 2.0);
+        assert!(final_sum(f64::INFINITY, 1.0, f64::INFINITY).is_infinite());
+    }
 
     /// A count becomes the number IEEE 754 gives it, at every edge
     #[test]

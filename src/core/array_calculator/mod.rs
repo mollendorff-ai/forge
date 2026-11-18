@@ -434,7 +434,7 @@ impl ArrayCalculator {
             ));
         }
         self.evaluate_in_context(Some(table_name), None, |row_ctx| {
-            Self::evaluate_rows(&ast, row_ctx, row_count)
+            Self::evaluate_rows(&ast, formula, row_ctx, row_count)
         })
         .map_err(|e| self.explain_included_mismatch(e, table_name))
     }
@@ -443,12 +443,13 @@ impl ArrayCalculator {
     /// the context changes (evaluation reads the context, never changes it).
     fn evaluate_rows(
         ast: &parser::Expr,
+        formula: &str,
         row_ctx: &mut evaluator::EvalContext,
         row_count: usize,
     ) -> ForgeResult<ColumnValue> {
         row_ctx.current_row = Some(0);
         row_ctx.row_count = Some(row_count);
-        let first_result = evaluator::evaluate(ast, row_ctx)
+        let first_result = evaluator::evaluate_cell(ast, formula, row_ctx)
             .map_err(|e| ForgeError::Eval(format!("row 1: {}", e.message)))?;
 
         // Determine column type from first result and evaluate all rows
@@ -458,7 +459,7 @@ impl ArrayCalculator {
                 results.push(first_result.as_text());
                 for row_idx in 1..row_count {
                     row_ctx.current_row = Some(row_idx);
-                    let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
+                    let result = evaluator::evaluate_cell(ast, formula, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
                     results.push(result.as_text());
@@ -470,7 +471,7 @@ impl ArrayCalculator {
                 results.push(first_result.as_bool().unwrap_or(false));
                 for row_idx in 1..row_count {
                     row_ctx.current_row = Some(row_idx);
-                    let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
+                    let result = evaluator::evaluate_cell(ast, formula, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
                     results.push(result.as_bool().unwrap_or(false));
@@ -487,7 +488,7 @@ impl ArrayCalculator {
                 results.push(first_num);
                 for row_idx in 1..row_count {
                     row_ctx.current_row = Some(row_idx);
-                    let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
+                    let result = evaluator::evaluate_cell(ast, formula, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
                     let value = result
@@ -513,7 +514,9 @@ impl ArrayCalculator {
         let section = scalar_name.rsplit_once('.').map(|(section, _)| section);
         self.check_ambiguous_names(formula, section, &empty_table)?;
         let result = self
-            .evaluate_in_context(None, section, |ctx| evaluator::evaluate(&ast, ctx))
+            .evaluate_in_context(None, section, |ctx| {
+                evaluator::evaluate_cell(&ast, formula, ctx)
+            })
             .map_err(|e| ForgeError::Eval(e.message))?;
         if let evaluator::Value::Array(items) = &result {
             if items.len() != 1 {
@@ -757,6 +760,183 @@ mod nan_inputs {
 
 #[cfg(test)]
 mod tests {
+
+    mod final_sum {
+        //! Excel sets the result of a formula's last `+` or `-` to 0 when it is
+        //! less than 8 units in the last place of the larger operand, and so does
+        //! `SUM` at its last addition (ADR-066). Each case is a formula Excel for
+        //! iPhone calculated on 2026-11-18, in three sheets, with Excel's answer:
+        //! 0, or the binary result, which Rust computes here the same way. 68 of
+        //! the 69: the other, `=1E15+1-1000000000000000.5`, is about a number
+        //! typed in a formula, which Excel cuts to 15 digits (roadmap
+        //! T1-EXCEL-LITERAL-DIGITS).
+
+        use super::super::ArrayCalculator;
+        use crate::parser::parse_single_document_yaml;
+        use std::fmt::Write as _;
+        use std::path::Path;
+
+        const TINY: f64 = 0.1 + 0.2 - 0.3; // 5.551115123125783e-17
+
+        /// Each formula is a scalar of group `p`, as `p.pN`; `v.a`, `v.b` and
+        /// `v.c` are 0.1, 0.2 and 0.3, and `v.col` is 0.1, 0.2, -0.3.
+        fn calculate(formulas: &[(&str, &str)]) -> crate::types::ParsedModel {
+            let mut text = String::from(
+                "_forge_version: \"5.4.0\"\nv:\n  a: 0.1\n  b: 0.2\n  c: 0.3\nt:\n  col: [0.1, 0.2, -0.3]\n  one: [1, 1, 1]\np:\n",
+            );
+            for (name, formula) in formulas {
+                writeln!(
+                    text,
+                    "  {name}: {{formula: \"{}\"}}",
+                    formula.replace('"', "\\\"")
+                )
+                .unwrap();
+            }
+            let model = parse_single_document_yaml(&text, Path::new("m.yaml")).unwrap();
+            ArrayCalculator::new(model).calculate_all().unwrap()
+        }
+
+        fn check(cases: &[(&str, &str, f64)]) {
+            let formulas: Vec<(&str, &str)> = cases.iter().map(|(n, f, _)| (*n, *f)).collect();
+            let model = calculate(&formulas);
+            let mut wrong = Vec::new();
+            for (name, formula, want) in cases {
+                let got = model.scalars[&format!("p.{name}")].value.unwrap();
+                if got.to_bits() != want.to_bits() && !(got == 0.0 && *want == 0.0) {
+                    wrong.push(format!("{name} {formula}: {got:e}, Excel {want:e}"));
+                }
+            }
+            assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        }
+
+        #[test]
+        fn the_last_addition_of_a_formula_is_zero_near_zero() {
+            check(&[
+                ("s1", "=0.1+0.2-0.3", 0.0),
+                ("s2", "=0.5-0.4-0.1", 0.0),
+                ("s3", "=1E15+0.2-1E15", 0.0),
+                ("s4", "=-0.3+0.1+0.2", 0.0),
+                ("s5", "=0.1+0.2+(-0.3)", 0.0),
+                ("s6", "=v.a+v.b-v.c", 0.0),
+                ("s7", "=v.c-v.a-v.b", 0.0),
+                ("u20", "=(0.1+0.2)-0.3", 0.0),
+                ("u21", "=0.1+(0.2-0.3)", 0.0),
+                ("u22", "=0.1+0.2-0.3*1", 0.0),
+                ("u23", "=0.3-(0.1+0.2)", 0.0),
+                ("u24", "=-0.1-0.2+0.3", 0.0),
+            ]);
+        }
+
+        #[test]
+        fn not_inside_parentheses_a_function_or_another_operation() {
+            check(&[
+                ("s8", "=(0.1+0.2-0.3)", TINY),
+                ("s9", "=1*(0.1+0.2-0.3)", TINY),
+                ("s10", "=(0.1+0.2-0.3)*1", TINY),
+                ("s11", "=0.1+0.2-0.3+0", TINY),
+                ("s12", "=ABS(0.1+0.2-0.3)", TINY),
+                ("s15", "=IF(TRUE,0.1+0.2-0.3,1)", TINY),
+                ("u19", "=-(0.1+0.2-0.3)", -TINY),
+                ("u17", "=SUMPRODUCT(t.col,t.one)", TINY),
+                ("u18", "=SUMIF(t.col,\"<>x\")", TINY),
+            ]);
+        }
+
+        #[test]
+        fn sum_is_zero_near_zero_at_its_last_addition() {
+            check(&[
+                ("s13", "=SUM(0.1,0.2,-0.3)", 0.0),
+                ("s14", "=SUM(0.1,0.2)-0.3", 0.0),
+                ("u13", "=SUM(t.col)", 0.0),
+                ("u14", "=SUM(-0.3,0.1,0.2)", 0.0),
+                ("u15", "=SUM(0.1,0.2,-0.3,0)", TINY),
+                ("u16", "=1*SUM(0.1,0.2,-0.3)", 0.0),
+                ("w13", "=SUM(1,6*2^-52,-1)", 0.0),
+                ("w14", "=SUM(1,7*2^-52,-1)", 0.0),
+                ("w15", "=SUM(1,8*2^-52,-1)", 8.0 * 2f64.powi(-52)),
+            ]);
+        }
+
+        /// The cell holds 0, so what reads it reads 0: a balance check written
+        /// as its own cell is TRUE, where the same check in one formula is not
+        #[test]
+        fn the_zero_is_the_cells_value() {
+            check(&[
+                ("s1", "=0.1+0.2-0.3", 0.0),
+                ("s3", "=1E15+0.2-1E15", 0.0),
+                ("s6", "=v.a+v.b-v.c", 0.0),
+                // TRUE and FALSE are 1 and 0
+                ("s16", "=0.1+0.2-0.3=0", 0.0),
+                ("s17", "=IF(0.1+0.2-0.3=0,1,0)", 0.0),
+                ("s18", "=p.s1=0", 1.0),
+                ("s19", "=IF(p.s6=0,1,0)", 1.0),
+                ("s20", "=p.s1*1E20", 0.0),
+                ("s21", "=p.s3*4", 0.0),
+            ]);
+        }
+
+        /// Less than 8 units in the last place of the larger operand: 7 is 0,
+        /// 8 is kept, near 1, near 512 and near 1E15
+        #[test]
+        fn eight_units_in_the_last_place_is_the_line() {
+            let ulp52 = 2f64.powi(-52);
+            check(&[
+                ("w1", "=1+5*2^-52-1", 0.0),
+                ("w2", "=1+6*2^-52-1", 0.0),
+                ("w3", "=1+7*2^-52-1", 0.0),
+                ("w4", "=1+8*2^-52-1", 8.0 * ulp52),
+                ("w5", "=512+5*2^-43-512", 0.0),
+                ("w6", "=512+6*2^-43-512", 0.0),
+                ("w7", "=512+7*2^-43-512", 0.0),
+                ("w8", "=512+8*2^-43-512", 8.0 * 2f64.powi(-43)),
+                // The larger operand's unit: 7 of 2's are 14 of 1.99...'s
+                ("w9", "=2-(2-6*2^-52)", 0.0),
+                ("w10", "=2-(2-10*2^-52)", 0.0),
+                ("w11", "=2-(2-14*2^-52)", 0.0),
+                ("w12", "=(2+6*2^-51)-(2-2*2^-52)", 0.0),
+                ("s22", "=1+1E-15-1", 0.0),
+                ("s23", "=1+5E-15-1", 1.0 + 5e-15 - 1.0),
+                ("s24", "=1+1E-14-1", 1.0 + 1e-14 - 1.0),
+                ("s25", "=1+1E-13-1", 1.0 + 1e-13 - 1.0),
+                ("u1", "=1+2E-15-1", 1.0 + 2e-15 - 1.0),
+                ("u2", "=1+3E-15-1", 1.0 + 3e-15 - 1.0),
+                ("u3", "=1+3.5E-15-1", 1.0 + 3.5e-15 - 1.0),
+                ("u4", "=1+4E-15-1", 1.0 + 4e-15 - 1.0),
+                ("u5", "=1000+1E-12-1000", 1000.0 + 1e-12 - 1000.0),
+                ("u6", "=1000+3E-12-1000", 1000.0 + 3e-12 - 1000.0),
+                ("u7", "=1000+5E-12-1000", 1000.0 + 5e-12 - 1000.0),
+                ("u8", "=1E-10+1E-25-1E-10", 1e-10 + 1e-25 - 1e-10),
+                ("s26", "=1E15+1-1E15", 1.0),
+                ("s27", "=1E15+3-1E15", 3.0),
+                ("u9", "=1E15+0.5-1E15", 0.0),
+                ("u10", "=1E15+1.5-1E15", 1.5),
+                ("u11", "=2^53+2-2^53", 0.0),
+                ("s28", "=1E-20-0", 1e-20),
+                ("s29", "=3E-17+0", 3e-17),
+                ("s30", "=1E-16-1E-17", 1e-16 - 1e-17),
+            ]);
+        }
+
+        /// A row of a row formula is a cell, so each row's last addition is
+        /// zero near zero; a column that carries the row above (PREV) too
+        #[test]
+        fn each_row_of_a_column_is_a_cell() {
+            let text = "_forge_version: \"5.4.0\"\nt:\n  a: [0.1, 0.5, 1]\n  b: [0.2, -0.4, 2]\n  c: [0.3, 0.1, 3]\n  d: \"=a+b-c\"\n  kept: \"=(a+b-c)\"\n  run: \"=PREV(run, 0.3) - c\"\n";
+            let model = parse_single_document_yaml(text, Path::new("m.yaml")).unwrap();
+            let model = ArrayCalculator::new(model).calculate_all().unwrap();
+            let column = |name: &str| {
+                model.tables["t"].columns[name]
+                    .values
+                    .numbers()
+                    .unwrap()
+                    .to_vec()
+            };
+            assert_eq!(column("d"), [0.0, 0.0, 0.0]);
+            assert_eq!(column("kept")[0].to_bits(), TINY.to_bits());
+            // 0.3 - 0.3, then 0 - 0.1 and -0.1 - 3
+            assert!(column("run")[0].abs() <= 0.0);
+        }
+    }
 
     mod one_scalar {
         //! `calculate_scalar` answers for one scalar: a failed formula that the

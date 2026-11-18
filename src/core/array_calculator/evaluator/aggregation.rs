@@ -5,6 +5,20 @@
 use super::{collect_numeric_values, evaluate, EvalContext, EvalError, Expr, Value};
 use crate::core::precision;
 
+/// `SUM`: left to right, as Excel adds. Its last addition is 0 when it
+/// nearly cancels, as the last `+` of a formula is (ADR-066).
+fn sum(values: &[f64]) -> f64 {
+    let total = match values.split_last() {
+        Some((last, rest)) if !rest.is_empty() => {
+            let before = rest.iter().sum::<f64>();
+            precision::final_sum(before, *last, before + last)
+        },
+        _ => values.iter().sum::<f64>(),
+    };
+    // + 0.0: the sum of nothing is 0, not -0
+    total + 0.0
+}
+
 /// Try to evaluate an aggregation function. Returns None if function not recognized.
 pub fn try_evaluate(
     name: &str,
@@ -14,11 +28,7 @@ pub fn try_evaluate(
     // ═══════════════════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
-        "SUM" => {
-            let values = collect_numeric_values(args, ctx)?;
-            // + 0.0: the sum of nothing is 0, not -0
-            Value::Number(values.iter().sum::<f64>() + 0.0)
-        },
+        "SUM" => Value::Number(sum(&collect_numeric_values(args, ctx)?)),
 
         "AVERAGE" => {
             let values = collect_numeric_values(args, ctx)?;

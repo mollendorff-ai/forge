@@ -28,8 +28,9 @@ state:
     indexes; PERCENTILE.EXC at its lowest k; an uncertain input exported
     empty; four more), so the two weeks in docs/STABILITY.md start again
     from rc.28: no earlier than 2026-12-02. Excel confirmed ADR-065's 13
-    comparisons on 2026-11-18 (T1-EXCEL-EQUALITY); following Excel's
-    subtraction near zero (T1-EXCEL-SUBTRACTION) would restart them. rc.27 (2026-11-15): easier to start with an AI
+    comparisons on 2026-11-18 (T1-EXCEL-EQUALITY), and Forge now follows
+    Excel's sum near zero (ADR-066, T1-EXCEL-SUBTRACTION), a wrong answer
+    fixed: the release that carries it starts the two weeks again. rc.27 (2026-11-15): easier to start with an AI
     (install.sh, tested prompts, workflows) and every item the agents and
     Sentinel reported fixed; -o is always the output file and -v always
     --verbose; a constant where COUNTIF and its family read a range is
@@ -244,11 +245,16 @@ tier1:
   # range among them; ADR-065, edge_equality.yaml and VALIDATION.md say so.
   # The same sheet found the subtraction below.
 
-  - id: T1-EXCEL-SUBTRACTION
-    title: "Decide whether a final subtraction near zero is zero, as in Excel"
-    why: "Excel for iPhone gives =0.1+0.2-0.3 as 0 and =1E15+0.2-1E15 as 0 (2026-11-18); Forge gives 5.55E-17 and 0.25, the binary results. LibreOffice gives 0 for both. A model that tests a difference against zero, or divides by it, can differ from Excel; ADR-065 left it as arithmetic, not comparison"
-    how: "Find Excel's rule (Microsoft's 'Floating-point arithmetic may give inaccurate results' describes it for the last operation of a formula), check where it applies in Excel (a subtraction inside a function, a column formula, SUM of the two) with a sheet as for ADR-065, then write an ADR: follow Excel, or keep the binary result and say so. If Forge follows Excel, tests first, and the change is a wrong answer fixed (docs/STABILITY.md)"
-    acceptance: "An ADR states the rule Forge follows with Excel's answers for at least 6 placements of the subtraction; edge cases in validation/gnumeric cite Excel; a difference from Excel is fixed or written down in VALIDATION.md"
+  # T1-EXCEL-SUBTRACTION is done (2026-11-18): Excel's rule measured in
+  # three sheets of 69 formulas and followed (ADR-066): a formula's last + or
+  # - and SUM's last addition are 0 below 8 units in the last place of the
+  # larger operand. The same sheets found the item below.
+
+  - id: T1-EXCEL-LITERAL-DIGITS
+    title: "Decide whether a number typed in a formula keeps more than 15 significant digits"
+    why: "Excel for iPhone showed =1E15+1-1000000000000000.5 as =1000000000000000+1-1000000000000000 and gave 1 (2026-11-18): Excel cuts a typed number to 15 significant digits when the formula is entered. Forge keeps every digit and gives 0 (0.5, 4 units in the last place, then ADR-066). A model rarely types 16 digits, so the two agree on everything else checked"
+    how: "Check in Excel where the cut applies (a number in a formula, a typed value in a cell, a value read from a workbook), and whether it rounds or truncates; then follow it in the parser and the importer, or write it down in VALIDATION.md"
+    acceptance: "Excel's answers for at least 5 placements are in an edge case file; the difference is fixed test-first or written down"
 
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"
