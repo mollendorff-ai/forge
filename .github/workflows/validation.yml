@@ -56,16 +56,29 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - name: Install Gnumeric and LibreOffice
         # LibreOffice from noble-backports: LET needs 24.8 or later, and
         # Ubuntu 24.04 itself has 24.2. A few minutes as a rule; 27 on
-        # 2026-11-18, when the Ubuntu mirror was slow. The limit stops a hung
-        # mirror in three hours, where the job ran until GitHub's six.
+        # 2026-11-18, when the Ubuntu mirror was slow (165 kB/s for the
+        # first 103 MB). The limit stops a hung mirror in three hours, where
+        # the job ran until GitHub's six. Without recommended packages
+        # Gnumeric is 7 packages, not 91: what it recommends is its
+        # documentation, a PDF viewer (evince) and a solver (lp-solve), none
+        # of which the suite uses. It passed all 2,150 cases with that
+        # install, LibreOffice 26.2 included.
         timeout-minutes: 180
         run: |
           sudo apt-get update
-          sudo apt-get install -y gnumeric
-          sudo apt-get install -y -t noble-backports libreoffice-calc-nogui
+          sudo apt-get install -y --no-install-recommends gnumeric
+          sudo apt-get install -y --no-install-recommends -t noble-backports libreoffice-calc-nogui
           soffice --version
       - name: Build Forge
         run: cargo build --release
@@ -108,6 +121,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - name: Install R and packages
         # This one took 3 minutes on one run and 155 on another the same
         # morning (2026-11-18) and passed; a limit of 45 failed it, so the
