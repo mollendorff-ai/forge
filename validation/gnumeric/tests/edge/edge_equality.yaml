@@ -4,8 +4,10 @@
 # family compare two numbers rounded to 15 significant digits, so binary noise
 # (0.1 + 0.2 is 0.30000000000000004) is equal; an exact lookup (MATCH 0,
 # VLOOKUP FALSE, XLOOKUP) compares exactly. Taken from Microsoft's
-# documentation and Q&A answers, not checked in Excel by hand: ADR-065 lists
-# the checks. Gnumeric 1.12 compares exactly everywhere, so the cases of the
+# documentation and Q&A answers, and checked in Excel (iPhone app) on
+# 2026-11-18: Excel gives Forge's answer to the 13 formulas of ADR-065, read
+# from a screenshot of the sheet; each case among them says "Excel for
+# iPhone" with its answer. Gnumeric 1.12 compares exactly everywhere, so the cases of the
 # first kind are judged by LibreOffice 26.2, which compares to about 15
 # digits (each says so). Before, Forge compared = and <> with an absolute
 # tolerance of 1E-10 and <, <=, >, >= exactly: 0.1 + 0.2 = 0.3 and
@@ -29,18 +31,18 @@ assumptions:
     value: null
     formula: "=IF(0.1 + 0.2 = 0.3, 1, 0)"
     expected: 1
-    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits"
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits. Excel for iPhone gives TRUE (2026-11-18)."
   # The other operators by the same rule: equal, so not above
   test_at_most_binary_noise:
     value: null
     formula: "=IF(0.1 + 0.2 <= 0.3, 1, 0)"
     expected: 1
-    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits"
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits. Excel for iPhone gives TRUE (2026-11-18)."
   test_above_binary_noise:
     value: null
     formula: "=IF(0.1 + 0.2 > 0.3, 1, 0)"
     expected: 0
-    libreoffice: "Gnumeric 1.12 compares exactly (1); LibreOffice and Excel's documentation compare to 15 digits"
+    libreoffice: "Gnumeric 1.12 compares exactly (1); LibreOffice and Excel's documentation compare to 15 digits. Excel for iPhone gives FALSE (2026-11-18)."
   test_below_binary_noise:
     value: null
     formula: "=IF(0.3 - 0.1 < 0.2, 1, 0)"
@@ -56,7 +58,8 @@ assumptions:
     value: null
     formula: "=IF(1 + 1E-15 = 1, 1, 0)"
     expected: 1
-    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits"
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice and Excel's documentation compare to 15 digits. Excel for iPhone gives TRUE (2026-11-18)."
+  # Excel for iPhone gives FALSE (2026-11-18)
   test_equal_fifteenth_digit:
     value: null
     formula: "=IF(1 + 1E-14 = 1, 1, 0)"
@@ -70,8 +73,9 @@ assumptions:
     value: null
     formula: "=IF(1E15 + 1 = 1E15, 1, 0)"
     expected: 1
-    gnumeric_skip: "Rounded to 15 digits, as Microsoft describes Excel's comparison, the two are equal; Gnumeric 1.12 (exact) and LibreOffice 26.2 (a relative tolerance below 1E-15) give 0. Not checked in Excel (ADR-065)"
+    gnumeric_skip: "Rounded to 15 digits, as Microsoft describes Excel's comparison, the two are equal; Gnumeric 1.12 (exact) and LibreOffice 26.2 (a relative tolerance below 1E-15) give 0. Excel for iPhone gives TRUE (2026-11-18)."
   # ── No tolerance near zero ────────────────────────────────────────────────
+  # Excel for iPhone gives FALSE (2026-11-18)
   test_equal_tiny_and_zero:
     value: null
     formula: "=IF(-1E-12 = 0, 1, 0)"
@@ -89,6 +93,7 @@ assumptions:
     formula: "=IF(-1E-12 < 0, 1, 0)"
     expected: 1
   # ── Exact lookups: exact ──────────────────────────────────────────────────
+  # Excel for iPhone gives #N/A (2026-11-18)
   test_match_exact_binary_noise:
     value: null
     formula: "=IFERROR(MATCH(0.1 + 0.2, {0.3}, 0), -1)"
@@ -113,7 +118,7 @@ assumptions:
     value: null
     formula: "=IFERROR(XLOOKUP(0.1 + 0.2, eq.v, eq.v), -1)"
     expected: -1
-    gnumeric_skip: "Gnumeric 1.12 has no XLOOKUP, and LibreOffice 26.2 finds 0.3 over a range of cells (and #N/A over the constant {0.3}); a Microsoft Q&A answer reports #N/A in Excel for a calculated value off in its last binary digit. Not checked in Excel by hand (ADR-065)"
+    gnumeric_skip: "Gnumeric 1.12 has no XLOOKUP, and LibreOffice 26.2 finds 0.3 over a range of cells (and #N/A over the constant {0.3}); a Microsoft Q&A answer reports #N/A in Excel for a calculated value off in its last binary digit. Excel for iPhone gives #N/A over a range of cells (2026-11-18)."
   # ── Criteria: 15 significant digits, as the operators ─────────────────────
   test_countif_binary_noise:
     value: null
@@ -129,14 +134,14 @@ assumptions:
     value: null
     formula: "=COUNTIF(eq.z, -1E-12)"
     expected: 0
-  # ── SWITCH as =, RANK as a lookup (LibreOffice; not checked in Excel) ─────
+  # ── SWITCH as =, RANK as a lookup ────────────────────────────────────────
   test_switch_binary_noise:
     value: null
     formula: "=SWITCH(0.1 + 0.2, 0.3, 1, 0)"
     expected: 1
-    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice matches as its = does. Not checked in Excel (ADR-065)"
+    libreoffice: "Gnumeric 1.12 compares exactly (0); LibreOffice matches as its = does. Excel for iPhone gives 1 (2026-11-18)."
   test_rank_binary_noise:
     value: null
     formula: "=IFERROR(RANK(0.1 + 0.2, eq.v), -1)"
     expected: -1
-    libreoffice: "Gnumeric 1.12 ranks a number that is not in the list (1); LibreOffice finds it exactly (#N/A), as Excel's lookups do. Not checked in Excel (ADR-065)"
+    libreoffice: "Gnumeric 1.12 ranks a number that is not in the list (1); LibreOffice finds it exactly (#N/A), as Excel's lookups do. Excel for iPhone gives #N/A over a range of cells (2026-11-18)."

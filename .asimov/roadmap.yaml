@@ -27,8 +27,9 @@ state:
     answers fixed (comparisons by Excel's rule, ADR-065; VLOOKUP and HLOOKUP
     indexes; PERCENTILE.EXC at its lowest k; an uncertain input exported
     empty; four more), so the two weeks in docs/STABILITY.md start again
-    from rc.28: no earlier than 2026-12-02. A difference from Excel that
-    T1-EXCEL-EQUALITY finds in ADR-065 would restart them. rc.27 (2026-11-15): easier to start with an AI
+    from rc.28: no earlier than 2026-12-02. Excel confirmed ADR-065's 13
+    comparisons on 2026-11-18 (T1-EXCEL-EQUALITY); following Excel's
+    subtraction near zero (T1-EXCEL-SUBTRACTION) would restart them. rc.27 (2026-11-15): easier to start with an AI
     (install.sh, tested prompts, workflows) and every item the agents and
     Sentinel reported fixed; -o is always the output file and -v always
     --verbose; a constant where COUNTIF and its family read a range is
@@ -238,11 +239,16 @@ tier1:
   # documentation and Q&A answers describe Excel; -1E-12 = 0 is FALSE. The
   # equal-near-zero rule in known.py is gone. Without Excel at hand, the rule
   # was taken from documentation: T1-EXCEL-EQUALITY checks it.
-  - id: T1-EXCEL-EQUALITY
-    title: "Check ADR-065's comparisons in Excel"
-    why: "ADR-065 follows Microsoft's description of Excel's comparison (15 significant digits for the operators and COUNTIF, exact for the lookups), not a check in Excel. Its table lists 13 formulas; 1E15+1=1E15 is TRUE in Forge by that rule and FALSE in LibreOffice and Gnumeric, and XLOOKUP over a range differs in LibreOffice. Also open: Excel sets a final subtraction near zero to 0 (=0.1+0.2-0.3, LibreOffice 0, Forge 5.55E-17)"
-    how: "Type ADR-065's table into Excel (desktop or the iPhone app) with 0.1+0.2-0.3 and 1E15+0.2-1E15; put Excel's answers into validation/gnumeric/tests/edge/edge_equality.yaml as edge_excel_checks*.yaml does; fix any difference test first; decide the subtraction separately"
-    acceptance: "ADR-065 says which rows Excel confirmed, edge_equality.yaml cites Excel for them, and a difference from Excel is fixed or written down"
+  # T1-EXCEL-EQUALITY is done (2026-11-18): Excel for iPhone gives Forge's
+  # answer to all 13 comparisons of ADR-065, 1E15+1=1E15 and XLOOKUP over a
+  # range among them; ADR-065, edge_equality.yaml and VALIDATION.md say so.
+  # The same sheet found the subtraction below.
+
+  - id: T1-EXCEL-SUBTRACTION
+    title: "Decide whether a final subtraction near zero is zero, as in Excel"
+    why: "Excel for iPhone gives =0.1+0.2-0.3 as 0 and =1E15+0.2-1E15 as 0 (2026-11-18); Forge gives 5.55E-17 and 0.25, the binary results. LibreOffice gives 0 for both. A model that tests a difference against zero, or divides by it, can differ from Excel; ADR-065 left it as arithmetic, not comparison"
+    how: "Find Excel's rule (Microsoft's 'Floating-point arithmetic may give inaccurate results' describes it for the last operation of a formula), check where it applies in Excel (a subtraction inside a function, a column formula, SUM of the two) with a sheet as for ADR-065, then write an ADR: follow Excel, or keep the binary result and say so. If Forge follows Excel, tests first, and the change is a wrong answer fixed (docs/STABILITY.md)"
+    acceptance: "An ADR states the rule Forge follows with Excel's answers for at least 6 placements of the subtraction; edge cases in validation/gnumeric cite Excel; a difference from Excel is fixed or written down in VALIDATION.md"
 
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"

@@ -1,6 +1,6 @@
 # ADR-065: How Two Numbers Compare
 
-**Status:** Accepted by merging (proposed and built in one pull request, as ADR-064 was); the Excel behaviour it follows is taken from Microsoft's documentation and Q&A answers, **not checked in Excel by hand**: the checks are listed below for whoever has Excel
+**Status:** Accepted by merging (proposed and built in one pull request, as ADR-064 was); the Excel behaviour it follows was taken from Microsoft's documentation and Q&A answers, and was **checked in Excel for iPhone on 2026-11-18**: Excel gives Forge's answer to all 13 formulas below (roadmap T1-EXCEL-EQUALITY)
 **Date:** 2026-11-17
 **Decided by:** the maintainer asked for roadmap item T1-EQUAL-NEAR-ZERO ("go with T1-EQUAL-NEAR-ZERO", 2026-11-17), without Excel at hand; the design is Claude's, in a session configured for Opus 5.5
 **Closes:** roadmap T1-EQUAL-NEAR-ZERO, found by the generated `HLOOKUP` cases of ADR-062
@@ -37,27 +37,29 @@ The other engines measured on 2026-11-17 (`validation/gnumeric/tests/edge/edge_e
 4. **`RANK` finds its number in the list exactly**, as an exact lookup does, as LibreOffice does. Counting the values above it was already exact.
 5. **Arithmetic does not change.** Excel sets a final subtraction that is very close to zero to zero (`=0.1+0.2-0.3` is 0 in LibreOffice too); Forge gives 5.55E-17. That is a rule about arithmetic, not comparison, and is left for its own item.
 
-## Not checked in Excel
+## Checked in Excel
 
-The rule comes from documentation. These are the cases where the engines differ, or the documentation leaves the answer open. Each row is what Forge now gives; type the formula into Excel to check it.
+The rule came from documentation. These are the cases where the engines differ, or the documentation leaves the answer open. They were checked in the Excel app for iPhone on 2026-11-18, in a workbook that calculated each formula and compared it with Forge's answer, read from a screenshot of the sheet (`0.3` was in A1:A2 of a second sheet). Excel gives Forge's answer to all 13.
 
-| Formula | Forge | LibreOffice 26.2 | Gnumeric 1.12 |
-| --- | --- | --- | --- |
-| `=0.1+0.2=0.3` | TRUE | TRUE | FALSE |
-| `=0.1+0.2<=0.3` | TRUE | TRUE | FALSE |
-| `=0.1+0.2>0.3` | FALSE | FALSE | TRUE |
-| `=1+1E-15=1` | TRUE | TRUE | FALSE |
-| `=1+1E-14=1` | FALSE | FALSE | FALSE |
-| `=1E15+1=1E15` | TRUE | FALSE | FALSE |
-| `=1E15+0.2=1E15` | TRUE | TRUE | FALSE |
-| `=-1E-12=0` | FALSE | FALSE | FALSE |
-| `=MATCH(0.1+0.2,{0.3},0)` | #N/A | #N/A | #N/A |
-| `=XLOOKUP(0.1+0.2,A1:A2,A1:A2)` with 0.3 in A1:A2 | #N/A | 0.3 | (none) |
-| `=COUNTIF(A1:A2,0.1+0.2)` with 0.3 in A1:A2 | 2 | 2 | 0 |
-| `=SWITCH(0.1+0.2,0.3,1,0)` | 1 | 1 | 0 |
-| `=RANK(0.1+0.2,A1:A2)` with 0.3 in A1:A2 | #N/A | #N/A | 1 |
+| Formula | Forge | Excel (iPhone, 2026-11-18) | LibreOffice 26.2 | Gnumeric 1.12 |
+| --- | --- | --- | --- | --- |
+| `=0.1+0.2=0.3` | TRUE | TRUE | TRUE | FALSE |
+| `=0.1+0.2<=0.3` | TRUE | TRUE | TRUE | FALSE |
+| `=0.1+0.2>0.3` | FALSE | FALSE | FALSE | TRUE |
+| `=1+1E-15=1` | TRUE | TRUE | TRUE | FALSE |
+| `=1+1E-14=1` | FALSE | FALSE | FALSE | FALSE |
+| `=1E15+1=1E15` | TRUE | TRUE | FALSE | FALSE |
+| `=1E15+0.2=1E15` | TRUE | TRUE | TRUE | FALSE |
+| `=-1E-12=0` | FALSE | FALSE | FALSE | FALSE |
+| `=MATCH(0.1+0.2,{0.3},0)` | #N/A | #N/A | #N/A | #N/A |
+| `=XLOOKUP(0.1+0.2,A1:A2,A1:A2)` with 0.3 in A1:A2 | #N/A | #N/A | 0.3 | (none) |
+| `=COUNTIF(A1:A2,0.1+0.2)` with 0.3 in A1:A2 | 2 | 2 | 2 | 0 |
+| `=SWITCH(0.1+0.2,0.3,1,0)` | 1 | 1 | 1 | 0 |
+| `=RANK(0.1+0.2,A1:A2)` with 0.3 in A1:A2 | #N/A | #N/A | #N/A | 1 |
 
-`1E15+1=1E15` is the one where Forge follows the documented rule against both engines. `1000000000000001` has 16 significant digits, and to 15 it is `1E15`.
+`1E15+1=1E15` is the one where Forge follows the documented rule against both engines, and Excel agrees with Forge: `1000000000000001` has 16 significant digits, and to 15 it is `1E15`. `XLOOKUP` over a range of cells gives #N/A in Excel, as in Forge, where LibreOffice finds 0.3.
+
+The same sheet had the two subtractions of point 5: Excel gives `=0.1+0.2-0.3` as 0 (Forge 5.55E-17) and `=1E15+0.2-1E15` as 0 (Forge 0.25), so Excel sets a final subtraction near zero to zero. Forge does not; that is a difference from Excel in arithmetic, not in comparison, and roadmap T1-EXCEL-SUBTRACTION decides it.
 
 ## Consequences
 
