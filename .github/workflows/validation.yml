@@ -109,14 +109,19 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Install R and packages
-        # As the Gnumeric job's install. This one took 3 minutes on one run
-        # and 155 on another the same morning (2026-11-18) and passed; a limit
-        # of 45 failed it, so the limit is above what has been seen.
+        # This one took 3 minutes on one run and 155 on another the same
+        # morning (2026-11-18) and passed; a limit of 45 failed it, so the
+        # limit is above what has been seen. The 155 were apt downloading 866
+        # packages (849 MB): `r-base` brings R's recommended packages, and
+        # those bring GDAL, a speech recogniser and a JavaScript runtime. The
+        # validators use none of them, so R is `r-base-core` with the
+        # compilers the CRAN packages below are built with (`r-base-dev`),
+        # and no recommended packages: 20 packages.
         timeout-minutes: 180
         run: |
           sudo apt-get update
-          sudo apt-get install -y r-base r-cran-jsonlite r-cran-boot r-cran-mvtnorm
-          sudo Rscript -e 'install.packages(c("data.tree", "mc2d", "derivmkts"), repos = "https://cloud.r-project.org")'
+          sudo apt-get install -y --no-install-recommends r-base-core r-base-dev r-cran-jsonlite r-cran-boot r-cran-mvtnorm
+          sudo Rscript -e 'install.packages(c("data.tree", "mc2d", "derivmkts"), repos = "https://cloud.r-project.org", Ncpus = 4)'
           # The current bnlearn needs R 4.4; Ubuntu 24.04 has R 4.3, so use an older release.
           sudo Rscript -e 'for (v in c("4.9.4", "4.9.3", "4.9.2", "4.9.1", "4.9", "4.8.3")) { if (!requireNamespace("bnlearn", quietly = TRUE)) try(install.packages(paste0("https://cloud.r-project.org/src/contrib/Archive/bnlearn/bnlearn_", v, ".tar.gz"), repos = NULL, type = "source")) }; library(bnlearn); cat("bnlearn", as.character(packageVersion("bnlearn")), "\n")'
       - name: Build Forge
