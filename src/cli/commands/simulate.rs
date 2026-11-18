@@ -1274,4 +1274,54 @@ revenue:
             }
         }
     }
+
+    mod microgrid_example {
+        //! `examples/microgrid/microgrid_risk.yaml`: futures for Ilha Corva. The
+        //! README quotes the file's 10,000 runs; this runs 1,000 of them, which
+        //! keep the README's claims: the project is worth more than nothing in
+        //! every future, the loan's cover never falls below 1.2, and the diesel
+        //! price drives the value most. Three of the futures are calculated
+        //! again by the plain model with that future's inputs, so the simulation
+        //! is shown to run the model and nothing else.
+
+        use crate::cli::{simulate_core, SimulateOptions};
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/microgrid/microgrid_risk.yaml";
+
+        #[test]
+        fn the_microgrid_pays_in_every_future_and_the_loan_is_always_covered() {
+            let options = SimulateOptions {
+                iterations: Some(1000),
+                ..SimulateOptions::default()
+            };
+            let result = simulate_core(Path::new(MODEL), options).unwrap();
+            assert_eq!(result.iterations_completed, 1000);
+            let npv = &result.outputs["verdict.project_npv"];
+            let p = &npv.threshold_probabilities;
+            assert!((p["> 0"] - 1.0).abs() <= 0.0, "{p:?}");
+            assert!(npv.statistics.min > 0.0, "{}", npv.statistics.min);
+            let dscr = &result.outputs["verdict.min_dscr"].threshold_probabilities;
+            assert!(dscr["< 1.2"].abs() <= 0.0, "{dscr:?}");
+            assert!(dscr["< 1.0"].abs() <= 0.0, "{dscr:?}");
+            // The diesel price drives the value most
+            assert_eq!(npv.drivers[0].input, "fuel.diesel_price");
+
+            for run in [0, 499, 999] {
+                let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+                for (input, samples) in &result.input_samples {
+                    model
+                        .override_scalar(input, Some(samples[run]), None)
+                        .unwrap();
+                }
+                let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
+                let value = calculated.scalars["verdict.project_npv"].value.unwrap();
+                assert!(
+                    (value - npv.samples[run]).abs() <= 1e-6,
+                    "run {run}: {value}"
+                );
+            }
+        }
+    }
 }

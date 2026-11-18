@@ -23,6 +23,25 @@ pub struct ExcelExporter {
     includes: Vec<(String, ParsedModel, WorkbookRefs)>,
 }
 
+/// How a scalar formula that Excel cannot express is written, for its warning
+/// and its note: an uncertain input (`MC.*`) as its plan value, the value
+/// `forge simulate` shows the outputs at; any other formula as its calculated
+/// value; and a formula with no value, in a model that does not calculate,
+/// left empty.
+fn written_as(formula: &str, value: Option<f64>, reason: &str) -> String {
+    let uncertain = formula
+        .trim_start_matches('=')
+        .trim_start()
+        .starts_with("MC.");
+    match value {
+        Some(plan) if uncertain => {
+            format!("written as its plan value {plan} ({reason}; forge simulate draws it)")
+        },
+        Some(_) => format!("written as a value ({reason})"),
+        None => format!("left empty ({reason})"),
+    }
+}
+
 impl ExcelExporter {
     /// Create a new Excel exporter.
     ///
@@ -385,10 +404,9 @@ impl ExcelExporter {
             match translated {
                 Some((_, Ok(t))) => Self::write_scalar_formula(worksheet, row, var, &t)?,
                 Some((formula, Err(reason))) => {
-                    warnings.push(format!("{path}: written as a value ({reason}): {formula}"));
-                    notes.push(format!(
-                        "Forge formula: {formula}\nWritten as a value: {reason}"
-                    ));
+                    let written = written_as(formula, var.value, &reason);
+                    warnings.push(format!("{path}: {written}: {formula}"));
+                    notes.push(format!("Forge formula: {formula}\n{written}"));
                     Self::write_scalar_value(worksheet, row, var)?;
                 },
                 None => Self::write_scalar_value(worksheet, row, var)?,
@@ -446,12 +464,9 @@ impl ExcelExporter {
                 Some((_, Ok(t))) => Self::write_scalar_formula(worksheet, row, var, &t)?,
                 other => {
                     if let Some((formula, Err(reason))) = other {
-                        warnings.push(format!(
-                            "@{namespace}.{path}: written as a value ({reason}): {formula}"
-                        ));
-                        notes.push(format!(
-                            "Forge formula: {formula}\nWritten as a value: {reason}"
-                        ));
+                        let written = written_as(formula, var.value, &reason);
+                        warnings.push(format!("@{namespace}.{path}: {written}: {formula}"));
+                        notes.push(format!("Forge formula: {formula}\n{written}"));
                     }
                     Self::write_scalar_value(worksheet, row, var)?;
                 },

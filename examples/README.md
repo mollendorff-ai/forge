@@ -19,6 +19,7 @@ Each has a README with the numbers it should print. All figures are made up.
 | [`periods/`](periods/) | Two small models over time: a monthly plan and a five-year DCF, using period columns and `PREV`. |
 | [`rolling-forecast/`](rolling-forecast/) | The model an FP&A team updates every month: actuals up to October, forecast for the rest. |
 | [`capex-plan/`](capex-plan/) | A machine bought on a loan: payment schedule, depreciation and a revenue trend. |
+| [`microgrid/`](microgrid/) | An island trading diesel for solar and a battery over 20 years: the battery's replacement, the loan, scenarios, a simulation and a decision tree. |
 | [`options/`](options/compare-options.yaml) | Two rentals compared. |
 
 Studio opens all of these except the one-command files below.

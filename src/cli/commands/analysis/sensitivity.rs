@@ -580,4 +580,59 @@ out:
             assert_eq!(entries[0]["output"], 7_693_647.272_727_27);
         }
     }
+
+    mod microgrid_sizes {
+        //! examples/microgrid: the plan's 3.4 megawatts of solar and 10 megawatt-hours
+        //! of battery are the best sizes; a size either side is worth less. The `run` of
+        //! the Python in prediction/scenarios.rs (`microgrid_example`):
+        //! ```python
+        //! run(batt=8), run(batt=10), run(batt=12)  # 11934790.42001938 13161304.863400452 12708614.061956115
+        //! run(mwp=3.0), run(mwp=3.8)               # 12813461.91775453 12650614.202066816
+        //! ```
+
+        use crate::cli::sensitivity_core;
+        use std::path::Path;
+
+        fn sweep(vary: &str, range: &str) -> Vec<f64> {
+            let result = sensitivity_core(
+                Path::new("examples/microgrid/microgrid.yaml"),
+                vary,
+                range,
+                None,
+                None,
+                "verdict.project_npv",
+            )
+            .unwrap();
+            let json = serde_json::to_value(result.data).unwrap();
+            let entries = json["OneVar"]["entries"].as_array().unwrap();
+            entries
+                .iter()
+                .map(|e| e["output"].as_f64().unwrap())
+                .collect()
+        }
+
+        #[test]
+        fn the_plan_is_the_best_size_of_battery_and_of_solar() {
+            let battery = sweep("system.battery_mwh", "8,12,2");
+            let want = [
+                11_934_790.420_019_38,
+                13_161_304.863_400_452,
+                12_708_614.061_956_115,
+            ];
+            assert_eq!(battery.len(), want.len());
+            for (got, want) in battery.iter().zip(want) {
+                assert!((got - want).abs() <= 1e-6, "{got}, not {want}");
+            }
+            let solar = sweep("system.solar_mwp", "3.0,3.8,0.4");
+            let want = [
+                12_813_461.917_754_53,
+                13_161_304.863_400_452,
+                12_650_614.202_066_816,
+            ];
+            assert_eq!(solar.len(), want.len());
+            for (got, want) in solar.iter().zip(want) {
+                assert!((got - want).abs() <= 1e-6, "{got}, not {want}");
+            }
+        }
+    }
 }

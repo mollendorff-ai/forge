@@ -259,4 +259,85 @@ plan:
             );
         }
     }
+
+    mod microgrid_example {
+        //! The tornado of examples/microgrid: each input of `tornado:` moved alone
+        //! to its low and high, as the `run` of the Python in
+        //! prediction/scenarios.rs (`microgrid_example`) gives it:
+        //! ```python
+        //! run(price=1.10), run(price=1.95)          # 7841813.091454271 20760578.82332357
+        //! run(rate=0.06), run(rate=0.10)            # 17355226.48723297 9916484.447146453
+        //! run(esc=0.01), run(esc=0.045)             # 9946176.727970488 16072140.515814856
+        //! run(growth=0.0), run(growth=0.05)         # 10131332.837667756 14240595.342762135
+        //! run(batt_cost=280e3), run(batt_cost=480e3)  # 14397190.43603617 11925419.290764734
+        //! run(batt=7), run(batt=13)                 # 10911856.19285597 12169816.338769991
+        //! run(yld=1350), run(yld=1700)              # 12187822.241630089 13161304.863400452
+        //! ```
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_diesel_price_moves_the_value_most() {
+            let result =
+                tornado_core(Path::new("examples/microgrid/microgrid.yaml"), None).unwrap();
+            let expected = [
+                (
+                    "fuel.diesel_price",
+                    7_841_813.091_454_271,
+                    20_760_578.823_323_57,
+                ),
+                (
+                    "finance.discount_rate",
+                    17_355_226.487_232_97,
+                    9_916_484.447_146_453,
+                ),
+                (
+                    "fuel.price_escalation",
+                    9_946_176.727_970_488,
+                    16_072_140.515_814_856,
+                ),
+                (
+                    "demand.growth",
+                    10_131_332.837_667_756,
+                    14_240_595.342_762_135,
+                ),
+                (
+                    "costs.battery_per_mwh",
+                    14_397_190.436_036_17,
+                    11_925_419.290_764_734,
+                ),
+                (
+                    "system.battery_mwh",
+                    10_911_856.192_855_97,
+                    12_169_816.338_769_991,
+                ),
+                (
+                    "system.solar_yield_mwh_per_mwp",
+                    12_187_822.241_630_089,
+                    13_161_304.863_400_452,
+                ),
+            ];
+            // In order of the swing, largest first
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!(
+                    (bar.output_at_low - low).abs() <= 1e-6,
+                    "{name} low {}",
+                    bar.output_at_low
+                );
+                assert!(
+                    (bar.output_at_high - high).abs() <= 1e-6,
+                    "{name} high {}",
+                    bar.output_at_high
+                );
+            }
+            // The plan sits at the best battery size: both ends of its range are worse
+            let battery = &result.bars[5];
+            assert!(battery.output_at_low < result.base_value);
+            assert!(battery.output_at_high < result.base_value);
+        }
+    }
 }

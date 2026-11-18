@@ -234,4 +234,118 @@ scalars:
             assert!(!text.contains("786.320362"), "{text}");
         }
     }
+
+    mod microgrid_example {
+        //! The numbers in examples/microgrid/README.md, as computed outside Forge.
+        //!
+        //! The island, year by year, written from the model's description and
+        //! not from its formulas:
+        //! ```python
+        //! def run(mwp=3.4, batt=10.0, price=1.45, esc=0.03, yld=1550.0, growth=0.025,
+        //!         demand0=4200.0, batt_cost=380e3, rate=0.08, tenor=10):
+        //!     capex = mwp * 1.1e6 + batt * batt_cost + 600e3
+        //!     debt = capex * 0.7; ds = debt * 0.065 / (1 - 1.065 ** -tenor)
+        //!     for n in range(1, 21):
+        //!         d = demand0 * (1 + growth) ** (n - 1)              # demand, MWh
+        //!         s = mwp * yld * 0.995 ** (n - 1)                    # solar made
+        //!         b = batt * 0.975 ** (n - 11 if n >= 11 else n - 1)  # new battery in year 11
+        //!         used = min(s, d * min(0.9, 0.3 + 0.9 * b / (d / 365)))
+        //!         dz = d - used; p = price * (1 + esc) ** (n - 1)
+        //!         base = d * 1000 / 3.5 * p + d * 35 + 60000
+        //!         opex = dz * 1000 / 3.5 * p + dz * 35 + 60000 + mwp * 18000 + b * 8000
+        //!         cash = base - opex - (batt * batt_cost * 0.55 if n == 11 else 0)
+        //!         # npv at rate less capex; irr by bisection; dscr = cash / ds while n <= tenor;
+        //!         # co2 = used * 1000 / 3.5 * 2.68 / 1000; cost per MWh = discounted costs /
+        //!         # discounted MWh (the microgrid's with its capex)
+        //! run()  # npv 13161304.863400452, irr 0.2301599113695468, equity irr
+        //!        # 0.4109006868386767, payback year 5, lowest dscr 1.9645011477468062,
+        //!        # co2 67755.24589294654, per MWh 575.8562601026869 (diesel) and
+        //!        # 310.0629548448688, curtailed 0.11989415956599792, solar share in year 20
+        //!        # 0.6895598431868311
+        //! run(price=1.10, esc=0.01)    # cheap diesel: npv 5402750.368024642, dscr 1.487600862698773
+        //! run(price=1.95, esc=0.045)   # fuel shock: npv 24675150.907605007, dscr 2.6457872692439968
+        //! run(yld=1350, growth=0.05)   # cloudy and hungry: npv 12797727.120385006
+        //! # weighted 0.45 / 0.20 / 0.15 / 0.20: 13263955.322352886
+        //! ```
+        //! The tornado, break-even, sweeps and decision tree of the README are this
+        //! function with other arguments; their tests are with those commands.
+
+        use crate::cli::scenarios_core;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/microgrid/microgrid.yaml";
+
+        fn close(a: f64, b: f64, tol: f64) -> bool {
+            (a - b).abs() <= tol
+        }
+
+        #[test]
+        fn the_plan_matches_the_independent_calculation() {
+            let results = scenarios_core(Path::new(MODEL), Some("base")).unwrap();
+            let base = &results.scenarios[0].outputs;
+            let expected = [
+                ("verdict.project_npv", 13_161_304.863_400_452, 1e-6),
+                ("verdict.project_irr", 0.230_159_911_369_546_8, 1e-9),
+                ("verdict.equity_irr", 0.410_900_686_838_676_7, 1e-9),
+                ("verdict.payback_year", 5.0, 0.0),
+                ("verdict.min_dscr", 1.964_501_147_746_806_2, 1e-12),
+                ("verdict.co2_avoided_t", 67_755.245_892_946_54, 1e-8),
+                ("verdict.lcoe_diesel", 575.856_260_102_686_9, 1e-9),
+                ("verdict.lcoe_microgrid", 310.062_954_844_868_8, 1e-9),
+                (
+                    "verdict.solar_curtailed_share",
+                    0.119_894_159_565_997_92,
+                    1e-12,
+                ),
+                ("verdict.first_year_renewable_share", 0.9, 1e-12),
+                (
+                    "verdict.last_year_renewable_share",
+                    0.689_559_843_186_831_1,
+                    1e-12,
+                ),
+            ];
+            for (name, want, tol) in expected {
+                let got = base[name];
+                assert!(close(got, want, tol), "{name}: {got}, not {want}");
+            }
+            // The tightest year for the lender is the first: the loan is repaid
+            // before the battery is replaced in year 11
+            assert!(close(base["verdict.min_dscr_year"], 1.0, 0.0));
+        }
+
+        #[test]
+        fn each_scenario_matches_the_independent_calculation() {
+            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let expected = [
+                ("base", 13_161_304.863_400_452, 1.964_501_147_746_806_2),
+                ("cheap_diesel", 5_402_750.368_024_642, 1.487_600_862_698_773),
+                (
+                    "fuel_shock",
+                    24_675_150.907_605_007,
+                    2.645_787_269_243_996_8,
+                ),
+                (
+                    "cloudy_and_hungry",
+                    12_797_727.120_385_006,
+                    1.964_501_147_746_806_2,
+                ),
+            ];
+            assert_eq!(results.scenarios.len(), expected.len());
+            for (name, npv, dscr) in expected {
+                let scenario = results.scenarios.iter().find(|s| s.name == name).unwrap();
+                let got = scenario.outputs["verdict.project_npv"];
+                assert!(close(got, npv, 1e-6), "{name}: npv {got}, not {npv}");
+                let got = scenario.outputs["verdict.min_dscr"];
+                assert!(close(got, dscr, 1e-12), "{name}: dscr {got}, not {dscr}");
+            }
+            let weighted = results.expected_values["verdict.project_npv"];
+            assert!(close(weighted, 13_263_955.322_352_886, 1e-6), "{weighted}");
+            // Profitable whatever happens; cheap diesel is the case that hurts
+            assert!(close(
+                results.probability_positive["verdict.project_npv"],
+                1.0,
+                0.0
+            ));
+        }
+    }
 }
