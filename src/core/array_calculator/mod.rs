@@ -1118,7 +1118,10 @@ mod tests {
         fn sixteen_thousand_rows_of_sumif_calculate_in_time() {
             // SUMIF reads its ranges another way (collect_values_as_vec)
             let (took, values) = run("=SUMIF(d.k, k, d.v)");
-            in_time(took, Duration::from_secs(2), "SUMIF");
+            // A CI runner took 2.09 s and 2.19 s, which failed the old 2 s limit
+            // twice on main. 5 s still fails the copies this test guards against:
+            // they took 6.3 s on a faster machine.
+            in_time(took, Duration::from_secs(5), "SUMIF");
             assert_eq!(values, expected());
         }
     }
