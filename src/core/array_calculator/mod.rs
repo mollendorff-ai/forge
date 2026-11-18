@@ -49,6 +49,25 @@ pub struct ArrayCalculator {
     step: Option<usize>,
 }
 
+/// What a calculation of every cell left: the failures, each starting with
+/// its cell's name; the cells not calculated because they use a failed one;
+/// and every failed or skipped cell.
+#[derive(Default)]
+struct Outcome {
+    failures: Vec<String>,
+    skipped: Vec<(Cell, Cell)>,
+    failed: std::collections::BTreeSet<Cell>,
+}
+
+impl Outcome {
+    /// The error for the failures, both lists in name order
+    fn report(mut self) -> ForgeError {
+        self.failures.sort();
+        self.skipped.sort_by_key(|(cell, _)| cell.label());
+        failure_report(&self.failures, &self.skipped)
+    }
+}
+
 impl ArrayCalculator {
     #[must_use]
     pub fn new(model: ParsedModel) -> Self {
@@ -87,6 +106,57 @@ impl ArrayCalculator {
     /// Panics if the model's table map is in an inconsistent state (should not
     /// occur with valid `ParsedModel` construction).
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
+        let outcome = self.calculate_cells()?;
+        if outcome.failures.is_empty() {
+            check_formula_formats(&self.model)?;
+            return Ok(self.model);
+        }
+        Err(outcome.report())
+    }
+
+    /// Calculate the model for one scalar, `name`, and return its value.
+    ///
+    /// Every cell is calculated, as [`Self::calculate_all`] does, but a failed
+    /// formula that `name` does not use does not fail the answer: a search
+    /// that moves an input (goal seek, break-even, sensitivity) can pass
+    /// through values where an output it does not ask for has no answer, such
+    /// as an IRR with cash flows of one sign.
+    ///
+    /// # Errors
+    ///
+    /// Returns the calculation's report when `name` failed or uses a failed
+    /// cell, or when the model cannot be calculated at all (a cycle, a table
+    /// of uneven columns); and an error when `name` is not a scalar with a
+    /// value.
+    pub fn calculate_scalar(mut self, name: &str) -> ForgeResult<f64> {
+        let outcome = self.calculate_cells()?;
+        if outcome.failed.contains(&Cell::Scalar(name.to_string())) {
+            return Err(outcome.report());
+        }
+        if outcome.failures.is_empty() {
+            check_formula_formats(&self.model)?;
+        }
+        self.model
+            .scalars
+            .get(name)
+            .ok_or_else(|| {
+                ForgeError::Validation(format!("Output variable '{name}' not found in model"))
+            })?
+            .value
+            .ok_or_else(|| ForgeError::Validation(format!("Output variable '{name}' has no value")))
+    }
+
+    /// Calculate every cell of the model in order. A failing cell does not
+    /// stop the calculation: every cell that does not use it is still
+    /// calculated, so all errors are reported at once. A failed cell gets no
+    /// value, so nothing can read a number from it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the model cannot be calculated at all: an
+    /// included file that fails, uneven columns in a table with row formulas,
+    /// or a cycle.
+    fn calculate_cells(&mut self) -> ForgeResult<Outcome> {
         self.fingerprint = plan::fingerprint(&self.model);
         (self.included, self.included_tables) = self.included_values()?;
 
@@ -116,45 +186,32 @@ impl ArrayCalculator {
         // One order for table columns and scalars together, so a column that
         // uses a calculated scalar, and a scalar that sums a calculated
         // column, both see the current value.
-        //
-        // A failing cell does not stop the calculation: every cell that does
-        // not use it is still calculated, so all errors are reported at once.
-        // A failed cell gets no value, so nothing can read a number from it,
-        // and the model as a whole still fails.
-        let mut failures: Vec<String> = Vec::new();
-        let mut skipped: Vec<(Cell, Cell)> = Vec::new();
-        let mut failed: std::collections::BTreeSet<Cell> = std::collections::BTreeSet::new();
+        let mut outcome = Outcome::default();
         let order = self.planned_order()?;
         for (step, (cell, dependencies)) in order.iter().enumerate() {
             self.step = Some(step);
-            let blocked_by = dependencies.iter().find(|dep| failed.contains(*dep));
+            let blocked_by = dependencies
+                .iter()
+                .find(|dep| outcome.failed.contains(*dep));
             if let Some(dep) = blocked_by {
-                skipped.push((cell.clone(), dep.clone()));
-                failed.extend(cell.members());
+                outcome.skipped.push((cell.clone(), dep.clone()));
+                outcome.failed.extend(cell.members());
                 continue;
             }
-            let outcome = match cell {
+            let result = match cell {
                 Cell::Column { table, column } => self.calculate_column(table, column),
-                Cell::Scalar(name) => self.calculate_scalar(name),
+                Cell::Scalar(name) => self.calculate_scalar_cell(name),
                 Cell::Columns { table, columns } => self.calculate_columns(table, columns),
             };
-            if let Err(e) = outcome {
-                failures.push(match e {
+            if let Err(e) = result {
+                outcome.failures.push(match e {
                     ForgeError::Eval(msg) => msg,
                     other => other.to_string(),
                 });
-                failed.extend(cell.members());
+                outcome.failed.extend(cell.members());
             }
         }
-
-        if failures.is_empty() {
-            check_formula_formats(&self.model)?;
-            return Ok(self.model);
-        }
-        // Each failure starts with its cell's name; list both in name order
-        failures.sort();
-        skipped.sort_by_key(|(cell, _)| cell.label());
-        Err(failure_report(&failures, &skipped))
+        Ok(outcome)
     }
 
     /// Calculate one row-formula column and store it in its table
@@ -176,7 +233,7 @@ impl ArrayCalculator {
     }
 
     /// Calculate one scalar formula and store its value
-    fn calculate_scalar(&mut self, scalar_name: &str) -> ForgeResult<()> {
+    fn calculate_scalar_cell(&mut self, scalar_name: &str) -> ForgeResult<()> {
         let Some(formula) = self
             .model
             .scalars
@@ -700,6 +757,75 @@ mod nan_inputs {
 
 #[cfg(test)]
 mod tests {
+
+    mod one_scalar {
+        //! `calculate_scalar` answers for one scalar: a failed formula that the
+        //! scalar does not use does not fail it, as it fails `calculate_all`.
+
+        use super::super::ArrayCalculator;
+        use crate::parser::parse_single_document_yaml;
+        use std::path::Path;
+
+        fn calculator(text: &str) -> ArrayCalculator {
+            let model = parse_single_document_yaml(
+                &format!("_forge_version: \"5.4.0\"\n{text}"),
+                Path::new("m.yaml"),
+            )
+            .unwrap();
+            ArrayCalculator::new(model)
+        }
+
+        const MODEL: &str = "s:\n  x: 4\n  y: {formula: \"=x * 2\"}\n  bad: {formula: \"=1 / 0\"}\n  uses_bad: {formula: \"=bad + y\"}\n";
+
+        #[test]
+        fn a_failure_the_scalar_does_not_use_is_left_out() {
+            let y = calculator(MODEL).calculate_scalar("s.y").unwrap();
+            assert!((y - 8.0).abs() <= 0.0, "{y}");
+            // calculate_all still fails on it
+            let err = calculator(MODEL).calculate_all().unwrap_err().to_string();
+            assert!(err.contains("s.bad"), "{err}");
+        }
+
+        #[test]
+        fn a_failure_the_scalar_uses_fails_it_with_the_report() {
+            for name in ["s.bad", "s.uses_bad"] {
+                let err = calculator(MODEL)
+                    .calculate_scalar(name)
+                    .unwrap_err()
+                    .to_string();
+                assert!(err.contains("s.bad: "), "{name}: {err}");
+            }
+            let err = calculator(MODEL)
+                .calculate_scalar("s.uses_bad")
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("s.uses_bad (uses s.bad)"), "{err}");
+        }
+
+        #[test]
+        fn a_scalar_that_is_not_there_or_has_no_value_is_an_error() {
+            let err = calculator(MODEL).calculate_scalar("s.nothing").unwrap_err();
+            assert!(err.to_string().contains("'s.nothing' not found"), "{err}");
+            let err = calculator("s:\n  empty: {value: null}\n")
+                .calculate_scalar("s.empty")
+                .unwrap_err();
+            assert!(err.to_string().contains("'s.empty' has no value"), "{err}");
+        }
+
+        #[test]
+        fn a_model_that_cannot_be_calculated_is_an_error() {
+            let err = calculator("s:\n  a: {formula: \"=b\"}\n  b: {formula: \"=a\"}\n")
+                .calculate_scalar("s.a")
+                .unwrap_err();
+            assert!(err.to_string().contains("depend on each other"), "{err}");
+            // With every formula calculated, the formats are checked as by
+            // calculate_all
+            let err = calculator("s:\n  d: {formula: \"=1 + 1\", format: \"yyyy-mm-dd\"}\n")
+                .calculate_scalar("s.d")
+                .unwrap_err();
+            assert!(err.to_string().contains("is a date format"), "{err}");
+        }
+    }
 
     mod column_copies {
         //! A row formula that reads a whole column copied it for every row, so the

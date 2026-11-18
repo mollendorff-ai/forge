@@ -386,5 +386,28 @@ mod tests {
                 result.solution
             );
         }
+
+        /// Without bounds the search tries 1% and 100 times the price, where
+        /// the equity return has no answer (IRR needs a cash flow of each
+        /// sign). The value does not use it, so the search finds the same
+        /// price; it failed with the IRR's error.
+        #[test]
+        fn a_formula_the_value_does_not_use_does_not_stop_the_search() {
+            let result = goal_seek_core(
+                Path::new("examples/realestate/realestate.yaml"),
+                "valuation.npv",
+                0.0,
+                "deal.price",
+                (None, None),
+                0.0001,
+            )
+            .unwrap();
+            assert!(result.converged);
+            assert!(
+                (result.solution - 4_753_414.102_522_027).abs() <= 1e-3,
+                "{}",
+                result.solution
+            );
+        }
     }
 }

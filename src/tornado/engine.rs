@@ -238,21 +238,12 @@ impl TornadoEngine {
         self.calculate_output(&model)
     }
 
-    /// Calculate the output variable value
+    /// Calculate the output variable value. A formula the output does not use
+    /// may fail at an input's end of the range without failing the bar.
     fn calculate_output(&self, model: &ParsedModel) -> Result<f64, String> {
-        let calculator = ArrayCalculator::new(model.clone());
-        let result = calculator.calculate_all().map_err(|e| e.to_string())?;
-
-        result
-            .scalars
-            .get(&self.config.output)
-            .and_then(|v| v.value)
-            .ok_or_else(|| {
-                format!(
-                    "Output variable '{}' not found or has no value",
-                    self.config.output
-                )
-            })
+        ArrayCalculator::new(model.clone())
+            .calculate_scalar(&self.config.output)
+            .map_err(|e| e.to_string())
     }
 
     /// Get the configuration
@@ -327,6 +318,41 @@ mod engine_tests {
         );
 
         model
+    }
+
+    /// A formula the output does not use may fail at an input's end of the
+    /// range: `=1 / (cost_rate - 0.5)` divides by zero at 0.50. The profit
+    /// does not use it, so its bar is the profit's, 1,000,000 x (1 - 0.50) x
+    /// 0.75 = 375,000 and 1,000,000 x 0.30 x 0.75 = 225,000. The tornado
+    /// failed with the division's error.
+    #[test]
+    fn a_formula_the_output_does_not_use_does_not_stop_the_tornado() {
+        let mut model = create_test_model();
+        model.scalars.insert(
+            "per_point".to_string(),
+            Variable::new(
+                "per_point".to_string(),
+                None,
+                Some("=1 / (cost_rate - 0.5)".to_string()),
+            ),
+        );
+        let config =
+            TornadoConfig::new("profit").with_input(InputRange::new("cost_rate", 0.50, 0.70));
+        let result = TornadoEngine::new(config, model)
+            .unwrap()
+            .analyze()
+            .unwrap();
+        let bar = &result.bars[0];
+        assert!(
+            (bar.output_at_low - 375_000.0).abs() <= 1e-6,
+            "{}",
+            bar.output_at_low
+        );
+        assert!(
+            (bar.output_at_high - 225_000.0).abs() <= 1e-6,
+            "{}",
+            bar.output_at_high
+        );
     }
 
     #[test]

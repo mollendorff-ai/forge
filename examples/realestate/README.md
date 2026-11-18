@@ -35,13 +35,11 @@ The building is worth what it costs at a price of 4,753,414.10 (`forge break-eve
 forge calculate examples/realestate/realestate.yaml --dry-run
 forge scenarios examples/realestate/realestate.yaml
 forge tornado examples/realestate/realestate.yaml
-forge break-even examples/realestate/realestate.yaml --output valuation.npv --vary deal.price --min 4000000 --max 5500000
+forge break-even examples/realestate/realestate.yaml --output valuation.npv --vary deal.price
 forge simulate examples/realestate/realestate_risk.yaml
 forge simulate examples/realestate/realestate_flex.yaml
 forge simulate examples/realestate/realestate_flex.yaml --scenario random_walk
 ```
-
-`forge break-even` needs `--min` and `--max` here: far from the price, the equity return has no answer and the search stops on it.
 
 **Checked outside Forge:** the building was written again in Python from this description, not from the model's formulas, and its plan, scenarios, tornado and break-even agree with Forge's to 1e-6. The Python is in `src/cli/commands/prediction/scenarios.rs`, and the tests are in a `realestate_*` module beside each command. For the flexibility, three market paths (the plan, a bust then a boom, and an early boom that lasts) were written again in Python, and Forge's value held, value sold by the rule and year of sale agree with them; a test also checks that the right to sell early is worth more than nothing with cycles and less in a random walk (`src/cli/commands/simulate/mod.rs`, `realestate_flexibility`). Tests calculate three of each simulation's futures again with the plain model. The simulations' percentiles are Forge's own.
 
