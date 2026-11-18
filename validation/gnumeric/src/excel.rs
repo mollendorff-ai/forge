@@ -64,17 +64,33 @@ impl CellValue {
 }
 
 impl From<&Data> for CellValue {
-    #[allow(clippy::cast_precision_loss)]
     fn from(dt: &Data) -> Self {
         match dt {
             Data::Empty => Self::Empty,
-            Data::Int(i) => Self::Number(*i as f64),
+            Data::Int(i) => Self::Number(whole(*i)),
             Data::Float(f) => Self::Number(*f),
             Data::String(s) | Data::DateTimeIso(s) | Data::DurationIso(s) => Self::Text(s.clone()),
             Data::Bool(b) => Self::Bool(*b),
             Data::Error(e) => Self::Error(format!("{e:?}")),
             Data::DateTime(dt) => Self::Number(dt.as_f64()),
         }
+    }
+}
+
+/// An integer cell as a number: exact up to 2^53, as every number Excel keeps
+/// is, and the nearest number above it. Built from 32-bit halves, which
+/// convert without loss; this crate checks Forge from outside and does not
+/// link it, so it does not share Forge's own conversion.
+fn whole(n: i64) -> f64 {
+    let [b0, b1, b2, b3, b4, b5, b6, b7] = n.unsigned_abs().to_le_bytes();
+    let magnitude = f64::from(u32::from_le_bytes([b4, b5, b6, b7])).mul_add(
+        4_294_967_296.0,
+        f64::from(u32::from_le_bytes([b0, b1, b2, b3])),
+    );
+    if n < 0 {
+        -magnitude
+    } else {
+        magnitude
     }
 }
 
@@ -117,6 +133,22 @@ mod tests {
     fn cell_value_as_number() {
         let num = CellValue::Number(42.0);
         assert_eq!(num.as_number(), Some(42.0));
+    }
+
+    #[test]
+    fn an_integer_cell_is_its_number_with_its_sign() {
+        for (cell, number) in [
+            (0, 0.0),
+            (7, 7.0),
+            (-7, -7.0),
+            (4_294_967_296, 4_294_967_296.0),
+            (9_007_199_254_740_992, 9_007_199_254_740_992.0),
+            // Above 2^53 the nearest number, a tie to the even one
+            (9_007_199_254_740_993, 9_007_199_254_740_992.0),
+            (i64::MIN, -9_223_372_036_854_775_808.0),
+        ] {
+            assert_eq!(CellValue::from(&Data::Int(cell)), CellValue::Number(number));
+        }
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! Date arithmetic and extraction functions: YEAR, MONTH, DAY, DATE, EDATE, EOMONTH, DAYS
 
+use crate::core::precision;
 use chrono::{Days, Months, NaiveDate};
 use num_traits::ToPrimitive;
 
@@ -8,159 +9,172 @@ use super::{
 };
 
 /// Try to evaluate a date arithmetic function.
-#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
-// A day count becomes a number. Splitting this match would fragment the date
-// function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     let result = match name {
-        "YEAR" => {
-            require_args(name, args, 1)?;
-            let val = evaluate(&args[0], ctx)?;
-            let date = parse_date_value(&val)?;
-            Value::Number(f64::from(date.year()))
-        },
-
-        "MONTH" => {
-            require_args(name, args, 1)?;
-            let val = evaluate(&args[0], ctx)?;
-            let date = parse_date_value(&val)?;
-            Value::Number(f64::from(date.month()))
-        },
-
-        "DAY" => {
-            require_args(name, args, 1)?;
-            let val = evaluate(&args[0], ctx)?;
-            let date = parse_date_value(&val)?;
-            Value::Number(f64::from(date.day()))
-        },
-
-        "DATE" => {
-            require_args(name, args, 3)?;
-            let year = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DATE: year must be a number"))?;
-            let month = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DATE: month must be a number"))?;
-            let day = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DATE: day must be a number"))?;
-
-            // Excel cuts each to a whole number. A year from 0 to 1899 is that
-            // many years after 1900 (DATE(99, 1, 1) is 1999-01-01); below 0 or
-            // from 10000 is #NUM!
-            let Some(whole_year) = year.to_i32().filter(|y| (0..10_000).contains(y)) else {
-                return Err(EvalError::new(format!(
-                    "#NUM!: DATE year must be from 0 to 9999, got {year}"
-                )));
-            };
-            let whole_year = if whole_year < 1900 {
-                whole_year + 1900
-            } else {
-                whole_year
-            };
-            // The month and the day count on from January 1, either way:
-            // month 0 is the December before, day 0 the month before's last
-            // day, and 13 or 32 run into the next. One past an i32 is past
-            // every calendar.
-            let january = NaiveDate::from_ymd_opt(whole_year, 1, 1).unwrap();
-            let date = month
-                .to_i32()
-                .and_then(|m| add_months(january, i64::from(m) - 1))
-                .zip(day.to_i32())
-                .and_then(|(first, d)| add_days(first, i64::from(d) - 1))
-                .ok_or_else(|| {
-                    EvalError::new(format!(
-                        "#NUM!: DATE({year}, {month}, {day}) is past every date"
-                    ))
-                })?;
-            // A date, as EDATE and EOMONTH give (ADR-060): its day number
-            // (days since 1899-12-30) wherever a number is read. Before
-            // 1900-03-01, which Excel cannot hold as a date, the day number.
-            let excel_base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
-            let first = NaiveDate::from_ymd_opt(1900, 3, 1).unwrap();
-            if date > NaiveDate::from_ymd_opt(9999, 12, 31).unwrap() {
-                return Err(EvalError::new(format!(
-                    "#NUM!: DATE gives {date}, after 9999-12-31, the last date Excel holds"
-                )));
-            }
-            if date >= first {
-                Value::Text(date.format("%Y-%m-%d").to_string())
-            } else {
-                Value::Number((date - excel_base).num_days() as f64)
-            }
-        },
-
-        "EDATE" => {
-            require_args(name, args, 2)?;
-            let start_date = evaluate(&args[0], ctx)?;
-            let months = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("EDATE requires months as number"))?;
-
-            let date = parse_date_value(&start_date)?;
-
-            // Whole months, as Excel cuts them
-            let result = months
-                .to_i64()
-                .and_then(|months| add_months(date, months))
-                .ok_or_else(|| {
-                    EvalError::new(format!("#NUM!: EDATE: {months} months is past every date"))
-                })?;
-
-            Value::Text(result.format("%Y-%m-%d").to_string())
-        },
-
-        "EOMONTH" => {
-            require_args(name, args, 2)?;
-            let start_date = evaluate(&args[0], ctx)?;
-            let months = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("EOMONTH requires months as number"))?;
-
-            let date = parse_date_value(&start_date)?;
-
-            let adjusted = months
-                .to_i64()
-                .and_then(|months| add_months(date, months))
-                .ok_or_else(|| {
-                    EvalError::new(format!(
-                        "#NUM!: EOMONTH: {months} months is past every date"
-                    ))
-                })?;
-
-            // Get last day of that month
-            let year = adjusted.year();
-            let month = adjusted.month();
-            let last_day = if month == 12 {
-                NaiveDate::from_ymd_opt(year + 1, 1, 1).and_then(|d| d.pred_opt())
-            } else {
-                NaiveDate::from_ymd_opt(year, month + 1, 1).and_then(|d| d.pred_opt())
-            }
-            .ok_or_else(|| EvalError::new("EOMONTH: Invalid date result"))?;
-
-            Value::Text(last_day.format("%Y-%m-%d").to_string())
-        },
-
-        "DAYS" => {
-            require_args(name, args, 2)?;
-            let end = evaluate(&args[0], ctx)?;
-            let start = evaluate(&args[1], ctx)?;
-
-            let end_date = parse_date_value(&end)?;
-            let start_date = parse_date_value(&start)?;
-
-            Value::Number((end_date - start_date).num_days() as f64)
-        },
-
+        "YEAR" => eval_year(name, args, ctx)?,
+        "MONTH" => eval_month(name, args, ctx)?,
+        "DAY" => eval_day(name, args, ctx)?,
+        "DATE" => eval_date(name, args, ctx)?,
+        "EDATE" => eval_edate(name, args, ctx)?,
+        "EOMONTH" => eval_eomonth(name, args, ctx)?,
+        "DAYS" => eval_days(name, args, ctx)?,
         _ => return Ok(None),
     };
 
     Ok(Some(result))
+}
+
+/// Evaluate `YEAR`.
+fn eval_year(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 1)?;
+    let val = evaluate(&args[0], ctx)?;
+    let date = parse_date_value(&val)?;
+    Ok(Value::Number(f64::from(date.year())))
+}
+
+/// Evaluate `MONTH`.
+fn eval_month(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 1)?;
+    let val = evaluate(&args[0], ctx)?;
+    let date = parse_date_value(&val)?;
+    Ok(Value::Number(f64::from(date.month())))
+}
+
+/// Evaluate `DAY`.
+fn eval_day(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 1)?;
+    let val = evaluate(&args[0], ctx)?;
+    let date = parse_date_value(&val)?;
+    Ok(Value::Number(f64::from(date.day())))
+}
+
+/// Evaluate `DATE`.
+fn eval_date(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 3)?;
+    let year = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DATE: year must be a number"))?;
+    let month = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DATE: month must be a number"))?;
+    let day = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DATE: day must be a number"))?;
+
+    // Excel cuts each to a whole number. A year from 0 to 1899 is that
+    // many years after 1900 (DATE(99, 1, 1) is 1999-01-01); below 0 or
+    // from 10000 is #NUM!
+    let Some(whole_year) = year.to_i32().filter(|y| (0..10_000).contains(y)) else {
+        return Err(EvalError::new(format!(
+            "#NUM!: DATE year must be from 0 to 9999, got {year}"
+        )));
+    };
+    let whole_year = if whole_year < 1900 {
+        whole_year + 1900
+    } else {
+        whole_year
+    };
+    // The month and the day count on from January 1, either way:
+    // month 0 is the December before, day 0 the month before's last
+    // day, and 13 or 32 run into the next. One past an i32 is past
+    // every calendar.
+    let january = NaiveDate::from_ymd_opt(whole_year, 1, 1).unwrap();
+    let date = month
+        .to_i32()
+        .and_then(|m| add_months(january, i64::from(m) - 1))
+        .zip(day.to_i32())
+        .and_then(|(first, d)| add_days(first, i64::from(d) - 1))
+        .ok_or_else(|| {
+            EvalError::new(format!(
+                "#NUM!: DATE({year}, {month}, {day}) is past every date"
+            ))
+        })?;
+    // A date, as EDATE and EOMONTH give (ADR-060): its day number
+    // (days since 1899-12-30) wherever a number is read. Before
+    // 1900-03-01, which Excel cannot hold as a date, the day number.
+    let excel_base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
+    let first = NaiveDate::from_ymd_opt(1900, 3, 1).unwrap();
+    if date > NaiveDate::from_ymd_opt(9999, 12, 31).unwrap() {
+        return Err(EvalError::new(format!(
+            "#NUM!: DATE gives {date}, after 9999-12-31, the last date Excel holds"
+        )));
+    }
+    Ok(if date >= first {
+        Value::Text(date.format("%Y-%m-%d").to_string())
+    } else {
+        Value::Number(precision::whole((date - excel_base).num_days()))
+    })
+}
+
+/// Evaluate `EDATE`.
+fn eval_edate(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let start_date = evaluate(&args[0], ctx)?;
+    let months = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("EDATE requires months as number"))?;
+
+    let date = parse_date_value(&start_date)?;
+
+    // Whole months, as Excel cuts them
+    let result = months
+        .to_i64()
+        .and_then(|months| add_months(date, months))
+        .ok_or_else(|| {
+            EvalError::new(format!("#NUM!: EDATE: {months} months is past every date"))
+        })?;
+
+    Ok(Value::Text(result.format("%Y-%m-%d").to_string()))
+}
+
+/// Evaluate `EOMONTH`.
+fn eval_eomonth(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let start_date = evaluate(&args[0], ctx)?;
+    let months = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("EOMONTH requires months as number"))?;
+
+    let date = parse_date_value(&start_date)?;
+
+    let adjusted = months
+        .to_i64()
+        .and_then(|months| add_months(date, months))
+        .ok_or_else(|| {
+            EvalError::new(format!(
+                "#NUM!: EOMONTH: {months} months is past every date"
+            ))
+        })?;
+
+    // Get last day of that month
+    let year = adjusted.year();
+    let month = adjusted.month();
+    let last_day = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1).and_then(|d| d.pred_opt())
+    } else {
+        NaiveDate::from_ymd_opt(year, month + 1, 1).and_then(|d| d.pred_opt())
+    }
+    .ok_or_else(|| EvalError::new("EOMONTH: Invalid date result"))?;
+
+    Ok(Value::Text(last_day.format("%Y-%m-%d").to_string()))
+}
+
+/// Evaluate `DAYS`.
+fn eval_days(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let end = evaluate(&args[0], ctx)?;
+    let start = evaluate(&args[1], ctx)?;
+
+    let end_date = parse_date_value(&end)?;
+    let start_date = parse_date_value(&start)?;
+
+    Ok(Value::Number(precision::whole(
+        (end_date - start_date).num_days(),
+    )))
 }
 
 /// `date` moved on by `months`, back for a negative count; `None` past the

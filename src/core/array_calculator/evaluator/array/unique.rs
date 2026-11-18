@@ -1,11 +1,9 @@
 //! UNIQUE and COUNTUNIQUE array functions
 
-// Unique casts: count of unique values (usize) to f64 (bounded by array length).
-#![allow(clippy::cast_precision_loss)]
-
 use crate::core::array_calculator::evaluator::{
     collect_values_as_vec, require_args, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::precision;
 
 /// Evaluate UNIQUE function - returns unique values from an array
 pub fn eval_unique(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -29,7 +27,7 @@ pub fn eval_countunique(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
     for v in values.iter() {
         seen.insert(v.as_text());
     }
-    Ok(Value::Number(seen.len() as f64))
+    Ok(Value::Number(precision::count(seen.len())))
 }
 
 #[cfg(test)]
@@ -91,8 +89,6 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -201,8 +197,6 @@ mod integration_tests {
 
 #[cfg(test)]
 mod edge_case_tests {
-    #![allow(clippy::approx_constant)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 

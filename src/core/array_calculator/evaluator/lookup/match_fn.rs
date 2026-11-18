@@ -1,12 +1,10 @@
 //! MATCH and XMATCH function implementations
 
-// A place in the array becomes a number.
-#![allow(clippy::cast_precision_loss)]
-
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::{excel_date_serial, number_or, wildcard};
+use crate::core::precision;
 use crate::core::precision::same;
 use num_traits::ToPrimitive;
 
@@ -41,7 +39,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         approximate_match(&lookup_value, &arr, match_type < 0.0)
     };
     found
-        .map(|i| Value::Number((i + 1) as f64))
+        .map(|i| Value::Number(precision::count(i + 1)))
         .ok_or_else(|| EvalError::new("#N/A: MATCH: value not found"))
 }
 
@@ -137,7 +135,7 @@ pub fn eval_xmatch(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     };
     xmatch_index("XMATCH", &lookup_value, &arr, match_mode, search_mode)?.map_or_else(
         || Err(EvalError::new("#N/A: XMATCH: value not found")),
-        |i| Ok(Value::Number((i + 1) as f64)),
+        |i| Ok(Value::Number(precision::count(i + 1))),
     )
 }
 

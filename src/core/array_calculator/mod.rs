@@ -711,6 +711,7 @@ mod tests {
         //! with the square of the rows; the copies were most of it.
 
         use crate::cli::calculate_core;
+        use crate::core::precision;
         use std::fmt::Write as _;
         use std::time::{Duration, Instant};
 
@@ -759,9 +760,10 @@ mod tests {
         }
 
         /// Row i of q looks up key (i * 7919) % ROWS, whose value is twice the key.
-        #[allow(clippy::cast_precision_loss)] // whole numbers under 2^53
         fn expected() -> Vec<f64> {
-            (0..ROWS).map(|i| ((i * 7919) % ROWS * 2) as f64).collect()
+            (0..ROWS)
+                .map(|i| precision::count((i * 7919) % ROWS * 2))
+                .collect()
         }
 
         #[test]
@@ -790,6 +792,7 @@ mod tests {
         use crate::cli::calculate_core;
         use crate::core::array_calculator::parser::{parse, MAX_DEPTH};
         use crate::core::array_calculator::tokenizer::tokenize;
+        use crate::core::precision;
 
         fn model(formula: &str) -> String {
             format!("_forge_version: \"5.1.0\"\nm:\n  x:\n    formula: \"={formula}\"\n")
@@ -824,7 +827,7 @@ mod tests {
                 .unwrap();
             (
                 format!("({}){}", chain(inner), "+1".repeat(outer)),
-                (inner + outer) as f64,
+                precision::count(inner + outer),
             )
         }
 
@@ -839,13 +842,16 @@ mod tests {
             let signs = format!("{}5", "-".repeat(pairs));
             assert_eq!(calculated(&signs), Ok(-5.0));
             let sum = vec!["1"; MAX_DEPTH].join("+");
-            assert_eq!(calculated(&sum), Ok(MAX_DEPTH as f64));
+            assert_eq!(calculated(&sum), Ok(precision::count(MAX_DEPTH)));
         }
 
         #[test]
         fn the_deepest_tree_the_limit_lets_through_calculates() {
             let (formula, value) = deepest();
-            assert!(value > MAX_DEPTH as f64, "{value}: not the worst case");
+            assert!(
+                value > precision::count(MAX_DEPTH),
+                "{value}: not the worst case"
+            );
             assert_eq!(calculated(&formula), Ok(value));
         }
 

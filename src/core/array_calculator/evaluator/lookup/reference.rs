@@ -2,13 +2,11 @@
 //!
 //! Functions
 
-// A row or column count becomes a number (ROWS, COLUMNS, ROW).
-#![allow(clippy::cast_precision_loss)]
-
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::{evaluate_without_row, number_or};
+use crate::core::precision;
 use num_traits::ToPrimitive;
 
 /// Evaluate INDIRECT function
@@ -151,7 +149,9 @@ pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     // ROW(reference) returns the row number of the reference
     if args.is_empty() {
         // Return current row if available
-        Ok(Value::Number(ctx.row().map_or(1.0, |row| (row + 1) as f64)))
+        Ok(Value::Number(
+            ctx.row().map_or(1.0, |row| precision::count(row + 1)),
+        ))
     } else {
         // For a reference, we'd need to parse it. Simplified: return 1
         Ok(Value::Number(1.0))
@@ -176,7 +176,7 @@ pub fn eval_rows(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("ROWS", args, 1)?;
     let val = evaluate(&args[0], ctx)?;
     match val {
-        Value::Array(arr) => Ok(Value::Number(arr.len() as f64)),
+        Value::Array(arr) => Ok(Value::Number(precision::count(arr.len()))),
         _ => Ok(Value::Number(1.0)),
     }
 }
@@ -192,7 +192,7 @@ pub fn eval_columns(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     {
         // Check if this name exists in tables
         if let Some(table) = ctx.tables.get(name) {
-            return Ok(Value::Number(table.len() as f64));
+            return Ok(Value::Number(precision::count(table.len())));
         }
     }
     // For 1D arrays (single column), columns is always 1

@@ -5,10 +5,6 @@
 //!
 //! Function implementations are organized into submodules by category.
 
-// Counts and places in an array become numbers (ROWS, MATCH, COUNT): a
-// usize is f64-exact up to 2^53, far past any array a model holds.
-#![allow(clippy::cast_precision_loss)]
-
 mod aggregation;
 mod criterion;
 mod dates;

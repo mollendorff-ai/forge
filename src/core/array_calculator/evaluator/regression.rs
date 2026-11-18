@@ -3,6 +3,7 @@
 
 use super::{evaluate, paired_numbers, require_args};
 use super::{EvalContext, EvalError, Expr, Value};
+use crate::core::precision;
 
 /// The sums a straight line through the points needs.
 struct Fit {
@@ -29,7 +30,7 @@ impl Fit {
         if xs.len() < 2 {
             return Err(EvalError::new(format!("{name} needs at least 2 points")));
         }
-        let n = xs.len() as f64;
+        let n = precision::count(xs.len());
         let mean_x = xs.iter().sum::<f64>() / n;
         let mean_y = ys.iter().sum::<f64>() / n;
         let (mut sxx, mut syy, mut sxy) = (0.0, 0.0, 0.0);

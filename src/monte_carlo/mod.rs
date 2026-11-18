@@ -48,6 +48,7 @@ pub use statistics::Statistics;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::precision;
 
     mod integration {
         //! Integration tests for Monte Carlo module
@@ -238,7 +239,8 @@ mod tests {
 
             // Normal: mean ≈ 100
             let normal_samples = &result.input_samples["normal"];
-            let normal_mean: f64 = normal_samples.iter().sum::<f64>() / normal_samples.len() as f64;
+            let normal_mean: f64 =
+                normal_samples.iter().sum::<f64>() / precision::count(normal_samples.len());
             assert!(
                 (normal_mean - 100.0).abs() < 1.0,
                 "Normal mean {normal_mean} not close to 100"
@@ -247,7 +249,7 @@ mod tests {
             // Uniform: mean ≈ 50
             let uniform_samples = &result.input_samples["uniform"];
             let uniform_mean: f64 =
-                uniform_samples.iter().sum::<f64>() / uniform_samples.len() as f64;
+                uniform_samples.iter().sum::<f64>() / precision::count(uniform_samples.len());
             assert!(
                 (uniform_mean - 50.0).abs() < 1.0,
                 "Uniform mean {uniform_mean} not close to 50"
@@ -255,7 +257,8 @@ mod tests {
 
             // Triangular: mean ≈ 50 ((0+50+100)/3)
             let tri_samples = &result.input_samples["triangular"];
-            let tri_mean: f64 = tri_samples.iter().sum::<f64>() / tri_samples.len() as f64;
+            let tri_mean: f64 =
+                tri_samples.iter().sum::<f64>() / precision::count(tri_samples.len());
             assert!(
                 (tri_mean - 50.0).abs() < 1.0,
                 "Triangular mean {tri_mean} not close to 50"
@@ -263,7 +266,8 @@ mod tests {
 
             // PERT: mean ≈ 36.67 ((0+4*30+100)/6)
             let pert_samples = &result.input_samples["pert"];
-            let pert_mean: f64 = pert_samples.iter().sum::<f64>() / pert_samples.len() as f64;
+            let pert_mean: f64 =
+                pert_samples.iter().sum::<f64>() / precision::count(pert_samples.len());
             let expected_pert_mean = (4.0f64.mul_add(30.0, 0.0) + 100.0) / 6.0;
             assert!(
                 (pert_mean - expected_pert_mean).abs() < 2.0,
@@ -426,6 +430,7 @@ mod tests {
         use super::config::{CorrelationConfig, MonteCarloConfig};
         use super::distributions::Distribution;
         use super::engine::MonteCarloEngine;
+        use crate::core::precision;
         use num_traits::ToPrimitive;
         use std::collections::HashMap;
 
@@ -464,7 +469,7 @@ mod tests {
         }
 
         fn pearson(x: &[f64], y: &[f64]) -> f64 {
-            let n = x.len() as f64;
+            let n = precision::count(x.len());
             let mean_x = x.iter().sum::<f64>() / n;
             let mean_y = y.iter().sum::<f64>() / n;
             let (mut cov, mut var_x, mut var_y) = (0.0_f64, 0.0_f64, 0.0_f64);
@@ -508,7 +513,9 @@ mod tests {
             );
             let mut counts = vec![0; n];
             for value in &result["u"] {
-                counts[(value * n as f64).to_usize().expect("a draw in 0..1")] += 1;
+                counts[(value * precision::count(n))
+                    .to_usize()
+                    .expect("a draw in 0..1")] += 1;
             }
             assert!(counts.iter().all(|&count| count == 1), "{counts:?}");
         }

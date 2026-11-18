@@ -7,13 +7,11 @@
 //! - AVERAGEIF(range, criteria, [`average_range`])
 //! - `AVERAGEIFS(average_range`, `criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
 
-// AVERAGEIF casts: matching count (usize) to f64 for average computation.
-#![allow(clippy::cast_precision_loss)]
-
 use super::super::{
     collect_values_as_vec, evaluate, require_args_range, Criterion, EvalContext, EvalError, Expr,
     Value,
 };
+use crate::core::precision;
 
 /// Evaluate AVERAGEIF function
 pub fn eval_averageif(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -71,7 +69,7 @@ pub fn eval_averageifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalEr
         return Err(EvalError::new("AVERAGEIFS: no matching values"));
     }
     Ok(Value::Number(
-        matching.iter().sum::<f64>() / matching.len() as f64,
+        matching.iter().sum::<f64>() / precision::count(matching.len()),
     ))
 }
 

@@ -1,11 +1,9 @@
 //! Random functions: RAND, RANDBETWEEN
 
-// A random whole number becomes a number.
-#![allow(clippy::cast_precision_loss)]
-
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::precision;
 
 use num_traits::ToPrimitive;
 use rand::RngExt;
@@ -45,7 +43,7 @@ pub fn eval_randbetween(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
 
     let mut rng = rand::rng();
     let result = rng.random_range(bottom_int..=top_int);
-    Ok(Value::Number(result as f64))
+    Ok(Value::Number(precision::whole(result)))
 }
 
 #[cfg(test)]

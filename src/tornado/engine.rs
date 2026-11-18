@@ -3,6 +3,7 @@
 //! Performs one-at-a-time sensitivity analysis.
 
 use super::config::{InputRange, TornadoConfig};
+use crate::core::precision;
 use crate::core::ArrayCalculator;
 use crate::types::{ParsedModel, Variable};
 use num_traits::ToPrimitive;
@@ -33,12 +34,13 @@ pub struct SensitivityBar {
 impl SensitivityBar {
     /// Generate ASCII bar representation
     // Truncation is mathematically impossible: ratio is 0..=1, bar_width is small
-    #[allow(clippy::cast_precision_loss)]
     #[must_use]
     pub fn to_ascii(&self, max_swing: f64, bar_width: usize) -> String {
         let ratio = self.abs_swing / max_swing;
         // A swing is at most the largest, so at most the whole bar; NaN fills none
-        let filled = (ratio * bar_width as f64).to_usize().unwrap_or(0);
+        let filled = (ratio * precision::count(bar_width))
+            .to_usize()
+            .unwrap_or(0);
         let bar: String = "█".repeat(filled);
         format!(
             "{:<20} |{:<width$}| swing {:.0}",

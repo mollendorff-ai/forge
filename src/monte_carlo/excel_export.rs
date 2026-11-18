@@ -7,6 +7,7 @@
 //! - Output samples sheet (optional)
 
 use super::engine::SimulationResult;
+use crate::core::precision;
 use rust_xlsxwriter::{Format, Workbook};
 use std::path::Path;
 
@@ -81,15 +82,15 @@ fn export_summary(
     // Metadata row
     let _ = worksheet.write_string(0, 0, "Monte Carlo Simulation Results");
     let _ = worksheet.write_string(1, 0, "Iterations:");
-    let _ = worksheet.write_number(1, 1, result.iterations_completed as f64);
+    let _ = worksheet.write_number(1, 1, precision::count(result.iterations_completed));
     let _ = worksheet.write_string(2, 0, "Sampling:");
     let _ = worksheet.write_string(2, 1, &result.config.sampling);
     let _ = worksheet.write_string(3, 0, "Execution Time (ms):");
-    let _ = worksheet.write_number(3, 1, result.execution_time_ms as f64);
+    let _ = worksheet.write_number(3, 1, precision::unsigned(result.execution_time_ms));
 
     if let Some(seed) = result.config.seed {
         let _ = worksheet.write_string(4, 0, "Seed:");
-        let _ = worksheet.write_number(4, 1, seed as f64);
+        let _ = worksheet.write_number(4, 1, precision::unsigned(seed));
     }
 
     // Output statistics table - starting at row 7
@@ -210,7 +211,12 @@ fn export_histograms(
 
             let _ = worksheet.write_number(row, col, bin_start);
             let _ = worksheet.write_number(row, col + 1, bin_end);
-            let _ = worksheet.write_number_with_format(row, col + 2, count as f64, int_format);
+            let _ = worksheet.write_number_with_format(
+                row,
+                col + 2,
+                precision::count(count),
+                int_format,
+            );
             let _ = worksheet.write_number(row, col + 3, freq);
         }
 

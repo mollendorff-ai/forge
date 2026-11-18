@@ -2,6 +2,7 @@
 
 use crate::cli::console::outln;
 use crate::cli::Console;
+use crate::core::precision;
 use crate::error::{ForgeError, ForgeResult};
 use colored::Colorize;
 use std::fmt::Write as _;
@@ -56,7 +57,7 @@ pub(super) fn print_simulation_results(
 fn print_input_distributions(c: &mut Console<'_>, result: &crate::monte_carlo::SimulationResult) {
     outln!(c, "   {}", "Input Distributions:".bold());
     for (var_name, samples) in sorted_by_name(&result.input_samples) {
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
+        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
         let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
         let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         let plan = result

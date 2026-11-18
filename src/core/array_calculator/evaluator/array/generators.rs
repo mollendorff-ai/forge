@@ -1,12 +1,12 @@
 //! Array generator functions: SEQUENCE and RANDARRAY
 
 // A place in the array, and a random whole number, become numbers.
-#![allow(clippy::cast_precision_loss)]
 
 use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::precision;
 use num_traits::ToPrimitive;
 use rand::RngExt;
 
@@ -61,7 +61,7 @@ pub fn eval_sequence(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
     // Generate sequence
     let total = array_size("SEQUENCE", rows, cols)?;
     let values: Vec<Value> = (0..total)
-        .map(|i| Value::Number((i as f64).mul_add(step, start)))
+        .map(|i| Value::Number(precision::count(i).mul_add(step, start)))
         .collect();
     Ok(Value::Array(values.into()))
 }
@@ -112,7 +112,7 @@ pub fn eval_randarray(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
             )));
         };
         (0..total)
-            .map(|_| Value::Number(rng.random_range(low..=high) as f64))
+            .map(|_| Value::Number(precision::whole(rng.random_range(low..=high))))
             .collect()
     } else if min < max {
         (0..total)
@@ -205,8 +205,6 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
 
@@ -277,8 +275,6 @@ mod integration_tests {
 
 #[cfg(test)]
 mod edge_case_tests {
-    #![allow(clippy::approx_constant)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 

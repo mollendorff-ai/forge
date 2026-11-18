@@ -1,10 +1,8 @@
 //! Search functions: FIND, SEARCH
 
-// A place in the text becomes a number.
-#![allow(clippy::cast_precision_loss)]
-
 use super::super::{evaluate, require_args_range, EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::{number_or, wildcard};
+use crate::core::precision;
 use num_traits::ToPrimitive;
 
 /// The 0-based character position to start at, from an optional 1-based
@@ -20,7 +18,7 @@ fn start_index(
     } else {
         1.0
     };
-    if start < 1.0 || start > length as f64 {
+    if start < 1.0 || start > precision::count(length) {
         return Err(EvalError::new(format!(
             "#VALUE!: {name}: start_num {start} is outside the text (1 to {length})"
         )));
@@ -40,7 +38,7 @@ pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
         .find(|&i| within[i..].starts_with(&find_text))
         .map_or_else(
             || Err(EvalError::new("#VALUE!: FIND: text not found")),
-            |i| Ok(Value::Number((i + 1) as f64)),
+            |i| Ok(Value::Number(precision::count(i + 1))),
         )
 }
 
@@ -54,7 +52,7 @@ pub fn eval_search(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     let start = start_index("SEARCH", args, ctx, within.chars().count())?;
     wildcard::find(&find_text, &within, start).map_or_else(
         || Err(EvalError::new("#VALUE!: SEARCH: text not found")),
-        |i| Ok(Value::Number((i + 1) as f64)),
+        |i| Ok(Value::Number(precision::count(i + 1))),
     )
 }
 

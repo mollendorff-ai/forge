@@ -30,6 +30,49 @@ pub fn same(a: f64, b: f64) -> bool {
     a.partial_cmp(&b) == Some(std::cmp::Ordering::Equal)
 }
 
+/// 2^32, the weight of the high half of a 64-bit whole number
+const HALF: f64 = 4_294_967_296.0;
+
+/// A whole number of 64 bits as a number: each 32-bit half is exact, and the
+/// one rounding is the sum, to nearest with ties to even, as `n as f64`.
+fn from_u64(n: u64) -> f64 {
+    let [b0, b1, b2, b3, b4, b5, b6, b7] = n.to_le_bytes();
+    f64::from(u32::from_le_bytes([b4, b5, b6, b7]))
+        .mul_add(HALF, f64::from(u32::from_le_bytes([b0, b1, b2, b3])))
+}
+
+/// A count (a length, a place in an array, a number of draws) as a number.
+///
+/// Exact up to 2^53, about 9e15, which no array in memory reaches; above that
+/// the nearest number, ties to even, as IEEE 754 rounds. It is the same number
+/// `count as f64` gives, built from conversions that cannot lose anything, so
+/// that the one place where a count becomes a number is named and tested.
+#[must_use]
+pub fn count(n: usize) -> f64 {
+    let bytes = n.to_le_bytes();
+    let mut wide = [0_u8; 8];
+    wide[..bytes.len()].copy_from_slice(&bytes);
+    from_u64(u64::from_le_bytes(wide))
+}
+
+/// A whole number of 64 bits (a day count, a random integer) as a number:
+/// exact up to 2^53, the nearest number above it, as [`count`] does.
+#[must_use]
+pub fn whole(n: i64) -> f64 {
+    let magnitude = from_u64(n.unsigned_abs());
+    if n < 0 {
+        -magnitude
+    } else {
+        magnitude
+    }
+}
+
+/// An unsigned whole number of 64 bits as a number, as [`whole`] does.
+#[must_use]
+pub fn unsigned(n: u64) -> f64 {
+    from_u64(n)
+}
+
 /// How Excel's comparison operators order two numbers: each rounded to 15
 /// significant digits first (ADR-065).
 ///
@@ -391,6 +434,40 @@ impl<C: SerializeStructVariant> SerializeStructVariant for Compound<C> {
 mod tests {
     use super::*;
     use std::cmp::Ordering::{Equal, Greater, Less};
+
+    /// A count becomes the number IEEE 754 gives it, at every edge
+    #[test]
+    fn a_whole_number_becomes_a_number_as_ieee_rounds_it() {
+        assert_exact!(count(0), 0.0);
+        assert_exact!(count(1), 1.0);
+        assert_exact!(count(4_294_967_295), 4_294_967_295.0);
+        assert_exact!(count(4_294_967_296), 4_294_967_296.0);
+        assert_exact!(unsigned(9_007_199_254_740_991), 9_007_199_254_740_991.0);
+        assert_exact!(unsigned(9_007_199_254_740_992), 9_007_199_254_740_992.0);
+        // Above 2^53 the spacing is 2: a tie goes to the even neighbour
+        assert_exact!(unsigned(9_007_199_254_740_993), 9_007_199_254_740_992.0);
+        assert_exact!(unsigned(9_007_199_254_740_995), 9_007_199_254_740_996.0);
+        // Not a tie: the nearer neighbour
+        assert_exact!(unsigned(9_007_199_254_740_994), 9_007_199_254_740_994.0);
+        assert_exact!(unsigned(u64::MAX), 18_446_744_073_709_551_616.0);
+        // A count is as wide as a usize, which fills 64 bits or fewer
+        assert_exact!(count(usize::MAX), unsigned(u64::MAX >> (64 - usize::BITS)));
+        assert_exact!(count(123_456_789), 123_456_789.0);
+    }
+
+    /// A signed whole number keeps its sign, and the rounding is symmetric
+    #[test]
+    fn a_signed_whole_number_becomes_a_number_with_its_sign() {
+        assert_exact!(whole(0), 0.0);
+        assert_exact!(whole(45_000), 45_000.0);
+        assert_exact!(whole(-45_000), -45_000.0);
+        assert_exact!(whole(-9_007_199_254_740_993), -9_007_199_254_740_992.0);
+        assert_exact!(whole(9_007_199_254_740_995), 9_007_199_254_740_996.0);
+        assert_exact!(whole(i64::MAX), 9_223_372_036_854_775_808.0);
+        assert_exact!(whole(i64::MIN), -9_223_372_036_854_775_808.0);
+        // Zero has no sign to keep
+        assert!(whole(0).is_sign_positive());
+    }
 
     /// Excel's comparison: each number to 15 significant digits (ADR-065)
     #[test]

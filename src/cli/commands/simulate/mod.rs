@@ -344,6 +344,7 @@ fn parse_monte_carlo_config(yaml_content: &str) -> ForgeResult<MonteCarloConfig>
 mod tests {
     use super::*;
     use crate::cli::console::capture;
+    use crate::core::precision;
     use std::io::Write;
     use tempfile::NamedTempFile;
 
@@ -845,7 +846,7 @@ scenarios:
         let result = bagel_with(&["year.profit".to_string()], None);
         let mean = |name: &str| {
             let s = &result.input_samples[name];
-            let n = s.len() as f64;
+            let n = precision::count(s.len());
             s.iter().sum::<f64>() / n
         };
         let cases = [

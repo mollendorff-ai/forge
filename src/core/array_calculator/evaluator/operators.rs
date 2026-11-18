@@ -53,9 +53,6 @@ fn broadcast_right(op: &str, left: &Value, items: &[Value]) -> Result<Value, Eva
         .map(|items| Value::Array(items.into()))
 }
 
-/// Evaluate a binary operation on two non-array values
-// Arithmetic + comparison + logical operators require many match arms.
-#[allow(clippy::too_many_lines)]
 /// `base ^ exponent` as Excel computes it, for `^`, `POWER` and `POW`: 0^0
 /// and a negative base with a fractional exponent are #NUM!, and 0 to a
 /// negative power is #DIV/0!.

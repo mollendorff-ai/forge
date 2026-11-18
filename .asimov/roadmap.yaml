@@ -175,8 +175,18 @@ tier1:
   # search is MATCH's); ROUND(x, -400) is
   # #NUM! (Gnumeric 0); DB with a fractional period cuts it (Gnumeric 0);
   # TIME(1, -30, 0) is 0:30 (Gnumeric #NUM!); HOUR(1E+20) is 0 (Gnumeric
-  # #NUM!). Next: cast_precision_loss with its two Cargo.toml allows. 95
-  # allows left.
+  # #NUM!). cast_precision_loss is done too (2026-11-18): no allow is left, in
+  # Cargo.toml or in an attribute. A count, a place in an array or a day count
+  # becomes a number through precision::count, whole and unsigned, built from
+  # 32-bit halves that convert without loss and give the bits `as f64` gives
+  # (not a try_from: a count past 2^53 cannot exist in memory, and an error
+  # branch no test can reach breaks the coverage rule). The two validation
+  # suites do not link Forge, so each has its own small conversion.
+  # approx_constant is done too (2026-11-18): 18 allows, 17 of which hid
+  # nothing; the 3 literals that did became FRAC_1_SQRT_2. too_many_lines is done too (2026-11-18): 14 functions of 131 to 572
+  # lines split by what they do, none rewritten (the dispatch tables keep one
+  # line per function), and the stale allows in the Gnumeric Cargo.toml and
+  # the R suite gone. 38 allows left in attributes and 13 in Cargo.toml files.
   # T1-NO-SKIPPING, float_cmp is done (2026-11-17): no allow is left. Tests
   # assert an exact number with assert_exact! (the same bits, src/lib.rs),
   # and the ten exact comparisons in the engine (MODE, a variance on budget,

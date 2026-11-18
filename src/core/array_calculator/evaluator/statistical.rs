@@ -3,290 +3,319 @@
 use super::{collect_numeric_values, evaluate, paired_numbers, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::number_or;
+use crate::core::precision;
 use crate::core::precision::same;
 use num_traits::ToPrimitive;
 
 /// Try to evaluate a statistical function. Returns None if function not recognized.
-#[allow(clippy::too_many_lines)]
-// 10 statistical functions in a single dispatch — splitting would fragment related logic.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     let result = match name {
-        "VAR" | "VAR.S" => {
-            let values = collect_numeric_values(args, ctx)?;
-            if values.len() < 2 {
-                return Err(EvalError::new("VAR requires at least 2 values"));
-            }
-            let mean = values.iter().sum::<f64>() / values.len() as f64;
-            let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
-            Value::Number(sum_sq / (values.len() - 1) as f64)
-        },
-
-        "VAR.P" | "VARP" => {
-            let values = collect_numeric_values(args, ctx)?;
-            if values.is_empty() {
-                return Err(EvalError::new("VARP requires at least 1 value"));
-            }
-            let mean = values.iter().sum::<f64>() / values.len() as f64;
-            let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
-            Value::Number(sum_sq / values.len() as f64)
-        },
-
-        "STDEV" | "STDEV.S" => {
-            let values = collect_numeric_values(args, ctx)?;
-            if values.len() < 2 {
-                return Err(EvalError::new("STDEV requires at least 2 values"));
-            }
-            let mean = values.iter().sum::<f64>() / values.len() as f64;
-            let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
-            let variance = sum_sq / (values.len() - 1) as f64;
-            Value::Number(variance.sqrt())
-        },
-
-        "STDEV.P" | "STDEVP" => {
-            let values = collect_numeric_values(args, ctx)?;
-            if values.is_empty() {
-                return Err(EvalError::new("STDEVP requires at least 1 value"));
-            }
-            let mean = values.iter().sum::<f64>() / values.len() as f64;
-            let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
-            let variance = sum_sq / values.len() as f64;
-            Value::Number(variance.sqrt())
-        },
-
-        "MODE" | "MODE.SNGL" => {
-            let values = collect_numeric_values(args, ctx)?;
-            // The most frequent value; the first one met when several tie.
-            let mut best: Option<(f64, usize)> = None;
-            for &v in &values {
-                // Equal means exactly equal, as in Excel.
-                let count = values.iter().filter(|&&w| same(w, v)).count();
-                if count > 1 && best.is_none_or(|(_, c)| count > c) {
-                    best = Some((v, count));
-                }
-            }
-            match best {
-                Some((v, _)) => Value::Number(v),
-                None => return Err(EvalError::new("MODE: no value occurs twice (#N/A)")),
-            }
-        },
-
-        "PERCENTILE" | "PERCENTILE.INC" => {
-            require_args(name, args, 2)?;
-            let mut values = collect_numeric_values(&args[..1], ctx)?;
-            if values.is_empty() {
-                return Err(EvalError::new("PERCENTILE of empty set"));
-            }
-            let k = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("PERCENTILE k must be a number"))?;
-            if !(0.0..=1.0).contains(&k) {
-                return Err(EvalError::new("PERCENTILE k must be between 0 and 1"));
-            }
-            values.sort_by(f64::total_cmp);
-            let n = values.len();
-            if n == 1 {
-                return Ok(Some(Value::Number(values[0])));
-            }
-            Value::Number(inclusive(&values, k))
-        },
-
-        "QUARTILE" | "QUARTILE.INC" => {
-            require_args(name, args, 2)?;
-            let mut values = collect_numeric_values(&args[..1], ctx)?;
-            if values.is_empty() {
-                return Err(EvalError::new("QUARTILE of empty set"));
-            }
-            let quart = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("QUARTILE quart must be a number"))?
-                .trunc();
-            if !(0.0..=4.0).contains(&quart) {
-                return Err(EvalError::new("QUARTILE quart must be 0, 1, 2, 3, or 4"));
-            }
-            values.sort_by(f64::total_cmp);
-            let k = quart / 4.0;
-            let n = values.len();
-            if n == 1 {
-                return Ok(Some(Value::Number(values[0])));
-            }
-            Value::Number(inclusive(&values, k))
-        },
-
-        "PERCENTILE.EXC" | "QUARTILE.EXC" => {
-            require_args(name, args, 2)?;
-            let mut values = collect_numeric_values(&args[..1], ctx)?;
-            if values.is_empty() {
-                return Err(EvalError::new(format!("{name} of empty set")));
-            }
-            let arg = evaluate(&args[1], ctx)?.as_cell_number().ok_or_else(|| {
-                EvalError::new(format!("{name}: the second argument must be a number"))
-            })?;
-            // A quartile is the percentile of a quarter, three and no more
-            let k = if name == "QUARTILE.EXC" {
-                let quart = arg.trunc();
-                if !(1.0..=3.0).contains(&quart) {
-                    return Err(EvalError::new(
-                        "QUARTILE.EXC quart must be 1, 2 or 3 (#NUM!)",
-                    ));
-                }
-                quart / 4.0
-            } else {
-                arg
-            };
-            values.sort_by(f64::total_cmp);
-            let n = values.len() as f64;
-            // Rank k * (n + 1), counted from 1, so k must leave room for it
-            if k < 1.0 / (n + 1.0) || k > n / (n + 1.0) {
-                return Err(EvalError::new(format!(
-                    "{name}: k must be between 1/(n+1) and n/(n+1) for {n} values (#NUM!)"
-                )));
-            }
-            // From 1 to n, so the value below it is at rank - 1 from 0. At
-            // k = 1/(n+1) the product can round to just below 1
-            // (0.9999999999999999 for 48 values), which is the first value.
-            let rank = (k * (n + 1.0)).clamp(1.0, n);
-            let lower = rank.floor();
-            let frac = rank - lower;
-            let below = lower.to_usize().unwrap_or(1);
-            let low = values[below - 1];
-            if frac == 0.0 {
-                Value::Number(low)
-            } else {
-                Value::Number(low.mul_add(1.0 - frac, values[below] * frac))
-            }
-        },
-
-        "GEOMEAN" => {
-            let values = collect_numeric_values(args, ctx)?;
-            if values.is_empty() {
-                return Err(EvalError::new("GEOMEAN of empty set"));
-            }
-            if values.iter().any(|v| *v <= 0.0) {
-                return Err(EvalError::new("GEOMEAN needs numbers above 0 (#NUM!)"));
-            }
-            let mean_ln = values.iter().map(|v| v.ln()).sum::<f64>() / values.len() as f64;
-            Value::Number(mean_ln.exp())
-        },
-
-        "CORREL" => {
-            require_args(name, args, 2)?;
-            let (x_vals, y_vals) = paired_numbers(name, &args[0], &args[1], ctx)?;
-            if x_vals.len() < 2 {
-                return Err(EvalError::new(
-                    "CORREL requires two arrays of equal length >= 2",
-                ));
-            }
-            let n = x_vals.len() as f64;
-            let x_mean = x_vals.iter().sum::<f64>() / n;
-            let y_mean = y_vals.iter().sum::<f64>() / n;
-            let mut cov = 0.0;
-            let mut var_x = 0.0;
-            let mut var_y = 0.0;
-            for (x, y) in x_vals.iter().zip(y_vals.iter()) {
-                let dx = x - x_mean;
-                let dy = y - y_mean;
-                cov = dx.mul_add(dy, cov);
-                var_x = dx.mul_add(dx, var_x);
-                var_y = dy.mul_add(dy, var_y);
-            }
-            if var_x == 0.0 || var_y == 0.0 {
-                return Err(EvalError::new("CORREL: zero variance"));
-            }
-            Value::Number(cov / (var_x.sqrt() * var_y.sqrt()))
-        },
-
-        "LARGE" => {
-            require_args(name, args, 2)?;
-            let mut values = collect_numeric_values(&args[..1], ctx)?;
-            if values.is_empty() {
-                return Err(EvalError::new("LARGE: array is empty"));
-            }
-            // Excel rounds a fractional k up for LARGE (LARGE(x, 1.5) is the
-            // second largest; checked in Excel, 2026-11-14) and down for
-            // SMALL: LARGE(k) is SMALL(n + 1 - k) with the index cut
-            let k = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("LARGE: k must be a number"))?;
-            let Some(k) = rank_in(k.ceil(), values.len()) else {
-                return Err(EvalError::new(format!(
-                    "LARGE: k={k} out of range (1..{})",
-                    values.len()
-                )));
-            };
-            // Sort descending and get k-th largest
-            values.sort_by(|a, b| b.total_cmp(a));
-            Value::Number(values[k - 1])
-        },
-
-        "SMALL" => {
-            require_args(name, args, 2)?;
-            let mut values = collect_numeric_values(&args[..1], ctx)?;
-            if values.is_empty() {
-                return Err(EvalError::new("SMALL: array is empty"));
-            }
-            let k = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("SMALL: k must be a number"))?;
-            let Some(k) = rank_in(k.trunc(), values.len()) else {
-                return Err(EvalError::new(format!(
-                    "SMALL: k={k} out of range (1..{})",
-                    values.len()
-                )));
-            };
-            // Sort ascending and get k-th smallest
-            values.sort_by(f64::total_cmp);
-            Value::Number(values[k - 1])
-        },
-
-        "RANK" | "RANK.EQ" => {
-            require_args_range(name, args, 2, 3)?;
-            let number = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("RANK: number must be a number"))?;
-            let values = collect_numeric_values(&args[1..2], ctx)?;
-            if values.is_empty() {
-                return Err(EvalError::new("RANK: array is empty"));
-            }
-            // Descending for 0 (the default), ascending for any other whole
-            // number: the order is cut to one, as Excel cuts it
-            let descending = if args.len() > 2 {
-                number_or(&args[2], ctx, 0.0)?.trunc() == 0.0
-            } else {
-                true
-            };
-
-            // 1 + the values above it (below it, in ascending order), as in
-            // Excel; the number must be one of the values (#N/A). Sorting with
-            // total_cmp put -0 before 0 and ranked 0 one place too high.
-            // Found exactly, as an exact lookup finds a number (ADR-065)
-            if !values
-                .iter()
-                .any(|&x| crate::core::precision::same(x, number))
-            {
-                return Err(EvalError::new("#N/A: RANK: value not found in array"));
-            }
-            let ahead = values
-                .iter()
-                .filter(|&&x| if descending { x > number } else { x < number })
-                .count();
-            Value::Number((ahead + 1) as f64)
-        },
-
+        "VAR" | "VAR.S" => eval_var_etc(args, ctx)?,
+        "VAR.P" | "VARP" => eval_var_p_etc(args, ctx)?,
+        "STDEV" | "STDEV.S" => eval_stdev_etc(args, ctx)?,
+        "STDEV.P" | "STDEVP" => eval_stdev_p_etc(args, ctx)?,
+        "MODE" | "MODE.SNGL" => eval_mode_etc(args, ctx)?,
+        "PERCENTILE" | "PERCENTILE.INC" => eval_percentile_etc(name, args, ctx)?,
+        "QUARTILE" | "QUARTILE.INC" => eval_quartile_etc(name, args, ctx)?,
+        "PERCENTILE.EXC" | "QUARTILE.EXC" => eval_percentile_exc_etc(name, args, ctx)?,
+        "GEOMEAN" => eval_geomean(args, ctx)?,
+        "CORREL" => eval_correl(name, args, ctx)?,
+        "LARGE" => eval_large(name, args, ctx)?,
+        "SMALL" => eval_small(name, args, ctx)?,
+        "RANK" | "RANK.EQ" => eval_rank_etc(name, args, ctx)?,
         _ => return Ok(None),
     };
 
     Ok(Some(result))
 }
 
+/// Evaluate `VAR` and `VAR.S`.
+fn eval_var_etc(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    let values = collect_numeric_values(args, ctx)?;
+    if values.len() < 2 {
+        return Err(EvalError::new("VAR requires at least 2 values"));
+    }
+    let mean = values.iter().sum::<f64>() / precision::count(values.len());
+    let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
+    Ok(Value::Number(sum_sq / precision::count(values.len() - 1)))
+}
+
+/// Evaluate `VAR.P` and `VARP`.
+fn eval_var_p_etc(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    let values = collect_numeric_values(args, ctx)?;
+    if values.is_empty() {
+        return Err(EvalError::new("VARP requires at least 1 value"));
+    }
+    let mean = values.iter().sum::<f64>() / precision::count(values.len());
+    let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
+    Ok(Value::Number(sum_sq / precision::count(values.len())))
+}
+
+/// Evaluate `STDEV` and `STDEV.S`.
+fn eval_stdev_etc(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    let values = collect_numeric_values(args, ctx)?;
+    if values.len() < 2 {
+        return Err(EvalError::new("STDEV requires at least 2 values"));
+    }
+    let mean = values.iter().sum::<f64>() / precision::count(values.len());
+    let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
+    let variance = sum_sq / precision::count(values.len() - 1);
+    Ok(Value::Number(variance.sqrt()))
+}
+
+/// Evaluate `STDEV.P` and `STDEVP`.
+fn eval_stdev_p_etc(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    let values = collect_numeric_values(args, ctx)?;
+    if values.is_empty() {
+        return Err(EvalError::new("STDEVP requires at least 1 value"));
+    }
+    let mean = values.iter().sum::<f64>() / precision::count(values.len());
+    let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
+    let variance = sum_sq / precision::count(values.len());
+    Ok(Value::Number(variance.sqrt()))
+}
+
+/// Evaluate `MODE` and `MODE.SNGL`.
+fn eval_mode_etc(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    let values = collect_numeric_values(args, ctx)?;
+    // The most frequent value; the first one met when several tie.
+    let mut best: Option<(f64, usize)> = None;
+    for &v in &values {
+        // Equal means exactly equal, as in Excel.
+        let count = values.iter().filter(|&&w| same(w, v)).count();
+        if count > 1 && best.is_none_or(|(_, c)| count > c) {
+            best = Some((v, count));
+        }
+    }
+    Ok(match best {
+        Some((v, _)) => Value::Number(v),
+        None => return Err(EvalError::new("MODE: no value occurs twice (#N/A)")),
+    })
+}
+
+/// Evaluate `PERCENTILE` and `PERCENTILE.INC`.
+fn eval_percentile_etc(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let mut values = collect_numeric_values(&args[..1], ctx)?;
+    if values.is_empty() {
+        return Err(EvalError::new("PERCENTILE of empty set"));
+    }
+    let k = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("PERCENTILE k must be a number"))?;
+    if !(0.0..=1.0).contains(&k) {
+        return Err(EvalError::new("PERCENTILE k must be between 0 and 1"));
+    }
+    values.sort_by(f64::total_cmp);
+    let n = values.len();
+    if n == 1 {
+        return Ok(Value::Number(values[0]));
+    }
+    Ok(Value::Number(inclusive(&values, k)))
+}
+
+/// Evaluate `QUARTILE` and `QUARTILE.INC`.
+fn eval_quartile_etc(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let mut values = collect_numeric_values(&args[..1], ctx)?;
+    if values.is_empty() {
+        return Err(EvalError::new("QUARTILE of empty set"));
+    }
+    let quart = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("QUARTILE quart must be a number"))?
+        .trunc();
+    if !(0.0..=4.0).contains(&quart) {
+        return Err(EvalError::new("QUARTILE quart must be 0, 1, 2, 3, or 4"));
+    }
+    values.sort_by(f64::total_cmp);
+    let k = quart / 4.0;
+    let n = values.len();
+    if n == 1 {
+        return Ok(Value::Number(values[0]));
+    }
+    Ok(Value::Number(inclusive(&values, k)))
+}
+
+/// Evaluate `PERCENTILE.EXC` and `QUARTILE.EXC`.
+fn eval_percentile_exc_etc(
+    name: &str,
+    args: &[Expr],
+    ctx: &EvalContext,
+) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let mut values = collect_numeric_values(&args[..1], ctx)?;
+    if values.is_empty() {
+        return Err(EvalError::new(format!("{name} of empty set")));
+    }
+    let arg = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new(format!("{name}: the second argument must be a number")))?;
+    // A quartile is the percentile of a quarter, three and no more
+    let k = if name == "QUARTILE.EXC" {
+        let quart = arg.trunc();
+        if !(1.0..=3.0).contains(&quart) {
+            return Err(EvalError::new(
+                "QUARTILE.EXC quart must be 1, 2 or 3 (#NUM!)",
+            ));
+        }
+        quart / 4.0
+    } else {
+        arg
+    };
+    values.sort_by(f64::total_cmp);
+    let n = precision::count(values.len());
+    // Rank k * (n + 1), counted from 1, so k must leave room for it
+    if k < 1.0 / (n + 1.0) || k > n / (n + 1.0) {
+        return Err(EvalError::new(format!(
+            "{name}: k must be between 1/(n+1) and n/(n+1) for {n} values (#NUM!)"
+        )));
+    }
+    // From 1 to n, so the value below it is at rank - 1 from 0. At
+    // k = 1/(n+1) the product can round to just below 1
+    // (0.9999999999999999 for 48 values), which is the first value.
+    let rank = (k * (n + 1.0)).clamp(1.0, n);
+    let lower = rank.floor();
+    let frac = rank - lower;
+    let below = lower.to_usize().unwrap_or(1);
+    let low = values[below - 1];
+    Ok(if frac == 0.0 {
+        Value::Number(low)
+    } else {
+        Value::Number(low.mul_add(1.0 - frac, values[below] * frac))
+    })
+}
+
+/// Evaluate `GEOMEAN`.
+fn eval_geomean(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    let values = collect_numeric_values(args, ctx)?;
+    if values.is_empty() {
+        return Err(EvalError::new("GEOMEAN of empty set"));
+    }
+    if values.iter().any(|v| *v <= 0.0) {
+        return Err(EvalError::new("GEOMEAN needs numbers above 0 (#NUM!)"));
+    }
+    let mean_ln = values.iter().map(|v| v.ln()).sum::<f64>() / precision::count(values.len());
+    Ok(Value::Number(mean_ln.exp()))
+}
+
+/// Evaluate `CORREL`.
+fn eval_correl(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let (x_vals, y_vals) = paired_numbers(name, &args[0], &args[1], ctx)?;
+    if x_vals.len() < 2 {
+        return Err(EvalError::new(
+            "CORREL requires two arrays of equal length >= 2",
+        ));
+    }
+    let n = precision::count(x_vals.len());
+    let x_mean = x_vals.iter().sum::<f64>() / n;
+    let y_mean = y_vals.iter().sum::<f64>() / n;
+    let mut cov = 0.0;
+    let mut var_x = 0.0;
+    let mut var_y = 0.0;
+    for (x, y) in x_vals.iter().zip(y_vals.iter()) {
+        let dx = x - x_mean;
+        let dy = y - y_mean;
+        cov = dx.mul_add(dy, cov);
+        var_x = dx.mul_add(dx, var_x);
+        var_y = dy.mul_add(dy, var_y);
+    }
+    if var_x == 0.0 || var_y == 0.0 {
+        return Err(EvalError::new("CORREL: zero variance"));
+    }
+    Ok(Value::Number(cov / (var_x.sqrt() * var_y.sqrt())))
+}
+
+/// Evaluate `LARGE`.
+fn eval_large(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let mut values = collect_numeric_values(&args[..1], ctx)?;
+    if values.is_empty() {
+        return Err(EvalError::new("LARGE: array is empty"));
+    }
+    // Excel rounds a fractional k up for LARGE (LARGE(x, 1.5) is the
+    // second largest; checked in Excel, 2026-11-14) and down for
+    // SMALL: LARGE(k) is SMALL(n + 1 - k) with the index cut
+    let k = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("LARGE: k must be a number"))?;
+    let Some(k) = rank_in(k.ceil(), values.len()) else {
+        return Err(EvalError::new(format!(
+            "LARGE: k={k} out of range (1..{})",
+            values.len()
+        )));
+    };
+    // Sort descending and get k-th largest
+    values.sort_by(|a, b| b.total_cmp(a));
+    Ok(Value::Number(values[k - 1]))
+}
+
+/// Evaluate `SMALL`.
+fn eval_small(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 2)?;
+    let mut values = collect_numeric_values(&args[..1], ctx)?;
+    if values.is_empty() {
+        return Err(EvalError::new("SMALL: array is empty"));
+    }
+    let k = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("SMALL: k must be a number"))?;
+    let Some(k) = rank_in(k.trunc(), values.len()) else {
+        return Err(EvalError::new(format!(
+            "SMALL: k={k} out of range (1..{})",
+            values.len()
+        )));
+    };
+    // Sort ascending and get k-th smallest
+    values.sort_by(f64::total_cmp);
+    Ok(Value::Number(values[k - 1]))
+}
+
+/// Evaluate `RANK` and `RANK.EQ`.
+fn eval_rank_etc(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 2, 3)?;
+    let number = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("RANK: number must be a number"))?;
+    let values = collect_numeric_values(&args[1..2], ctx)?;
+    if values.is_empty() {
+        return Err(EvalError::new("RANK: array is empty"));
+    }
+    // Descending for 0 (the default), ascending for any other whole
+    // number: the order is cut to one, as Excel cuts it
+    let descending = if args.len() > 2 {
+        number_or(&args[2], ctx, 0.0)?.trunc() == 0.0
+    } else {
+        true
+    };
+
+    // 1 + the values above it (below it, in ascending order), as in
+    // Excel; the number must be one of the values (#N/A). Sorting with
+    // total_cmp put -0 before 0 and ranked 0 one place too high.
+    // Found exactly, as an exact lookup finds a number (ADR-065)
+    if !values
+        .iter()
+        .any(|&x| crate::core::precision::same(x, number))
+    {
+        return Err(EvalError::new("#N/A: RANK: value not found in array"));
+    }
+    let ahead = values
+        .iter()
+        .filter(|&&x| if descending { x > number } else { x < number })
+        .count();
+    Ok(Value::Number(precision::count(ahead + 1)))
+}
+
 /// The value at rank `k * (n - 1)` of sorted values, counted from 0, between
 /// the two either side of it (PERCENTILE.INC, QUARTILE.INC); `k` is from 0
 /// to 1, so the rank is a place in the values.
 fn inclusive(sorted: &[f64], k: f64) -> f64 {
-    let pos = k * (sorted.len() - 1) as f64;
+    let pos = k * precision::count(sorted.len() - 1);
     let lower = pos.floor();
     let frac = pos - lower;
     let at = lower.to_usize().unwrap_or(0);

@@ -4,6 +4,7 @@
 //! - Monte Carlo (pure random sampling)
 //! - Latin Hypercube (stratified sampling, 5x faster convergence)
 
+use crate::core::precision;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 
@@ -90,8 +91,8 @@ impl Sampler {
         // Then shuffle
         let mut samples: Vec<f64> = (0..n)
             .map(|i| {
-                let lower = i as f64 / n as f64;
-                let upper = (i + 1) as f64 / n as f64;
+                let lower = precision::count(i) / precision::count(n);
+                let upper = precision::count(i + 1) / precision::count(n);
                 self.rng.random::<f64>().mul_add(upper - lower, lower)
             })
             .collect();
@@ -138,7 +139,7 @@ impl SampleStats {
             };
         }
 
-        let n = samples.len() as f64;
+        let n = precision::count(samples.len());
         let mean = samples.iter().sum::<f64>() / n;
         let variance = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
         let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
@@ -188,7 +189,7 @@ mod tests {
         assert!(samples.iter().all(|&x| (0.0..1.0).contains(&x)));
 
         // Mean should be approximately 0.5
-        let mean = samples.iter().sum::<f64>() / samples.len() as f64;
+        let mean = samples.iter().sum::<f64>() / precision::count(samples.len());
         assert!((mean - 0.5).abs() < 0.05);
     }
 
@@ -201,14 +202,14 @@ mod tests {
         assert!(samples.iter().all(|&x| (0.0..1.0).contains(&x)));
 
         // Mean should be approximately 0.5
-        let mean = samples.iter().sum::<f64>() / samples.len() as f64;
+        let mean = samples.iter().sum::<f64>() / precision::count(samples.len());
         assert!((mean - 0.5).abs() < 0.02); // LHS should be closer to 0.5
 
         // LHS should have better coverage - check each stratum has exactly one sample
         let n = samples.len();
         let mut stratum_counts = vec![0; n];
         for &sample in &samples {
-            let stratum = (sample * n as f64)
+            let stratum = (sample * precision::count(n))
                 .floor()
                 .to_usize()
                 .expect("a draw in 0..1");
@@ -220,7 +221,7 @@ mod tests {
             .iter()
             .map(|&c| (f64::from(c) - 1.0).powi(2))
             .sum::<f64>()
-            / n as f64;
+            / precision::count(n);
         assert!(
             variance < 0.1,
             "LHS stratum counts should be uniform, variance: {variance}"
@@ -237,20 +238,22 @@ mod tests {
         for seed in 0..10 {
             let mut sampler = Sampler::new(SamplingMethod::MonteCarlo, Some(seed));
             let samples = sampler.generate_uniform_samples(n);
-            let mean = samples.iter().sum::<f64>() / n as f64;
+            let mean = samples.iter().sum::<f64>() / precision::count(n);
             mc_variances.push((mean - 0.5).powi(2));
         }
-        let mc_avg_variance: f64 = mc_variances.iter().sum::<f64>() / mc_variances.len() as f64;
+        let mc_avg_variance: f64 =
+            mc_variances.iter().sum::<f64>() / precision::count(mc_variances.len());
 
         // LHS variance
         let mut lhs_variances = Vec::new();
         for seed in 0..10 {
             let mut sampler = Sampler::new(SamplingMethod::LatinHypercube, Some(seed));
             let samples = sampler.generate_uniform_samples(n);
-            let mean = samples.iter().sum::<f64>() / n as f64;
+            let mean = samples.iter().sum::<f64>() / precision::count(n);
             lhs_variances.push((mean - 0.5).powi(2));
         }
-        let lhs_avg_variance: f64 = lhs_variances.iter().sum::<f64>() / lhs_variances.len() as f64;
+        let lhs_avg_variance: f64 =
+            lhs_variances.iter().sum::<f64>() / precision::count(lhs_variances.len());
 
         // LHS should have lower variance
         assert!(
