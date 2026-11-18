@@ -48,7 +48,19 @@ Valdane's deal team underwrites its own case for Quillon: 7% growth a year for f
 
 **For earnings per share not to fall in year 3,** Valdane needs cost synergies of 49.4 a year instead of 40, or to pay 79.8% of the price in cash instead of 60% (`forge goal-seek`). More cash is cheaper than Valdane's shares: debt costs 4.9% after tax, and Valdane's shares earn their buyers 6.5%. It is also more debt.
 
-**Four scenarios** (`forge scenarios`): as the board was shown (45%), 224.51; a slow integration, five years to merge the plants and a bill 50% over (25%), 166.93; Valdane's sales teams never selling Quillon's sensors (20%), 28.40; rates up 1.5 points before the debt is fixed and investors asking 9% (10%), -89.55. Weighted, 139.49. Without the revenue synergies, the deal barely pays for itself.
+**How Valdane pays is a choice, not a chance** (`forge compare --scenarios base,all_cash,all_shares`). `all_cash` and `all_shares` sit beside the four weighted scenarios with no probability, so `forge scenarios` leaves them out and names them.
+
+| | 60/40 (the plan) | All cash | All shares |
+| --- | --- | --- | --- |
+| New Valdane shares | 15.6 | 0 | 39.0 |
+| Quillon's shareholders end up owning | 7.2% | 0% | 16.3% |
+| Net debt over EBITDA at closing | 2.04 | 2.60 | 1.20 |
+| Earnings per share in year 3 | -1.1% | +1.3% | -4.2% |
+| Value created a Valdane share | 1.04 | 1.12 | 0.94 |
+
+The deal creates 224.51 however it is paid: the mix decides who carries it. All cash makes year 3 accretive and takes leverage past the 2.5 the agencies are comfortable with; all shares keeps the balance sheet light and dilutes most.
+
+**Four scenarios** (`forge scenarios`): as the board was shown (45%), 224.51; a slow integration, five years to merge the plants and a bill 50% over (25%), 166.93; Valdane's sales teams never selling Quillon's sensors (20%), 28.40; rates up 1.5 points before the debt is fixed and investors asking 9% (10%), -89.55. Weighted, 139.49. Without the revenue synergies, the deal barely pays for itself. The output names the two payment structures it leaves out, which have no probability.
 
 **The tornado** (`forge tornado`) puts the deal team's valuation assumptions above every synergy: the discount rate swings the value from 428.94 (7.5%) to -89.55 (9%), and terminal growth from -32.02 (1.5%) to 391.25 (3%). Then cost synergies, the premium, revenue synergies and Quillon's growth. The integration bill, the number the integration team will be judged on, matters least: 237.74 at 80, 178.20 at 170.
 
@@ -95,6 +107,7 @@ forge goal-seek examples/acquisition/deal.yaml --target eps.year_3_accretion --v
 forge goal-seek examples/acquisition/deal.yaml --target eps.year_3_accretion --value 0 --vary financing.cash_share --min 0 --max 1
 forge sensitivity examples/acquisition/deal.yaml --vary offer.premium --vary2 synergies.cost_run_rate --range 0.20,0.50,0.10 --range2 20,60,10 --output-var valuation.value_created
 forge compare examples/acquisition/deal.yaml --scenarios base,slow_integration,no_revenue_synergies,rates_up
+forge compare examples/acquisition/deal.yaml --scenarios base,all_cash,all_shares
 forge export examples/acquisition/deal.yaml kittiwake.xlsx
 forge simulate examples/acquisition/deal_risk.yaml
 forge simulate examples/acquisition/deal_risk.yaml --scenario earnout
@@ -106,6 +119,6 @@ forge bayesian examples/acquisition/diligence.yaml -q stuffing -e q4_spike=yes -
 forge variance examples/acquisition/deal.yaml examples/acquisition/actual.yaml
 ```
 
-**Checked outside Forge:** the deal was written again in Python from this description, not from the model's formulas. Its plan, scenarios, tornado, walk-away price, sensitivity table, year-one variance and bidding tree agree with Forge's to 1e-9, and the two goal seeks to their tolerance. The option was priced on a hand-written binomial tree, and the diligence network by enumerating its 16 combinations. The comparable premiums were resampled 200,000 times in numpy. The Python is in `src/cli/commands/prediction/scenarios.rs`, and the tests are in an `acquisition_example` module beside each command. A test calculates each deal value in the bidding tree again from `deal.yaml`, so the tree cannot fall behind the model. The share of futures that pay the earn-out matches its closed form (21.2%). Three of the simulation's futures are calculated again with the plain model. The simulation's percentiles are Forge's own.
+**Checked outside Forge:** the deal was written again in Python from this description, not from the model's formulas. Its plan, scenarios, payment structures, tornado, walk-away price, sensitivity table, year-one variance and bidding tree agree with Forge's to 1e-9, and the two goal seeks to their tolerance. The option was priced on a hand-written binomial tree, and the diligence network by enumerating its 16 combinations. The comparable premiums were resampled 200,000 times in numpy. The Python is in `src/cli/commands/prediction/scenarios.rs`, and the tests are in an `acquisition_example` module beside each command. A test calculates each deal value in the bidding tree again from `deal.yaml`, so the tree cannot fall behind the model. The share of futures that pay the earn-out matches its closed form (21.2%). Three of the simulation's futures are calculated again with the plain model. The simulation's percentiles are Forge's own.
 
 **What the model leaves out:** the new debt is never repaid, so the interest and the leverage stay where they start. The intangibles are a round number, not a purchase-price allocation, and there is no tax on them. Valdane's share price does not move when the deal is announced. The earn-out is in the value but not in earnings per share. Thornvale's chances of countering are typed in, not worked out from what Quillon is worth to Thornvale. That is a game, and Forge cannot solve one yet (roadmap T2-GAME-THEORY).

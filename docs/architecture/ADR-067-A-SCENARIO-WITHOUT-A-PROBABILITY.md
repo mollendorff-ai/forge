@@ -1,8 +1,8 @@
 # ADR-067: A Scenario Without a Probability Is Compared, Not Weighted
 
-**Status:** Proposed; not yet built
+**Status:** Accepted (option 1); built
 **Date:** 2026-11-18
-**Decided by:** the maintainer, when this is merged; the analysis and the recommendation are Claude's
+**Decided by:** the maintainer, who chose option 1 (2026-11-18); the analysis and the recommendation are Claude's
 **Closes:** roadmap T1-UNWEIGHTED-SCENARIOS
 
 ---
@@ -18,7 +18,7 @@ What the code does today, read from it and run on a scratch copy of the example 
 | Where | A scenario with no `probability:` |
 | --- | --- |
 | The parser (`parser::model::parse_scenarios`) | Accepted, in the flat form (`earnout: {offer.premium: 0.20}`) or the full form with `scalars:` and no `probability:`. It goes into `ParsedModel.scenarios` like any other. The parser never reads `probability`. |
-| The JSON schema, 5.0.0 to 5.4.0 | Accepted: `ScenarioDefinition` needs `probability` or `scalars`, and the flat form is `ScenarioOverrides`. |
+| The JSON schema, 5.0.0 to 5.4.0 | Accepted: `ScenarioDefinition` needs `probability` or `scalars`, and the flat form is `ScenarioOverrides`. A section is in one form or the other: a flat scenario beside one with `probability:` is refused (found while building this, 2026-11-18). |
 | `forge compare`, `forge calculate --scenario`, `forge simulate --scenario` | Used. `forge compare --help` says so: "compare does not weigh the scenarios, so it needs no probability". `deal_risk.yaml`'s `earnout` is one. |
 | `forge scenarios` (`scenarios_core`) | The whole file is refused: "scenario 'all_cash' has no probability. forge scenarios weighs the scenarios by it, and the probabilities of all scenarios must sum to 1 (forge compare does not need it)". |
 | Studio | The chips list every scenario and show a percentage where `forge scenarios` gave one. When `scenarios` fails, Studio swallows the error, and the Analyze tab says "This model has no scenarios section". It says that today for `deal_risk.yaml`, which has one. |
@@ -74,11 +74,11 @@ A new top-level section, say `alternatives:` (the name is for this comparison on
 
 What option 2 gives that option 1 does not: the author says which scenarios are choices, so a missing probability in `scenarios:` is always an error. Option 1's sum check already catches every case where a missing probability would change the answer. That leaves option 2 with a format version, a second name space and two ways to write the same thing, to catch a case that cannot change the answer.
 
-## Decision (proposed)
+## Decision
 
 **Option 1.** The format already has unweighted scenarios, and every other command already uses them. Only `forge scenarios` refuses them, and that is where the fix goes.
 
-1. **Which are weighted.** A scenario with a `probability:` is weighted. A scenario without one is not: the flat form, or the full form with only `description:` and `scalars:`. A probability of 0 is weighted. It says the scenario cannot happen, which is not the same as having no probability.
+1. **Which are weighted.** A scenario with a `probability:` is weighted. A scenario without one is not: the flat form, or the full form with only `description:` and `scalars:`. Beside weighted scenarios a choice is in the full form, since the schema takes a section in one form or the other; that is unchanged. A probability of 0 is weighted. It says the scenario cannot happen, which is not the same as having no probability.
 2. **The checks, over the weighted ones only.** Each probability is between 0 and 1, and together they sum to 1 within 0.001, as now. The error names the scenarios that were left out, so a forgotten probability shows itself: `The probabilities of the 4 scenarios that have one sum to 0.90, not 1 (all_cash and all_shares have none and are not weighted)`.
 3. **No scenario has a probability.** An error that says there is nothing to weigh and shows the `forge compare` command that uses them.
 4. **`--scenario` names an unweighted one.** An error that points to `forge calculate --scenario` and `forge compare`. It does not run the scenario on its own with no weight.

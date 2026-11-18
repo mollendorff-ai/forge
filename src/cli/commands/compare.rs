@@ -768,4 +768,80 @@ scenarios:
             }
         }
     }
+
+    mod acquisition_example {
+        //! How Valdane pays for Quillon in examples/acquisition (ADR-067): three
+        //! structures side by side, as computed outside Forge. The Python is in
+        //! `prediction::scenarios::tests::acquisition_example`; `run(cash=...)`.
+
+        use super::*;
+
+        const MODEL: &str = "examples/acquisition/deal.yaml";
+
+        fn close(a: f64, b: f64, tol: f64) -> bool {
+            (a - b).abs() <= tol
+        }
+
+        #[test]
+        fn the_payment_structures_match_the_independent_calculation() {
+            let names: Vec<String> = ["base", "all_cash", "all_shares"]
+                .map(String::from)
+                .to_vec();
+            let result = compare_core(Path::new(MODEL), &names).unwrap();
+            let at = |variable: &str, scenario: &str| result.values[variable][scenario].unwrap();
+            let expected = [
+                // (variable, 60/40, all cash, all shares, tolerance)
+                (
+                    "valuation.value_created",
+                    224.507_933_418_290_12,
+                    224.507_933_418_290_12,
+                    224.507_933_418_290_12,
+                    1e-9,
+                ),
+                (
+                    "valuation.value_created_per_share",
+                    1.041_316_945_353_850_2,
+                    1.122_539_667_091_450_7,
+                    0.939_363_738_151_841_5,
+                    1e-12,
+                ),
+                (
+                    "eps.year_3_accretion",
+                    -0.011_433_658_663_979_496,
+                    0.012_613_291_470_434_218,
+                    -0.041_618_114_899_645_064,
+                    1e-12,
+                ),
+                (
+                    "financing.leverage_at_close",
+                    2.042_522_522_522_523,
+                    2.604_684_684_684_684_7,
+                    1.199_279_279_279_279_2,
+                    1e-12,
+                ),
+                ("financing.new_shares", 15.6, 0.0, 39.0, 1e-9),
+                (
+                    "financing.quillon_holders_own",
+                    0.072_356_215_213_358_08,
+                    0.0,
+                    0.163_179_916_317_991_67,
+                    1e-12,
+                ),
+            ];
+            for (variable, base, cash, shares, tol) in expected {
+                for (scenario, want) in [("base", base), ("all_cash", cash), ("all_shares", shares)]
+                {
+                    let got = at(variable, scenario);
+                    assert!(
+                        close(got, want, tol),
+                        "{variable} {scenario}: {got}, not {want}"
+                    );
+                }
+            }
+            // All cash is the one accretive in year 3, and the one past the
+            // agencies' 2.5
+            assert!(at("eps.year_3_accretion", "all_cash") > 0.0);
+            assert!(at("financing.leverage_at_close", "all_cash") > 2.5);
+        }
+    }
 }
