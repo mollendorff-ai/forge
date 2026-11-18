@@ -273,6 +273,72 @@ tier1:
     how: "examples/acquisition/, as examples/bagel is built: a buyer and a target as included files, a deal table by year (price, debt and shares issued, synergies, integration cost), accretion or dilution per year, NPV and IRR of the deal, three scenarios, a tornado, and a Monte Carlo on the synergies. Invented companies and round numbers, with a README that says what each file shows. No engine change; what the example makes hard goes here as tier items"
     acceptance: "The example runs from a fresh install with every analytics command it names, its headline numbers are asserted in a test against an independent calculation (as src/cli/commands/examples.rs (its bagel_example tests) does), and docs/EXAMPLES.md lists it"
 
+  # Examples where no example has been (decided 2026-11-18). Building models
+  # is what finds Forge's bugs: bagel found PR 76 and the rc.5 fixes,
+  # realestate found the table column drawn per row (013f98d6) and break-even
+  # stopping on a formula its output does not use (68bd898e). But a fourth
+  # project-finance story would re-check what bagel, microgrid and realestate
+  # already check, and each example costs Python, tests, a Studio entry and a
+  # forge-wasm case to keep current. So three examples, each aimed at code no
+  # example uses (grep of examples/ on 2026-11-18: no correlations:, no
+  # XNPV, XIRR, DATE, VLOOKUP, LET, LAMBDA or IFERROR, nothing starting from
+  # a workbook), and one item that checks MCP and the REST API give the
+  # examples' numbers. MCP and the API get no examples of their own: they are
+  # ways to run a model, not models. T1-MA-EXAMPLE above is the fourth
+  # example and stays as it is.
+  #
+  # The four items below are written to run in parallel, one session each.
+  # How an example is built, for all of them (follow examples/realestate,
+  # the newest):
+  # - examples/<name>/ with a README that says what each file shows, the
+  #   commands to run, and the numbers they should print. Invented names,
+  #   round numbers, all figures made up, model format 5.1.0 or the newest
+  #   feature it uses.
+  # - The headline numbers written again in Python from the README's
+  #   description, not translated from the formulas, and the Python quoted
+  #   in a doc comment of the test that asserts them.
+  # - Tests inline, next to the command they exercise (realestate's are in
+  #   simulate/mod.rs, prediction/tornado.rs, prediction/scenarios.rs,
+  #   analysis/goal_seek.rs), never in a tests/ folder. Several of those
+  #   files are near 1,500 lines (simulate/mod.rs is 1,332,
+  #   src/cli/commands/examples.rs 1,420): split by what the code does
+  #   before adding, never move tests out to make room.
+  # - Wired into studio/build.mjs (the examples list), forge-wasm/tests/cases.json
+  #   (a "calculate <name>" case) and examples/README.md; a CHANGELOG entry
+  #   under Unreleased. These four files are where parallel sessions collide:
+  #   fetch and merge main before pushing.
+  # - What the example makes hard or gets wrong is fixed test-first (a
+  #   wrong answer first) or added here as its own item; the example is not
+  #   bent around it.
+
+  - id: T1-EXAMPLE-CORRELATION
+    title: "A simulation example where correlated inputs change the answer"
+    run_with: "Opus 5.5, high effort: simulation statistics checked against an outside calculation, where a wrong answer is plausible and hard to see"
+    why: "src/monte_carlo/correlation.rs implements correlations: (a Gaussian copula with Cholesky; docs/FEATURES.md says each input keeps its own distribution and the resulting rank correlation is a little lower, 0.58 for 0.6), but no example uses it, nor sampling: monte_carlo against the default latin_hypercube. MC.Lognormal and MC.Discrete appear once each in examples/. In a real model uncertain inputs move together, and a simulation that ignores it gets the risk wrong"
+    how: "examples/vineyard/ (or a farm): a few years of a vineyard's harvest. Yield (MC.PERT or MC.Triangular) and price per tonne (MC.Lognormal) are negatively correlated, a big harvest lowers the price, which partly hedges revenue; a frost year is an MC.Discrete event; costs as an included file. vineyard.yaml is the plan; vineyard_risk.yaml the simulation, run with and without the correlation (a scenario or a second file) so the README can show the probability of a loss and the 5% worst year moving. Run both sampling methods once with the same seed and show they agree within sampling error. Python with numpy and scipy: (1) from the draws Forge writes or reports, the realized rank correlation against the copula's (6/pi) asin(rho/2), and each input's marginal against its distribution (a KS test); (2) the outputs (mean, percentiles, P(loss)) recomputed from Forge's own samples; (3) an independent simulation in numpy with the same copula, agreeing within a tolerance stated from the number of runs. A correlation matrix that is not positive definite (three inputs, pairwise values that cannot hold together) must be refused with a reason: check it"
+    acceptance: "examples/vineyard runs with every command its README names; the realized correlation, the marginals and the headline outputs agree with the Python within stated tolerances, asserted in inline tests; the README shows the loss probability with and without the correlation; a non-positive-definite matrix is refused, tested; Studio and forge-wasm have it"
+
+  - id: T1-EXAMPLE-DATES
+    title: "An example on real dates: irregular cash flows, XNPV and XIRR"
+    run_with: "Opus 5.5, high effort: day counts and IRR conventions are easy to get subtly wrong, and the check must come from outside Forge"
+    why: "Every story example counts periods as rows; none uses XNPV, XIRR, DATE, VLOOKUP, LET, LAMBDA or IFERROR (one EOMONTH). rc.22 and rc.23 fixed eight wrong answers in date and financial functions, found by sweeps, not by a model; a model on real dates has never been built. Dates are where spreadsheets disagree most"
+    how: "examples/fund/: a small venture fund over ten years. Capital calls and distributions on irregular dates (DATE, EOMONTH, a date as a scalar per ADR-060), management fees looked up from a fee table by year (VLOOKUP or XLOOKUP), the fund's net return by XIRR and its value by XNPV, a LET or LAMBDA where it makes a formula clearer, IFERROR where a lookup may miss. Scenarios on exit timing (a year later costs IRR, not much NPV), a tornado, and goal-seek for the exit multiple that gives a 15% net IRR. Python: numpy-financial or scipy for XIRR and XNPV on actual/365 days, written from the README's dates; then forge export and recalculate the workbook in Gnumeric (validation/gnumeric harness) or LibreOffice so a spreadsheet agrees too"
+    acceptance: "examples/fund runs with every command its README names; XIRR, XNPV and the goal-seek answer agree with the Python to the cent (IRR to 1e-9), asserted in inline tests; the exported workbook recalculates to the same numbers outside Forge; Studio and forge-wasm have it"
+
+  - id: T1-EXAMPLE-EXCEL-ROUNDTRIP
+    title: "An example that starts from a messy workbook: import, audit, change, export"
+    run_with: "Opus 5.5, high effort: forge import has never met a realistic workbook, and judging what it should do with one takes care"
+    why: "Every example starts in YAML. forge import (src/cli/commands/excel_io/import.rs) and forge audit are tested on small cases only; rc.20 fixed two wrong answers in import (an empty cell imported as 0, a range read as the row's value), found by accident. The way many people would actually start is with a workbook they inherited"
+    how: "examples/inherited-budget/ with a .xlsx an FP&A analyst might inherit: a few sheets (assumptions, a monthly table, a summary), cross-sheet references, a named range, a hard-coded number where a formula should be, a merged header, a blank row inside a table, number formats. The workbook must not be written by forge export (that would check Forge against itself): write it with openpyxl or by hand in a spreadsheet, and record its calculated values from LibreOffice or Gnumeric (or Excel, when the maintainer has it at hand). Then: forge import, forge audit (the README says what it should flag, the hard-coded number at least), change one assumption with forge update or in the YAML, forge calculate, forge export, and recalculate the exported workbook outside Forge. Whatever import gets wrong or drops is the point of the item: each gets a failing test, then a fix or a written-down limit in docs"
+    acceptance: "The workbook and the script or steps that made it are in the example; forge import of it calculates to the spreadsheet's own values, asserted in inline tests; forge audit's findings on it are asserted; the exported workbook after the change recalculates outside Forge to Forge's numbers; each limit found is fixed or written down in the README and the docs"
+
+  - id: T1-INTERFACE-PARITY
+    title: "MCP and the REST API give the examples' numbers"
+    run_with: "Sonnet 5.5, high effort: many tests of numbers already known, simple one by one; inline includes and path rules need care"
+    why: "The story examples' headline numbers are asserted through the command line only. The MCP tests run the one-command files (examples/tornado.yaml, decision-tree.yaml, real-options.yaml, bootstrap.yaml); the API tests use small inline models. An agent building a model through MCP is a main use, and bagel was first built that way (PR 76), so a difference between the doors is a wrong answer to someone"
+    how: "No new examples. For each of the 20 MCP tools (src/mcp/server/*_tools.rs), call the handler in-process on a story example (bagel for most, realestate or microgrid where bagel lacks the feature) and assert the same headline numbers the command-line tests assert, from the same constants where they can be shared. Once with file paths and once in inline content mode, including bagel's _includes passed inline (docs/MCP.md, Inline Includes) and a scenario that overrides a value in the included file. For the 5 REST endpoints (src/api/server.rs: validate, calculate, audit, export, import), one in-process test each on bagel with inline content, through build_router. Add a short request and response for each endpoint to the API docs. The analytics over REST stay T3-API; this item does not add endpoints. When the new examples above land, extend the matching tool's test to them"
+    acceptance: "Every MCP tool and every REST endpoint has an inline test that runs a story example and asserts a number the command-line test asserts; inline includes are covered; any difference found is fixed test-first as a wrong answer, with a CHANGELOG entry"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
 # ═══════════════════════════════════════════════════════════════════════════════
