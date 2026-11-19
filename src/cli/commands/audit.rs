@@ -80,7 +80,7 @@ impl<'a> Scope<'a> {
 
     fn column_values(&self, table: &str, column: &str) -> Option<Vec<Option<f64>>> {
         let model = self.calculated.as_ref().unwrap_or(self.model);
-        match &model.tables.get(table)?.columns.get(column)?.values {
+        match &model.tables[table].columns.get(column)?.values {
             ColumnValue::Number(v) => Some(v.iter().copied().map(Some).collect()),
             ColumnValue::Blanks(v) => Some(v.clone()),
             _ => None,
@@ -694,5 +694,264 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("not a scalar or a table column"), "{err}");
+    }
+
+    mod printed {
+        //! What `forge audit` prints and finds, on small models, one case each.
+
+        use super::*;
+        use crate::cli::console::capture;
+        use std::fmt::Write as _;
+        use std::fs;
+
+        const SCALARS: &str = "_forge_version: \"5.4.0\"\na: 10\nb: {formula: \"=a * 2\"}\nc: {formula: \"=b + a\"}\nf: {formula: \"=b + c\"}\nk: {formula: \"=1 + 1\"}\nstale: {formula: \"=a + 1\", value: 99}\nok: {formula: \"=a + 1\", value: 11}\nwhen: {formula: \"=DATE(2026, 1, 1)\"}\nuntil: {formula: \"=when + 1\"}\ngrp:\n  x: 3\n  y: {formula: \"=x * 2\"}\nflows:\n  cf: [-100, null, 60, null, 70]\n  label: [\"a\", \"b\", \"c\", \"d\", \"e\"]\ngrp2:\n  z: {formula: \"=a + 1\"}\nclean:\n  cf: [1, 2]\nnpv_clean: {formula: \"=NPV(0.1, clean.cf)\"}\nnpv_total: {formula: \"=NPV(0.1, flows.cf)\"}\nirr_total: {formula: \"=IRR(flows.cf)\"}\n";
+
+        fn audit_of(text: &str, variable: &str) -> (ForgeResult<()>, String) {
+            let dir = tempfile::tempdir().unwrap();
+            let file = dir.path().join("m.yaml");
+            fs::write(&file, text).unwrap();
+            let (result, captured) = capture(|c| audit(c, &file, variable));
+            (result, captured.out)
+        }
+
+        fn shown(variable: &str) -> String {
+            let (result, out) = audit_of(SCALARS, variable);
+            result.unwrap();
+            out
+        }
+
+        #[test]
+        fn a_scalar_is_shown_with_its_formula_value_and_dependencies() {
+            let out = shown("c");
+            for line in [
+                "Variable: c",
+                "Type: Scalar",
+                "Formula: =b + a",
+                "Calculated: 30",
+                "Dependency Tree:",
+                "└─ b (Scalar) = 20 =a * 2",
+                "Audit complete",
+            ] {
+                assert!(out.contains(line), "{line} in {out}");
+            }
+            // `b` is expanded once; its second appearance says so
+            assert!(shown("f").contains("(see above)"));
+        }
+
+        #[test]
+        fn the_value_in_the_file_is_checked_against_the_calculated_one() {
+            assert!(shown("ok").contains("The value in the file matches"));
+            let stale = shown("stale");
+            assert!(
+                stale.contains("The value in the file is 99: run forge calculate"),
+                "{stale}"
+            );
+            // Nothing stored, nothing to compare
+            assert!(!shown("c").contains("The value in the file"));
+        }
+
+        #[test]
+        fn a_constant_formula_and_a_date_say_so() {
+            assert!(shown("k").contains("No dependencies (constant formula)"));
+            assert!(shown("when").contains("Calculated: 2026-01-01"));
+            // Plus a day is a day number again
+            let out = shown("until");
+            assert!(out.contains("Calculated: 46024"), "{out}");
+            assert!(out.contains("when (Scalar) = 2026-01-01"), "{out}");
+            assert!(!shown("a").contains("Dependency Tree"));
+        }
+
+        #[test]
+        fn a_name_without_its_group_finds_the_scalar_of_the_group_it_is_written_in() {
+            let found = audit_core_of(SCALARS, "grp.y");
+            assert_eq!(found.dependencies[0].name, "grp.x");
+            assert_eq!(found.calculated_value, Some(6.0));
+        }
+
+        fn audit_core_of(text: &str, variable: &str) -> super::super::AuditResult {
+            let dir = tempfile::tempdir().unwrap();
+            let file = dir.path().join("m.yaml");
+            fs::write(&file, text).unwrap();
+            audit_core(&file, variable).unwrap()
+        }
+
+        #[test]
+        fn a_name_in_a_group_falls_back_to_the_plain_scalar() {
+            let found = audit_core_of(SCALARS, "grp2.z");
+            assert_eq!(found.dependencies[0].name, "a");
+            assert_eq!(found.calculated_value, Some(11.0));
+            // No empty cell in what NPV reads, no warning
+            assert_eq!(
+                audit_core_of(SCALARS, "npv_clean").warnings,
+                Vec::<String>::new()
+            );
+        }
+
+        #[test]
+        fn a_column_of_a_model_that_does_not_calculate_has_no_values() {
+            let found = audit_core_of(
+                "_forge_version: \"5.1.0\"\nt:\n  n: [1, 2]\n  d: \"=n * nosuch\"\n",
+                "t.d",
+            );
+            assert!(found.calculated_values.is_none());
+            assert!(found.calculation_error.is_some());
+        }
+
+        #[test]
+        fn a_stored_value_of_a_model_that_does_not_calculate_is_not_called_stale() {
+            let (result, out) = audit_of(
+                "_forge_version: \"5.1.0\"\nu: {formula: \"=nosuch + 1\", value: 1}\n",
+                "u",
+            );
+            result.unwrap();
+            assert!(!out.contains("The value in the file"), "{out}");
+        }
+
+        #[test]
+        fn no_rows_are_summarized_as_none() {
+            assert_eq!(summarize(&[]), "no rows");
+        }
+
+        #[test]
+        fn a_column_is_summarized_with_its_empty_cells() {
+            let out = shown("flows.cf");
+            assert!(
+                out.contains("Calculated: 5 rows: -100 … 70 (2 empty cells)"),
+                "{out}"
+            );
+            assert!(shown("flows.label").contains("Type: Column[flows]"));
+            let (result, out) = audit_of(
+                "_forge_version: \"5.3.0\"\nflows:\n  cf: [-100, null]\n  one: [5]\n",
+                "flows.cf",
+            );
+            result.unwrap();
+            assert!(out.contains("2 rows: -100 … empty (1 empty cell)"), "{out}");
+            let (result, out) = audit_of(
+                "_forge_version: \"5.3.0\"\nflows:\n  one: [5]\n",
+                "flows.one",
+            );
+            result.unwrap();
+            assert!(out.contains("1 row: 5"), "{out}");
+        }
+
+        #[test]
+        fn npv_and_irr_warn_about_the_empty_cells_they_skip() {
+            let out = shown("npv_total");
+            assert!(
+                out.contains("npv_total: NPV skips the 2 empty cells of flows.cf, as Excel does"),
+                "{out}"
+            );
+            let out = shown("irr_total");
+            assert!(
+                out.contains("IRR skips the 2 empty cells of flows.cf"),
+                "{out}"
+            );
+            let (result, out) = audit_of(
+                "_forge_version: \"5.3.0\"\nflows:\n  cf: [-100, null, 60]\ntotal: {formula: \"=NPV(0.1, flows.cf)\"}\nouter: {formula: \"=total + 1\"}\n",
+                "outer",
+            );
+            result.unwrap();
+            assert!(
+                out.contains("total: NPV skips the 1 empty cell of flows.cf"),
+                "{out}"
+            );
+        }
+
+        #[test]
+        fn a_model_that_does_not_calculate_is_audited_from_the_file() {
+            let (result, out) = audit_of(
+                "_forge_version: \"5.1.0\"\nu: {formula: \"=nosuch + 1\"}\n",
+                "u",
+            );
+            result.unwrap();
+            assert!(
+                out.contains("The model does not calculate, so values are the file's"),
+                "{out}"
+            );
+            assert!(out.contains("nosuch (Unknown)"), "{out}");
+        }
+
+        #[test]
+        fn a_name_that_is_not_in_the_model_lists_what_is() {
+            let (result, _) = audit_of(SCALARS, "nosuch");
+            let message = result.unwrap_err().to_string();
+            assert!(
+                message.contains("'nosuch' is not a scalar or a table column"),
+                "{message}"
+            );
+            assert!(message.contains("flows.cf"), "{message}");
+            let (result, _) = audit_of(SCALARS, "nosuch.col");
+            assert!(result.is_err());
+            let (result, _) = audit_of(SCALARS, "flows.nosuch");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn a_long_chain_stops_at_depth_30() {
+            let mut text = String::from("_forge_version: \"5.1.0\"\ns0: 1\n");
+            for n in 1..=32 {
+                writeln!(text, "s{n}: {{formula: \"=s{} + 1\"}}", n - 1).unwrap();
+            }
+            let found = audit_core_of(&text, "s32");
+            let mut node = &found.dependencies[0];
+            let mut depth = 1;
+            while let Some(next) = node.children.first() {
+                node = next;
+                depth += 1;
+            }
+            assert!(node.repeated && node.formula.is_some(), "{}", node.name);
+            assert_eq!(depth, 30);
+        }
+
+        #[test]
+        fn names_that_resolve_nowhere_stay_unknown() {
+            let dir = tempfile::tempdir().unwrap();
+            fs::write(
+                dir.path().join("prices.yaml"),
+                "_forge_version: \"5.1.0\"\ntax:\n  rate: 0.15\nlist:\n  per_kg: [1, 2]\n",
+            )
+            .unwrap();
+            fs::write(
+                dir.path().join("other.yaml"),
+                "_forge_version: \"5.1.0\"\nbonus: 1\n",
+            )
+            .unwrap();
+            let main = dir.path().join("main.yaml");
+            fs::write(
+                &main,
+                "_forge_version: \"5.1.0\"\n_includes:\n  - file: prices.yaml\n    as: prices\n  - file: other.yaml\n    as: other\nx: {formula: \"=@nope.y + @prices.list.missing + @prices.absent + @other.bonus + nosuch.col\"}\n",
+            )
+            .unwrap();
+            let found = audit_core(&main, "x").unwrap();
+            let kinds: Vec<(&str, &str)> = found
+                .dependencies
+                .iter()
+                .map(|d| (d.name.as_str(), d.dep_type.as_str()))
+                .collect();
+            let (mut unknown, mut dozens) = (Vec::new(), 0);
+            walk(&found.dependencies, &mut unknown, &mut dozens);
+            assert_eq!(unknown.len(), 4, "{unknown:?}");
+            let (result, captured) = capture(|c| audit(c, &main, "x"));
+            result.unwrap();
+            assert!(captured.out.contains("[other.yaml]"), "{}", captured.out);
+            assert_eq!(
+                kinds,
+                [
+                    ("@nope.y", "Unknown"),
+                    ("@prices.list.missing", "Unknown"),
+                    ("@prices.absent", "Unknown"),
+                    ("@other.bonus", "Included scalar"),
+                    ("nosuch.col", "Unknown"),
+                ]
+            );
+        }
+
+        #[test]
+        fn a_formula_that_cannot_be_read_has_no_references() {
+            assert_eq!(formula_references("=\"unterminated"), Vec::<String>::new());
+            assert!(calls("=NPV(0.1, x)", "npv"));
+            assert!(!calls("=npv + 1", "NPV"));
+            assert!(!calls("=\"unterminated", "NPV"));
+        }
     }
 }

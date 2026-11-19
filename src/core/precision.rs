@@ -769,6 +769,19 @@ mod tests {
             }
         }
 
+        /// A map written key by key and value by value
+        struct Entries;
+
+        impl Serialize for Entries {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                use serde::ser::SerializeMap;
+                let mut map = serializer.serialize_map(Some(1))?;
+                map.serialize_key("k")?;
+                map.serialize_value(&(0.1 + 0.2))?;
+                map.end()
+            }
+        }
+
         struct Readable;
 
         impl Serialize for Readable {
@@ -788,6 +801,7 @@ mod tests {
             pair: Pair,
             raw: Raw,
             readable: Readable,
+            entries: Entries,
             newtype: Shape,
             tuple: Shape,
             record: Shape,
@@ -809,6 +823,7 @@ mod tests {
                 pair: Pair(0.1 + 0.2, 7),
                 raw: Raw,
                 readable: Readable,
+                entries: Entries,
                 newtype: Shape::Newtype(0.1 + 0.2),
                 tuple: Shape::Tuple(0.1 + 0.2, 8),
                 record: Shape::Record {
@@ -826,7 +841,7 @@ mod tests {
                 text,
                 concat!(
                     r#"{"small":[-1,-2,-3,4,5,6],"single":0.5,"letter":"x","marker":null,"#,
-                    r#""wrapped":0.3,"pair":[0.3,7],"raw":[1,2],"readable":true,"#,
+                    r#""wrapped":0.3,"pair":[0.3,7],"raw":[1,2],"readable":true,"entries":{"k":0.3},"#,
                     r#""newtype":{"Newtype":0.3},"tuple":{"Tuple":[0.3,8]},"#,
                     r#""record":{"Record":{"a":0.3,"b":0.5}},"skipped":{"Record":{"a":1.0}},"#,
                     r#""map":{"k":0.3},"some":0.3,"none":null,"noisy":0.3}"#
