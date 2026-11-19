@@ -821,7 +821,7 @@ mod tests {
             t.write_string(0, 0, "a").unwrap();
             t.write_number(1, 0, 2.0).unwrap();
             let model = import(book);
-            assert!(model.resolved_includes.is_empty());
+            assert_eq!(model.resolved_includes.keys().count(), 0);
             let scalars: Vec<&String> = model.scalars.keys().collect();
             let tables: Vec<&String> = model.tables.keys().collect();
             assert_eq!(scalars, ["my_nsscalars.my-ns.x"]);
