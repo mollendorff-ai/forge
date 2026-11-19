@@ -362,12 +362,13 @@ tier1:
     how: "An ADR-060 addendum: either MAX, MIN, MAXIFS, MINIFS, LARGE and SMALL of dates give a date (as XLOOKUP of a date does), or a date format on a number shows the day number as a date, as Excel does. Then the change, test-first, and examples/fund's last_exit gets its format"
     acceptance: "fund.last_exit shows 8 Sep 2029 in forge calculate, the workbook and Studio; the addendum says which rule and why; a test fails on the commit before"
 
-  - id: T1-EXCEL-XNPV-ORDER
-    title: "Check in Excel what XNPV and XIRR do with a date before the first"
-    run_with: "Sonnet 5.5, low effort: measure in Excel, then write it down or follow it"
-    why: "Microsoft's documentation says XNPV and XIRR give #NUM! when any date precedes the first. Forge and LibreOffice 26.2 calculate anyway: dates 2021-01-01, 2020-01-01, 2022-01-01 with -100, -50, 200 give XNPV(0.1) 26.8038181349981 and XIRR 0.235869752954134. Gnumeric 1.12 gives the same XNPV and #VALUE! for XIRR (measured 2026-11-18, building examples/fund). Excel itself has not been asked"
-    how: "Those formulas in Excel (the maintainer has Excel for iPhone), with the dates in cells; if Excel gives #NUM!, Forge follows it test-first (the check goes in dated_cash_flows, src/core/array_calculator/evaluator/financial.rs, which is at 1,467 lines: split it first); otherwise VALIDATION.md says the documentation is wrong"
-    acceptance: "Excel's answer is in a validation case with the date it was measured, and Forge gives it or the difference is written down"
+  # T1-EXCEL-XNPV-ORDER is done (2026-11-19): Excel for iOS gives an error for XNPV
+  # with a date before the first, and the rate for XIRR (0.23587 for -100, -50, 200
+  # on 2021-01-01, 2020-01-01, 2022-01-01), so Microsoft's documentation is wrong
+  # about XIRR. Forge's XNPV now gives #NUM! (financial/dated.rs, test first); XIRR
+  # was right. The two cases are test_excel_xn1 and test_excel_xn2 (VALIDATION.md
+  # section 5, sixth round). Not measured: which error Excel's XNPV gives (the
+  # check wrapped it in IFERROR); #NUM! is Microsoft's word for it.
 
   - id: T1-EXAMPLE-EXCEL-ROUNDTRIP
     title: "An example that starts from a messy workbook: import, audit, change, export"
