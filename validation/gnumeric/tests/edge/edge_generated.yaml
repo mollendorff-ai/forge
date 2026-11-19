@@ -185,3 +185,9 @@ assumptions:
     value: null
     formula: "=RANK.EQ(0, gr.v)"
     expected: 4
+  # ROUND with a unit past any double (10^309 and up): Forge said it had no
+  # result; Gnumeric 1.12 and LibreOffice 26.2 give 0 (checked 2026-11-18)
+  test_round_unit_past_any_double:
+    value: null
+    formula: "=ROUND(12345.6, -400)"
+    expected: 0

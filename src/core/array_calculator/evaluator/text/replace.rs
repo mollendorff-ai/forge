@@ -1,8 +1,5 @@
 //! Replace functions: REPLACE, SUBSTITUTE
 
-// Text replace casts: f64 start/length indices to usize (bounded by string length).
-#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
@@ -71,7 +68,6 @@ pub fn eval_substitute(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalEr
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
 
@@ -136,7 +132,7 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         // Should replace "World" with "Universe" = "Hello Universe" = 14 chars
         let len = result.scalars.get("result").unwrap().value.unwrap();
-        assert_eq!(len, 14.0);
+        assert_exact!(len, 14.0);
     }
 
     #[test]
@@ -154,7 +150,7 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         // Should replace "He" with "Ya" -> "Yallo" = 5 chars
         let len = result.scalars.get("result").unwrap().value.unwrap();
-        assert_eq!(len, 5.0);
+        assert_exact!(len, 5.0);
     }
 
     #[test]

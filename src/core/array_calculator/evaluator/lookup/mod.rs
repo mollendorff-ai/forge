@@ -54,7 +54,6 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -117,9 +116,9 @@ mod tests {
         let price = result_table.columns.get("price").unwrap();
         match &price.values {
             ColumnValue::Number(nums) => {
-                assert_eq!(nums[0], 20.0);
-                assert_eq!(nums[1], 10.0);
-                assert_eq!(nums[2], 30.0);
+                assert_exact!(nums[0], 20.0);
+                assert_exact!(nums[1], 10.0);
+                assert_exact!(nums[2], 30.0);
             },
             _ => panic!("Expected Number array"),
         }
@@ -207,7 +206,7 @@ mod tests {
         );
         let model_result = result.unwrap();
         let val = model_result.scalars.get("score").unwrap().value.unwrap();
-        assert_eq!(val, 92.0);
+        assert_exact!(val, 92.0);
     }
 
     #[test]

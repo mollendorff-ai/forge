@@ -34,6 +34,10 @@ pub struct ScenarioResults {
     pub probability_positive: BTreeMap<String, f64>,
     /// Min/max ranges across scenarios
     pub ranges: BTreeMap<String, (f64, f64)>,
+    /// The scenarios without a probability, left out of the weighting, in the
+    /// file's order (ADR-067)
+    #[serde(default)]
+    pub unweighted: Vec<String>,
 }
 
 impl ScenarioResults {
@@ -116,6 +120,7 @@ impl ScenarioEngine {
             expected_values,
             probability_positive,
             ranges,
+            unweighted: self.config.unweighted.clone(),
         })
     }
 

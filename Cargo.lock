@@ -1324,8 +1324,9 @@ dependencies = [
 
 [[package]]
 name = "mollendorff-forge"
-version = "10.0.0-rc.27"
+version = "10.0.0-rc.29"
 dependencies = [
+ "anstream",
  "anyhow",
  "assert_cmd",
  "axum",
@@ -1343,6 +1344,7 @@ dependencies = [
  "libc",
  "notify",
  "notify-debouncer-mini",
+ "num-traits",
  "petgraph",
  "predicates",
  "pretty_assertions",
@@ -1394,6 +1396,14 @@ dependencies = [
  "serde_json",
  "tempfile",
  "yaml_serde",
+]
+
+[[package]]
+name = "mollendorff-forge-repo"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

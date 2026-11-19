@@ -17,6 +17,6 @@ $ forge calculate examples/capex-plan/capex.yaml
 
 `bank.check` is 0: year 2's interest plus principal is exactly twelve payments.
 
-**Checked outside Forge:** `tests/demo_examples.rs` repeats the loan month by month and fits the line with NumPy; the numbers agree to 1e-9. The functions themselves are checked against Gnumeric and LibreOffice in `validation/gnumeric`.
+**Checked outside Forge:** `src/cli/commands/examples.rs` (its `demo_examples` tests) repeats the loan month by month and fits the line with NumPy; the numbers agree to 1e-9. The functions themselves are checked against Gnumeric and LibreOffice in `validation/gnumeric`.
 
 `forge calculate` writes the results back into the file; run it on a copy.

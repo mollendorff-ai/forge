@@ -120,4 +120,29 @@ mod tests {
         assert_eq!(find("b?c", "a*b?c", 0), Some(2));
         assert_eq!(find("z", "hello", 0), None);
     }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn wildcards_in_criteria_match_and_search() {
+            h::sweep_is_exactly("COUNTIF(t.nm, \"b*\")", 2.0);
+            h::sweep_is_exactly("COUNTIF(t.nm, \"*e\")", 3.0);
+            h::sweep_is_exactly("COUNTIF(t.nm, \"?pple\")", 1.0);
+            h::sweep_is_exactly("COUNTIF(t.nm, \"b~*\")", 1.0);
+            h::sweep_is_exactly("COUNTIF(t.nm, \"<>b*\")", 4.0);
+            h::sweep_is_exactly("SUMIF(t.nm, \"apple*\", t.pr)", 50.0);
+            h::sweep_is_exactly("COUNTIF(t.pr, \"*\")", 0.0); // numbers never match a pattern
+            h::sweep_is_exactly("MATCH(\"c?erry\", t.nm, 0)", 3.0);
+            h::sweep_is_exactly("MATCH(\"b~*\", t.nm, 0)", 6.0);
+            h::sweep_is_exactly("XMATCH(\"ban*\", t.nm, 2)", 2.0);
+            h::sweep_is_exactly("XMATCH(\"b*\", t.nm, 0)", 6.0); // no wildcards in mode 0
+            h::sweep_is_exactly("SEARCH(\"?\", \"hello\", 4)", 4.0);
+            h::sweep_is_exactly("SEARCH(\"~*\", \"a*b?c\")", 2.0);
+            h::sweep_is_exactly("SEARCH(\"b?c\", \"a*b?c\")", 3.0);
+        }
+    }
 }

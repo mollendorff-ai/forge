@@ -17,7 +17,7 @@ pub struct BinomialTree {
     /// Time to maturity (years)
     pub maturity: f64,
     /// Number of time steps
-    pub steps: usize,
+    pub steps: u16,
     /// Dividend yield (continuous)
     pub dividend_yield: f64,
 }
@@ -40,7 +40,7 @@ impl BinomialTree {
         rate: f64,
         volatility: f64,
         maturity: f64,
-        steps: usize,
+        steps: u16,
     ) -> Self {
         Self {
             spot,
@@ -61,10 +61,13 @@ impl BinomialTree {
     }
 
     /// Calculate time step
-    // Truncation is mathematically impossible: steps is bounded by practical tree sizes (< 2^52)
-    #[allow(clippy::cast_precision_loss)]
     fn dt(&self) -> f64 {
-        self.maturity / self.steps as f64
+        self.maturity / f64::from(self.steps)
+    }
+
+    /// The price at a node `ups` moves up and `downs` moves down from now
+    fn spot_at(&self, (u, d): (f64, f64), ups: u16, downs: u16) -> f64 {
+        self.spot * u.powi(i32::from(ups)) * d.powi(i32::from(downs))
     }
 
     /// Calculate up factor
@@ -104,19 +107,16 @@ impl BinomialTree {
     }
 
     /// General option pricing using backward induction
-    // Truncation is mathematically impossible: step indices are bounded by self.steps (< 2^31)
-    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     fn price_option(&self, is_call: bool, style: OptionStyle) -> f64 {
         let n = self.steps;
-        let u = self.up();
-        let d = self.down();
+        let moves = (self.up(), self.down());
         let p = self.prob_up();
         let disc = self.discount();
 
         // Build terminal payoffs
-        let mut prices = vec![0.0; n + 1];
-        for (i, price) in prices.iter_mut().enumerate() {
-            let spot_t = self.spot * u.powi(i as i32) * d.powi((n - i) as i32);
+        let mut prices = vec![0.0; usize::from(n) + 1];
+        for (i, price) in (0..=n).zip(prices.iter_mut()) {
+            let spot_t = self.spot_at(moves, i, n - i);
             *price = if is_call {
                 (spot_t - self.strike).max(0.0)
             } else {
@@ -127,20 +127,21 @@ impl BinomialTree {
         // Backward induction
         for step in (0..n).rev() {
             for i in 0..=step {
+                let at = usize::from(i);
                 // Continuation value
-                let hold = disc * p.mul_add(prices[i + 1], (1.0 - p) * prices[i]);
+                let hold = disc * p.mul_add(prices[at + 1], (1.0 - p) * prices[at]);
 
                 if style == OptionStyle::American {
                     // Early exercise value
-                    let spot_t = self.spot * u.powi(i as i32) * d.powi((step - i) as i32);
+                    let spot_t = self.spot_at(moves, i, step - i);
                     let exercise = if is_call {
                         (spot_t - self.strike).max(0.0)
                     } else {
                         (self.strike - spot_t).max(0.0)
                     };
-                    prices[i] = hold.max(exercise);
+                    prices[at] = hold.max(exercise);
                 } else {
-                    prices[i] = hold;
+                    prices[at] = hold;
                 }
             }
         }
@@ -225,28 +226,20 @@ impl BinomialTree {
     }
 
     /// Get early exercise boundary (for American options)
-    // Truncation is mathematically impossible: step indices are bounded by self.steps (< 2^31)
-    // Truncation is mathematically impossible: step indices are bounded by self.steps (< 2^31)
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_possible_wrap,
-        clippy::cast_precision_loss
-    )]
     #[must_use]
     pub fn early_exercise_boundary(&self, is_call: bool) -> Vec<(f64, f64)> {
         let n = self.steps;
         let dt = self.dt();
-        let u = self.up();
-        let d = self.down();
+        let moves = (self.up(), self.down());
         let p = self.prob_up();
         let disc = self.discount();
 
         let mut boundary = Vec::new();
 
         // Build terminal payoffs
-        let mut prices = vec![0.0; n + 1];
-        for (i, price) in prices.iter_mut().enumerate() {
-            let spot_t = self.spot * u.powi(i as i32) * d.powi((n - i) as i32);
+        let mut prices = vec![0.0; usize::from(n) + 1];
+        for (i, price) in (0..=n).zip(prices.iter_mut()) {
+            let spot_t = self.spot_at(moves, i, n - i);
             *price = if is_call {
                 (spot_t - self.strike).max(0.0)
             } else {
@@ -256,12 +249,13 @@ impl BinomialTree {
 
         // Backward induction with boundary tracking
         for step in (0..n).rev() {
-            let time = step as f64 * dt;
+            let time = f64::from(step) * dt;
             let mut exercise_at = None;
 
             for i in 0..=step {
-                let hold = disc * p.mul_add(prices[i + 1], (1.0 - p) * prices[i]);
-                let spot_t = self.spot * u.powi(i as i32) * d.powi((step - i) as i32);
+                let at = usize::from(i);
+                let hold = disc * p.mul_add(prices[at + 1], (1.0 - p) * prices[at]);
+                let spot_t = self.spot_at(moves, i, step - i);
                 let exercise = if is_call {
                     (spot_t - self.strike).max(0.0)
                 } else {
@@ -272,7 +266,7 @@ impl BinomialTree {
                     exercise_at = Some(spot_t);
                 }
 
-                prices[i] = hold.max(exercise);
+                prices[at] = hold.max(exercise);
             }
 
             if let Some(spot_boundary) = exercise_at {
@@ -393,5 +387,56 @@ mod binomial_tests {
             (amer_put - 6.08).abs() < 0.2,
             "American put should match QuantLib: {amer_put}"
         );
+    }
+
+    /// The (time, spot) pairs where early exercise first beats holding, latest
+    /// time first. Expected values are the same Cox-Ross-Rubinstein recursion
+    /// worked in Python (u = e^(sigma sqrt(dt)), d = 1/u, p = (e^((r-q) dt) - d)
+    /// / (u - d)), outside Forge.
+    #[test]
+    fn early_exercise_boundary_of_an_american_put() {
+        // S=100, K=100, r=5%, sigma=20%, T=1, 2 steps: only the middle node
+        // of step 1 (spot 100 * d = 86.81) is worth exercising early
+        let put =
+            BinomialTree::new(100.0, 100.0, 0.05, 0.20, 1.0, 2).early_exercise_boundary(false);
+        assert_eq!(put.len(), 1, "{put:?}");
+        assert!((put[0].0 - 0.5).abs() < 1e-12, "{put:?}");
+        assert!((put[0].1 - 86.812_344_539_458_48).abs() < 1e-9, "{put:?}");
+
+        // Deep in the money (S=60): exercise at once as well, at the spot itself
+        let deep =
+            BinomialTree::new(60.0, 100.0, 0.05, 0.20, 1.0, 2).early_exercise_boundary(false);
+        assert_eq!(deep.len(), 2, "{deep:?}");
+        assert!(
+            (deep[0].0 - 0.5).abs() < 1e-12 && (deep[0].1 - 52.087_406_723_675_095).abs() < 1e-9
+        );
+        assert!(
+            deep[1].0.abs() < 1e-12 && (deep[1].1 - 60.0).abs() < 1e-9,
+            "{deep:?}"
+        );
+    }
+
+    #[test]
+    fn early_exercise_boundary_of_a_call_needs_a_dividend() {
+        // Without a dividend an American call is never exercised early
+        let plain =
+            BinomialTree::new(100.0, 100.0, 0.05, 0.20, 1.0, 2).early_exercise_boundary(true);
+        assert!(plain.is_empty(), "{plain:?}");
+
+        // With a 12% yield, deep in the money: exercised at every step, the
+        // spot where it first pays rising towards today's 150
+        let paying = BinomialTree::new(150.0, 100.0, 0.02, 0.20, 1.0, 3)
+            .with_dividend_yield(0.12)
+            .early_exercise_boundary(true);
+        let expected = [
+            (2.0 / 3.0, 119.068_050_954_040_33),
+            (1.0 / 3.0, 133.642_087_843_261_6),
+            (0.0, 150.0),
+        ];
+        assert_eq!(paying.len(), expected.len(), "{paying:?}");
+        for ((time, spot), (want_time, want_spot)) in paying.iter().zip(expected) {
+            assert!((time - want_time).abs() < 1e-12, "{paying:?}");
+            assert!((spot - want_spot).abs() < 1e-9, "{paying:?}");
+        }
     }
 }

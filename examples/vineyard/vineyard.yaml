@@ -1,0 +1,76 @@
+_forge_version: "5.4.0"
+# Les Trois Pentes: a fictional vineyard of 24 hectares that sells its grapes
+# to the region's wineries, planned for one season. All figures are made up.
+_includes:
+  - file: costs.yaml
+    as: costs
+
+# The season as it goes in a normal year. vineyard_risk.yaml makes the three
+# uncertain: the harvest, the price and a spring frost.
+harvest:
+  # The vineyard's crop against a normal year; weather is regional, so the
+  # whole region's crop moves with it
+  yield_factor: {value: 1.0, format: "0%"}
+  # What the region's wineries pay for a tonne of grapes
+  price_per_tonne: {value: 2000, format: "$#,##0"}
+  # Share of the crop a spring frost kills
+  frost_loss: {value: 0, format: "0%"}
+
+blocks:
+  variety: [chardonnay, pinot_noir, riesling]
+  hectares: [10, 8, 6]
+  # Tonnes a hectare in a normal year
+  tonnes_per_hectare: [7.5, 5.5, 8.0]
+  # Each variety's price against the region's price
+  price_factor: {value: [1.00, 1.35, 0.90], format: "0%"}
+  tonnes:
+    formula: "=hectares * tonnes_per_hectare * harvest.yield_factor * (1 - harvest.frost_loss)"
+    format: "#,##0.0"
+  revenue:
+    formula: "=tonnes * harvest.price_per_tonne * price_factor"
+    format: "$#,##0"
+
+season:
+  tonnes: {formula: "=SUM(blocks.tonnes)", format: "#,##0.0"}
+  revenue: {formula: "=SUM(blocks.revenue)", format: "$#,##0"}
+  growing: {formula: "=SUM(blocks.hectares) * @costs.vineyard.per_hectare", format: "$#,##0"}
+  picking: {formula: "=tonnes * @costs.harvest.picking_per_tonne", format: "$#,##0"}
+  fixed: {formula: "=@costs.fixed.overhead + @costs.fixed.loan_payment", format: "$#,##0"}
+  profit: {formula: "=revenue - growing - picking - fixed", format: "$#,##0"}
+  margin: {formula: "=profit / revenue", format: "0.0%"}
+
+scenarios:
+  base:
+    probability: 0.6
+    description: A normal year
+    scalars: {}
+  glut:
+    probability: 0.15
+    description: A big harvest across the region, and the wineries pay less for it
+    scalars:
+      harvest.yield_factor: 1.25
+      harvest.price_per_tonne: 1550
+  short_crop:
+    probability: 0.15
+    description: A dry summer shrinks every vineyard's crop, and the price rises
+    scalars:
+      harvest.yield_factor: 0.7
+      harvest.price_per_tonne: 2500
+  frost:
+    probability: 0.1
+    description: A May frost kills 30% of this vineyard's buds; the region's price does not move
+    scalars:
+      harvest.frost_loss: 0.3
+
+tornado:
+  output: season.profit
+  inputs:
+    - name: harvest.yield_factor
+      low: 0.5
+      high: 1.3
+    - name: harvest.price_per_tonne
+      low: 1500
+      high: 2500
+    - name: harvest.frost_loss
+      low: 0
+      high: 0.3

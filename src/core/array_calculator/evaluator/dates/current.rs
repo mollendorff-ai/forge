@@ -31,7 +31,6 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -91,6 +90,6 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         // NOW() returns "YYYY-MM-DD HH:MM:SS" format = 19 characters
         let val = result.scalars.get("now_len").unwrap().value.unwrap();
-        assert_eq!(val, 19.0);
+        assert_exact!(val, 19.0);
     }
 }

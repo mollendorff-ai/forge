@@ -63,6 +63,30 @@ export function tokenAt(text, caret) {
   return { start: caret - token.length, end: caret, token };
 }
 
+// The names a LET declares: {name, start, end} for each name written before a
+// comma at the top level of a `LET(` call (its 1st, 3rd, ... argument); the
+// last argument is the result, not a name. Strings are skipped.
+export function letBindings(formula) {
+  const out = [];
+  for (const open of formula.matchAll(/\bLET\s*\(/gi)) {
+    let depth = 0, inText = false, arg = 0, from = open.index + open[0].length;
+    for (let i = from; i < formula.length; i++) {
+      const c = formula[i];
+      if (c === '"') inText = !inText;
+      if (inText) continue;
+      if (c === "(") depth++;
+      else if (c === ")" && depth-- === 0) break;
+      else if (c === "," && depth === 0) {
+        const m = /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(formula.slice(from, i));
+        if (arg % 2 === 0 && m) out.push({ name: m[2], start: from + m[1].length, end: from + m[1].length + m[2].length });
+        arg++;
+        from = i + 1;
+      }
+    }
+  }
+  return out;
+}
+
 const LIMIT = { names: 16, functions: 8 };
 // The two words of the formula language that are values, not names or functions
 const CONSTANTS = ["TRUE", "FALSE"];
@@ -77,7 +101,9 @@ export function suggest(index, text, caret) {
   const low = at.token.toLowerCase();
   const seen = new Set(), out = [];
   const names = [];
-  for (const n of index.names) {
+  // The names a LET in the formula has declared before the word
+  const declared = letBindings(text.slice(0, at.start)).map((b) => ({ text: b.name, bare: b.name, kind: "let", unit: null }));
+  for (const n of [...declared, ...index.names]) {
     if (n.bare && n.bare.toLowerCase().startsWith(low) && !seen.has(n.bare)) { seen.add(n.bare); names.push({ label: n.bare, insert: n.bare, kind: n.kind, title: n.unit ? `${n.text} · ${n.unit}` : n.text }); }
   }
   names.sort((a, b) => byLength(a.label, b.label));

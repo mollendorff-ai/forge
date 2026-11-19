@@ -12,7 +12,7 @@ use yaml_serde::{Mapping, Value};
 
 /// The most rows a period column may have: the rows of an Excel sheet under
 /// its header.
-pub const MAX_PERIODS: u64 = 1_048_575;
+pub const MAX_PERIODS: u32 = 1_048_575;
 
 const UNITS: [&str; 5] = ["day", "week", "month", "quarter", "year"];
 
@@ -60,6 +60,7 @@ pub fn period_column(table: &str, column: &str, map: &Mapping) -> ForgeResult<Co
     let count = map
         .get("count")
         .and_then(Value::as_u64)
+        .and_then(|n| u32::try_from(n).ok())
         .filter(|n| (1..=MAX_PERIODS).contains(n))
         .ok_or_else(|| {
             fail(format!(
@@ -81,8 +82,6 @@ pub fn period_column(table: &str, column: &str, map: &Mapping) -> ForgeResult<Co
 
     (0..count)
         .map(|i| {
-            #[allow(clippy::cast_possible_truncation)] // count is at most MAX_PERIODS
-            let i = i as u32;
             let date = match unit {
                 "day" => start.checked_add_days(Days::new(u64::from(i))),
                 "week" => start.checked_add_days(Days::new(7 * u64::from(i))),
@@ -169,6 +168,14 @@ mod tests {
             ),
             ("{start: 2026-12, count: 0, unit: month}", "count must be"),
             ("{start: 2026-12, count: 2.5, unit: month}", "count must be"),
+            (
+                "{start: 2026-12, count: 1048576, unit: month}",
+                "count must be",
+            ),
+            (
+                "{start: 2026-12, count: 4294967296, unit: month}",
+                "count must be",
+            ),
             (
                 "{start: 2026-12, count: 3, unit: months}",
                 "unit must be one of day",

@@ -36,7 +36,7 @@ monte_carlo:
 #   MC.Uniform(min, max)
 #   MC.PERT(min, mode, max)
 #   MC.Lognormal(mean, std_dev)
-#   MC.Discrete(value1, prob1, value2, prob2, ...)
+#   MC.Discrete({value1, value2, ...}, {prob1, prob2, ...})
 
 assumptions:
   # Revenue growth: Expected 15%, could range 5% to 25%

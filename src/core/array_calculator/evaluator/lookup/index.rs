@@ -1,12 +1,10 @@
 //! INDEX function implementation
 
-// Index casts: f64 row/col indices to usize (bounded by array length).
-#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-
 use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use num_traits::ToPrimitive;
 
 /// Evaluate INDEX function
 /// INDEX(array, `row_num`, [`col_num`])
@@ -16,22 +14,21 @@ pub fn eval_index(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 
     // Evaluate array without row context to get full array
     let array = evaluate(&args[0], ctx)?;
-    let row_num = number_or(&args[1], ctx, 1.0)? as i64;
+    let row_num = number_or(&args[1], ctx, 1.0)?;
 
-    // INDEX is 1-based, row_num must be >= 1
-    if row_num < 1 {
+    // INDEX is 1-based, row_num must be >= 1, cut to a whole number
+    if row_num.trunc() < 1.0 {
         return Err(EvalError::new(format!(
             "INDEX: row_num {row_num} must be >= 1"
         )));
     }
 
     match array {
-        Value::Array(arr) => {
-            let idx = (row_num - 1) as usize;
-            arr.get(idx)
-                .cloned()
-                .ok_or_else(|| EvalError::new(format!("INDEX row {row_num} out of bounds")))
-        },
+        Value::Array(arr) => row_num
+            .to_usize()
+            .and_then(|row| arr.get(row - 1))
+            .cloned()
+            .ok_or_else(|| EvalError::new(format!("INDEX row {row_num} out of bounds"))),
         _ => Err(EvalError::new("INDEX requires an array")),
     }
 }
@@ -357,5 +354,28 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(42.0));
+    }
+
+    /// A row from 1, cut to a whole number as Excel cuts it
+    #[test]
+    fn a_row_is_a_whole_number_from_one() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("v", h::numbers(&[10.0, 20.0, 30.0]))]);
+        h::is_exactly_in("INDEX(t.v, 1.9)", &ctx, 10.0);
+        h::is_exactly_in("INDEX(t.v, 3)", &ctx, 30.0);
+        assert!(h::error_in("INDEX(t.v, 0.5)", &ctx).contains("row_num 0.5 must be >= 1"));
+        assert!(h::error_in("INDEX(t.v, 4)", &ctx).contains("out of bounds"));
+        assert!(h::error_in("INDEX(t.v, 1E+20)", &ctx).contains("out of bounds"));
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("v", h::numbers(&[1.0, 2.0, 3.0]))]);
+        assert!(
+            h::error_in("INDEX(t.v, 1/0)", &ctx).contains(""),
+            "INDEX(t.v, 1/0)"
+        );
     }
 }

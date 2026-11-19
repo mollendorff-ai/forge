@@ -1,14 +1,9 @@
 //! Search functions: FIND, SEARCH
 
-// Text search casts: char position indices between f64 and usize (bounded by string length).
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
-
 use super::super::{evaluate, require_args_range, EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::{number_or, wildcard};
+use crate::core::precision;
+use num_traits::ToPrimitive;
 
 /// The 0-based character position to start at, from an optional 1-based
 /// `start_num`: #VALUE! below 1 or past the end of the text, as in Excel.
@@ -23,12 +18,13 @@ fn start_index(
     } else {
         1.0
     };
-    if start < 1.0 || start > length as f64 {
+    if start < 1.0 || start > precision::count(length) {
         return Err(EvalError::new(format!(
             "#VALUE!: {name}: start_num {start} is outside the text (1 to {length})"
         )));
     }
-    Ok(start as usize - 1)
+    // From 1 to the length, so a usize holds it
+    Ok(start.to_usize().unwrap_or(1) - 1)
 }
 
 /// `FIND(find_text`, `within_text`, [`start_num`]) - Finds text within text
@@ -42,7 +38,7 @@ pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
         .find(|&i| within[i..].starts_with(&find_text))
         .map_or_else(
             || Err(EvalError::new("#VALUE!: FIND: text not found")),
-            |i| Ok(Value::Number((i + 1) as f64)),
+            |i| Ok(Value::Number(precision::count(i + 1))),
         )
 }
 
@@ -56,13 +52,12 @@ pub fn eval_search(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     let start = start_index("SEARCH", args, ctx, within.chars().count())?;
     wildcard::find(&find_text, &within, start).map_or_else(
         || Err(EvalError::new("#VALUE!: SEARCH: text not found")),
-        |i| Ok(Value::Number((i + 1) as f64)),
+        |i| Ok(Value::Number(precision::count(i + 1))),
     )
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
 
@@ -97,7 +92,7 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         let pos = result.scalars.get("pos").unwrap().value.unwrap();
         // "LO" found at position 4 in "hello"
-        assert_eq!(pos, 4.0);
+        assert_exact!(pos, 4.0);
     }
 
     #[test]
@@ -124,8 +119,8 @@ mod tests {
         let p1 = result.scalars.get("pos1").unwrap().value.unwrap();
         let p2 = result.scalars.get("pos2").unwrap().value.unwrap();
         // Both should find "World" at position 7
-        assert_eq!(p1, 7.0);
-        assert_eq!(p2, 7.0);
+        assert_exact!(p1, 7.0);
+        assert_exact!(p2, 7.0);
     }
 
     // NOT FOUND TESTS
@@ -235,5 +230,31 @@ mod tests {
         let var = result.scalars.get("pos").unwrap();
         // Should find "l" at position 4 (case insensitive)
         assert_eq!(var.value, Some(4.0));
+    }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn find_and_search_count_characters() {
+            assert_exact!(h::sweep_number("FIND(\"γ\", \"αβγ\")"), 3.0);
+            assert_exact!(h::sweep_number("FIND(\"β\", \"αβγ\", 2)"), 2.0); // panicked before
+            assert_exact!(h::sweep_number("SEARCH(\"E\", \"straße\")"), 6.0);
+            h::sweep_fails("FIND(\"l\", \"hello\", 0)", "#VALUE!");
+            h::sweep_fails("SEARCH(\"l\", \"hello\", 6)", "#VALUE!");
+        }
+    }
+
+    /// `start_num` is cut to a whole number, as Excel cuts it
+    #[test]
+    fn start_num_is_a_whole_number() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("FIND(\"b\", \"abcb\", 2.9)", 2.0);
+        h::is_exactly("FIND(\"b\", \"abcb\", 3)", 4.0);
+        h::is_exactly("SEARCH(\"B\", \"abcb\", 4.9)", 4.0);
+        h::fails_with("FIND(\"b\", \"abcb\", 0.5)", "start_num 0");
     }
 }

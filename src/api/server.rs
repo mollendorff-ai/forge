@@ -3,9 +3,6 @@
 //! HTTP REST API server using Axum for integrations.
 //! Provides endpoints for validate, calculate, audit, export, import.
 
-// During coverage builds, stubbed functions don't use all imports
-#![cfg_attr(coverage, allow(unused_imports, dead_code))]
-
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
@@ -237,22 +234,35 @@ pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
 /// Returns an error if the server address cannot be parsed, the TCP listener
 /// fails to bind, or the server encounters a fatal runtime error.
 ///
-/// # Coverage Exclusion (ADR-006)
-/// This function binds to a real TCP port and runs forever until terminated.
-/// It is not unit tested; `build_router`, which holds the routes and layers, is.
-#[cfg(not(coverage))]
+/// A configuration it refuses (a host other than this machine without a
+/// token, any origin) returns its error before anything starts; a test runs
+/// that part, and one serves on a free port until told to stop. It runs
+/// until the process gets Ctrl+C or SIGTERM.
 pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "forge=info,tower_http=info".into()),
-        )
-        .init();
+    serve_until(config, shutdown_signal()).await
+}
 
+/// What is logged when `RUST_LOG` says nothing: this crate's messages (its log
+/// target is `mollendorff_forge`, not the binary's name) and each request
+const DEFAULT_LOG_FILTER: &str = "mollendorff_forge=info,tower_http=info";
+
+/// Serve until `shutdown` is ready
+async fn serve_until(
+    config: ApiConfig,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+) -> anyhow::Result<()> {
     let app = build_router(&config)
         .map_err(anyhow::Error::msg)?
         .layer(TraceLayer::new_for_http());
+
+    // The log starts once the configuration is accepted
+    // A second server in one process finds the log started already
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| DEFAULT_LOG_FILTER.into()),
+        )
+        .try_init();
 
     let addr: SocketAddr = config.socket_address().parse()?;
     info!("🔥 Forge API Server starting on http://{}", addr);
@@ -277,24 +287,14 @@ pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(shutdown)
         .await?;
 
     info!("Forge API Server shutdown complete");
     Ok(())
 }
 
-/// Stub for coverage builds - see ADR-006
-#[cfg(coverage)]
-pub async fn run_api_server(_config: ApiConfig) -> anyhow::Result<()> {
-    Ok(())
-}
-
 /// Graceful shutdown signal handler
-///
-/// # Coverage Exclusion (ADR-006)
-/// Waits for OS signals (Ctrl+C, SIGTERM) - cannot be triggered in unit tests
-#[cfg(not(coverage))]
 async fn shutdown_signal() {
     let ctrl_c = async {
         tokio::signal::ctrl_c()
@@ -320,10 +320,6 @@ async fn shutdown_signal() {
 
     info!("Shutdown signal received, stopping server...");
 }
-
-/// Stub for coverage builds - see ADR-006
-#[cfg(coverage)]
-async fn shutdown_signal() {}
 
 #[cfg(test)]
 mod tests {
@@ -619,5 +615,384 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // examples/bagel through the five endpoints (T1-INTERFACE-PARITY), called in
+    // process through `build_router`: the numbers are the ones the command-line
+    // tests assert (cli/commands/examples.rs, `bagel_example`, where the Python
+    // is quoted). validate, calculate and audit take the model as text with
+    // `costs.yaml` in `includes`; export and import name files.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    mod bagel_over_http {
+        use super::*;
+        use axum::body::Body;
+        use axum::http::{header, Method, Request, StatusCode};
+        use serde_json::{json, Value};
+        use tower::ServiceExt;
+
+        const PLAN: &str = "examples/bagel/bagel.yaml";
+
+        fn text(file: &str) -> String {
+            std::fs::read_to_string(format!("examples/bagel/{file}")).unwrap()
+        }
+
+        /// The plan as text, and `costs.yaml` for its `_includes`
+        fn inline() -> Value {
+            json!({"content": text("bagel.yaml"), "includes": {"costs": text("costs.yaml")}})
+        }
+
+        /// POST `body` to `path` on the router `forge serve` builds, as a request
+        /// from this machine; the `data` of the answer
+        async fn post(path: &str, body: &Value) -> Value {
+            let app = build_router(&ApiConfig::default()).unwrap();
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(path)
+                        .header(header::HOST, "localhost:8080")
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(body.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            let answer: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(answer["success"], true);
+            answer["data"].clone()
+        }
+
+        /// A dependency of the audited variable, wherever it is in the tree
+        fn find<'a>(deps: &'a Value, name: &str) -> Option<&'a Value> {
+            deps.as_array().into_iter().flatten().find_map(|d| {
+                (d["name"] == name)
+                    .then_some(d)
+                    .or_else(|| find(&d["children"], name))
+            })
+        }
+
+        fn close(a: &Value, b: f64, tolerance: f64) -> bool {
+            (a.as_f64().unwrap() - b).abs() <= tolerance
+        }
+
+        #[tokio::test]
+        async fn validate_counts_the_bagel_model() {
+            let data = post("/api/v1/validate", &inline()).await;
+            assert_eq!(data["valid"], true);
+            assert_eq!(data["message"], "Validation successful");
+            assert_eq!(data["file_path"], "");
+            assert_eq!(data["result"]["table_count"], 1);
+            assert_eq!(data["result"]["scalar_count"], 19);
+            assert_eq!(data["result"]["mismatches"], json!([]));
+        }
+
+        #[tokio::test]
+        async fn calculate_gives_the_years_profit_and_the_flour_shocks() {
+            let mut body = inline();
+            body["dry_run"] = json!(true);
+            let data = post("/api/v1/calculate", &body).await;
+            assert_eq!(data["calculated"], true);
+            let scalars = &data["result"]["scalars"];
+            assert!(close(&scalars["year.profit"], 786.320_361_7, 1e-6));
+            assert!(close(&scalars["year.revenue"], 386_827.449_537_8, 1e-6));
+            assert!(close(
+                &scalars["year.first_year_return"],
+                786.320_361_7 / 95_000.0,
+                1e-9
+            ));
+
+            // The scenario sets the flour price, a value in the included file
+            body["scenario"] = json!("flour_shock");
+            let shock = post("/api/v1/calculate", &body).await;
+            assert!(close(
+                &shock["result"]["scalars"]["year.profit"],
+                -16_943.271_075,
+                1e-6
+            ));
+        }
+
+        #[tokio::test]
+        async fn calculate_without_a_dry_run_returns_the_model_with_its_values() {
+            let data = post("/api/v1/calculate", &inline()).await;
+            assert_eq!(data["message"], "Calculation completed");
+            let model = data["calculated_content"].as_str().unwrap();
+            assert!(model.contains("=SUM(months.profit)"), "{model}");
+            assert!(model.contains("value: 786.3203617"), "{model}");
+        }
+
+        #[tokio::test]
+        async fn audit_follows_the_profit_down_to_the_included_costs() {
+            let mut body = inline();
+            body["variable"] = json!("year.profit");
+            let data = post("/api/v1/audit", &body).await;
+            assert_eq!(data["audited"], true);
+            assert_eq!(data["variable"], "year.profit");
+            let result = &data["result"];
+            assert!(close(&result["calculated_value"], 786.320_361_7, 1e-6));
+            let deps = &result["dependencies"];
+            assert_eq!(deps[0]["name"], "months.profit");
+            assert_eq!(deps[0]["values"].as_array().map(Vec::len), Some(12));
+            let wage = find(deps, "@costs.labour.loaded_wage").unwrap();
+            assert_eq!(wage["dep_type"], "Included scalar");
+            assert_eq!(wage["source"], "costs.yaml");
+            assert!(close(&wage["value"], 21.275, 1e-9));
+        }
+
+        #[tokio::test]
+        async fn export_writes_the_bagel_workbook() {
+            let dir = tempfile::tempdir().unwrap();
+            let excel = dir.path().join("bagel.xlsx");
+            let data = post(
+                "/api/v1/export",
+                &json!({"yaml_path": PLAN, "excel_path": excel.to_str().unwrap()}),
+            )
+            .await;
+            assert_eq!(data["exported"], true);
+            assert_eq!(data["message"], "Export completed");
+            let bytes = std::fs::read(&excel).unwrap();
+            assert_eq!(&bytes[..4], b"PK\x03\x04", "an xlsx is a zip file");
+        }
+
+        /// A workbook of the plan, imported over HTTP, with `costs.yaml` beside the
+        /// model: the model that comes back calculates the same year.
+        #[tokio::test]
+        async fn import_gives_the_bagel_year_back() {
+            let dir = tempfile::tempdir().unwrap();
+            let excel = dir.path().join("bagel.xlsx");
+            crate::cli::export_core(std::path::Path::new(PLAN), &excel).unwrap();
+            let yaml = dir.path().join("model.yaml");
+            let data = post(
+                "/api/v1/import",
+                &json!({"excel_path": excel.to_str().unwrap(), "yaml_path": yaml.to_str().unwrap()}),
+            )
+            .await;
+            assert_eq!(data["imported"], true);
+            assert_eq!(data["message"], "Import completed");
+            assert!(dir.path().join("costs.yaml").exists());
+
+            let back = post(
+                "/api/v1/calculate",
+                &json!({"file_path": yaml.to_str().unwrap(), "dry_run": true}),
+            )
+            .await;
+            assert!(close(
+                &back["result"]["scalars"]["year.profit"],
+                786.320_361_7,
+                1e-6
+            ));
+        }
+    }
+
+    // ==================== Serving and stopping ====================
+
+    /// A port nothing listens on now
+    fn free_port() -> u16 {
+        std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port()
+    }
+
+    #[tokio::test]
+    async fn the_server_answers_until_told_to_stop() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let port = free_port();
+        let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+        let dir = tempfile::tempdir().unwrap();
+        let config = ApiConfig {
+            port,
+            token: Some("secret".to_string()),
+            cors_origins: vec!["https://app.example".to_string()],
+            root: Some(dir.path().to_path_buf()),
+            ..ApiConfig::default()
+        };
+        let server = tokio::spawn(serve_until(config, async {
+            let _ = stopped.await;
+        }));
+
+        let mut reply = String::new();
+        for _ in 0..100 {
+            if let Ok(mut stream) = tokio::net::TcpStream::connect(("127.0.0.1", port)).await {
+                stream
+                    .write_all(
+                        format!(
+                            "GET /health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
+                        )
+                        .as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+                stream.read_to_string(&mut reply).await.unwrap();
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        assert!(reply.starts_with("HTTP/1.1 200"), "{reply}");
+
+        stop.send(()).unwrap();
+        server.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_server_without_a_token_or_a_root_stops_when_told_to() {
+        let config = ApiConfig {
+            port: free_port(),
+            ..ApiConfig::default()
+        };
+        serve_until(config, std::future::ready(())).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_server_reports_an_address_it_cannot_use() {
+        let bad_host = ApiConfig {
+            host: "not an address".to_string(),
+            token: Some("secret".to_string()),
+            ..ApiConfig::default()
+        };
+        let err = serve_until(bad_host, std::future::ready(()))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("invalid socket address"), "{err}");
+
+        let taken = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let busy = ApiConfig {
+            port: taken.local_addr().unwrap().port(),
+            ..ApiConfig::default()
+        };
+        let err = serve_until(busy, std::future::ready(())).await.unwrap_err();
+        assert!(err.to_string().contains("in use"), "{err}");
+    }
+
+    /// Send this process `signal` once `shutdown_signal` is waiting for it
+    async fn signal_the_shutdown(signal: &str) {
+        let mut waiting = Box::pin(shutdown_signal());
+        // Polling it installs the handlers; it is not ready, so it times out
+        let polled =
+            tokio::time::timeout(std::time::Duration::from_millis(200), &mut waiting).await;
+        assert!(polled.is_err(), "it stopped with no signal");
+        let sent = std::process::Command::new("kill")
+            .arg(signal)
+            .arg(std::process::id().to_string())
+            .status()
+            .unwrap();
+        assert!(sent.success());
+        tokio::time::timeout(std::time::Duration::from_secs(10), waiting)
+            .await
+            .expect("the signal ends the wait");
+    }
+
+    // One test: a signal goes to the whole process, so two waiting at once
+    // would both be ended by the first
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn ctrl_c_and_sigterm_stop_the_server() {
+        signal_the_shutdown("-INT").await;
+        signal_the_shutdown("-TERM").await;
+    }
+
+    /// A log a test can read back
+    #[derive(Clone, Default)]
+    struct Log(Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Log {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            std::io::Write::write(&mut *self.0.lock().unwrap(), bytes)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// What `serve_until` logs for `config` under the log the server starts
+    /// with when `RUST_LOG` says nothing
+    async fn logged(config: ApiConfig) -> String {
+        let log = Log::default();
+        let writer = log.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::new(DEFAULT_LOG_FILTER))
+            .with_ansi(false)
+            .with_writer(move || writer.clone())
+            .finish();
+        let _installed = tracing::subscriber::set_default(subscriber);
+        let port = config.port;
+        let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+        let server = tokio::spawn(serve_until(config, async {
+            let _ = stopped.await;
+        }));
+        for _ in 0..200 {
+            if tokio::net::TcpStream::connect(("127.0.0.1", port))
+                .await
+                .is_ok()
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        }
+        stop.send(()).unwrap();
+        server.await.unwrap().unwrap();
+        let text = String::from_utf8(log.0.lock().unwrap().clone()).unwrap();
+        text
+    }
+
+    #[tokio::test]
+    async fn the_default_log_says_where_the_server_is_and_that_it_has_no_token() {
+        let port = free_port();
+        let text = logged(ApiConfig {
+            port,
+            ..ApiConfig::default()
+        })
+        .await;
+        assert!(
+            text.contains(&format!(
+                "Forge API Server starting on http://127.0.0.1:{port}"
+            )),
+            "{text}"
+        );
+        assert!(
+            text.contains("Token: none (local use only). Browser origins allowed: none"),
+            "{text}"
+        );
+        assert!(
+            text.contains("Forge API Server shutdown complete"),
+            "{text}"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_log_names_the_root_the_token_and_the_origins() {
+        let root = tempfile::tempdir().unwrap();
+        let text = logged(ApiConfig {
+            port: free_port(),
+            token: Some("s3cret".to_string()),
+            cors_origins: vec![
+                "http://localhost:3000".to_string(),
+                "http://localhost:4000".to_string(),
+            ],
+            root: Some(root.path().to_path_buf()),
+            ..ApiConfig::default()
+        })
+        .await;
+        assert!(
+            text.contains(&format!("Files: only inside {}", root.path().display())),
+            "{text}"
+        );
+        assert!(
+            text.contains(
+                "Token: required on /api/v1/*. Browser origins allowed: http://localhost:3000, http://localhost:4000"
+            ),
+            "{text}"
+        );
+        assert!(
+            !text.contains("s3cret"),
+            "the token is never logged: {text}"
+        );
     }
 }

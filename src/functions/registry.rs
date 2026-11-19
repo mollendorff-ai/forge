@@ -116,3 +116,113 @@ pub fn array_only_functions() -> impl Iterator<Item = &'static FunctionDef> {
 }
 
 // Tests moved to registry_tests.rs to keep this file under 1500 lines
+
+#[cfg(test)]
+mod tests {
+
+    mod registry {
+        //! Tests for the function registry
+        //! Extracted from registry.rs to keep file under 1500 lines
+
+        #[cfg(test)]
+        mod tests {
+            use crate::functions::registry::*;
+
+            #[test]
+            fn test_function_count() {
+                assert_eq!(count_all(), 203, "Registry should have 203 functions");
+            }
+
+            #[test]
+            fn test_find_function() {
+                let sum = find_function("SUM");
+                assert!(sum.is_some());
+
+                let npv = find_function("NPV");
+                assert!(npv.is_some());
+            }
+
+            #[test]
+            fn test_scalar_count() {
+                // Scalar functions work without array context (v1.0.0 compatible)
+                let scalar = count_scalar();
+                let array_only = count_array_only();
+                assert_eq!(
+                    scalar + array_only,
+                    203,
+                    "Scalar + array-only should equal total"
+                );
+                // 24 array-only functions:
+                // Array (5): UNIQUE, FILTER, SORT, SEQUENCE, RANDARRAY
+                // Conditional (6): SUMIF, SUMIFS, COUNTIF, COUNTIFS, AVERAGEIF, AVERAGEIFS
+                // Aggregation (5): MAXIFS, MINIFS, RANK.EQ, LARGE, SMALL
+                // Statistical (3): PERCENTILE, QUARTILE, CORREL
+                // Lookup (5): INDEX, MATCH, VLOOKUP, HLOOKUP, XLOOKUP, OFFSET, INDIRECT
+                assert!(
+                    array_only >= 20,
+                    "Should have at least 20 array-only functions"
+                );
+            }
+
+            #[test]
+            fn test_array_only_functions() {
+                // Verify key array-only functions are correctly marked
+                let array_funcs = ["UNIQUE", "FILTER", "SORT", "SUMIF", "VLOOKUP"];
+                for name in array_funcs {
+                    let f = find_function(name).unwrap_or_else(|| panic!("{name} should exist"));
+                    assert!(!f.scalar, "{name} should be scalar=false");
+                }
+            }
+        }
+    }
+
+    mod function_list {
+        //! `forge functions` lists only what a formula can call (roadmap
+        //! T1-FUNCTION-LIST). It listed Y, M, D, YD, YM and MD, which are units of
+        //! `DATEDIF`; `=YD(a, b)` was an unknown function.
+
+        use crate::cli::calculate_core;
+        use crate::functions::registry::all_functions;
+
+        #[test]
+        fn every_listed_function_is_known_to_the_calculator() {
+            let dir = tempfile::tempdir().unwrap();
+            let mut unknown = Vec::new();
+            let mut panicked: Vec<&str> = Vec::new();
+            for f in all_functions() {
+                let path = dir
+                    .path()
+                    .join(format!("{}.yaml", f.name.replace('.', "_")));
+                std::fs::write(
+                    &path,
+                    format!(
+                        "_forge_version: \"5.2.0\"\nx:\n  a: {{formula: \"={}()\"}}\n",
+                        f.name
+                    ),
+                )
+                .unwrap();
+                // Calling with no arguments is usually an error; only "unknown" matters.
+                // A function that panics on no arguments is known to the calculator.
+                let outcome = std::panic::catch_unwind(|| calculate_core(&path, true, None));
+                if let Ok(Err(e)) = outcome {
+                    if e.to_string().contains("Unknown function") {
+                        unknown.push(f.name);
+                    }
+                } else if outcome.is_err() {
+                    panicked.push(f.name);
+                }
+            }
+            assert_eq!(panicked, Vec::<&str>::new(), "panic on no arguments");
+            assert_eq!(unknown, Vec::<&str>::new(), "listed but not callable");
+        }
+
+        #[test]
+        fn the_datedif_units_are_not_listed() {
+            let names: Vec<&str> = all_functions().map(|f| f.name).collect();
+            for unit in ["Y", "M", "D", "YD", "YM", "MD"] {
+                assert!(!names.contains(&unit), "{unit} is a DATEDIF unit");
+            }
+            assert!(names.contains(&"DATEDIF"));
+        }
+    }
+}

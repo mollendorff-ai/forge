@@ -14,7 +14,7 @@ const STORE = "forge-studio-v3";
 
 const S = {
   sets: [], set: null, files: {}, main: "", title: "", version: "",
-  structure: null, scenarios: null, report: null, scenario: null, calc: null,
+  structure: null, scenarios: null, scenarioError: null, report: null, scenario: null, calc: null,
   error: null, generation: 0, open: new Set(), prev: {}, yamlFile: "", tab: "model",
   analyze: {}, tools: {},
 };
@@ -96,12 +96,13 @@ const request = (extra = {}) => ({ files: S.files, main: S.main, ...extra });
 async function load() {
   const generation = ++S.generation;
   document.body.dataset.state = "loading";
-  S.error = null; S.structure = null; S.calc = null; S.scenarios = null; S.report = null;
+  S.error = null; S.structure = null; S.calc = null; S.scenarios = null; S.scenarioError = null; S.report = null;
   try {
     const structure = await call("model", request());
     if (generation !== S.generation) return;
     S.structure = structure;
-    if (structure.scenarios.length) S.scenarios = await call("scenarios", request()).catch(() => null);
+    // Why forge scenarios could not weigh them (none has a probability, or they do not sum to 1), shown on Analyze
+    if (structure.scenarios.length) S.scenarios = await call("scenarios", request()).catch((e) => { S.scenarioError = e.message; return null; });
     S.report = await call("report", request()).catch(() => null);
     if (S.scenario && !structure.scenarios.includes(S.scenario)) S.scenario = null;
   } catch (e) {
@@ -923,7 +924,7 @@ function renderAnalyze() {
     <div id="sk-result"></div>` : `<p class="note">Goal seek needs an input and a result in the model's scalars.</p>`}
   </div>
   <div class="eyebrow" id="an-scn"><h2>scenarios</h2><span class="tag">forge scenarios</span></div>
-  <div class="card row" id="scn-box">${S.scenarios ? "" : `<p class="note">This model has no scenarios section.</p>`}</div>
+  <div class="card row" id="scn-box">${S.scenarios ? "" : `<p class="note">${S.scenarioError ? esc(S.scenarioError) : "This model has no scenarios section."}</p>`}</div>
   <div class="eyebrow" id="an-tor"><h2>tornado</h2><span class="tag">forge tornado</span></div>
   <div class="card row"><div class="btns"><button class="btn" type="button" id="tor-run">Rank the inputs</button></div><div id="tor-box"></div></div>
   <div class="eyebrow" id="an-sim"><h2>simulate</h2><span class="tag">forge simulate · Latin hypercube</span></div>
@@ -952,7 +953,8 @@ function drawScenarios() {
   const ev = S.scenarios.expected_values ? S.scenarios.expected_values[out] : undefined;
   box.innerHTML = `<div class="scroll-x"><table class="report"><thead><tr><th scope="col">scenario</th><th scope="col">chance</th><th scope="col">${esc(out)}</th></tr></thead><tbody>${rows}</tbody>
     ${ev !== undefined ? `<tfoot><tr><th scope="row">expected</th><td></td><td>${esc(fmtAt(ev, out))}</td></tr></tfoot>` : ""}</table></div>
-    <p class="note">The result chosen under goal seek, in each scenario, and weighted by the chances.</p>`;
+    <p class="note">The result chosen under goal seek, in each scenario, and weighted by the chances.</p>
+    ${S.scenarios.unweighted && S.scenarios.unweighted.length ? `<p class="note" id="scn-unweighted">Not weighted, with no probability: ${esc(S.scenarios.unweighted.join(", "))}. They are choices to compare, not chances: tap one on the Model tab to apply it.</p>` : ""}`;
 }
 const fail = (box, e) => { box.innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; };
 const busy = (box, text) => { box.innerHTML = `<p class="note">${esc(text)}</p>`; };

@@ -62,6 +62,6 @@ In CI, `editors/vscode/test/schema.js` validates every example with yaml-languag
 A change here changes what `forge validate` accepts. After one:
 
 ```bash
-cargo test                                                    # every example still passes (tests/demo_examples.rs)
+cargo test                                                    # every example still passes (src/cli/commands/examples.rs (its demo_examples tests))
 cp schema/forge.schema.json schema/forge-v5.[12].0.schema.json editors/vscode/schemas/    # the extension's copies; its test checks they match
 ```

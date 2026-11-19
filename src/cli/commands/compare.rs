@@ -7,11 +7,16 @@
 //! row per scenario when that needs fewer blocks (long scenario names). The
 //! numbers follow `forge report`'s rule, and so do the formats.
 
+use super::apply_scenario;
 use super::report::{
     csv_text, display_number, display_whole, markdown_text, shown_input, ReportFormat,
 };
 use super::results::ComparisonResult;
+use crate::cli::console::{out, outln};
+use crate::cli::Console;
 use crate::core::precision::{to_15_digits, Rounded};
+use crate::core::ArrayCalculator;
+use crate::error::ForgeError;
 use crate::error::ForgeResult;
 use crate::parser;
 use colored::Colorize;
@@ -364,6 +369,7 @@ fn render_csv(result: &ComparisonResult) -> String {
 /// Returns an error if the file cannot be parsed, a scenario does not exist,
 /// or calculation fails.
 pub fn compare(
+    c: &mut Console<'_>,
     file: &Path,
     scenarios: &[String],
     verbose: bool,
@@ -371,14 +377,15 @@ pub fn compare(
 ) -> ForgeResult<()> {
     let table = format == ReportFormat::Table;
     if table {
-        println!("{}", "🔥 Forge - Scenario Comparison".bold().green());
-        println!("   File: {}", file.display());
-        println!("   Scenarios: {}\n", scenarios.join(", "));
+        outln!(c, "{}", "🔥 Forge - Scenario Comparison".bold().green());
+        outln!(c, "   File: {}", file.display());
+        outln!(c, "   Scenarios: {}\n", scenarios.join(", "));
     }
 
     let model = parser::parse_model(file)?;
     if verbose && table {
-        println!(
+        outln!(
+            c,
             "   Found {} tables, {} scalars, {} scenarios\n",
             model.tables.len(),
             model.scalars.len(),
@@ -393,16 +400,448 @@ pub fn compare(
         .collect();
 
     let result = super::compare_core(file, scenarios)?;
-    print!(
+    out!(
+        c,
         "{}",
-        render_comparison(&result, &inputs, format, terminal_width())
+        render_comparison(&result, &inputs, format, c.width)
     );
     if table {
-        println!("\n{}", "✅ Comparison complete".bold().green());
+        outln!(c, "\n{}", "✅ Comparison complete".bold().green());
     }
     Ok(())
 }
 
+/// Compare scenarios and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, a scenario does not exist,
+/// or calculation fails.
+pub fn compare_core(
+    file: &Path,
+    scenarios: &[String],
+) -> ForgeResult<crate::cli::commands::results::ComparisonResult> {
+    let base_model = parser::parse_model(file)?;
+
+    for scenario_name in scenarios {
+        if !base_model.scenarios.contains_key(scenario_name) {
+            let available: Vec<_> = base_model.scenarios.keys().collect();
+            return Err(ForgeError::Validation(format!(
+                "Scenario '{scenario_name}' not found. Available: {available:?}"
+            )));
+        }
+    }
+
+    let mut results: Vec<(String, crate::types::ParsedModel)> = Vec::new();
+    for scenario_name in scenarios {
+        let mut model = base_model.clone();
+        apply_scenario(&mut model, scenario_name)?;
+        let calculator = ArrayCalculator::new(model);
+        let calculated = calculator.calculate_all()?;
+        results.push((scenario_name.clone(), calculated));
+    }
+
+    // Model order, the same on every run
+    let mut all_scalars: Vec<String> = Vec::new();
+    for name in results.iter().flat_map(|(_, m)| m.scalars.keys()) {
+        if !all_scalars.contains(name) {
+            all_scalars.push(name.clone());
+        }
+    }
+
+    let mut values = indexmap::IndexMap::new();
+    let mut dates = std::collections::BTreeSet::new();
+    for scalar_name in &all_scalars {
+        let mut scenario_values = indexmap::IndexMap::new();
+        for (scenario_name, result_model) in &results {
+            let scalar = result_model.scalars.get(scalar_name);
+            if scalar.is_some_and(|v| v.is_date) {
+                dates.insert(scalar_name.clone());
+            }
+            scenario_values.insert(scenario_name.clone(), scalar.and_then(|v| v.value));
+        }
+        values.insert(scalar_name.clone(), scenario_values);
+    }
+
+    let descriptions = scenarios
+        .iter()
+        .filter_map(|name| {
+            let text = base_model.scenarios.get(name)?.description.clone()?;
+            Some((name.clone(), text))
+        })
+        .collect();
+
+    Ok(crate::cli::commands::results::ComparisonResult {
+        scenarios: scenarios.to_vec(),
+        variables: all_scalars,
+        values,
+        descriptions,
+        dates,
+        formats: crate::cli::commands::scalar_formats(&base_model),
+    })
+}
+
 #[cfg(test)]
-#[path = "compare_tests.rs"]
-mod tests;
+mod tests {
+    use super::*;
+
+    mod compare {
+        //! Tests for `forge compare`'s table and formats.
+
+        use super::*;
+
+        /// Eight scenarios with long names, as in a consumer-proposal model
+        fn eight() -> ComparisonResult {
+            let scenarios: Vec<String> = [1100, 1300, 1500, 1700]
+                .iter()
+                .flat_map(|rent| {
+                    [
+                        format!("rent_{rent}_prosupport_recognized"),
+                        format!("rent_{rent}_prosupport_not_recognized"),
+                    ]
+                })
+                .collect();
+            let variables = vec![
+                "bankruptcy.monthly_surplus_payment".to_string(),
+                "living.months".to_string(),
+                "living.rate".to_string(),
+            ];
+            let mut values = indexmap::IndexMap::new();
+            for (i, variable) in variables.iter().enumerate() {
+                let mut row = indexmap::IndexMap::new();
+                let surplus = [
+                    774.75, 724.75, 674.75, 624.75, 574.75, 524.75, 474.75, 424.75,
+                ];
+                for (s, scenario) in scenarios.iter().enumerate() {
+                    let value = match i {
+                        0 => surplus[s],
+                        1 => 60.0,
+                        _ => 0.149_75,
+                    };
+                    row.insert(scenario.clone(), Some(value));
+                }
+                values.insert(variable.clone(), row);
+            }
+            ComparisonResult {
+                scenarios,
+                variables,
+                values,
+                descriptions: indexmap::IndexMap::new(),
+                dates: std::collections::BTreeSet::new(),
+                formats: std::collections::BTreeMap::new(),
+            }
+        }
+
+        fn inputs() -> Vec<String> {
+            vec!["living.months".to_string(), "living.rate".to_string()]
+        }
+
+        #[test]
+        fn every_column_has_room_and_two_spaces_between() {
+            let text = render_comparison(&eight(), &inputs(), ReportFormat::Table, None);
+            let lines: Vec<&str> = text.lines().collect();
+            assert_eq!(lines.len(), 4, "{text}");
+            // Names never run together
+            assert!(lines[0]
+                .contains("rent_1100_prosupport_recognized  rent_1100_prosupport_not_recognized"));
+            // Every row has the width of the header: values stay in their columns
+            let width = lines[0].chars().count();
+            for line in &lines {
+                assert_eq!(line.chars().count(), width, "{text}");
+            }
+            // Numbers: report's rule, whole numbers whole, an input as written
+            assert!(
+                lines[1].starts_with("bankruptcy.monthly_surplus_payment  "),
+                "{text}"
+            );
+            assert!(lines[1].contains("774.75") && lines[1].contains("424.75"));
+            assert!(lines[2].ends_with(" 60"), "{text}");
+            assert!(lines[3].ends_with(" 0.14975"), "{text}");
+        }
+
+        #[test]
+        fn a_table_wider_than_the_terminal_is_printed_in_blocks() {
+            let text = render_comparison(&eight(), &inputs(), ReportFormat::Table, Some(80));
+            let blocks: Vec<&str> = text.split("\n\n").collect();
+            assert!(blocks.len() > 1, "{text}");
+            for line in text.lines() {
+                assert!(line.chars().count() <= 80, "{line}");
+            }
+            // Long scenario names and few scalars: one row per scenario, so every
+            // block lists the eight scenarios and each scalar is in one block
+            for block in &blocks {
+                assert!(block.starts_with("scenario "), "{text}");
+                for scenario in &eight().scenarios {
+                    assert!(
+                        block.lines().any(|l| l.starts_with(scenario.as_str())),
+                        "{text}"
+                    );
+                }
+            }
+            for variable in &eight().variables {
+                let hits = blocks
+                    .iter()
+                    .filter(|b| {
+                        b.lines()
+                            .next()
+                            .unwrap()
+                            .split_whitespace()
+                            .any(|w| w == variable)
+                    })
+                    .count();
+                assert_eq!(hits, 1, "{variable}");
+            }
+        }
+
+        #[test]
+        fn many_scalars_and_short_scenario_names_keep_one_row_per_scalar() {
+            let scenarios: Vec<String> = (1..=8).map(|i| format!("s{i}")).collect();
+            let variables: Vec<String> = (1..=30).map(|i| format!("group.value_{i}")).collect();
+            let mut values = indexmap::IndexMap::new();
+            for v in &variables {
+                values.insert(
+                    v.clone(),
+                    scenarios
+                        .iter()
+                        .map(|s| (s.clone(), Some(1234.5)))
+                        .collect(),
+                );
+            }
+            let result = ComparisonResult {
+                scenarios,
+                variables,
+                values,
+                descriptions: indexmap::IndexMap::new(),
+                dates: std::collections::BTreeSet::new(),
+                formats: std::collections::BTreeMap::new(),
+            };
+            let text = render_comparison(&result, &[], ReportFormat::Table, Some(60));
+            assert!(text.starts_with("variable "), "{text}");
+            assert!(text.split("\n\n").count() > 1, "{text}");
+            for line in text.lines() {
+                assert!(line.chars().count() <= 60, "{line}");
+            }
+        }
+
+        #[test]
+        fn one_column_wider_than_the_terminal_still_gets_a_block() {
+            let text = render_comparison(&eight(), &inputs(), ReportFormat::Table, Some(10));
+            // One row per scalar: eight blocks; one row per scenario: three
+            assert_eq!(text.split("\n\n").count(), 3, "{text}");
+        }
+
+        #[test]
+        fn csv_and_json_keep_full_precision() {
+            let mut result = eight();
+            result.values["living.rate"][0] = Some(0.149_753_000_1);
+            result.values["living.rate"][1] = None;
+            let csv = render_comparison(&result, &inputs(), ReportFormat::Csv, None);
+            let lines: Vec<&str> = csv.lines().collect();
+            assert!(lines[0].starts_with("variable,rent_1100_prosupport_recognized,"));
+            assert!(
+                lines[3].starts_with("living.rate,0.1497530001,,0.14975"),
+                "{csv}"
+            );
+
+            let json = render_comparison(&result, &inputs(), ReportFormat::Json, Some(10));
+            let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+            assert_eq!(parsed["scenarios"].as_array().unwrap().len(), 8);
+            assert_eq!(
+                parsed["values"]["living.rate"]["rent_1100_prosupport_recognized"],
+                0.149_753_000_1
+            );
+            assert!(
+                parsed["values"]["living.rate"]["rent_1100_prosupport_not_recognized"].is_null()
+            );
+        }
+
+        #[test]
+        fn markdown_is_one_pipe_table_whatever_the_width() {
+            let text = render_comparison(&eight(), &inputs(), ReportFormat::Markdown, Some(20));
+            let lines: Vec<&str> = text.lines().collect();
+            assert_eq!(lines.len(), 5);
+            assert_eq!(lines[1], format!("| --- |{}", " ---: |".repeat(8)));
+            assert!(lines[2].starts_with("| bankruptcy.monthly_surplus_payment | 774.75 |"));
+            assert!(lines[4].contains("| 0.14975 |"));
+        }
+
+        #[test]
+        fn descriptions_are_a_legend_below_the_table() {
+            let mut result = eight();
+            result.descriptions.insert(
+                "rent_1500_prosupport_recognized".to_string(),
+                "Studio at $1,500, support recognized".to_string(),
+            );
+            let table = render_comparison(&result, &inputs(), ReportFormat::Table, None);
+            assert!(
+                table.ends_with(
+                    "\nrent_1500_prosupport_recognized: Studio at $1,500, support recognized\n"
+                ),
+                "{table}"
+            );
+            let markdown = render_comparison(&result, &inputs(), ReportFormat::Markdown, None);
+            assert!(
+                markdown.ends_with(
+                    "\n- **rent_1500_prosupport_recognized**: Studio at $1,500, support recognized\n"
+                ),
+                "{markdown}"
+            );
+            // Data formats carry the descriptions only in JSON, and the CSV stays a table
+            let csv = render_comparison(&result, &inputs(), ReportFormat::Csv, None);
+            assert!(!csv.contains("Studio"));
+            let json = render_comparison(&result, &inputs(), ReportFormat::Json, None);
+            assert!(json.contains("\"descriptions\""));
+            // No description, no legend and no field
+            let plain = render_comparison(&eight(), &inputs(), ReportFormat::Json, None);
+            assert!(!plain.contains("descriptions"));
+        }
+    }
+
+    mod command_line {
+        //! `forge compare` on the command line: the formats and the width of the
+        //! table (Session Prompt, compare column overflow).
+
+        use crate::cli::forge_at_width;
+
+        const MODEL: &str = r#"_forge_version: "5.1.0"
+living:
+  rent: 1200
+  total: {formula: "=living.rent + 450.5"}
+bankruptcy:
+  income: 3100
+  monthly_surplus_payment: {formula: "=MAX(0, (bankruptcy.income - living.total) * 0.5)"}
+scenarios:
+  rent_1100_prosupport_recognized:
+    probability: 0.5
+    scalars: {living.rent: 1100}
+  rent_1500_prosupport_not_recognized:
+    probability: 0.5
+    scalars: {living.rent: 1500, bankruptcy.income: 2800}
+"#;
+
+        const BOTH: &str = "rent_1100_prosupport_recognized,rent_1500_prosupport_not_recognized";
+
+        /// `forge compare` of both scenarios on a terminal `columns` wide
+        fn run(dir: &std::path::Path, columns: usize, args: &[&str]) -> String {
+            let file = dir.join("m.yaml");
+            std::fs::write(&file, MODEL).unwrap();
+            let mut all = vec!["compare", file.to_str().unwrap(), "--scenarios", BOTH];
+            all.extend(args);
+            let ran = forge_at_width(Some(columns), &all);
+            assert!(ran.success(), "{}", ran.err);
+            ran.out
+        }
+
+        #[test]
+        fn csv_is_the_numbers_alone_at_full_precision() {
+            let dir = tempfile::tempdir().unwrap();
+            // (3100 - 1550.5) * 0.5 = 774.75 and (2800 - 1950.5) * 0.5 = 424.75
+            assert_eq!(
+                run(dir.path(), 40, &["--format", "csv"]),
+                "variable,rent_1100_prosupport_recognized,rent_1500_prosupport_not_recognized\n\
+         living.rent,1100,1500\n\
+         living.total,1550.5,1950.5\n\
+         bankruptcy.income,3100,2800\n\
+         bankruptcy.monthly_surplus_payment,774.75,424.75\n"
+            );
+        }
+
+        #[test]
+        fn the_table_fits_the_terminal() {
+            let dir = tempfile::tempdir().unwrap();
+            let wide = run(dir.path(), 200, &[]);
+            assert!(wide
+                .contains("rent_1100_prosupport_recognized  rent_1500_prosupport_not_recognized"));
+            // 34 + 2 + 31 + 2 + 35 = 104 characters: two blocks in 80
+            let narrow = run(dir.path(), 80, &[]);
+            assert_eq!(narrow.matches("\nvariable ").count(), 2, "{narrow}");
+            let table: Vec<&str> = narrow
+                .lines()
+                .filter(|l| {
+                    l.starts_with("variable") || l.starts_with("scenario") || l.contains('.')
+                })
+                .filter(|l| !l.contains("File:") && !l.contains("Scenarios:"))
+                .collect();
+            assert!(!table.is_empty(), "{narrow}");
+            for line in table {
+                assert!(line.chars().count() <= 80, "{line}\n{narrow}");
+            }
+        }
+    }
+
+    mod acquisition_example {
+        //! How Valdane pays for Quillon in examples/acquisition (ADR-067): three
+        //! structures side by side, as computed outside Forge. The Python is in
+        //! `prediction::scenarios::tests::acquisition_example`; `run(cash=...)`.
+
+        use super::*;
+
+        const MODEL: &str = "examples/acquisition/deal.yaml";
+
+        fn close(a: f64, b: f64, tol: f64) -> bool {
+            (a - b).abs() <= tol
+        }
+
+        #[test]
+        fn the_payment_structures_match_the_independent_calculation() {
+            let names: Vec<String> = ["base", "all_cash", "all_shares"]
+                .map(String::from)
+                .to_vec();
+            let result = compare_core(Path::new(MODEL), &names).unwrap();
+            let at = |variable: &str, scenario: &str| result.values[variable][scenario].unwrap();
+            let expected = [
+                // (variable, 60/40, all cash, all shares, tolerance)
+                (
+                    "valuation.value_created",
+                    224.507_933_418_290_12,
+                    224.507_933_418_290_12,
+                    224.507_933_418_290_12,
+                    1e-9,
+                ),
+                (
+                    "valuation.value_created_per_share",
+                    1.041_316_945_353_850_2,
+                    1.122_539_667_091_450_7,
+                    0.939_363_738_151_841_5,
+                    1e-12,
+                ),
+                (
+                    "eps.year_3_accretion",
+                    -0.011_433_658_663_979_496,
+                    0.012_613_291_470_434_218,
+                    -0.041_618_114_899_645_064,
+                    1e-12,
+                ),
+                (
+                    "financing.leverage_at_close",
+                    2.042_522_522_522_523,
+                    2.604_684_684_684_684_7,
+                    1.199_279_279_279_279_2,
+                    1e-12,
+                ),
+                ("financing.new_shares", 15.6, 0.0, 39.0, 1e-9),
+                (
+                    "financing.quillon_holders_own",
+                    0.072_356_215_213_358_08,
+                    0.0,
+                    0.163_179_916_317_991_67,
+                    1e-12,
+                ),
+            ];
+            for (variable, base, cash, shares, tol) in expected {
+                for (scenario, want) in [("base", base), ("all_cash", cash), ("all_shares", shares)]
+                {
+                    let got = at(variable, scenario);
+                    assert!(
+                        close(got, want, tol),
+                        "{variable} {scenario}: {got}, not {want}"
+                    );
+                }
+            }
+            // All cash is the one accretive in year 3, and the one past the
+            // agencies' 2.5
+            assert!(at("eps.year_3_accretion", "all_cash") > 0.0);
+            assert!(at("financing.leverage_at_close", "all_cash") > 2.5);
+        }
+    }
+}
