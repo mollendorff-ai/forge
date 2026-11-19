@@ -501,6 +501,17 @@ t:
         assert_eq!(worked.length, Length::Rounds(200));
         assert!(worked.noise.abs() < f64::EPSILON);
         assert_eq!(worked.machines[1].cooperate, [0.0]);
+        // A formula written twice is read once
+        let t = tournament(
+            "
+t:
+  tournament: {round: dilemma, players: {a: {plays: random, cooperate: =p}, b: always_defect}, rounds: 10, noise: =p}
+",
+        );
+        assert_eq!(t.formulas(), ["=p"]);
+        let worked = t.work_out(|_, _| Ok(0.25)).unwrap();
+        assert!((worked.noise - 0.25).abs() < f64::EPSILON);
+        assert_eq!(worked.machines[0].cooperate, [0.25]);
     }
 
     #[test]

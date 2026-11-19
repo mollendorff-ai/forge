@@ -506,9 +506,12 @@ games:
         );
         let ran = forge(&["game", &cycle]);
         assert!(ran.err.contains("depend on each other"), "{}", ran.err);
-        // An output that cannot be written is an error too
+        // An output that cannot be written is an error too (the cycle
+        // above was written over the model, so it is written again)
+        let file = write(&dir, MODEL);
         let ran = forge(&["game", &file, "-o", dir.path().to_str().unwrap()]);
         assert_eq!(ran.code, 1, "{}", ran.both());
+        assert!(ran.err.contains("IO error"), "{}", ran.both());
         let plain = write(&dir, "_forge_version: \"5.5.0\"\nx: 1\n");
         let ran = forge(&["game", &plain]);
         assert!(ran.err.contains("No 'games' section"), "{}", ran.err);
