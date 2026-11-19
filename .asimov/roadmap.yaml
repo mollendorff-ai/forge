@@ -211,6 +211,11 @@ tier1:
   # and the ten exact comparisons in the engine (MODE, a variance on budget,
   # the depreciation periods, the writer's same number) go through
   # core::precision::same, IEEE equality named and tested. 155 allows left.
+  # T1-NO-SKIPPING, ignored tests (budget 0 since #289): round_trip_corpus
+  # walks all of examples/, subfolders included, and asserts which models
+  # round-trip (39) and that the 9 that do not draw from MC. distributions;
+  # the 5,000-row SUMIFS test holds its time in every build, against a plain
+  # loop of the same work (limit 100 times), not in release only.
   - id: T1-NO-SKIPPING
     title: "No way round the three rules, in every crate"
     why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs, which fails if any count rises: 218 lint allow or expect attributes (float_cmp 62, cast_possible_truncation 59, approx_constant 18, cast_precision_loss 16, too_many_lines 13, unnecessary_wraps 8, dead_code 6, and 15 more), 16 lints allowed in Cargo.toml files (multiple_crate_versions and cast_precision_loss in the main crate and forge-wasm; 8 in validation/gnumeric and 4 in validation/r), the cargo lint group missing in both validation crates, 31 places of code compiled only for or only without coverage (23 test files run nothing under coverage), and 2 ignored tests (a release-only timing test, and a round-trip corpus that needs FORGE_ROUNDTRIP_DIR)"
