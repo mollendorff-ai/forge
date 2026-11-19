@@ -1151,4 +1151,281 @@ b:
             );
         }
     }
+
+    mod command_line {
+        //! `forge report` on the command line: what it prints, what it leaves alone.
+
+        use crate::cli::forge;
+        use std::path::Path;
+
+        const CALCULATED: &str = r#"_forge_version: "5.1.0"
+oak_suite:
+  rent: 1450
+  utilities: 60
+  year1_monthly: {formula: "=oak_suite.rent + oak_suite.utilities", value: 1510}
+elm_loft:
+  rent: 1390
+  utilities: 90
+  year1_monthly: {formula: "=elm_loft.rent + elm_loft.utilities", value: 1480}
+"#;
+
+        fn write(dir: &Path, name: &str, text: &str) -> String {
+            let path = dir.join(name);
+            std::fs::write(&path, text).expect("write");
+            path.to_string_lossy().into_owned()
+        }
+
+        #[test]
+        fn report_prints_markdown_and_leaves_the_file_as_it_was() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let out = forge(&["report", &file, "--format", "markdown"]);
+            assert!(out.success(), "{out:?}");
+            assert_eq!(
+                out.out,
+                "\
+| group | rent | utilities | year1_monthly |
+| --- | ---: | ---: | ---: |
+| oak_suite | 1,450 | 60 | 1,510 |
+| elm_loft | 1,390 | 90 | 1,480 |
+"
+            );
+            assert_eq!(out.err, "");
+            assert_eq!(std::fs::read_to_string(&file).expect("read"), CALCULATED);
+        }
+
+        #[test]
+        fn report_of_an_uncalculated_file_says_so_and_succeeds() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let text = CALCULATED
+                .replace(", value: 1510", "")
+                .replace(", value: 1480", "");
+            let file = write(dir.path(), "options.yaml", &text);
+            let out = forge(&["report", &file]);
+            assert!(out.success(), "{out:?}");
+            let stdout = out.out;
+            assert!(
+                stdout.contains("oak_suite  1,450         60              —"),
+                "{stdout}"
+            );
+            let stderr = out.err;
+            assert_eq!(stderr.lines().count(), 1, "{stderr}");
+            assert!(
+                stderr.starts_with("Note: 2 formulas have no value yet"),
+                "{stderr}"
+            );
+            // report does not calculate: the file still has no values.
+            assert_eq!(std::fs::read_to_string(&file).expect("read"), text);
+        }
+
+        #[test]
+        fn report_csv_has_full_precision() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(
+                dir.path(),
+                "rate.yaml",
+                "_forge_version: \"5.1.0\"\nloan:\n  rate: 0.047912345\n  principal: 450000\n",
+            );
+            let out = forge(&["report", &file, "--format", "csv"]);
+            assert!(out.success(), "{out:?}");
+            assert_eq!(out.out, "group,rate,principal\nloan,0.047912345,450000\n");
+        }
+
+        #[test]
+        fn report_rejects_an_unknown_group_and_an_unknown_format() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let out = forge(&["report", &file, "--group", "unit_807"]);
+            assert_eq!(out.code, 1, "{out:?}");
+            assert!(out.err.contains(
+                "'unit_807' is not a group of scalars in the file. Groups: oak_suite, elm_loft"
+            ));
+
+            let out = forge(&["report", &file, "--format", "html"]);
+            assert_eq!(out.code, 2, "{out:?}");
+        }
+
+        #[test]
+        fn keys_and_no_inputs_are_one_or_the_other() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let out = forge(&["report", &file, "--keys", "rent", "--no-inputs"]);
+            assert_eq!(out.code, 2, "{out:?}");
+        }
+
+        #[test]
+        fn the_conflict_of_no_inputs_and_keys_is_explained_in_the_help_of_both() {
+            let out = forge(&["report", "--help"]);
+            let help = out.out.replace('\n', " ");
+            let squeezed: String = help.split_whitespace().collect::<Vec<_>>().join(" ");
+            assert!(
+                squeezed.contains("Not with --keys, which already chooses the columns"),
+                "{help}"
+            );
+            assert!(
+                squeezed.contains("Not with --no-inputs: --keys already chooses the columns"),
+                "{help}"
+            );
+            // and the combination is still refused
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let refused = forge(&["report", &file, "--keys", "rent", "--no-inputs"]);
+            assert!(!refused.success());
+        }
+
+        #[test]
+        fn the_help_says_keys_narrows_a_wide_table() {
+            let out = forge(&["report", "--help"]);
+            let help = out.out;
+            assert!(help.contains("WIDE TABLES"), "{help}");
+            assert!(
+                help.contains("forge report options.yaml --keys rent,year1_monthly"),
+                "{help}"
+            );
+        }
+
+        #[test]
+        fn whole_number_columns_print_without_decimals() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let out = forge(&["report", &file]);
+            let text = out.out;
+            assert!(text.contains("1,450"), "{text}");
+            assert!(!text.contains("1,450.00"), "{text}");
+        }
+    }
+
+    mod formats {
+        //! A scalar or column with a `format:` (ADR-061, T2-CLI-FORMAT) is printed as
+        //! the format shows it, in `forge calculate`, `forge scenarios` and `forge
+        //! compare` as in `forge report` and Studio. Only the text changes: the values
+        //! are the same, and CSV and JSON keep them whole.
+
+        use crate::cli::forge_at_width;
+
+        const PLAN: &str = "examples/bagel/bagel.yaml";
+
+        /// The lines `forge` prints on a wide terminal, words separated by single
+        /// spaces, so column widths do not matter
+        fn lines(args: &[&str]) -> Vec<String> {
+            let ran = forge_at_width(Some(200), args);
+            assert!(ran.success(), "{}", ran.err);
+            ran.out
+                .lines()
+                .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+                .collect()
+        }
+
+        fn has(lines: &[String], wanted: &str) -> bool {
+            lines.iter().any(|l| l == wanted)
+        }
+
+        /// The text `forge report` shows for `name`, on a calculated copy of the
+        /// plan (report reads the stored results).
+        fn report_text(name: &str) -> String {
+            let dir = tempfile::tempdir().unwrap();
+            for file in ["bagel.yaml", "costs.yaml"] {
+                std::fs::copy(
+                    std::path::Path::new("examples/bagel").join(file),
+                    dir.path().join(file),
+                )
+                .unwrap();
+            }
+            let model = dir.path().join("bagel.yaml");
+            let model = model.to_str().unwrap();
+            lines(&["calculate", model]);
+            let out = lines(&["report", model, "--format", "markdown"]);
+            let (group, key) = name.split_once('.').unwrap();
+            let cells = |l: &str| -> Vec<String> {
+                l.trim_matches('|')
+                    .split('|')
+                    .map(|c| c.trim().to_string())
+                    .collect()
+            };
+            let at = out
+                .iter()
+                .position(|l| cells(l).iter().any(|c| c == key) && l.starts_with("| group"))
+                .expect("a header with the key");
+            let column = cells(&out[at]).iter().position(|c| c == key).unwrap();
+            let row = out[at + 2..]
+                .iter()
+                .find(|l| cells(l).first().map(String::as_str) == Some(group))
+                .expect("the group's row");
+            cells(row)[column].clone()
+        }
+
+        #[test]
+        fn calculate_prints_the_format_and_the_full_value() {
+            let out = lines(&["calculate", PLAN, "--dry-run"]);
+            assert!(
+                has(&out, "year.margin = 0.2% (0.00203274189215848)"),
+                "{out:#?}"
+            );
+            assert!(
+                has(&out, "assumptions.price_per_dozen = $16.00 (16)"),
+                "{out:#?}"
+            );
+            // A scalar with no format prints as before
+            assert!(has(&out, "year.profit = 786.320361712362"), "{out:#?}");
+            // A column with a format, then its full values
+            assert!(
+                has(
+                    &out,
+                    "season = [85%; 125%; 80%; 80%; 90%; 95%; 105%; 115%; 125%; 125%; 105%; 100%]"
+                ),
+                "{out:#?}"
+            );
+            assert!(
+                has(
+                    &out,
+                    "[0.85, 1.25, 0.8, 0.8, 0.9, 0.95, 1.05, 1.15, 1.25, 1.25, 1.05, 1]"
+                ),
+                "{out:#?}"
+            );
+        }
+
+        #[test]
+        fn scenarios_and_compare_print_what_report_prints() {
+            let margin = report_text("year.margin");
+            let price = report_text("assumptions.price_per_dozen");
+            assert_eq!((margin.as_str(), price.as_str()), ("0.2%", "$16.00"));
+
+            let scenarios = lines(&["scenarios", PLAN]);
+            assert!(
+                has(&scenarios, &format!("year.margin: {margin}")),
+                "{scenarios:#?}"
+            );
+
+            let compare = lines(&["compare", PLAN, "--scenarios", "base,flour_shock"]);
+            assert!(
+                has(&compare, &format!("year.margin {margin} -4.4%")),
+                "{compare:#?}"
+            );
+            assert!(
+                has(
+                    &compare,
+                    &format!("assumptions.price_per_dozen {price} {price}")
+                ),
+                "{compare:#?}"
+            );
+        }
+
+        /// CSV and JSON are for scripts: full values, no format
+        #[test]
+        fn compare_csv_keeps_the_full_numbers() {
+            let out = lines(&[
+                "compare",
+                PLAN,
+                "--scenarios",
+                "base,flour_shock",
+                "--format",
+                "csv",
+            ]);
+            assert!(
+                out.iter()
+                    .any(|l| l.starts_with("year.margin,0.00203274189215848,")),
+                "{out:#?}"
+            );
+        }
+    }
 }

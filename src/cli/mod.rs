@@ -8,6 +8,8 @@ pub mod console;
 mod run;
 
 pub use console::Console;
+#[cfg(all(test, feature = "cli"))]
+pub use run::{forge, forge_at_width, Ran};
 #[cfg(feature = "cli")]
 pub use run::{run_from, starts_a_server};
 

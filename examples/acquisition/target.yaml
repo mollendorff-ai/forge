@@ -1,0 +1,18 @@
+_forge_version: "5.4.0"
+# Quillon Sensors (fictional), the target: a listed maker of sensors for
+# factories and grids, before anyone heard of a bid. Millions, except per
+# share. Included by deal.yaml as @target.
+company:
+  shares: 50
+  # The share price before the rumour: the premium is measured from here
+  unaffected_price: {value: 24, format: "$#,##0.00"}
+  net_income_next_year: 78
+  revenue_next_year: 620
+  ebitda: 160
+  # Assumed by the buyer with the company
+  net_debt: 100
+  # Cash from operations after tax and investment, before any debt
+  free_cash_flow_next_year: 62
+  # Quillon's own plan for its growth in the next five years; Valdane's
+  # case (deal.yaml) is more careful
+  management_growth: {value: 0.09, format: "0.0%"}

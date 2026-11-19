@@ -1,4 +1,3 @@
-mod dates;
 mod errors;
 pub mod evaluator;
 mod includes;
@@ -50,6 +49,25 @@ pub struct ArrayCalculator {
     step: Option<usize>,
 }
 
+/// What a calculation of every cell left: the failures, each starting with
+/// its cell's name; the cells not calculated because they use a failed one;
+/// and every failed or skipped cell.
+#[derive(Default)]
+struct Outcome {
+    failures: Vec<String>,
+    skipped: Vec<(Cell, Cell)>,
+    failed: std::collections::BTreeSet<Cell>,
+}
+
+impl Outcome {
+    /// The error for the failures, both lists in name order
+    fn report(mut self) -> ForgeError {
+        self.failures.sort();
+        self.skipped.sort_by_key(|(cell, _)| cell.label());
+        failure_report(&self.failures, &self.skipped)
+    }
+}
+
 impl ArrayCalculator {
     #[must_use]
     pub fn new(model: ParsedModel) -> Self {
@@ -88,6 +106,92 @@ impl ArrayCalculator {
     /// Panics if the model's table map is in an inconsistent state (should not
     /// occur with valid `ParsedModel` construction).
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
+        let outcome = self.calculate_cells()?;
+        if outcome.failures.is_empty() {
+            check_formula_formats(&self.model)?;
+            return Ok(self.model);
+        }
+        Err(outcome.report())
+    }
+
+    /// Calculate the model for one scalar, `name`, and return its value.
+    ///
+    /// Every cell is calculated, as [`Self::calculate_all`] does, but a failed
+    /// formula that `name` does not use does not fail the answer: a search
+    /// that moves an input (goal seek, break-even, sensitivity) can pass
+    /// through values where an output it does not ask for has no answer, such
+    /// as an IRR with cash flows of one sign.
+    ///
+    /// # Errors
+    ///
+    /// Returns the calculation's report when `name` failed or uses a failed
+    /// cell, or when the model cannot be calculated at all (a cycle, a table
+    /// of uneven columns); and an error when `name` is not a scalar with a
+    /// value.
+    pub fn calculate_scalar(mut self, name: &str) -> ForgeResult<f64> {
+        let outcome = self.calculate_cells()?;
+        if outcome.failed.contains(&Cell::Scalar(name.to_string())) {
+            return Err(outcome.report());
+        }
+        if outcome.failures.is_empty() {
+            check_formula_formats(&self.model)?;
+        }
+        self.model
+            .scalars
+            .get(name)
+            .ok_or_else(|| {
+                ForgeError::Validation(format!("Output variable '{name}' not found in model"))
+            })?
+            .value
+            .ok_or_else(|| ForgeError::Validation(format!("Output variable '{name}' has no value")))
+    }
+
+    /// Calculate the model for some outputs, scalars and columns of tables,
+    /// and return it. As [`Self::calculate_scalar`] does for one scalar, a
+    /// failed formula that none of them uses does not fail the answer: a
+    /// search that moves an input through many simulations (`forge simulate
+    /// --seek`) can pass through values where a result it does not ask for
+    /// has no answer, such as a ratio over an input at 0.
+    ///
+    /// # Errors
+    ///
+    /// Returns the calculation's report when an output failed or uses a failed
+    /// cell, or when the model cannot be calculated at all (a cycle, a table
+    /// of uneven columns).
+    pub fn calculate_outputs(
+        mut self,
+        scalars: &[String],
+        columns: &[(String, String)],
+    ) -> ForgeResult<ParsedModel> {
+        let outcome = self.calculate_cells()?;
+        let asked =
+            scalars
+                .iter()
+                .map(|name| Cell::Scalar(name.clone()))
+                .chain(columns.iter().map(|(table, column)| Cell::Column {
+                    table: table.clone(),
+                    column: column.clone(),
+                }));
+        if asked.into_iter().any(|cell| outcome.failed.contains(&cell)) {
+            return Err(outcome.report());
+        }
+        if outcome.failures.is_empty() {
+            check_formula_formats(&self.model)?;
+        }
+        Ok(self.model)
+    }
+
+    /// Calculate every cell of the model in order. A failing cell does not
+    /// stop the calculation: every cell that does not use it is still
+    /// calculated, so all errors are reported at once. A failed cell gets no
+    /// value, so nothing can read a number from it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the model cannot be calculated at all: an
+    /// included file that fails, uneven columns in a table with row formulas,
+    /// or a cycle.
+    fn calculate_cells(&mut self) -> ForgeResult<Outcome> {
         self.fingerprint = plan::fingerprint(&self.model);
         (self.included, self.included_tables) = self.included_values()?;
 
@@ -117,45 +221,32 @@ impl ArrayCalculator {
         // One order for table columns and scalars together, so a column that
         // uses a calculated scalar, and a scalar that sums a calculated
         // column, both see the current value.
-        //
-        // A failing cell does not stop the calculation: every cell that does
-        // not use it is still calculated, so all errors are reported at once.
-        // A failed cell gets no value, so nothing can read a number from it,
-        // and the model as a whole still fails.
-        let mut failures: Vec<String> = Vec::new();
-        let mut skipped: Vec<(Cell, Cell)> = Vec::new();
-        let mut failed: std::collections::BTreeSet<Cell> = std::collections::BTreeSet::new();
+        let mut outcome = Outcome::default();
         let order = self.planned_order()?;
         for (step, (cell, dependencies)) in order.iter().enumerate() {
             self.step = Some(step);
-            let blocked_by = dependencies.iter().find(|dep| failed.contains(*dep));
+            let blocked_by = dependencies
+                .iter()
+                .find(|dep| outcome.failed.contains(*dep));
             if let Some(dep) = blocked_by {
-                skipped.push((cell.clone(), dep.clone()));
-                failed.extend(cell.members());
+                outcome.skipped.push((cell.clone(), dep.clone()));
+                outcome.failed.extend(cell.members());
                 continue;
             }
-            let outcome = match cell {
+            let result = match cell {
                 Cell::Column { table, column } => self.calculate_column(table, column),
-                Cell::Scalar(name) => self.calculate_scalar(name),
+                Cell::Scalar(name) => self.calculate_scalar_cell(name),
                 Cell::Columns { table, columns } => self.calculate_columns(table, columns),
             };
-            if let Err(e) = outcome {
-                failures.push(match e {
+            if let Err(e) = result {
+                outcome.failures.push(match e {
                     ForgeError::Eval(msg) => msg,
                     other => other.to_string(),
                 });
-                failed.extend(cell.members());
+                outcome.failed.extend(cell.members());
             }
         }
-
-        if failures.is_empty() {
-            check_formula_formats(&self.model)?;
-            return Ok(self.model);
-        }
-        // Each failure starts with its cell's name; list both in name order
-        failures.sort();
-        skipped.sort_by_key(|(cell, _)| cell.label());
-        Err(failure_report(&failures, &skipped))
+        Ok(outcome)
     }
 
     /// Calculate one row-formula column and store it in its table
@@ -177,7 +268,7 @@ impl ArrayCalculator {
     }
 
     /// Calculate one scalar formula and store its value
-    fn calculate_scalar(&mut self, scalar_name: &str) -> ForgeResult<()> {
+    fn calculate_scalar_cell(&mut self, scalar_name: &str) -> ForgeResult<()> {
         let Some(formula) = self
             .model
             .scalars
@@ -378,7 +469,7 @@ impl ArrayCalculator {
             ));
         }
         self.evaluate_in_context(Some(table_name), None, |row_ctx| {
-            Self::evaluate_rows(&ast, row_ctx, row_count)
+            Self::evaluate_rows(&ast, formula, row_ctx, row_count)
         })
         .map_err(|e| self.explain_included_mismatch(e, table_name))
     }
@@ -387,12 +478,13 @@ impl ArrayCalculator {
     /// the context changes (evaluation reads the context, never changes it).
     fn evaluate_rows(
         ast: &parser::Expr,
+        formula: &str,
         row_ctx: &mut evaluator::EvalContext,
         row_count: usize,
     ) -> ForgeResult<ColumnValue> {
         row_ctx.current_row = Some(0);
         row_ctx.row_count = Some(row_count);
-        let first_result = evaluator::evaluate(ast, row_ctx)
+        let first_result = evaluator::evaluate_cell(ast, formula, row_ctx)
             .map_err(|e| ForgeError::Eval(format!("row 1: {}", e.message)))?;
 
         // Determine column type from first result and evaluate all rows
@@ -402,7 +494,7 @@ impl ArrayCalculator {
                 results.push(first_result.as_text());
                 for row_idx in 1..row_count {
                     row_ctx.current_row = Some(row_idx);
-                    let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
+                    let result = evaluator::evaluate_cell(ast, formula, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
                     results.push(result.as_text());
@@ -414,7 +506,7 @@ impl ArrayCalculator {
                 results.push(first_result.as_bool().unwrap_or(false));
                 for row_idx in 1..row_count {
                     row_ctx.current_row = Some(row_idx);
-                    let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
+                    let result = evaluator::evaluate_cell(ast, formula, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
                     results.push(result.as_bool().unwrap_or(false));
@@ -431,7 +523,7 @@ impl ArrayCalculator {
                 results.push(first_num);
                 for row_idx in 1..row_count {
                     row_ctx.current_row = Some(row_idx);
-                    let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
+                    let result = evaluator::evaluate_cell(ast, formula, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
                     let value = result
@@ -457,7 +549,9 @@ impl ArrayCalculator {
         let section = scalar_name.rsplit_once('.').map(|(section, _)| section);
         self.check_ambiguous_names(formula, section, &empty_table)?;
         let result = self
-            .evaluate_in_context(None, section, |ctx| evaluator::evaluate(&ast, ctx))
+            .evaluate_in_context(None, section, |ctx| {
+                evaluator::evaluate_cell(&ast, formula, ctx)
+            })
             .map_err(|e| ForgeError::Eval(e.message))?;
         if let evaluator::Value::Array(items) = &result {
             if items.len() != 1 {
@@ -702,6 +796,252 @@ mod nan_inputs {
 #[cfg(test)]
 mod tests {
 
+    mod final_sum {
+        //! Excel sets the result of a formula's last `+` or `-` to 0 when it is
+        //! less than 8 units in the last place of the larger operand, and so does
+        //! `SUM` at its last addition (ADR-066). Each case is a formula Excel for
+        //! iPhone calculated on 2026-11-18, in three sheets, with Excel's answer:
+        //! 0, or the binary result, which Rust computes here the same way. 68 of
+        //! the 69: the other, `=1E15+1-1000000000000000.5`, is about a number
+        //! typed in a formula, which Excel cuts to 15 digits (roadmap
+        //! T1-EXCEL-LITERAL-DIGITS).
+
+        use super::super::ArrayCalculator;
+        use crate::parser::parse_single_document_yaml;
+        use std::fmt::Write as _;
+        use std::path::Path;
+
+        const TINY: f64 = 0.1 + 0.2 - 0.3; // 5.551115123125783e-17
+
+        /// Each formula is a scalar of group `p`, as `p.pN`; `v.a`, `v.b` and
+        /// `v.c` are 0.1, 0.2 and 0.3, and `v.col` is 0.1, 0.2, -0.3.
+        fn calculate(formulas: &[(&str, &str)]) -> crate::types::ParsedModel {
+            let mut text = String::from(
+                "_forge_version: \"5.4.0\"\nv:\n  a: 0.1\n  b: 0.2\n  c: 0.3\nt:\n  col: [0.1, 0.2, -0.3]\n  one: [1, 1, 1]\np:\n",
+            );
+            for (name, formula) in formulas {
+                writeln!(
+                    text,
+                    "  {name}: {{formula: \"{}\"}}",
+                    formula.replace('"', "\\\"")
+                )
+                .unwrap();
+            }
+            let model = parse_single_document_yaml(&text, Path::new("m.yaml")).unwrap();
+            ArrayCalculator::new(model).calculate_all().unwrap()
+        }
+
+        fn check(cases: &[(&str, &str, f64)]) {
+            let formulas: Vec<(&str, &str)> = cases.iter().map(|(n, f, _)| (*n, *f)).collect();
+            let model = calculate(&formulas);
+            let mut wrong = Vec::new();
+            for (name, formula, want) in cases {
+                let got = model.scalars[&format!("p.{name}")].value.unwrap();
+                if got.to_bits() != want.to_bits() && !(got == 0.0 && *want == 0.0) {
+                    wrong.push(format!("{name} {formula}: {got:e}, Excel {want:e}"));
+                }
+            }
+            assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        }
+
+        #[test]
+        fn the_last_addition_of_a_formula_is_zero_near_zero() {
+            check(&[
+                ("s1", "=0.1+0.2-0.3", 0.0),
+                ("s2", "=0.5-0.4-0.1", 0.0),
+                ("s3", "=1E15+0.2-1E15", 0.0),
+                ("s4", "=-0.3+0.1+0.2", 0.0),
+                ("s5", "=0.1+0.2+(-0.3)", 0.0),
+                ("s6", "=v.a+v.b-v.c", 0.0),
+                ("s7", "=v.c-v.a-v.b", 0.0),
+                ("u20", "=(0.1+0.2)-0.3", 0.0),
+                ("u21", "=0.1+(0.2-0.3)", 0.0),
+                ("u22", "=0.1+0.2-0.3*1", 0.0),
+                ("u23", "=0.3-(0.1+0.2)", 0.0),
+                ("u24", "=-0.1-0.2+0.3", 0.0),
+            ]);
+        }
+
+        #[test]
+        fn not_inside_parentheses_a_function_or_another_operation() {
+            check(&[
+                ("s8", "=(0.1+0.2-0.3)", TINY),
+                ("s9", "=1*(0.1+0.2-0.3)", TINY),
+                ("s10", "=(0.1+0.2-0.3)*1", TINY),
+                ("s11", "=0.1+0.2-0.3+0", TINY),
+                ("s12", "=ABS(0.1+0.2-0.3)", TINY),
+                ("s15", "=IF(TRUE,0.1+0.2-0.3,1)", TINY),
+                ("u19", "=-(0.1+0.2-0.3)", -TINY),
+                ("u17", "=SUMPRODUCT(t.col,t.one)", TINY),
+                ("u18", "=SUMIF(t.col,\"<>x\")", TINY),
+            ]);
+        }
+
+        #[test]
+        fn sum_is_zero_near_zero_at_its_last_addition() {
+            check(&[
+                ("s13", "=SUM(0.1,0.2,-0.3)", 0.0),
+                ("s14", "=SUM(0.1,0.2)-0.3", 0.0),
+                ("u13", "=SUM(t.col)", 0.0),
+                ("u14", "=SUM(-0.3,0.1,0.2)", 0.0),
+                ("u15", "=SUM(0.1,0.2,-0.3,0)", TINY),
+                ("u16", "=1*SUM(0.1,0.2,-0.3)", 0.0),
+                ("w13", "=SUM(1,6*2^-52,-1)", 0.0),
+                ("w14", "=SUM(1,7*2^-52,-1)", 0.0),
+                ("w15", "=SUM(1,8*2^-52,-1)", 8.0 * 2f64.powi(-52)),
+            ]);
+        }
+
+        /// The cell holds 0, so what reads it reads 0: a balance check written
+        /// as its own cell is TRUE, where the same check in one formula is not
+        #[test]
+        fn the_zero_is_the_cells_value() {
+            check(&[
+                ("s1", "=0.1+0.2-0.3", 0.0),
+                ("s3", "=1E15+0.2-1E15", 0.0),
+                ("s6", "=v.a+v.b-v.c", 0.0),
+                // TRUE and FALSE are 1 and 0
+                ("s16", "=0.1+0.2-0.3=0", 0.0),
+                ("s17", "=IF(0.1+0.2-0.3=0,1,0)", 0.0),
+                ("s18", "=p.s1=0", 1.0),
+                ("s19", "=IF(p.s6=0,1,0)", 1.0),
+                ("s20", "=p.s1*1E20", 0.0),
+                ("s21", "=p.s3*4", 0.0),
+            ]);
+        }
+
+        /// Less than 8 units in the last place of the larger operand: 7 is 0,
+        /// 8 is kept, near 1, near 512 and near 1E15
+        #[test]
+        fn eight_units_in_the_last_place_is_the_line() {
+            let ulp52 = 2f64.powi(-52);
+            check(&[
+                ("w1", "=1+5*2^-52-1", 0.0),
+                ("w2", "=1+6*2^-52-1", 0.0),
+                ("w3", "=1+7*2^-52-1", 0.0),
+                ("w4", "=1+8*2^-52-1", 8.0 * ulp52),
+                ("w5", "=512+5*2^-43-512", 0.0),
+                ("w6", "=512+6*2^-43-512", 0.0),
+                ("w7", "=512+7*2^-43-512", 0.0),
+                ("w8", "=512+8*2^-43-512", 8.0 * 2f64.powi(-43)),
+                // The larger operand's unit: 7 of 2's are 14 of 1.99...'s
+                ("w9", "=2-(2-6*2^-52)", 0.0),
+                ("w10", "=2-(2-10*2^-52)", 0.0),
+                ("w11", "=2-(2-14*2^-52)", 0.0),
+                ("w12", "=(2+6*2^-51)-(2-2*2^-52)", 0.0),
+                ("s22", "=1+1E-15-1", 0.0),
+                ("s23", "=1+5E-15-1", 1.0 + 5e-15 - 1.0),
+                ("s24", "=1+1E-14-1", 1.0 + 1e-14 - 1.0),
+                ("s25", "=1+1E-13-1", 1.0 + 1e-13 - 1.0),
+                ("u1", "=1+2E-15-1", 1.0 + 2e-15 - 1.0),
+                ("u2", "=1+3E-15-1", 1.0 + 3e-15 - 1.0),
+                ("u3", "=1+3.5E-15-1", 1.0 + 3.5e-15 - 1.0),
+                ("u4", "=1+4E-15-1", 1.0 + 4e-15 - 1.0),
+                ("u5", "=1000+1E-12-1000", 1000.0 + 1e-12 - 1000.0),
+                ("u6", "=1000+3E-12-1000", 1000.0 + 3e-12 - 1000.0),
+                ("u7", "=1000+5E-12-1000", 1000.0 + 5e-12 - 1000.0),
+                ("u8", "=1E-10+1E-25-1E-10", 1e-10 + 1e-25 - 1e-10),
+                ("s26", "=1E15+1-1E15", 1.0),
+                ("s27", "=1E15+3-1E15", 3.0),
+                ("u9", "=1E15+0.5-1E15", 0.0),
+                ("u10", "=1E15+1.5-1E15", 1.5),
+                ("u11", "=2^53+2-2^53", 0.0),
+                ("s28", "=1E-20-0", 1e-20),
+                ("s29", "=3E-17+0", 3e-17),
+                ("s30", "=1E-16-1E-17", 1e-16 - 1e-17),
+            ]);
+        }
+
+        /// A row of a row formula is a cell, so each row's last addition is
+        /// zero near zero; a column that carries the row above (PREV) too
+        #[test]
+        fn each_row_of_a_column_is_a_cell() {
+            let text = "_forge_version: \"5.4.0\"\nt:\n  a: [0.1, 0.5, 1]\n  b: [0.2, -0.4, 2]\n  c: [0.3, 0.1, 3]\n  d: \"=a+b-c\"\n  kept: \"=(a+b-c)\"\n  run: \"=PREV(run, 0.3) - c\"\n";
+            let model = parse_single_document_yaml(text, Path::new("m.yaml")).unwrap();
+            let model = ArrayCalculator::new(model).calculate_all().unwrap();
+            let column = |name: &str| {
+                model.tables["t"].columns[name]
+                    .values
+                    .numbers()
+                    .unwrap()
+                    .to_vec()
+            };
+            assert_eq!(column("d"), [0.0, 0.0, 0.0]);
+            assert_eq!(column("kept")[0].to_bits(), TINY.to_bits());
+            // 0.3 - 0.3, then 0 - 0.1 and -0.1 - 3
+            assert!(column("run")[0].abs() <= 0.0);
+        }
+    }
+
+    mod one_scalar {
+        //! `calculate_scalar` answers for one scalar: a failed formula that the
+        //! scalar does not use does not fail it, as it fails `calculate_all`.
+
+        use super::super::ArrayCalculator;
+        use crate::parser::parse_single_document_yaml;
+        use std::path::Path;
+
+        fn calculator(text: &str) -> ArrayCalculator {
+            let model = parse_single_document_yaml(
+                &format!("_forge_version: \"5.4.0\"\n{text}"),
+                Path::new("m.yaml"),
+            )
+            .unwrap();
+            ArrayCalculator::new(model)
+        }
+
+        const MODEL: &str = "s:\n  x: 4\n  y: {formula: \"=x * 2\"}\n  bad: {formula: \"=1 / 0\"}\n  uses_bad: {formula: \"=bad + y\"}\n";
+
+        #[test]
+        fn a_failure_the_scalar_does_not_use_is_left_out() {
+            let y = calculator(MODEL).calculate_scalar("s.y").unwrap();
+            assert!((y - 8.0).abs() <= 0.0, "{y}");
+            // calculate_all still fails on it
+            let err = calculator(MODEL).calculate_all().unwrap_err().to_string();
+            assert!(err.contains("s.bad"), "{err}");
+        }
+
+        #[test]
+        fn a_failure_the_scalar_uses_fails_it_with_the_report() {
+            for name in ["s.bad", "s.uses_bad"] {
+                let err = calculator(MODEL)
+                    .calculate_scalar(name)
+                    .unwrap_err()
+                    .to_string();
+                assert!(err.contains("s.bad: "), "{name}: {err}");
+            }
+            let err = calculator(MODEL)
+                .calculate_scalar("s.uses_bad")
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("s.uses_bad (uses s.bad)"), "{err}");
+        }
+
+        #[test]
+        fn a_scalar_that_is_not_there_or_has_no_value_is_an_error() {
+            let err = calculator(MODEL).calculate_scalar("s.nothing").unwrap_err();
+            assert!(err.to_string().contains("'s.nothing' not found"), "{err}");
+            let err = calculator("s:\n  empty: {value: null}\n")
+                .calculate_scalar("s.empty")
+                .unwrap_err();
+            assert!(err.to_string().contains("'s.empty' has no value"), "{err}");
+        }
+
+        #[test]
+        fn a_model_that_cannot_be_calculated_is_an_error() {
+            let err = calculator("s:\n  a: {formula: \"=b\"}\n  b: {formula: \"=a\"}\n")
+                .calculate_scalar("s.a")
+                .unwrap_err();
+            assert!(err.to_string().contains("depend on each other"), "{err}");
+            // With every formula calculated, the formats are checked as by
+            // calculate_all
+            let err = calculator("s:\n  d: {formula: \"=1 + 1\", format: \"yyyy-mm-dd\"}\n")
+                .calculate_scalar("s.d")
+                .unwrap_err();
+            assert!(err.to_string().contains("is a date format"), "{err}");
+        }
+    }
+
     mod column_copies {
         //! A row formula that reads a whole column copied it for every row, so the
         //! time grew with the square of the rows for the copies alone: 16,000 rows of
@@ -712,6 +1052,7 @@ mod tests {
         //! with the square of the rows; the copies were most of it.
 
         use crate::cli::calculate_core;
+        use crate::core::precision;
         use std::fmt::Write as _;
         use std::time::{Duration, Instant};
 
@@ -735,12 +1076,42 @@ mod tests {
             text
         }
 
-        /// Under 1 s in a release build. A debug build is too slow to tell the copies
-        /// from the search (2 s here against 13 s before, and CI runners vary), so it
-        /// checks only the results; the Validation workflow runs this in release.
-        fn in_time(took: Duration, limit: Duration, what: &str) {
+        /// The time one plain search of the column takes, as one row's formula
+        /// does it, for every row: `ROWS` squared comparisons of whole numbers.
+        /// What the calculator is held to, so a slow or busy machine slows both.
+        fn one_search_per_row() -> Duration {
+            let keys: Vec<usize> = (0..ROWS).collect();
+            let values: Vec<usize> = (0..ROWS).map(|i| i * 2).collect();
+            let start = Instant::now();
+            let mut total = 0_usize;
+            for row in 0..ROWS {
+                let wanted = (row * 7919) % ROWS;
+                for (key, value) in keys.iter().zip(&values) {
+                    if std::hint::black_box(*key) == wanted {
+                        total += value;
+                    }
+                }
+            }
+            std::hint::black_box(total);
+            start.elapsed()
+        }
+
+        /// In a release build, `took` is less than `times` the time of
+        /// [`one_search_per_row`]. A fixed limit failed twice on a CI runner
+        /// (2.09 s and 2.19 s against 2 s), and 5 s would hardly have told the
+        /// copies from the search there. Against the same loop on the same
+        /// machine, the search takes 4 times it for INDEX/MATCH and 15 for
+        /// SUMIF, and the copies took about 29 and 35 times it (measured on the
+        /// commit before the fix, 2026-11-18); the limits, 10 and 24, sit
+        /// between. A debug build is too slow to tell them apart, so it checks
+        /// only the results; the Validation workflow runs this in release.
+        fn in_time(took: Duration, times: u32, what: &str) {
             if !cfg!(debug_assertions) {
-                assert!(took < limit, "16,000 rows of {what} took {took:?}");
+                let one = one_search_per_row();
+                assert!(
+                    took < one * times,
+                    "16,000 rows of {what} took {took:?}, more than {times} times the {one:?} of one plain search of the column"
+                );
             }
         }
 
@@ -760,15 +1131,16 @@ mod tests {
         }
 
         /// Row i of q looks up key (i * 7919) % ROWS, whose value is twice the key.
-        #[allow(clippy::cast_precision_loss)] // whole numbers under 2^53
         fn expected() -> Vec<f64> {
-            (0..ROWS).map(|i| ((i * 7919) % ROWS * 2) as f64).collect()
+            (0..ROWS)
+                .map(|i| precision::count((i * 7919) % ROWS * 2))
+                .collect()
         }
 
         #[test]
         fn sixteen_thousand_rows_of_index_match_calculate_in_time() {
             let (took, values) = run("=INDEX(d.v, MATCH(k, d.k, 0))");
-            in_time(took, Duration::from_secs(1), "INDEX/MATCH");
+            in_time(took, 10, "INDEX/MATCH");
             assert_eq!(values, expected());
         }
 
@@ -776,8 +1148,185 @@ mod tests {
         fn sixteen_thousand_rows_of_sumif_calculate_in_time() {
             // SUMIF reads its ranges another way (collect_values_as_vec)
             let (took, values) = run("=SUMIF(d.k, k, d.v)");
-            in_time(took, Duration::from_secs(2), "SUMIF");
+            in_time(took, 24, "SUMIF");
             assert_eq!(values, expected());
+        }
+    }
+
+    mod formula_depth {
+        //! A formula nested too deep is refused with a message, not calculated until
+        //! the stack overflows (roadmap T1-DEPTH). Before the limit, a formula of
+        //! 10,000 parentheses, or of 100,000 terms added, ended `forge calculate`
+        //! with a stack overflow (exit 134), and a `forge mcp` server died on the
+        //! same formula in a call, taking its session with it.
+
+        use crate::cli::calculate_core;
+        use crate::core::array_calculator::parser::{parse, MAX_DEPTH};
+        use crate::core::array_calculator::tokenizer::tokenize;
+        use crate::core::precision;
+
+        fn model(formula: &str) -> String {
+            format!("_forge_version: \"5.1.0\"\nm:\n  x:\n    formula: \"={formula}\"\n")
+        }
+
+        fn accepted(formula: &str) -> bool {
+            parse(tokenize(formula).unwrap()).is_ok()
+        }
+
+        /// What `m.x` calculates to, in a file of its own
+        fn calculated(formula: &str) -> Result<f64, String> {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, model(formula)).unwrap();
+            calculate_core(&path, true, None)
+                .map(|result| result.scalars["m.x"].unwrap())
+                .map_err(|e| e.to_string())
+        }
+
+        /// The longest chain `1+1+...` inside parentheses that is accepted as the
+        /// first operand of a longer one, and the longest longer one: the deepest
+        /// tree the limit lets through, nearly twice `MAX_DEPTH`.
+        fn deepest() -> (String, f64) {
+            let chain = |n: usize| vec!["1"; n].join("+");
+            let inner = (1..=MAX_DEPTH)
+                .take_while(|&n| accepted(&format!("({})+1", chain(n))))
+                .last()
+                .unwrap();
+            let outer = (1..=MAX_DEPTH)
+                .take_while(|&n| accepted(&format!("({}){}", chain(inner), "+1".repeat(n))))
+                .last()
+                .unwrap();
+            (
+                format!("({}){}", chain(inner), "+1".repeat(outer)),
+                precision::count(inner + outer),
+            )
+        }
+
+        #[test]
+        fn a_formula_at_the_limit_calculates() {
+            let pairs = MAX_DEPTH - 1;
+            let parentheses = format!("{}7{}", "(".repeat(pairs), ")".repeat(pairs));
+            assert_eq!(calculated(&parentheses), Ok(7.0));
+            // The sign inside is one more level, so one call fewer
+            let calls = format!("{}-3{}", "ABS(".repeat(pairs - 1), ")".repeat(pairs - 1));
+            assert_eq!(calculated(&calls), Ok(3.0));
+            let signs = format!("{}5", "-".repeat(pairs));
+            assert_eq!(calculated(&signs), Ok(-5.0));
+            let sum = vec!["1"; MAX_DEPTH].join("+");
+            assert_eq!(calculated(&sum), Ok(precision::count(MAX_DEPTH)));
+        }
+
+        #[test]
+        fn the_deepest_tree_the_limit_lets_through_calculates() {
+            let (formula, value) = deepest();
+            assert!(
+                value > precision::count(MAX_DEPTH),
+                "{value}: not the worst case"
+            );
+            assert_eq!(calculated(&formula), Ok(value));
+        }
+
+        #[test]
+        fn a_formula_one_level_past_the_limit_is_refused_with_the_cell() {
+            let pairs = MAX_DEPTH;
+            let formula = format!("{}7{}", "(".repeat(pairs), ")".repeat(pairs));
+            let message = calculated(&formula).unwrap_err();
+            assert!(message.contains("m.x"), "{message}");
+            assert!(
+                message.contains(&format!("nested more than {MAX_DEPTH} levels")),
+                "{message}"
+            );
+            let sum = vec!["1"; MAX_DEPTH + 1].join("+");
+            assert!(calculated(&sum).is_err());
+        }
+
+        #[test]
+        fn a_hundred_thousand_levels_are_refused() {
+            let n = 100_000;
+            for formula in [
+                format!("{}1{}", "(".repeat(n), ")".repeat(n)),
+                format!("{}1{}", "ABS(".repeat(n), ")".repeat(n)),
+                format!("{}1", "-".repeat(n)),
+                vec!["2"; n].join("^"),
+                vec!["1"; n].join("+"),
+                vec!["1"; n].join("&"),
+                vec!["1"; n].join("="),
+                format!("LAMBDA(q, q){}", "(1)".repeat(n)),
+            ] {
+                let message = calculated(&formula).unwrap_err();
+                assert!(message.contains("nested more than"), "{message}");
+            }
+        }
+
+        /// The command line and the MCP server, which ran out of stack before
+        #[cfg(feature = "cli")]
+        mod command_line_and_mcp {
+            use super::{deepest, model, MAX_DEPTH};
+            use crate::cli::forge;
+            use crate::mcp::Session;
+
+            const N: usize = 100_000;
+
+            fn deep() -> String {
+                format!("{}1{}", "(".repeat(N), ")".repeat(N))
+            }
+
+            #[test]
+            fn forge_calculate_exits_with_an_error_not_a_stack_overflow() {
+                let dir = tempfile::tempdir().unwrap();
+                for (name, formula) in [
+                    ("parentheses", deep()),
+                    ("sum", vec!["1"; N].join("+")),
+                    ("signs", format!("{}1", "-".repeat(N))),
+                ] {
+                    let path = dir.path().join(format!("{name}.yaml"));
+                    std::fs::write(&path, model(&formula)).unwrap();
+                    let ran = forge(&["calculate", "--dry-run", path.to_str().unwrap()]);
+                    assert_eq!(ran.code, 1, "{name}: {}", ran.err);
+                    assert!(ran.err.contains("m.x"), "{name}: {}", ran.err);
+                    assert!(
+                        ran.err
+                            .contains(&format!("nested more than {MAX_DEPTH} levels")),
+                        "{name}: {}",
+                        ran.err
+                    );
+                }
+            }
+
+            /// The answers of the MCP server to `forge_calculate` on each model, in
+            /// order, with the server still serving after the last
+            fn answers(models: &[String]) -> Vec<String> {
+                let mut session = Session::start(None);
+                let answers = (1..)
+                    .zip(models)
+                    .map(|(id, content)| {
+                        session.call(
+                            id,
+                            "forge_calculate",
+                            &serde_json::json!({"content": content, "dry_run": true}),
+                        )
+                    })
+                    .collect();
+                assert!(session.is_serving(), "the server is alive");
+                answers
+            }
+
+            #[test]
+            fn forge_mcp_answers_a_deep_formula_with_an_error_and_the_next_call() {
+                let fine = model("1 + 2");
+                let (worst, value) = deepest();
+                let answers = answers(&[
+                    model(&deep()),
+                    fine,
+                    model(&vec!["1"; N].join("+")),
+                    model(&worst),
+                ]);
+                assert!(answers[0].contains("nested more than"), "{}", answers[0]);
+                assert!(answers[1].contains("\\\"m.x\\\":3.0"), "{}", answers[1]);
+                assert!(answers[2].contains("nested more than"), "{}", answers[2]);
+                let expected = format!("\\\"m.x\\\":{value:.1}");
+                assert!(answers[3].contains(&expected), "{}", answers[3]);
+            }
         }
     }
 }

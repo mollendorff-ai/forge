@@ -1,0 +1,23 @@
+[package]
+name = "mollendorff-forge-repo"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.97"
+description = "Forge's documents, workflows and sources checked against its code and what the forge binary prints"
+repository = "https://github.com/mollendorff-ai/forge"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+# Run from this repository; not published
+publish = false
+
+[dependencies]
+serde_json = "1.0"
+tempfile = "3.8"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }

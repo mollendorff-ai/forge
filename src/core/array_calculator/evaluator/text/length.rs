@@ -1,22 +1,18 @@
 //! String length and extraction functions: LEN, LEFT, RIGHT, MID
 
-// Text length casts: char counts and string indices (f64 to usize, bounded by string length).
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
-
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 use super::whole_arg;
+use crate::core::precision;
 
 /// LEN(text) - Returns the length of a text string
 pub fn eval_len(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("LEN", args, 1)?;
     let val = evaluate(&args[0], ctx)?;
-    Ok(Value::Number(val.as_text().chars().count() as f64))
+    Ok(Value::Number(precision::count(
+        val.as_text().chars().count(),
+    )))
 }
 
 /// LEFT(text, [`num_chars`]) - Returns the leftmost characters from a text string
@@ -67,7 +63,6 @@ pub fn eval_mid(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -96,9 +91,9 @@ mod tests {
         let length = result_table.columns.get("length").unwrap();
         match &length.values {
             ColumnValue::Number(nums) => {
-                assert_eq!(nums[0], 5.0);
-                assert_eq!(nums[1], 2.0);
-                assert_eq!(nums[2], 7.0);
+                assert_exact!(nums[0], 5.0);
+                assert_exact!(nums[1], 2.0);
+                assert_exact!(nums[2], 7.0);
             },
             _ => panic!("Expected Number array"),
         }

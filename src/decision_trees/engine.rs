@@ -413,7 +413,6 @@ impl DecisionTreeEngine {
 
 #[cfg(test)]
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 mod engine_tests {
     use super::*;
 
@@ -455,7 +454,7 @@ mod engine_tests {
 
         // commercialize_decision: max($5M, $8M-$3M) = $5M (license)
         let commercialize = result.node_results.get("commercialize").unwrap();
-        assert_eq!(commercialize.expected_value, 5_000_000.0);
+        assert_exact!(commercialize.expected_value, 5_000_000.0);
         assert_eq!(commercialize.optimal_choice, Some("license".to_string()));
 
         // tech_outcome: 0.6 × $5M + 0.4 × $0 = $3M

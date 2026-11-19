@@ -23,6 +23,25 @@ pub struct ExcelExporter {
     includes: Vec<(String, ParsedModel, WorkbookRefs)>,
 }
 
+/// How a scalar formula that Excel cannot express is written, for its warning
+/// and its note: an uncertain input (`MC.*`) as its plan value, the value
+/// `forge simulate` shows the outputs at; any other formula as its calculated
+/// value; and a formula with no value, in a model that does not calculate,
+/// left empty.
+fn written_as(formula: &str, value: Option<f64>, reason: &str) -> String {
+    let uncertain = formula
+        .trim_start_matches('=')
+        .trim_start()
+        .starts_with("MC.");
+    match value {
+        Some(plan) if uncertain => {
+            format!("written as its plan value {plan} ({reason}; forge simulate draws it)")
+        },
+        Some(_) => format!("written as a value ({reason})"),
+        None => format!("left empty ({reason})"),
+    }
+}
+
 impl ExcelExporter {
     /// Create a new Excel exporter.
     ///
@@ -205,7 +224,6 @@ impl ExcelExporter {
     }
 
     /// Export a single table to a worksheet
-    #[allow(clippy::cast_possible_truncation)] // column count and row count are within u16/u32 Excel limits
     /// Write a table to its sheet. `names` is (the sheet, the table's name in
     /// `refs`); they differ for a table of an included file.
     fn export_table(
@@ -252,12 +270,11 @@ impl ExcelExporter {
             }
         }
 
-        // Write data rows (starting at row 1)
-        for row_idx in 0..row_count {
-            let excel_row = (row_idx + 1) as u32 + 1; // Excel row of this data row (header is row 1)
-
-            for (col_idx, col_name) in column_names.iter().enumerate() {
-                let col = col_idx as u16;
+        // Write data rows (starting at row 1). `excel_row` is the row as Excel
+        // numbers it (the header is row 1); past Excel's limits the writer
+        // refuses the cell, long before the counters end.
+        for (row_idx, excel_row) in (0..row_count).zip(2u32..=u32::MAX) {
+            for (col, col_name) in (0u16..=u16::MAX).zip(&column_names) {
                 let formula = table.row_formulas.get(col_name);
                 if let (Some(formula), None) = (formula, untranslatable.get(col_name.as_str())) {
                     let ctx = Context::Row {
@@ -387,10 +404,9 @@ impl ExcelExporter {
             match translated {
                 Some((_, Ok(t))) => Self::write_scalar_formula(worksheet, row, var, &t)?,
                 Some((formula, Err(reason))) => {
-                    warnings.push(format!("{path}: written as a value ({reason}): {formula}"));
-                    notes.push(format!(
-                        "Forge formula: {formula}\nWritten as a value: {reason}"
-                    ));
+                    let written = written_as(formula, var.value, &reason);
+                    warnings.push(format!("{path}: {written}: {formula}"));
+                    notes.push(format!("Forge formula: {formula}\n{written}"));
                     Self::write_scalar_value(worksheet, row, var)?;
                 },
                 None => Self::write_scalar_value(worksheet, row, var)?,
@@ -448,12 +464,9 @@ impl ExcelExporter {
                 Some((_, Ok(t))) => Self::write_scalar_formula(worksheet, row, var, &t)?,
                 other => {
                     if let Some((formula, Err(reason))) = other {
-                        warnings.push(format!(
-                            "@{namespace}.{path}: written as a value ({reason}): {formula}"
-                        ));
-                        notes.push(format!(
-                            "Forge formula: {formula}\nWritten as a value: {reason}"
-                        ));
+                        let written = written_as(formula, var.value, &reason);
+                        warnings.push(format!("@{namespace}.{path}: {written}: {formula}"));
+                        notes.push(format!("Forge formula: {formula}\n{written}"));
                     }
                     Self::write_scalar_value(worksheet, row, var)?;
                 },

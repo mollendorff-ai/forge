@@ -2,17 +2,12 @@
 //!
 //! Functions
 
-// Spreadsheet reference casts: f64 row/col indices to usize/i64 (bounded by worksheet limits 1..16384).
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
-
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::{evaluate_without_row, number_or};
+use crate::core::precision;
+use num_traits::ToPrimitive;
 
 /// Evaluate INDIRECT function
 /// `INDIRECT(ref_text`, [a1])
@@ -44,25 +39,27 @@ pub fn eval_indirect(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
 pub fn eval_offset(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("OFFSET", args, 3, 5)?;
     let base = evaluate_without_row(&args[0], ctx)?;
+    // Whole rows and columns, as Excel cuts them
     let rows = evaluate(&args[1], ctx)?
         .as_cell_number()
-        .ok_or_else(|| EvalError::new("OFFSET: rows must be a number"))? as i64;
+        .ok_or_else(|| EvalError::new("OFFSET: rows must be a number"))?
+        .trunc();
     let cols = evaluate(&args[2], ctx)?
         .as_cell_number()
-        .ok_or_else(|| EvalError::new("OFFSET: cols must be a number"))? as i64;
+        .ok_or_else(|| EvalError::new("OFFSET: cols must be a number"))?
+        .trunc();
 
     // OFFSET returns a reference offset by rows and cols
     // Simplified: for array, return element at offset position
     match base {
-        Value::Array(arr) => {
-            if rows < 0 || rows as usize >= arr.len() {
-                return Err(EvalError::new("OFFSET: row out of bounds"));
-            }
-            Ok(arr.get(rows as usize).cloned().unwrap_or(Value::Null))
-        },
+        Value::Array(arr) => rows
+            .to_usize()
+            .and_then(|row| arr.get(row))
+            .cloned()
+            .ok_or_else(|| EvalError::new("OFFSET: row out of bounds")),
         other => {
             // For scalar, just return the value (offset of 0,0)
-            if rows == 0 && cols == 0 {
+            if rows == 0.0 && cols == 0.0 {
                 Ok(other)
             } else {
                 Err(EvalError::new("OFFSET: cannot offset scalar"))
@@ -78,15 +75,14 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     require_args_range("ADDRESS", args, 2, 5)?;
     let row_num = evaluate(&args[0], ctx)?
         .as_cell_number()
-        .ok_or_else(|| EvalError::new("ADDRESS: row must be a number"))? as i64;
+        .ok_or_else(|| EvalError::new("ADDRESS: row must be a number"))?;
     let col_num = evaluate(&args[1], ctx)?
         .as_cell_number()
-        .ok_or_else(|| EvalError::new("ADDRESS: column must be a number"))?
-        as i64;
+        .ok_or_else(|| EvalError::new("ADDRESS: column must be a number"))?;
     let abs_num = if args.len() > 2 {
-        number_or(&args[2], ctx, 1.0)? as i32
+        number_or(&args[2], ctx, 1.0)?
     } else {
-        1
+        1.0
     };
     let a1_style = if args.len() > 3 {
         evaluate(&args[3], ctx)?.is_truthy()
@@ -94,19 +90,20 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         true
     };
 
-    // Excel: #VALUE! outside the sheet, or for an abs_num other than 1 to 4
-    if !(1..=1_048_576).contains(&row_num) {
+    // Excel: #VALUE! outside the sheet, or for an abs_num other than 1 to 4,
+    // each cut to a whole number first
+    let Some(row_num) = row_num.to_u32().filter(|r| (1..=1_048_576).contains(r)) else {
         return Err(EvalError::new("#VALUE!: ADDRESS: row out of range"));
-    }
-    if !(1..=16384).contains(&col_num) {
+    };
+    let Some(col_num) = col_num.to_usize().filter(|c| (1..=16384).contains(c)) else {
         return Err(EvalError::new("ADDRESS: column out of range"));
-    }
-    if !(1..=4).contains(&abs_num) {
+    };
+    let Some(abs_num) = abs_num.to_u8().filter(|a| (1..=4).contains(a)) else {
         return Err(EvalError::new("#VALUE!: ADDRESS: abs_num must be 1 to 4"));
-    }
+    };
 
     // Convert column number to letter(s)
-    let col_letter = col_to_letter(col_num as usize);
+    let col_letter = col_to_letter(col_num);
 
     // abs_num: 1=absolute, 2=absolute row/relative col, 3=relative row/absolute col, 4=relative
     let address = if a1_style {
@@ -152,7 +149,9 @@ pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     // ROW(reference) returns the row number of the reference
     if args.is_empty() {
         // Return current row if available
-        Ok(Value::Number(ctx.row().map_or(1.0, |row| (row + 1) as f64)))
+        Ok(Value::Number(
+            ctx.row().map_or(1.0, |row| precision::count(row + 1)),
+        ))
     } else {
         // For a reference, we'd need to parse it. Simplified: return 1
         Ok(Value::Number(1.0))
@@ -177,7 +176,7 @@ pub fn eval_rows(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("ROWS", args, 1)?;
     let val = evaluate(&args[0], ctx)?;
     match val {
-        Value::Array(arr) => Ok(Value::Number(arr.len() as f64)),
+        Value::Array(arr) => Ok(Value::Number(precision::count(arr.len()))),
         _ => Ok(Value::Number(1.0)),
     }
 }
@@ -193,7 +192,7 @@ pub fn eval_columns(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     {
         // Check if this name exists in tables
         if let Some(table) = ctx.tables.get(name) {
-            return Ok(Value::Number(table.len() as f64));
+            return Ok(Value::Number(precision::count(table.len())));
         }
     }
     // For 1D arrays (single column), columns is always 1
@@ -202,12 +201,12 @@ pub fn eval_columns(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 
 /// Convert column number (1-based) to Excel-style letter(s)
 pub fn col_to_letter(col: usize) -> String {
+    const LETTERS: &[u8; 26] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let mut result = String::new();
     let mut n = col;
     while n > 0 {
         n -= 1;
-        let remainder = n % 26;
-        result.insert(0, (b'A' + remainder as u8) as char);
+        result.insert(0, char::from(LETTERS[n % 26]));
         n /= 26;
     }
     result
@@ -215,7 +214,6 @@ pub fn col_to_letter(col: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::*;
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::ArrayCalculator;
@@ -400,7 +398,7 @@ mod tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(val, 60.0);
+        assert_exact!(val, 60.0);
     }
 
     #[test]
@@ -428,7 +426,7 @@ mod tests {
         );
         let model_result = result.unwrap();
         let val = model_result.scalars.get("total").unwrap().value.unwrap();
-        assert_eq!(val, 600.0);
+        assert_exact!(val, 600.0);
     }
 
     #[test]
@@ -464,7 +462,7 @@ mod tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(val, 20.0);
+        assert_exact!(val, 20.0);
     }
 
     #[test]
@@ -477,7 +475,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("row_num").unwrap().value.unwrap();
-        assert_eq!(val, 1.0);
+        assert_exact!(val, 1.0);
     }
 
     #[test]
@@ -490,7 +488,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("calc").unwrap().value.unwrap();
-        assert_eq!(val, 10.0);
+        assert_exact!(val, 10.0);
     }
 
     #[test]
@@ -503,7 +501,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("col_num").unwrap().value.unwrap();
-        assert_eq!(val, 1.0);
+        assert_exact!(val, 1.0);
     }
 
     #[test]
@@ -516,7 +514,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("calc").unwrap().value.unwrap();
-        assert_eq!(val, 6.0);
+        assert_exact!(val, 6.0);
     }
 
     #[test]
@@ -542,7 +540,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("row_count").unwrap().value.unwrap();
-        assert_eq!(val, 5.0);
+        assert_exact!(val, 5.0);
     }
 
     #[test]
@@ -568,7 +566,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("row_count").unwrap().value.unwrap();
-        assert_eq!(val, 1.0);
+        assert_exact!(val, 1.0);
     }
 
     #[test]
@@ -594,7 +592,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("calc").unwrap().value.unwrap();
-        assert_eq!(val, 30.0);
+        assert_exact!(val, 30.0);
     }
 
     #[test]
@@ -620,7 +618,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("col_count").unwrap().value.unwrap();
-        assert_eq!(val, 1.0);
+        assert_exact!(val, 1.0);
     }
 
     #[test]
@@ -637,7 +635,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("cell_ref").unwrap().value.unwrap();
-        assert_eq!(val, 4.0);
+        assert_exact!(val, 4.0);
     }
 
     #[test]
@@ -654,7 +652,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("cell_ref").unwrap().value.unwrap();
-        assert_eq!(val, 4.0);
+        assert_exact!(val, 4.0);
     }
 
     #[test]
@@ -671,7 +669,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("cell_ref").unwrap().value.unwrap();
-        assert_eq!(val, 2.0);
+        assert_exact!(val, 2.0);
     }
 
     #[test]
@@ -738,7 +736,7 @@ mod tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(val, 20.0);
+        assert_exact!(val, 20.0);
     }
 
     #[test]
@@ -764,7 +762,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("total").unwrap().value.unwrap();
-        assert_eq!(val, 600.0);
+        assert_exact!(val, 600.0);
     }
 
     #[test]
@@ -793,7 +791,7 @@ mod tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(val, 15.0);
+        assert_exact!(val, 15.0);
     }
 
     #[test]
@@ -819,7 +817,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("indirect_index").unwrap().value.unwrap();
-        assert_eq!(val, 20.0);
+        assert_exact!(val, 20.0);
     }
 
     /// `ADDRESS` as Excel computes it: R1C1 brackets on the relative part,
@@ -846,5 +844,60 @@ mod tests {
         for formula in ["ADDRESS(0, 1)", "ADDRESS(1048577, 1)", "ADDRESS(1, 1, 5)"] {
             assert!(eval(formula, &ctx).is_err(), "{formula}");
         }
+    }
+
+    /// Rows, columns and `abs_num` are cut to whole numbers, as Excel cuts
+    /// them; one past the sheet, or no place in the array, is an error.
+    #[test]
+    fn offsets_and_addresses_are_whole_places() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("v", h::numbers(&[10.0, 20.0, 30.0]))]);
+        h::is_exactly_in("OFFSET(t.v, 1.9, 0)", &ctx, 20.0);
+        h::is_exactly_in("OFFSET(t.v, -0.5, 0)", &ctx, 10.0);
+        assert!(h::error_in("OFFSET(t.v, -1, 0)", &ctx).contains("out of bounds"));
+        assert!(h::error_in("OFFSET(t.v, 3, 0)", &ctx).contains("out of bounds"));
+        assert!(h::error_in("OFFSET(t.v, 1E+20, 0)", &ctx).contains("out of bounds"));
+        h::is_exactly("OFFSET(5, 0.5, -0.5)", 5.0);
+        h::fails_with("OFFSET(5, 1, 0)", "cannot offset");
+        assert_eq!(h::text("ADDRESS(1.9, 2.9)"), "$B$1");
+        assert_eq!(h::text("ADDRESS(1048576, 16384)"), "$XFD$1048576");
+        assert_eq!(h::text("ADDRESS(1, 1, 4.9)"), "A1");
+        h::fails_with("ADDRESS(1048577, 1)", "row out of range");
+        h::fails_with("ADDRESS(1E+20, 1)", "row out of range");
+        h::fails_with("ADDRESS(0.5, 1)", "row out of range");
+        h::fails_with("ADDRESS(1, 16385)", "column out of range");
+        h::fails_with("ADDRESS(1, -1)", "column out of range");
+        h::fails_with("ADDRESS(1, 1, 1E+20)", "abs_num");
+        h::fails_with("ADDRESS(1, 1, 0)", "abs_num");
+        assert_eq!(col_to_letter(26), "Z");
+        assert_eq!(col_to_letter(27), "AA");
+        assert_eq!(col_to_letter(16384), "XFD");
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("v", h::numbers(&[1.0, 2.0, 3.0]))]);
+        assert!(
+            h::error_in("OFFSET(t.v, \"x\", 0)", &ctx).contains("rows must be a number"),
+            "OFFSET(t.v, \"x\", 0)"
+        );
+        assert!(
+            h::error_in("OFFSET(t.v, 0, \"x\")", &ctx).contains("cols must be a number"),
+            "OFFSET(t.v, 0, \"x\")"
+        );
+        assert!(
+            h::error_in("ADDRESS(\"x\", 1)", &ctx).contains("row must be a number"),
+            "ADDRESS(\"x\", 1)"
+        );
+        assert!(
+            h::error_in("ADDRESS(1, \"x\")", &ctx).contains("column must be a number"),
+            "ADDRESS(1, \"x\")"
+        );
+        assert!(
+            h::error_in("ADDRESS(1, 1, 1/0)", &ctx).contains(""),
+            "ADDRESS(1, 1, 1/0)"
+        );
     }
 }

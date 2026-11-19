@@ -639,15 +639,15 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "VLOOKUP",
         category: Category::Lookup,
-        description: "Vertical lookup",
-        syntax: "=VLOOKUP(lookup, table, col, exact)",
+        description: "Vertical lookup in one column: col_index is 1, range_lookup TRUE (the default) searches as MATCH type 1",
+        syntax: "=VLOOKUP(lookup, column, 1, range_lookup)",
         scalar: false,
     },
     FunctionDef {
         name: "HLOOKUP",
         category: Category::Lookup,
-        description: "Horizontal lookup",
-        syntax: "=HLOOKUP(lookup, table, row, exact)",
+        description: "Horizontal lookup in one row: row_index is 1, range_lookup TRUE (the default) searches as MATCH type 1",
+        syntax: "=HLOOKUP(lookup, row, 1, range_lookup)",
         scalar: false,
     },
     FunctionDef {
@@ -1472,7 +1472,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         name: "MC.Discrete",
         category: Category::MonteCarlo,
         description: "Discrete distribution",
-        syntax: "=MC.Discrete(values, probabilities)",
+        syntax: "=MC.Discrete({values}, {probabilities})",
         scalar: true,
     },
 ];

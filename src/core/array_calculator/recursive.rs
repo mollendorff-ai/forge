@@ -143,7 +143,7 @@ fn rows_together(
     'rows: for row in 0..row_count {
         ctx.current_row = Some(row);
         for (column, place, formula, ast) in formulas {
-            match evaluator::evaluate(ast, ctx) {
+            match evaluator::evaluate_cell(ast, formula, ctx) {
                 Ok(value) => {
                     // Nothing else holds the growing column once a row is
                     // evaluated, so this pushes in place without a copy

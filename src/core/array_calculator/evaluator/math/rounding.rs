@@ -1,12 +1,10 @@
 //! Rounding functions: ROUND, ROUNDUP, ROUNDDOWN, FLOOR, CEILING, MROUND, TRUNC, INT
 
-// Rounding casts: f64 decimal-place counts to i32 (small bounded integers, typically 0..15).
-#![allow(clippy::cast_possible_truncation)]
-
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::number_or;
+use num_traits::ToPrimitive;
 
 /// `x` to 15 significant digits, as Excel holds a number before it rounds:
 /// 1.005 * 100 is 100.49999999999999 in binary and 100.5 in Excel, so
@@ -22,7 +20,8 @@ fn excel_digits(x: f64) -> f64 {
 /// to its magnitude, the sign kept: the rounding of ROUND, ROUNDUP,
 /// ROUNDDOWN and TRUNC.
 fn round_with(val: f64, decimals: f64, op: fn(f64) -> f64) -> f64 {
-    let decimals = decimals.trunc().clamp(-400.0, 400.0) as i32;
+    // Past 400 places either way nothing is left to round; no number (NaN) is 0
+    let decimals = decimals.clamp(-400.0, 400.0).to_i32().unwrap_or(0);
     let magnitude = val.abs();
     let rounded = if decimals >= 0 {
         let multiplier = 10_f64.powi(decimals);
@@ -34,6 +33,13 @@ fn round_with(val: f64, decimals: f64, op: fn(f64) -> f64) -> f64 {
         op(excel_digits(scaled)) / multiplier
     } else {
         let divisor = 10_f64.powi(-decimals);
+        // From 10^309 the unit is not a double. A number is then under half of
+        // it, so what is left is what `op` makes of 0.4: 0 for ROUND and
+        // ROUNDDOWN, as Gnumeric and LibreOffice give; 1 for ROUNDUP, a whole
+        // unit no double holds, which stays without a result.
+        if !divisor.is_finite() && op(0.4) == 0.0 {
+            return 0.0;
+        }
         op(excel_digits(magnitude / divisor)) * divisor
     };
     if val < 0.0 {
@@ -405,5 +411,35 @@ mod tests {
             h::sweep_is_exactly("CEILING(7.3, 0)", 0.0);
             h::sweep_is_exactly("FLOOR(-7.3, -2)", -6.0);
         }
+    }
+
+    /// Places are cut to a whole number and held to 400, past which a
+    /// double has nothing left to round
+    #[test]
+    fn places_past_any_double_round_nothing() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("ROUND(123.456, 1E+20)", 123.456);
+        h::is_exactly("ROUND(123.456, -308)", 0.0);
+        h::is_exactly("ROUND(123.456, 1.9)", 123.5);
+        h::is_exactly("ROUNDDOWN(123.456, -1.9)", 120.0);
+    }
+
+    /// 10^309 and above is not a double, so the rounding unit was infinite and
+    /// `0 * inf` made NaN: ROUND said it had no result. Both Gnumeric and
+    /// `LibreOffice` give 0 (checked 2026-11-18): the number is far below half
+    /// the unit. A positive zero, also for a negative number.
+    #[test]
+    fn a_rounding_unit_past_any_double_rounds_to_zero() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("ROUND(12345.6, -309)", 0.0);
+        h::is_exactly("ROUND(12345.6, -400)", 0.0);
+        h::is_exactly("ROUND(-12345.6, -400)", 0.0);
+        h::is_exactly("ROUND(5, -1E+20)", 0.0);
+        h::is_exactly("ROUND(0, -400)", 0.0);
+        // Cut toward zero, nothing is left either
+        h::is_exactly("ROUNDDOWN(12345.6, -400)", 0.0);
+        // Rounded up, a number is a whole unit: 1E+400, which no double holds
+        let ctx = crate::core::array_calculator::evaluator::EvalContext::new();
+        assert!(h::error_in("ROUNDUP(12345.6, -400)", &ctx).contains("no result"));
     }
 }
