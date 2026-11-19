@@ -176,7 +176,7 @@ jobs:
       # commit: unlike checksums.txt, it cannot be forged by whoever could
       # replace the release's files (verify with `gh attestation verify`)
       - name: Attest the archives
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             published/*.tar.gz
