@@ -596,7 +596,23 @@ pub(crate) fn collect_numeric_values(
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Vec<f64>, EvalError> {
+    Ok(collect_numbers_and_dates(args, ctx)?.0)
+}
+
+/// Whether a value is a date Excel holds: date text from 1900-03-01 on.
+pub(crate) fn is_a_date(value: &Value) -> bool {
+    matches!(value, Value::Text(text) if excel_date_serial(text).is_some())
+}
+
+/// The numbers of `args` as `collect_numeric_values` reads them, and whether
+/// they are all dates: at least one, and none a plain number (ADR-060
+/// addendum). `MAX`, `MIN`, `LARGE` and `SMALL` of dates give a date.
+pub(crate) fn collect_numbers_and_dates(
+    args: &[Expr],
+    ctx: &EvalContext,
+) -> Result<(Vec<f64>, bool), EvalError> {
     let mut values = Vec::new();
+    let (mut dates, mut plain) = (false, false);
 
     for arg in args {
         let val = evaluate(arg, ctx)?;
@@ -605,18 +621,44 @@ pub(crate) fn collect_numeric_values(
                 for v in arr.iter() {
                     if let Some(n) = v.as_number() {
                         values.push(n);
+                        if is_a_date(v) {
+                            dates = true;
+                        } else {
+                            plain = true;
+                        }
                     }
                 }
             },
-            Value::Number(n) => values.push(n),
+            Value::Number(n) => {
+                values.push(n);
+                plain = true;
+            },
             // A date is a number wherever one is read, from a column (above)
             // or as a single value: `MAX(due, DATE(2026, 6, 1))` (ADR-054)
-            Value::Text(text) => values.extend(date_serial(&text)),
+            Value::Text(ref text) => {
+                if let Some(n) = date_serial(text) {
+                    values.push(n);
+                    if is_a_date(&val) {
+                        dates = true;
+                    } else {
+                        plain = true;
+                    }
+                }
+            },
             _ => {},
         }
     }
 
-    Ok(values)
+    Ok((values, dates && !plain))
+}
+
+/// `number`, shown as the date it is when `is_date` says it came from dates.
+pub(crate) fn number_or_date(number: f64, is_date: bool) -> Value {
+    if is_date {
+        Value::Text(serial_date_text(number))
+    } else {
+        Value::Number(number)
+    }
 }
 
 /// The number a criterion such as `>=2026-02-01` or `>50` compares with: a
@@ -985,8 +1027,25 @@ mod tests {
         /// `COUNT(d, e, n)` counted only the number.
         #[test]
         fn a_single_date_counts_as_a_number_in_aggregates() {
-            assert!((h::number("MAX(\"2026-12-01\", DATE(2026, 6, 1))") - 46357.0).abs() < 1e-12);
-            assert!((h::number("MIN(\"2026-01-31\", \"2026-02-01\")") - 46053.0).abs() < 1e-12);
+            // MAX and MIN of dates give a date (ADR-060 addendum)
+            assert_eq!(
+                h::eval(
+                    "MAX(\"2026-12-01\", DATE(2026, 6, 1))",
+                    &crate::core::array_calculator::evaluator::EvalContext::new()
+                ),
+                Ok(crate::core::array_calculator::evaluator::Value::Text(
+                    "2026-12-01".to_string()
+                ))
+            );
+            assert_eq!(
+                h::eval(
+                    "MIN(\"2026-01-31\", \"2026-02-01\")",
+                    &crate::core::array_calculator::evaluator::EvalContext::new()
+                ),
+                Ok(crate::core::array_calculator::evaluator::Value::Text(
+                    "2026-01-31".to_string()
+                ))
+            );
             assert!((h::number("SUM(\"2026-01-31\", 1)") - 46054.0).abs() < 1e-12);
             assert!((h::number("AVERAGE(\"2026-01-31\", \"2026-02-02\")") - 46054.0).abs() < 1e-12);
             assert!((h::number("COUNT(\"2026-01-31\", 1, \"x\")") - 2.0).abs() < 1e-12);

@@ -37,7 +37,10 @@ impl ForgeMcpServer {
         name = "forge_calculate",
         description = "Calculate all formulas in a Forge YAML model. Unless dry_run, writes each formula's result next to it in the file, changing nothing else (comments kept)."
     )]
-    fn calculate(&self, Parameters(req): Parameters<CalculateRequest>) -> Result<String, String> {
+    pub(super) fn calculate(
+        &self,
+        Parameters(req): Parameters<CalculateRequest>,
+    ) -> Result<String, String> {
         let is_inline = req.content.is_some();
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
@@ -131,7 +134,9 @@ impl ForgeMcpServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mcp::server::tests::{err_text, ok_text, INLINE_YAML};
+    use crate::mcp::server::tests::{
+        bagel_source, close, err_text, example_source, json, ok_text, Source, INLINE_YAML,
+    };
     use rmcp::handler::server::wrapper::Parameters;
     use std::collections::HashMap;
 
@@ -566,5 +571,228 @@ scalars:
             b"PK\x03\x04",
             "Should be a valid ZIP/XLSX header"
         );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // The numbers of examples/bagel through the tools (T1-INTERFACE-PARITY):
+    // each is asserted by the command-line tests in cli/commands/examples.rs
+    // (`bagel_example`, the Python is quoted there), here by file path and as
+    // inline content with `costs.yaml` passed in `includes`.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const BAGEL: &str = "examples/bagel/bagel.yaml";
+
+    /// `forge_calculate` of the bagel plan, by path or inline, in a scenario
+    fn bagel_calculate(inline: bool, scenario: Option<&str>) -> serde_json::Value {
+        let (file_path, content, includes) = plan(inline);
+        json(&ok_text(ForgeMcpServer::new().calculate(Parameters(
+            CalculateRequest {
+                file_path,
+                content,
+                includes,
+                dry_run: true,
+                scenario: scenario.map(Into::into),
+            },
+        ))))
+    }
+
+    /// The bagel plan, by path or inline with `costs.yaml`
+    fn plan(inline: bool) -> Source {
+        bagel_source(inline, "bagel.yaml", &[("costs", "costs.yaml")])
+    }
+
+    /// A dependency of the audited variable, wherever it is in the tree
+    fn find<'a>(deps: &'a serde_json::Value, name: &str) -> Option<&'a serde_json::Value> {
+        deps.as_array().into_iter().flatten().find_map(|d| {
+            (d["name"] == name)
+                .then_some(d)
+                .or_else(|| find(&d["children"], name))
+        })
+    }
+
+    #[test]
+    fn calculate_gives_the_years_profit_by_path_and_inline() {
+        for inline in [false, true] {
+            let result = bagel_calculate(inline, None);
+            let scalars = &result["scalars"];
+            let profit = scalars["year.profit"].as_f64().unwrap();
+            assert!(
+                close(profit, 786.320_361_7, 1e-6),
+                "inline {inline}: {profit}"
+            );
+            let revenue = scalars["year.revenue"].as_f64().unwrap();
+            assert!(
+                close(revenue, 386_827.449_537_8, 1e-6),
+                "inline {inline}: {revenue}"
+            );
+            let ret = scalars["year.first_year_return"].as_f64().unwrap();
+            assert!(
+                close(ret, 786.320_361_7 / 95_000.0, 1e-9),
+                "inline {inline}: {ret}"
+            );
+            assert_eq!(result["formatted"]["year.margin"], "0.2%");
+        }
+    }
+
+    /// The scenario sets a value in the included file: the flour price.
+    #[test]
+    fn a_scenario_overrides_a_value_in_the_included_file_by_path_and_inline() {
+        for inline in [false, true] {
+            let result = bagel_calculate(inline, Some("flour_shock"));
+            let profit = result["scalars"]["year.profit"].as_f64().unwrap();
+            assert!(
+                close(profit, -16_943.271_075, 1e-6),
+                "inline {inline}: {profit}"
+            );
+            let ret = result["scalars"]["year.first_year_return"]
+                .as_f64()
+                .unwrap();
+            assert!(
+                close(ret, -16_943.271_075 / 95_000.0, 1e-9),
+                "inline {inline}: {ret}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_counts_the_bagel_model_by_path_and_inline() {
+        let server = ForgeMcpServer::new();
+        for inline in [false, true] {
+            let (file_path, content, includes) = plan(inline);
+            let result = json(&ok_text(server.validate(Parameters(ValidateRequest {
+                file_path,
+                content,
+                includes,
+                verbose: false,
+            }))));
+            assert_eq!(result["tables_valid"], true, "inline {inline}");
+            assert_eq!(result["scalars_valid"], true, "inline {inline}");
+            assert_eq!(result["table_count"], 1, "inline {inline}");
+            assert_eq!(result["scalar_count"], 19, "inline {inline}");
+            assert_eq!(
+                result["mismatches"],
+                serde_json::json!([]),
+                "inline {inline}"
+            );
+        }
+    }
+
+    /// `bagel_profit_down_to_the_included_costs` in cli/commands/audit.rs
+    #[test]
+    fn audit_follows_the_profit_down_to_the_included_costs_by_path_and_inline() {
+        let server = ForgeMcpServer::new();
+        for inline in [false, true] {
+            let (file_path, content, includes) = plan(inline);
+            let result = json(&ok_text(server.audit(Parameters(AuditRequest {
+                file_path,
+                content,
+                includes,
+                variable: "year.profit".into(),
+            }))));
+            let profit = result["calculated_value"].as_f64().unwrap();
+            assert!(
+                close(profit, 786.320_361_7, 1e-6),
+                "inline {inline}: {profit}"
+            );
+            let deps = &result["dependencies"];
+            assert_eq!(deps[0]["name"], "months.profit");
+            assert_eq!(deps[0]["values"].as_array().map(Vec::len), Some(12));
+            let wage = find(deps, "@costs.labour.loaded_wage").unwrap();
+            assert_eq!(wage["dep_type"], "Included scalar");
+            assert_eq!(wage["source"], "costs.yaml");
+            assert!(close(wage["value"].as_f64().unwrap(), 21.275, 1e-9));
+            let rate = find(&wage["children"], "@costs.labour.wage_per_hour").unwrap();
+            assert!(close(rate["value"].as_f64().unwrap(), 18.5, 1e-12));
+        }
+    }
+
+    /// The bagel plan to a workbook and back through the tools alone: by path
+    /// to a file, and inline as base64 written to a file here. The model that
+    /// comes back, with its `costs.yaml`, calculates the same year.
+    #[test]
+    fn export_then_import_gives_the_bagel_year_back_by_path_and_inline() {
+        let server = ForgeMcpServer::new();
+        let dir = TempDir::new().unwrap();
+        let by_path = dir.path().join("by_path.xlsx");
+        let exported = json(&ok_text(server.export(Parameters(ExportRequest {
+            yaml_path: Some(BAGEL.into()),
+            content: None,
+            includes: None,
+            excel_path: Some(by_path.to_str().unwrap().into()),
+        }))));
+        assert_eq!(exported["table_count"], 1);
+        assert_eq!(exported["scalar_count"], 19);
+
+        let (_, content, includes) = plan(true);
+        let inline = json(&ok_text(server.export(Parameters(ExportRequest {
+            yaml_path: None,
+            content,
+            includes,
+            excel_path: None,
+        }))));
+        assert_eq!(inline["table_count"], 1);
+        assert_eq!(inline["scalar_count"], 19);
+        let bytes = base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD,
+            inline["excel_base64"].as_str().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(bytes.len(), inline["byte_count"]);
+        let by_content = dir.path().join("by_content.xlsx");
+        std::fs::write(&by_content, bytes).unwrap();
+
+        for (excel, name) in [(by_path, "path"), (by_content, "content")] {
+            let folder = dir.path().join(name);
+            std::fs::create_dir(&folder).unwrap();
+            let yaml = folder.join("model.yaml");
+            let imported = json(&ok_text(server.import(Parameters(ImportRequest {
+                excel_path: excel.to_str().unwrap().into(),
+                yaml_path: yaml.to_str().unwrap().into(),
+            }))));
+            assert_eq!(
+                imported["included_files"],
+                serde_json::json!(["costs.yaml"])
+            );
+            let back = json(&ok_text(server.calculate(Parameters(CalculateRequest {
+                file_path: Some(yaml.to_str().unwrap().into()),
+                content: None,
+                includes: None,
+                dry_run: true,
+                scenario: None,
+            }))));
+            let profit = back["scalars"]["year.profit"].as_f64().unwrap();
+            assert!(close(profit, 786.320_361_7, 1e-6), "{name}: {profit}");
+        }
+    }
+
+    /// examples/acquisition (`the_plan_matches_the_independent_calculation` in
+    /// cli/commands/prediction/scenarios.rs, the Python is quoted there): the plan
+    /// reads Valdane and Quillon from two included files.
+    #[test]
+    fn calculate_gives_the_value_the_takeover_creates_by_path_and_inline() {
+        for inline in [false, true] {
+            let (file_path, content, includes) = example_source(
+                inline,
+                "acquisition",
+                "deal.yaml",
+                &[("buyer", "buyer.yaml"), ("target", "target.yaml")],
+            );
+            let result = json(&ok_text(ForgeMcpServer::new().calculate(Parameters(
+                CalculateRequest {
+                    file_path,
+                    content,
+                    includes,
+                    dry_run: true,
+                    scenario: None,
+                },
+            ))));
+            let value = result["scalars"]["valuation.value_created"]
+                .as_f64()
+                .unwrap();
+            assert!(
+                close(value, 224.507_933_418_290_12, 1e-9),
+                "inline {inline}: {value}"
+            );
+        }
     }
 }

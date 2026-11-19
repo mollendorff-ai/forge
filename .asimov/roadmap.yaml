@@ -187,10 +187,14 @@ tier1:
   # first. Found on the way and not casts, so left for their own change:
   # VLOOKUP and HLOOKUP ignored col_index and row_index (fixed 2026-11-17:
   # #VALUE! below 1, #REF! past the one column or row, and the approximate
-  # search is MATCH's); ROUND(x, -400) is
-  # #NUM! (Gnumeric 0); DB with a fractional period cuts it (Gnumeric 0);
-  # TIME(1, -30, 0) is 0:30 (Gnumeric #NUM!); HOUR(1E+20) is 0 (Gnumeric
-  # #NUM!). cast_precision_loss is done too (2026-11-18): no allow is left, in
+  # search is MATCH's). The other four were checked against Gnumeric,
+  # LibreOffice and the Excel cases in validation/gnumeric (2026-11-18):
+  # ROUND(x, -400) was #NUM! and is 0, as both engines give (fixed);
+  # DB with a fractional period is right (Excel 3690, edge_excel_checks_2;
+  # only Gnumeric gives 0); TIME(1, -30, 0) is 0:30 as in LibreOffice (only
+  # Gnumeric gives #NUM!); HOUR(1E+20) was 0 and is #NUM! (Excel for iOS,
+  # 2026-11-18: HOUR, MINUTE and SECOND past 9999-12-31, serial 2,958,466,
+  # are #NUM!; fixed). cast_precision_loss is done too (2026-11-18): no allow is left, in
   # Cargo.toml or in an attribute. A count, a place in an array or a day count
   # becomes a number through precision::count, whole and unsigned, built from
   # 32-bit halves that convert without loss and give the bits `as f64` gives
@@ -207,10 +211,11 @@ tier1:
   # and the ten exact comparisons in the engine (MODE, a variance on budget,
   # the depreciation periods, the writer's same number) go through
   # core::precision::same, IEEE equality named and tested. 155 allows left.
-  # T1-NO-SKIPPING, ignored tests are done (2026-11-19): the budget is 0.
-  # round_trip_corpus walks examples/ and asserts which models round-trip
-  # (39) and that the 9 that do not draw from MC. distributions; the 5,000-row
-  # SUMIFS timing test runs in every build, timed against a plain loop of the same work (limit 100 times).
+  # T1-NO-SKIPPING, ignored tests (budget 0 since #289): round_trip_corpus
+  # walks all of examples/, subfolders included, and asserts which models
+  # round-trip (39) and that the 9 that do not draw from MC. distributions;
+  # the 5,000-row SUMIFS test holds its time in every build, against a plain
+  # loop of the same work (limit 100 times), not in release only.
   - id: T1-NO-SKIPPING
     title: "No way round the three rules, in every crate"
     why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs, which fails if any count rises: 218 lint allow or expect attributes (float_cmp 62, cast_possible_truncation 59, approx_constant 18, cast_precision_loss 16, too_many_lines 13, unnecessary_wraps 8, dead_code 6, and 15 more), 16 lints allowed in Cargo.toml files (multiple_crate_versions and cast_precision_loss in the main crate and forge-wasm; 8 in validation/gnumeric and 4 in validation/r), the cargo lint group missing in both validation crates, 31 places of code compiled only for or only without coverage (23 test files run nothing under coverage), and 2 ignored tests (a release-only timing test, and a round-trip corpus that needs FORGE_ROUNDTRIP_DIR)"
@@ -289,11 +294,12 @@ tier1:
   # calculates for the goal's output only (ArrayCalculator::calculate_outputs),
   # as break-even does; the acquisition example's seek starts at 0.
 
-  - id: T1-UNWEIGHTED-SCENARIOS
-    title: "Scenarios to compare beside scenarios to weight"
-    why: "Found building examples/acquisition (2026-11-18): forge scenarios needs every scenario to have a probability, and the probabilities to add to 1, so a deal's payment structures (all cash, all shares, 60/40), which are choices and not chances, cannot sit in the same file as its weighted risk cases for forge compare. The example put the payment mix in a goal seek and the sensitivity table instead"
-    how: "Decide in an ADR whether forge scenarios weights only the scenarios that carry a probability (and says which it left out), or whether a model keeps a second, unweighted list for compare"
-    acceptance: "examples/acquisition has all_cash and all_shares beside its four weighted scenarios, forge compare shows the three structures side by side, and forge scenarios still weights the four and says so"
+  # T1-UNWEIGHTED-SCENARIOS is done (2026-11-18, ADR-067, option 1): forge
+  # scenarios weighs the scenarios that have a probability and names the rest
+  # (`unweighted`), where it refused the file. examples/acquisition has
+  # all_cash and all_shares beside its four weighted scenarios; forge compare
+  # shows the three structures, checked against the Python, and forge
+  # scenarios still weighs the four (139.49) and names the two.
 
   # Examples where no example has been (decided 2026-11-18). Building models
   # is what finds Forge's bugs: bagel found PR 76 and the rc.5 fixes,
@@ -354,19 +360,19 @@ tier1:
   # guess that a year's delay "costs IRR, not much NPV" was wrong: at 12% it
   # costs 3.0 million of value as well as 1.8 points.
 
-  - id: T1-DATE-OF-MAX
-    title: "MAX of a date column is a number, and a date format on it is refused"
-    run_with: "Sonnet 5.5, medium effort: a contained decision under ADR-060, and a change test-first"
-    why: "Found building examples/fund (2026-11-18): fund.last_exit = MAX(deals.exit_date) is 47369, and format: \"d mmm yyyy\" on it is refused (\"is a date format, and the value is a number\"). In Excel MAX of dates is a day number too, and a date format shows it as a date, so a spreadsheet user writes exactly this. ADR-060 decision 3 lists the functions whose result is a date (EDATE, EOMONTH, DATE, IF, INDEX, XLOOKUP and the like); MAX, MIN, MAXIFS, MINIFS and LARGE of dates are not among them"
-    how: "An ADR-060 addendum: either MAX, MIN, MAXIFS, MINIFS, LARGE and SMALL of dates give a date (as XLOOKUP of a date does), or a date format on a number shows the day number as a date, as Excel does. Then the change, test-first, and examples/fund's last_exit gets its format"
-    acceptance: "fund.last_exit shows 8 Sep 2029 in forge calculate, the workbook and Studio; the addendum says which rule and why; a test fails on the commit before"
+  # T1-DATE-OF-MAX is done (2026-11-19): MAX, MIN, LARGE, SMALL, MAXIFS and MINIFS of
+  # dates give a date (ADR-060 addendum), so examples/fund's last_exit has its
+  # format and shows 8 Sep 2029 in calculate and the workbook. SUM, AVERAGE and
+  # MEDIAN of dates stay numbers. Not measured in Excel here: Excel shows a date
+  # format on any number, so the rule is Forge's, not Excel's.
 
-  - id: T1-EXCEL-XNPV-ORDER
-    title: "Check in Excel what XNPV and XIRR do with a date before the first"
-    run_with: "Sonnet 5.5, low effort: measure in Excel, then write it down or follow it"
-    why: "Microsoft's documentation says XNPV and XIRR give #NUM! when any date precedes the first. Forge and LibreOffice 26.2 calculate anyway: dates 2021-01-01, 2020-01-01, 2022-01-01 with -100, -50, 200 give XNPV(0.1) 26.8038181349981 and XIRR 0.235869752954134. Gnumeric 1.12 gives the same XNPV and #VALUE! for XIRR (measured 2026-11-18, building examples/fund). Excel itself has not been asked"
-    how: "Those formulas in Excel (the maintainer has Excel for iPhone), with the dates in cells; if Excel gives #NUM!, Forge follows it test-first (the check goes in dated_cash_flows, src/core/array_calculator/evaluator/financial.rs, which is at 1,467 lines: split it first); otherwise VALIDATION.md says the documentation is wrong"
-    acceptance: "Excel's answer is in a validation case with the date it was measured, and Forge gives it or the difference is written down"
+  # T1-EXCEL-XNPV-ORDER is done (2026-11-19): Excel for iOS gives an error for XNPV
+  # with a date before the first, and the rate for XIRR (0.23587 for -100, -50, 200
+  # on 2021-01-01, 2020-01-01, 2022-01-01), so Microsoft's documentation is wrong
+  # about XIRR. Forge's XNPV now gives #NUM! (financial/dated.rs, test first); XIRR
+  # was right. The two cases are test_excel_xn1 and test_excel_xn2 (VALIDATION.md
+  # section 5, sixth round). The error is #NUM!:
+  # ERROR.TYPE of Excel's XNPV is 6 (measured the same day).
 
   - id: T1-EXAMPLE-EXCEL-ROUNDTRIP
     title: "An example that starts from a messy workbook: import, audit, change, export"
@@ -375,12 +381,22 @@ tier1:
     how: "examples/inherited-budget/ with a .xlsx an FP&A analyst might inherit: a few sheets (assumptions, a monthly table, a summary), cross-sheet references, a named range, a hard-coded number where a formula should be, a merged header, a blank row inside a table, number formats. The workbook must not be written by forge export (that would check Forge against itself): write it with openpyxl or by hand in a spreadsheet, and record its calculated values from LibreOffice or Gnumeric (or Excel, when the maintainer has it at hand). Then: forge import, forge audit (the README says what it should flag, the hard-coded number at least), change one assumption with forge update or in the YAML, forge calculate, forge export, and recalculate the exported workbook outside Forge. Whatever import gets wrong or drops is the point of the item: each gets a failing test, then a fix or a written-down limit in docs"
     acceptance: "The workbook and the script or steps that made it are in the example; forge import of it calculates to the spreadsheet's own values, asserted in inline tests; forge audit's findings on it are asserted; the exported workbook after the change recalculates outside Forge to Forge's numbers; each limit found is fixed or written down in the README and the docs"
 
-  - id: T1-INTERFACE-PARITY
-    title: "MCP and the REST API give the examples' numbers"
-    run_with: "Sonnet 5.5, high effort: many tests of numbers already known, simple one by one; inline includes and path rules need care"
-    why: "The story examples' headline numbers are asserted through the command line only. The MCP tests run the one-command files (examples/tornado.yaml, decision-tree.yaml, real-options.yaml, bootstrap.yaml); the API tests use small inline models. An agent building a model through MCP is a main use, and bagel was first built that way (PR 76), so a difference between the doors is a wrong answer to someone"
-    how: "No new examples. For each of the 20 MCP tools (src/mcp/server/*_tools.rs), call the handler in-process on a story example (bagel for most, realestate or microgrid where bagel lacks the feature) and assert the same headline numbers the command-line tests assert, from the same constants where they can be shared. Once with file paths and once in inline content mode, including bagel's _includes passed inline (docs/MCP.md, Inline Includes) and a scenario that overrides a value in the included file. For the 5 REST endpoints (src/api/server.rs: validate, calculate, audit, export, import), one in-process test each on bagel with inline content, through build_router. Add a short request and response for each endpoint to the API docs. The analytics over REST stay T3-API; this item does not add endpoints. When the new examples above land, extend the matching tool's test to them"
-    acceptance: "Every MCP tool and every REST endpoint has an inline test that runs a story example and asserts a number the command-line test asserts; inline includes are covered; any difference found is fixed test-first as a wrong answer, with a CHANGELOG entry"
+  # T1-INTERFACE-PARITY is done (2026-11-18): every one of the 20 MCP tools and
+  # the 5 REST endpoints has an inline test that runs a story example and asserts
+  # a number the command-line tests assert, by file path and as inline content
+  # (bagel for most; the takeover's calculate, scenarios and break-even on an
+  # included input, and the vineyard's simulate, for the examples built since).
+  # The three discovery tools run no model, so they are checked against the
+  # models that use them. The tests are beside each tool (src/mcp/server/*_tools.rs)
+  # and in src/api/server.rs (bagel_over_http). One difference was found and fixed
+  # test-first: an included file that includes another (bagel_simulate.yaml ->
+  # costs_risk.yaml -> costs.yaml) failed as inline content, because only the
+  # files the model itself includes were written (src/inline_model.rs, CHANGELOG
+  # Fixed). Over REST, export and import take file paths only, so their bagel
+  # tests name files; the other three take the model as text. A failed operation
+  # answers HTTP 200 with success: true and the flag false (docs/FEATURES.md says so).
+  # The new examples still to come (T1-EXAMPLE-EXCEL-ROUNDTRIP, examples/fund when
+  # it merges) get their matching tool's test when they land.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)

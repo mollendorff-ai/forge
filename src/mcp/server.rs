@@ -114,6 +114,61 @@ scalars:
     formula: "=revenue - costs"
 "#;
 
+    /// A file of an example (`dir`/`file` under examples/), as the text a client
+    /// sends as inline content.
+    pub fn example(dir: &str, file: &str) -> String {
+        std::fs::read_to_string(format!("examples/{dir}/{file}")).expect("an example file")
+    }
+
+    /// How a request names a model of an example: its `file_path`, or its
+    /// `content` and the `includes` map with the text of each file it includes,
+    /// directly or through another included file (`namespace`, `file`).
+    pub type Source = (
+        Option<String>,
+        Option<String>,
+        Option<std::collections::HashMap<String, String>>,
+    );
+
+    /// The model `dir`/`file` named by its path, or sent as text.
+    pub fn example_source(
+        inline: bool,
+        dir: &str,
+        file: &str,
+        includes: &[(&str, &str)],
+    ) -> Source {
+        if inline {
+            (
+                None,
+                Some(example(dir, file)),
+                Some(
+                    includes
+                        .iter()
+                        .map(|(namespace, included)| {
+                            (namespace.to_string(), example(dir, included))
+                        })
+                        .collect(),
+                ),
+            )
+        } else {
+            (Some(format!("examples/{dir}/{file}")), None, None)
+        }
+    }
+
+    /// The bagel model `file`, by path or as text.
+    pub fn bagel_source(inline: bool, file: &str, includes: &[(&str, &str)]) -> Source {
+        example_source(inline, "bagel", file, includes)
+    }
+
+    /// A tool's answer as JSON.
+    pub fn json(text: &str) -> serde_json::Value {
+        serde_json::from_str(text).expect("JSON")
+    }
+
+    /// Whether two numbers differ by at most `tolerance`.
+    pub fn close(a: f64, b: f64, tolerance: f64) -> bool {
+        (a - b).abs() <= tolerance
+    }
+
     #[test]
     fn test_server_get_info() {
         let server = ForgeMcpServer::new();

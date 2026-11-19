@@ -38,7 +38,7 @@ Each of the 16 tools that currently take a file path gains two optional paramete
 | `includes` | `Option<HashMap<String, String>>` | Inline include content as namespace-to-YAML map |
 
 - **`file_path` becomes optional** -- clients provide either `file_path` or `content`, not both.
-- **`includes`** maps namespace names (matching the `as` field in `_includes` entries) to YAML content strings. Each entry is written to the temp directory using the original `file` field as the filename.
+- **`includes`** maps namespace names (matching the `as` field in `_includes` entries) to YAML content strings. Each entry is written to the temp directory using the original `file` field as the filename. An included file's own includes are written the same way, from the same map, relative to the file that names them (roadmap T1-INTERFACE-PARITY).
 - **`import` is unchanged** -- Excel I/O is inherently file-based.
 
 ### Resolution Logic

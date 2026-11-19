@@ -2,7 +2,10 @@
 //!
 //! Functions: SUM, AVERAGE, MIN, MAX, COUNT, PRODUCT, COUNTA, MEDIAN
 
-use super::{collect_numeric_values, evaluate, EvalContext, EvalError, Expr, Value};
+use super::{
+    collect_numbers_and_dates, collect_numeric_values, evaluate, number_or_date, EvalContext,
+    EvalError, Expr, Value,
+};
 use crate::core::precision;
 
 /// `SUM`: left to right, as Excel adds. Its last addition is 0 when it
@@ -39,21 +42,21 @@ pub fn try_evaluate(
         },
 
         "MIN" => {
-            let values = collect_numeric_values(args, ctx)?;
+            let (values, dates) = collect_numbers_and_dates(args, ctx)?;
             values
                 .into_iter()
                 .min_by(f64::total_cmp)
                 // No numbers (only empty cells or text): 0, as in Excel
-                .map_or(Value::Number(0.0), Value::Number)
+                .map_or(Value::Number(0.0), |n| number_or_date(n, dates))
         },
 
         "MAX" => {
-            let values = collect_numeric_values(args, ctx)?;
+            let (values, dates) = collect_numbers_and_dates(args, ctx)?;
             values
                 .into_iter()
                 .max_by(f64::total_cmp)
                 // No numbers (only empty cells or text): 0, as in Excel
-                .map_or(Value::Number(0.0), Value::Number)
+                .map_or(Value::Number(0.0), |n| number_or_date(n, dates))
         },
 
         "COUNT" => {
@@ -250,6 +253,48 @@ mod tests {
     use super::super::tests::eval;
     use super::*;
     use std::collections::HashMap;
+
+    // ADR-060 addendum: the largest or smallest of dates is a date, so a date
+    // format on it is read as one (roadmap T1-DATE-OF-MAX)
+    #[test]
+    fn max_and_min_of_dates_are_dates() {
+        let ctx = EvalContext::new();
+        let date = |text: &str| Value::Text(text.to_string());
+        assert_eq!(
+            eval(
+                "MAX(DATE(2026,1,5), DATE(2026,3,1), DATE(2025,12,31))",
+                &ctx
+            )
+            .unwrap(),
+            date("2026-03-01")
+        );
+        assert_eq!(
+            eval(
+                "MIN(DATE(2026,1,5), DATE(2026,3,1), DATE(2025,12,31))",
+                &ctx
+            )
+            .unwrap(),
+            date("2025-12-31")
+        );
+        assert_eq!(
+            eval("MAX({\"2026-01-05\", \"2029-09-08\"})", &ctx).unwrap(),
+            date("2029-09-08")
+        );
+    }
+
+    #[test]
+    fn max_and_min_with_a_number_among_the_dates_stay_numbers() {
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("MAX(DATE(2026,1,5), 5)", &ctx).unwrap(),
+            Value::Number(46027.0)
+        );
+        assert_eq!(
+            eval("MIN(DATE(2026,1,5), 5)", &ctx).unwrap(),
+            Value::Number(5.0)
+        );
+        assert_eq!(eval("MAX(1, 2)", &ctx).unwrap(), Value::Number(2.0));
+    }
 
     #[test]
     fn test_aggregation_with_scalars() {

@@ -351,6 +351,10 @@ jobs:
         working-directory: studio
         run: node tests/grid.mjs ../studio-site
 
+      - name: Studio weighs the scenarios Forge weighs and names the ones it leaves out
+        working-directory: studio
+        run: node tests/scenarios.mjs ../studio-site
+
       - name: Studio shows a format as Forge gives it
         working-directory: studio
         run: node tests/formats.mjs ../studio-site
@@ -545,12 +549,19 @@ jobs:
       # 87.95%, 90.58%), when the command line ran in-process, and from PR
       # #262's (92.45%, 88.52%, 91.19%), when its tests ran under coverage, and
       # from PR #263's regions (91.20%), and from PR #266's (93.18%, 89.20%,
-      # 91.97%), when 612 lines of dead date code were deleted.
+      # 91.97%), when 612 lines of dead date code were deleted, and on 2026-11-19
+      # from a local run (95.20%, 91.93%, 95.01%) after update, upgrade, watch
+      # and the API server were tested with nothing compiled out; set a tenth
+      # lower, in case CI measures a hair differently. CI measured the regions
+      # 0.9 points lower (94.14%, lines 95.20%, functions 92.13%: its run on
+      # this PR), so the regions floor is 94.1, lowered at the maintainer's
+      # word (2026-11-19) and to be raised again, to 100, as the rest is
+      # covered: floors are set from CI's number, never a local one.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "93.1"
-          FLOOR_FUNCTIONS: "89.2"
-          FLOOR_REGIONS: "91.9"
+          FLOOR_LINES: "95.1"
+          FLOOR_FUNCTIONS: "91.8"
+          FLOOR_REGIONS: "94.1"
         run: |
           fail=0
           for kind in lines functions regions; do

@@ -110,6 +110,18 @@ They do not agree on **which results they show as dates**. LibreOffice shows `=B
 ## Not decided here
 
 - Varying a date input in `sensitivity`, `goal-seek` and the like.
-- Whether `MAX` and `MIN` of dates give a date. Today and under this ADR they give a number, in a scalar as in a column.
+- ~~Whether `MAX` and `MIN` of dates give a date.~~ Decided on 2026-11-19, see the addendum below.
 - A month (`2026-10`) as a scalar. A month is text in the workbook (ADR-054), and a scalar has no text.
 - Text scalars in general (`="abc"` is "result is not a number" today).
+
+## Addendum (2026-11-19): the latest, earliest and k-th of dates are dates (roadmap T1-DATE-OF-MAX)
+
+Decision 3 left an aggregate of dates a number (`=MAX(deals.exit_date)` is 47369). Building `examples/fund` showed the cost: `last_exit: {formula: "=MAX(deals.exit_date)", format: "d mmm yyyy"}` was refused ("is a date format, and the value is a number"), though in Excel a date format on the same formula shows 8 Sep 2029, and a spreadsheet user writes exactly this.
+
+**Decision.** `MAX`, `MIN`, `LARGE`, `SMALL`, `MAXIFS` and `MINIFS` give a date when the numbers they choose from are all dates (date text from 1900-03-01 on, as in a date column): at least one, and none a plain number. `MAX(d, DATE(2026, 6, 1))` is a date; `MAX(d, 5)` is a number, as before, and so is the result of any of them over no dates. Their value is the same day number as before, so every calculation that reads it (`YEAR(MAX(d))`, `MAX(d) - MIN(d)`, a comparison, `forge export`) gives what it gave. `SUM`, `AVERAGE`, `MEDIAN` and the like still give a number: the sum of two dates is no date.
+
+**Why this rule, not a date format on a number.** The other way out was to let a date format show any number as a date, as Excel does. It was rejected for the reason decision 3 gives for formula scalars: a format that does not match the value is an error Forge can name ("is a date format, and the value is a number"), and one that matches only by luck is not. With this rule the format is checked against what the formula gives, and `MAX(d, 5)` with a date format is still refused.
+
+**What changes.** A result can change in a model that reads such a value as text: `=LEFT(MAX(d), 4)` is `"2029"`, was `"4736"`; `=MAX(d) & ""` is `2029-09-08`, was `47369`; `ISNUMBER` and `ISTEXT` of one swap. In the workbook the value is a date cell (a day number with a date format), as a date scalar is. Formulas that read it as a number are unchanged.
+
+**Acceptance.** `fund.last_exit` shows 8 Sep 2029 in `forge calculate`, in the exported workbook (a date cell) and in Studio; tests beside each function, in `rewrite.rs` (the export's reading of the result) and in `examples.rs` (`the_funds_last_exit_is_a_date`) fail on the commit before.
