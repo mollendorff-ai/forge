@@ -131,6 +131,13 @@ impl Dates<'_> {
             return join(values.into_iter().map(|i| self.kind(&args[i])));
         }
         match name {
+            // The latest, earliest or k-th of dates is a date (ADR-060 addendum);
+            // of anything else a number. LARGE, SMALL, MAXIFS and MINIFS take
+            // their values from the first argument only.
+            "MAX" | "MIN" => self.date_if_all_dates(args),
+            "LARGE" | "SMALL" | "MAXIFS" | "MINIFS" => {
+                self.date_if_all_dates(&args[..1.min(args.len())])
+            },
             "INDEX" => args.first().map_or(Kind::Unknown, |a| self.kind(a)),
             "PREV" => join(args.iter().take(2).map(|a| self.kind(a))),
             "XLOOKUP" => join(args.iter().skip(2).take(2).map(|a| self.kind(a))),
@@ -157,6 +164,15 @@ impl Dates<'_> {
             "LAMBDA" | "NA" | "SCENARIO" | "OFFSET" | "INDIRECT" | "VLOOKUP" | "HLOOKUP"
             | "UNIQUE" | "SORT" | "FILTER" | "SEQUENCE" => Kind::Unknown,
             _ => Kind::Number,
+        }
+    }
+
+    /// A date when every argument is one, a number otherwise.
+    fn date_if_all_dates(&self, args: &[Expr]) -> Kind {
+        if !args.is_empty() && args.iter().all(|a| self.kind(a).is_date()) {
+            Kind::Date
+        } else {
+            Kind::Number
         }
     }
 

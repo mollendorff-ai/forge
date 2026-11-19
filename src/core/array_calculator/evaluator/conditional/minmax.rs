@@ -8,7 +8,8 @@
 //! - `MAXIFS(max_range`, `criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
 
 use super::super::{
-    collect_values_as_vec, evaluate, Criterion, EvalContext, EvalError, Expr, Value,
+    collect_values_as_vec, evaluate, is_a_date, number_or_date, Criterion, EvalContext, EvalError,
+    Expr, Value,
 };
 
 /// Evaluate MAXIFS function
@@ -29,17 +30,23 @@ pub fn eval_maxifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
             }
         }
     }
-    let matching: Vec<f64> = max_range
+    let matching: Vec<(f64, bool)> = max_range
         .iter()
         .enumerate()
         .filter(|(i, _)| *i < matches.len() && matches[*i])
-        .filter_map(|(_, v)| v.as_number())
+        .filter_map(|(_, v)| Some((v.as_number()?, is_a_date(v))))
         .collect();
+    // The result is a date when every number it chose from is one
+    let dates = matching.iter().all(|(_, date)| *date);
     if matching.is_empty() {
         Ok(Value::Number(0.0))
     } else {
-        Ok(Value::Number(
-            matching.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+        Ok(number_or_date(
+            matching
+                .iter()
+                .map(|(n, _)| *n)
+                .fold(f64::NEG_INFINITY, f64::max),
+            dates,
         ))
     }
 }
@@ -62,25 +69,54 @@ pub fn eval_minifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
             }
         }
     }
-    let matching: Vec<f64> = min_range
+    let matching: Vec<(f64, bool)> = min_range
         .iter()
         .enumerate()
         .filter(|(i, _)| *i < matches.len() && matches[*i])
-        .filter_map(|(_, v)| v.as_number())
+        .filter_map(|(_, v)| Some((v.as_number()?, is_a_date(v))))
         .collect();
+    // The result is a date when every number it chose from is one
+    let dates = matching.iter().all(|(_, date)| *date);
     if matching.is_empty() {
         Ok(Value::Number(0.0))
     } else {
-        Ok(Value::Number(
-            matching.iter().copied().fold(f64::INFINITY, f64::min),
+        Ok(number_or_date(
+            matching
+                .iter()
+                .map(|(n, _)| *n)
+                .fold(f64::INFINITY, f64::min),
+            dates,
         ))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::core::array_calculator::evaluator::Value;
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+
+    // ADR-060 addendum: the latest or earliest of the matching dates is a date
+    #[test]
+    fn maxifs_and_minifs_of_dates_are_dates() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[
+            ("d", h::texts(&["2026-01-05", "2029-09-08", "2027-06-30"])),
+            ("k", h::texts(&["a", "a", "b"])),
+            ("n", h::numbers(&[5.0, 9.0, 7.0])),
+        ]);
+        let date = |text: &str| Ok(Value::Text(text.to_string()));
+        assert_eq!(h::eval("MAXIFS(t.d, t.k, \"a\")", &ctx), date("2029-09-08"));
+        assert_eq!(h::eval("MINIFS(t.d, t.k, \"a\")", &ctx), date("2026-01-05"));
+        assert_eq!(
+            h::eval("MAXIFS(t.n, t.k, \"a\")", &ctx),
+            Ok(Value::Number(9.0))
+        );
+        assert_eq!(
+            h::eval("MINIFS(t.n, t.k, \"z\")", &ctx),
+            Ok(Value::Number(0.0))
+        );
+    }
 
     #[test]
     fn test_maxifs_multiple_criteria() {
