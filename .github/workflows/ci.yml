@@ -557,11 +557,13 @@ jobs:
       # this PR), so the regions floor is 94.1, lowered at the maintainer's
       # word (2026-11-19) and to be raised again, to 100, as the rest is
       # covered: floors are set from CI's number, never a local one.
+      # Raised 2026-11-19 from CI's run on main after PR #290 (95.69%, 92.68%,
+      # 94.64%), rounded down to a tenth: from CI's number, never a local one.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "95.1"
-          FLOOR_FUNCTIONS: "91.8"
-          FLOOR_REGIONS: "94.1"
+          FLOOR_LINES: "95.6"
+          FLOOR_FUNCTIONS: "92.6"
+          FLOOR_REGIONS: "94.6"
         run: |
           fail=0
           for kind in lines functions regions; do
