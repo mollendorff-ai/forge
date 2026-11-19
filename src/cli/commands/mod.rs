@@ -1328,4 +1328,44 @@ mod command_output {
         assert_eq!(found.mismatches.len(), 1);
         assert!(!found.scalars_valid);
     }
+
+    #[test]
+    fn text_columns_print_as_they_are_and_an_empty_scalar_is_left_out() {
+        let text = ColumnValue::Text(vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(format_column_values(&text), "[\"a\", \"b\"]");
+        let dir = tempfile::tempdir().unwrap();
+        let file = model(
+            dir.path(),
+            "t.yaml",
+            "_forge_version: \"5.1.0\"\nt:\n  n: [1, 2]\n  label: '=IF(n > 1, \"big\", \"small\")'\nempty: {value: null, formula: null}\n",
+        );
+        let (result, captured) = capture(|c| calculate(c, &file, true, true, None));
+        result.unwrap();
+        assert!(
+            captured.out.contains("label = [\"small\", \"big\"]"),
+            "{}",
+            captured.out
+        );
+        assert!(
+            !captured.out.contains("Found 0 scenarios"),
+            "{}",
+            captured.out
+        );
+    }
+
+    #[test]
+    fn results_that_cannot_be_written_back_are_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = model(
+            dir.path(),
+            "m.yaml",
+            &GOOD.replace("value: 4", "value: null"),
+        );
+        // A folder where the backup goes
+        fs::create_dir(dir.path().join("m.yaml.bak")).unwrap();
+        let (result, _) = capture(|c| calculate(c, &file, false, false, None));
+        assert!(result.is_err());
+        assert!(calculate_core(&file, false, None).is_err());
+        assert!(fs::read_to_string(&file).unwrap().contains("value: null"));
+    }
 }

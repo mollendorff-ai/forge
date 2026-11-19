@@ -993,5 +993,28 @@ mod tests {
             );
             assert_eq!(variance_status(&line(2.0, false, None)), "No direction");
         }
+
+        #[test]
+        fn a_file_that_does_not_parse_or_calculate_stops_the_analysis() {
+            let dir = tempfile::tempdir().unwrap();
+            let (budget, actual) = files(dir.path());
+            let absent = dir.path().join("absent.yaml");
+            let broken = dir.path().join("broken.yaml");
+            fs::write(
+                &broken,
+                "_forge_version: \"5.4.0\"\nx: {formula: \"=nosuch + 1\"}\n",
+            )
+            .unwrap();
+            for (b, a) in [
+                (&absent, &actual),
+                (&budget, &absent),
+                (&broken, &actual),
+                (&budget, &broken),
+            ] {
+                assert!(variance_core(b, a, 10.0).is_err());
+                let (result, _) = capture(|c| variance(c, b, a, 10.0, None, (false, false)));
+                assert!(result.is_err());
+            }
+        }
     }
 }
