@@ -21,6 +21,9 @@ pub(super) enum Cell {
         table: String,
         columns: Vec<String>,
     },
+    /// A game: its payoffs worked out and its equilibria found, its results
+    /// stored as scalars named under it (ADR-068)
+    Game(String),
 }
 
 impl Cell {
@@ -29,6 +32,7 @@ impl Cell {
             Self::Column { table, column } => format!("{table}.{column}"),
             Self::Scalar(name) => name.clone(),
             Self::Columns { table, columns } => format!("{table}.{}", columns.join(", ")),
+            Self::Game(name) => format!("games.{name}"),
         }
     }
 
@@ -137,6 +141,8 @@ impl ArrayCalculator {
                         });
                     } else if !word.contains('.') && own.columns.contains_key(&word) {
                         // An input column
+                    } else if let Some(game) = self.game_of(&word) {
+                        deps.push(game);
                     } else if let ScalarName::Found(full) = self.resolve_scalar_name(&word, None) {
                         deps.push(Cell::Scalar(full));
                     }
@@ -158,11 +164,13 @@ impl ArrayCalculator {
                     deps.push(Cell::Scalar(full));
                 }
                 for word in formula_words(formula) {
-                    if let Some(dep) = self.qualified_column(&word) {
+                    if let Some(dep) = self.qualified_column(&word).or_else(|| self.game_of(&word))
+                    {
                         deps.push(dep);
                     }
                 }
             },
+            Cell::Game(name) => deps = self.game_dependencies(name),
         }
         Ok(deps)
     }

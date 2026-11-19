@@ -1,6 +1,6 @@
 # ADR-068: Games: a Payoff Table, Its Equilibria, and Tournaments
 
-**Status:** Accepted (the three recommendations); not yet built
+**Status:** Accepted (the three recommendations). Built so far: the `games:` section (format 5.5.0) and a game played once, with its results as scalars (sections 1 to 3). Next: the `forge game` command and its interfaces (section 4), then tournaments
 **Date:** 2026-11-19
 **Decided by:** the maintainer, who accepted the three recommendations (2026-11-19); the analysis and the recommendations are Claude's
 **For:** roadmap T2-GAME-THEORY. T2-GAME-THEORY-MORE is not part of this.

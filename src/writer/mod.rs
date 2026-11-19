@@ -31,11 +31,13 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
     let content = fs::read_to_string(path)?;
     let multi_doc = crate::parser::detect_multi_document(&content);
 
-    // A date is written as a date in a file of model format 5.4.0, and as its
-    // day number before that, which has no dates as scalars (ADR-060)
-    let dates = content
-        .lines()
-        .any(|line| line.trim_start().starts_with("_forge_version") && line.contains("5.4.0"));
+    // A date is written as a date in a file of model format 5.4.0 or later,
+    // and as its day number before that, which has no dates as scalars
+    // (ADR-060)
+    let dates = content.lines().any(|line| {
+        line.trim_start().starts_with("_forge_version")
+            && ["5.4.0", "5.5.0"].iter().any(|v| line.contains(v))
+    });
     let values: Vec<(in_place::ScalarPath, in_place::Written)> = result
         .scalars
         .iter()
@@ -158,6 +160,29 @@ mod tests {
             format!("{text}    value: 6\n")
         );
         let _ = fs::remove_file(f.path().with_extension("yaml.bak"));
+    }
+
+    #[test]
+    fn a_date_result_is_a_date_in_format_5_4_and_later() {
+        for (version, written) in [
+            ("5.1.0", "46326"),
+            ("5.4.0", "2026-10-31"),
+            ("5.5.0", "2026-10-31"),
+        ] {
+            let text = format!(
+                "_forge_version: \"{version}\"\nend:\n  formula: \"=DATE(2026, 10, 31)\"\n"
+            );
+            let f = file_with(&text);
+            let mut model = model_with(&[("end", Some(46326.0), Some("=DATE(2026, 10, 31)"))]);
+            model.scalars.get_mut("end").unwrap().is_date = true;
+            assert_eq!(write_calculated_results(f.path(), &model).unwrap(), 1);
+            let after = fs::read_to_string(f.path()).unwrap();
+            assert!(
+                after.contains(&format!("  value: {written}\n")),
+                "{version}: {after}"
+            );
+            let _ = fs::remove_file(f.path().with_extension("yaml.bak"));
+        }
     }
 
     #[test]
