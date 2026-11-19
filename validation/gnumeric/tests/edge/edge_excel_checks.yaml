@@ -263,12 +263,12 @@ assumptions:
     value: null
     formula: "=RATE(5,1,-100)"
     expected: -0.553500302130926
-  # XNPV with a date before the first (2021-01-01, 2020-01-01, 2022-01-01); Microsoft documents #NUM!, and Excel gives an error
+  # XNPV with a date before the first (2021-01-01, 2020-01-01, 2022-01-01); Microsoft documents #NUM!, and Excel gives #NUM! (ERROR.TYPE 6)
   test_excel_xn1:
     value: null
     formula: "=IFERROR(XNPV(0.1,{-100,-50,200},{44197,43831,44562}),-1)"
     expected: -1
-    gnumeric_skip: "Excel gives an error (checked 2026-11-19, iOS), as Forge does; Gnumeric 1.12 and LibreOffice 26.2 give 26.8038181349981"
+    gnumeric_skip: "Excel gives #NUM! (checked 2026-11-19, iOS), as Forge does; Gnumeric 1.12 and LibreOffice 26.2 give 26.8038181349981"
   # XIRR on the same dates; Microsoft documents #NUM!, but Excel gives the rate
   test_excel_xn2:
     value: null

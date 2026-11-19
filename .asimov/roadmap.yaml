@@ -367,8 +367,8 @@ tier1:
   # on 2021-01-01, 2020-01-01, 2022-01-01), so Microsoft's documentation is wrong
   # about XIRR. Forge's XNPV now gives #NUM! (financial/dated.rs, test first); XIRR
   # was right. The two cases are test_excel_xn1 and test_excel_xn2 (VALIDATION.md
-  # section 5, sixth round). Not measured: which error Excel's XNPV gives (the
-  # check wrapped it in IFERROR); #NUM! is Microsoft's word for it.
+  # section 5, sixth round). The error is #NUM!:
+  # ERROR.TYPE of Excel's XNPV is 6 (measured the same day).
 
   - id: T1-EXAMPLE-EXCEL-ROUNDTRIP
     title: "An example that starts from a messy workbook: import, audit, change, export"
