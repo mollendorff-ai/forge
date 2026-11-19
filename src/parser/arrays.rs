@@ -71,7 +71,8 @@ pub fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnVal
             }
             Ok(ColumnValue::Date(dates))
         },
-        "Boolean" => {
+        // The type is one of the four `detect_array_type` names
+        _ => {
             let mut bools = Vec::new();
             for (i, val) in seq.iter().enumerate() {
                 match val {
@@ -89,9 +90,6 @@ pub fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnVal
             }
             Ok(ColumnValue::Boolean(bools))
         },
-        _ => Err(ForgeError::Parse(format!(
-            "Column '{col_name}': Unsupported array type '{array_type}'"
-        ))),
     }
 }
 
@@ -100,15 +98,8 @@ fn parse_numbers(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> {
     let mut numbers = Vec::new();
     for (i, val) in seq.iter().enumerate() {
         match val {
-            Value::Number(n) => {
-                if let Some(f) = n.as_f64() {
-                    numbers.push(Some(f));
-                } else {
-                    return Err(ForgeError::Parse(format!(
-                        "Column '{col_name}' row {i}: Invalid number format"
-                    )));
-                }
-            },
+            // `as_f64` of a YAML number is always there
+            Value::Number(n) => numbers.push(Some(n.as_f64().unwrap_or_default())),
             // An empty cell; the schema check allows it only in 5.3.0
             Value::Null => numbers.push(None),
             _ => {
@@ -209,6 +200,120 @@ pub const fn type_name(val: &Value) -> &'static str {
 mod tests {
     use super::*;
 
+    fn column(text: &str) -> ForgeResult<ColumnValue> {
+        let seq: Vec<Value> = yaml_serde::from_str(text).unwrap();
+        parse_array_value("c", &seq)
+    }
+
+    fn refused(text: &str) -> String {
+        column(text).err().unwrap().to_string()
+    }
+
+    #[test]
+    fn a_column_with_empty_cells_is_numbers_and_blanks() {
+        assert_eq!(
+            column("[1, null, 3]").unwrap(),
+            ColumnValue::Blanks(vec![Some(1.0), None, Some(3.0)])
+        );
+        assert_eq!(
+            column("[null, null]").unwrap(),
+            ColumnValue::Blanks(vec![None, None])
+        );
+    }
+
+    #[test]
+    fn an_empty_cell_is_refused_outside_a_column_of_numbers() {
+        for (text, kind) in [
+            ("[a, null]", "text"),
+            ("[\"2026-01-31\", null]", "dates"),
+            ("[true, null]", "booleans"),
+        ] {
+            assert_eq!(
+                refused(text),
+                format!(
+                    "Parse error: Column 'c' row 1: an empty cell (null) is allowed only in a \
+                     column of numbers, and this is a column of {kind}"
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn a_value_of_another_type_is_named_by_its_row() {
+        assert_eq!(
+            refused("[a, 1]"),
+            "Parse error: Column 'c' row 1: Expected Text, found Number"
+        );
+        assert_eq!(
+            refused("[\"2026-01-31\", 1]"),
+            "Parse error: Column 'c' row 1: Expected Date, found Number"
+        );
+        assert_eq!(
+            refused("[true, 1]"),
+            "Parse error: Column 'c' row 1: Expected Boolean, found Number"
+        );
+        assert_eq!(
+            refused("[1, [2]]"),
+            "Parse error: Column 'c' row 1: Expected Number, found Array"
+        );
+        assert_eq!(
+            refused("[[1]]"),
+            "Parse error: Unsupported array element type: Array"
+        );
+    }
+
+    #[test]
+    fn a_date_that_is_not_a_date_is_refused_in_a_column_of_dates() {
+        assert_eq!(
+            refused("[\"2026-01-31\", \"2026-1-31\"]"),
+            "Parse error: Column 'c' row 1: Invalid date format '2026-1-31' (expected YYYY-MM or YYYY-MM-DD)"
+        );
+    }
+
+    #[test]
+    fn the_first_value_that_is_not_a_date_shape_makes_a_column_of_text() {
+        assert_eq!(
+            detect_array_type(&Value::Null).unwrap_err().to_string(),
+            "Parse error: Array cannot start with null. First element must be a valid value to determine column type."
+        );
+        assert_eq!(detect_array_type(&Value::Bool(true)).unwrap(), "Boolean");
+        assert_eq!(detect_array_type(&Value::from("2026-01")).unwrap(), "Date");
+        assert_eq!(detect_array_type(&Value::from("2026-1")).unwrap(), "Text");
+    }
+
+    #[test]
+    fn a_date_shape_is_checked_part_by_part() {
+        for text in [
+            "2025/01/15",
+            "2025/01",
+            "abcd-01",
+            "202-001",
+            "2025-ab",
+            "2025-1x",
+            "abcd-01-15",
+            "202-01-155",
+            "2025-1-155",
+            "2025-0a-15",
+            "2025-01-1a",
+            "2025-01-ab",
+            "2025-01-1-",
+        ] {
+            assert!(!is_valid_date_format(text), "{text}");
+        }
+    }
+
+    #[test]
+    fn every_kind_of_value_has_a_name() {
+        let tagged: Value = yaml_serde::from_str("!t 1").unwrap();
+        assert_eq!(type_name(&tagged), "Tagged");
+        assert_eq!(type_name(&Value::Sequence(vec![])), "Array");
+        assert_eq!(
+            type_name(&Value::Mapping(yaml_serde::Mapping::new())),
+            "Mapping"
+        );
+        assert_eq!(type_name(&Value::from("a")), "String");
+    }
+
     #[test]
     fn test_parse_number_array() {
         let yaml_seq: Vec<Value> = vec![
@@ -218,12 +323,7 @@ mod tests {
         ];
         let result = parse_array_value("test_col", &yaml_seq).unwrap();
 
-        match result {
-            ColumnValue::Number(nums) => {
-                assert_eq!(nums, vec![1.0, 2.0, 3.0]);
-            },
-            _ => panic!("Expected Number array"),
-        }
+        assert_eq!(result, ColumnValue::Number(vec![1.0, 2.0, 3.0]));
     }
 
     #[test]
@@ -235,12 +335,10 @@ mod tests {
         ];
         let result = parse_array_value("test_col", &yaml_seq).unwrap();
 
-        match result {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts, vec!["A", "B", "C"]);
-            },
-            _ => panic!("Expected Text array"),
-        }
+        assert_eq!(
+            result,
+            ColumnValue::Text(["A", "B", "C"].map(String::from).to_vec())
+        );
     }
 
     #[test]
@@ -252,12 +350,10 @@ mod tests {
         ];
         let result = parse_array_value("test_col", &yaml_seq).unwrap();
 
-        match result {
-            ColumnValue::Date(dates) => {
-                assert_eq!(dates, vec!["2025-01", "2025-02", "2025-03"]);
-            },
-            _ => panic!("Expected Date array"),
-        }
+        assert_eq!(
+            result,
+            ColumnValue::Date(["2025-01", "2025-02", "2025-03"].map(String::from).to_vec())
+        );
     }
 
     #[test]
@@ -265,12 +361,7 @@ mod tests {
         let yaml_seq: Vec<Value> = vec![Value::Bool(true), Value::Bool(false), Value::Bool(true)];
         let result = parse_array_value("test_col", &yaml_seq).unwrap();
 
-        match result {
-            ColumnValue::Boolean(bools) => {
-                assert_eq!(bools, vec![true, false, true]);
-            },
-            _ => panic!("Expected Boolean array"),
-        }
+        assert_eq!(result, ColumnValue::Boolean(vec![true, false, true]));
     }
 
     #[test]
@@ -326,12 +417,10 @@ mod tests {
         ];
         let result = parse_array_value("test_col", &yaml_seq).unwrap();
 
-        match result {
-            ColumnValue::Date(dates) => {
-                assert_eq!(dates, vec!["2025-01-15", "2025-02-20"]);
-            },
-            _ => panic!("Expected Date array"),
-        }
+        assert_eq!(
+            result,
+            ColumnValue::Date(["2025-01-15", "2025-02-20"].map(String::from).to_vec())
+        );
     }
 
     #[test]
@@ -484,10 +573,9 @@ totals:
             let mut book: Xlsx<_> = open_workbook(&xlsx).unwrap();
             let sheet = book.worksheet_range("months").unwrap();
             assert_eq!(sheet.get((1, 0)), Some(&Data::Float(985.0)));
-            assert!(
-                matches!(sheet.get((3, 0)), None | Some(Data::Empty)),
-                "{:?}",
-                sheet.get((3, 0))
+            assert_eq!(
+                sheet.get((3, 0)).cloned().unwrap_or(Data::Empty),
+                Data::Empty
             );
 
             let back = dir.path().join("back.yaml");
