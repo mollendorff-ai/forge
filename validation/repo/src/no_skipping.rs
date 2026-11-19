@@ -106,17 +106,37 @@ pub fn lint_attributes(text: &str) -> usize {
     plain + inside
 }
 
+/// Code compiled only for, or only without, the coverage run.
+///
+/// `coverage` named in any `cfg(...)`, `cfg_attr(...)` or `cfg!(...)`
+/// (`all(not(coverage), ...)` and `any(not(coverage), test)` too, not only
+/// `cfg(coverage)`), and the `coverage(off)` attribute.
 #[must_use]
 pub fn coverage_only(text: &str) -> usize {
-    [
-        joined(&["cfg(not(", "coverage))"]),
-        joined(&["cfg(", "coverage)"]),
-        joined(&["cfg_attr(", "coverage"]),
-        joined(&["coverage(", "off)"]),
-    ]
-    .iter()
-    .map(|pattern| text.matches(pattern.as_str()).count())
-    .sum()
+    let conditions = ["cfg(", "cfg_attr(", "cfg!("]
+        .iter()
+        .flat_map(|opening| text.match_indices(opening).map(|(start, _)| start))
+        .filter(|start| {
+            let rest = &text[*start..];
+            let condition = &rest[..rest.find([']', ';']).unwrap_or(rest.len())];
+            names_coverage(condition)
+        })
+        .count();
+    conditions
+        + text
+            .matches(joined(&["coverage(", "off)"]).as_str())
+            .count()
+}
+
+/// Whether `coverage` appears as a name in `condition`, not inside a longer one
+/// (`coverage_report`, `no_coverage`)
+fn names_coverage(condition: &str) -> bool {
+    condition.match_indices("coverage").any(|(at, word)| {
+        let before = condition[..at].chars().next_back();
+        let after = condition[at + word.len()..].chars().next();
+        let part_of_name = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+        !part_of_name(before) && !part_of_name(after)
+    })
 }
 
 #[must_use]
@@ -307,6 +327,30 @@ mod tests {
             }
         }
         assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
+    }
+
+    #[test]
+    fn coverage_only_code_is_counted_in_every_form() {
+        // "COV" stands for the word, which this file must not spell next to a cfg
+        let count = |text: &str| coverage_only(&text.replace("COV", &joined(&["cover", "age"])));
+        for condition in [
+            "COV",
+            "not(COV)",
+            "all(not(COV),feature=\"cli\")",
+            "all(feature=\"cli\",any(not(COV),test))",
+        ] {
+            let attribute = format!("#[{}{condition})]fnf(){{}}", joined(&["cf", "g("]));
+            assert_eq!(count(&attribute), 1, "{condition}");
+        }
+        assert_eq!(count("#![cfg_attr(COV,derive(Debug))]"), 1);
+        assert_eq!(count("if!cfg!(COV){run();}"), 1);
+        assert_eq!(count("#[COV(off)]fnf(){}"), 1);
+        // Two conditions, two counts; a longer name, or no condition, none
+        assert_eq!(count("#[cfg(COV)]fna(){}#[cfg(not(COV))]fnb(){}"), 2);
+        assert_eq!(count("#[cfg(feature=\"COV_report\")]fna(){}"), 0);
+        assert_eq!(count("#[cfg(no_COV)]fna(){}"), 0);
+        assert_eq!(count("#[cfg(unix)]fna(){}"), 0);
+        assert_eq!(count("letCOV=1;"), 0);
     }
 
     #[test]

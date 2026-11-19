@@ -660,4 +660,34 @@ scalars:
             assert_eq!(profit["drivers"][2]["input"], "harvest.yield_factor");
         }
     }
+
+    /// What every tool that reads a model says when it is given none
+    const ASKS: &str = "Either file_path or content is required";
+
+    fn request<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Parameters<T> {
+        Parameters(serde_json::from_value(value).expect("a request"))
+    }
+
+    #[test]
+    fn each_uncertainty_tool_asks_for_a_model_when_it_gets_none() {
+        use serde_json::json;
+        let server = ForgeMcpServer::new();
+        assert_eq!(server.simulate(request(json!({}))).unwrap_err(), ASKS);
+        assert_eq!(server.decision_tree(request(json!({}))).unwrap_err(), ASKS);
+        assert_eq!(server.real_options(request(json!({}))).unwrap_err(), ASKS);
+        assert_eq!(server.bootstrap(request(json!({}))).unwrap_err(), ASKS);
+        assert_eq!(server.bayesian(request(json!({}))).unwrap_err(), ASKS);
+    }
+
+    #[test]
+    fn a_seek_without_what_to_vary_is_refused() {
+        let server = ForgeMcpServer::new();
+        let error = server
+            .simulate(request(serde_json::json!({
+                "file_path": "test-data/budget.yaml",
+                "seek": "profit > 0 at 80%"
+            })))
+            .unwrap_err();
+        assert_eq!(error, "seek needs vary, min and max");
+    }
 }

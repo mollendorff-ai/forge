@@ -91,6 +91,11 @@ impl ServerHandler for ForgeMcpServer {
 mod tests {
     use super::*;
 
+    #[test]
+    fn the_default_server_is_the_new_one_without_a_root() {
+        assert!(ForgeMcpServer::default().root.is_none());
+    }
+
     /// Helper: get Ok text or panic with the error string
     pub fn ok_text(result: Result<String, String>) -> String {
         result.expect("expected Ok result")
