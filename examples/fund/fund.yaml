@@ -75,7 +75,7 @@ fund:
   gross_proceeds: {formula: "=SUM(deals.proceeds)", format: "$#,##0"}
   # 20% of what the investors get back beyond what they paid in, fees included
   carry: {formula: "=terms.carry_rate * MAX(0, gross_proceeds - paid_in)", format: "$#,##0"}
-  last_exit: {formula: "=MAX(deals.exit_date)"}
+  last_exit: {formula: "=MAX(deals.exit_date)", format: "d mmm yyyy"}
   # Exits after the fund's ten years, which need the investors to extend it
   exits_after_term: {formula: "=COUNTIF(deals.exit_date, \">\" & terms.term_end)"}
   # The return on the companies alone, and the investors' return after fees and carry

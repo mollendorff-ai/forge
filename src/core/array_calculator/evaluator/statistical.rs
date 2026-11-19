@@ -1,6 +1,9 @@
 //! Statistical functions: VAR, VARP, STDEV, STDEVP, MODE, PERCENTILE, QUARTILE, CORREL, LARGE, SMALL, RANK
 
-use super::{collect_numeric_values, evaluate, paired_numbers, require_args, require_args_range};
+use super::{
+    collect_numbers_and_dates, collect_numeric_values, evaluate, number_or_date, paired_numbers,
+    require_args, require_args_range,
+};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::number_or;
 use crate::core::precision;
@@ -234,7 +237,7 @@ fn eval_correl(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, Ev
 /// Evaluate `LARGE`.
 fn eval_large(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args(name, args, 2)?;
-    let mut values = collect_numeric_values(&args[..1], ctx)?;
+    let (mut values, dates) = collect_numbers_and_dates(&args[..1], ctx)?;
     if values.is_empty() {
         return Err(EvalError::new("LARGE: array is empty"));
     }
@@ -252,13 +255,13 @@ fn eval_large(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, Eva
     };
     // Sort descending and get k-th largest
     values.sort_by(|a, b| b.total_cmp(a));
-    Ok(Value::Number(values[k - 1]))
+    Ok(number_or_date(values[k - 1], dates))
 }
 
 /// Evaluate `SMALL`.
 fn eval_small(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args(name, args, 2)?;
-    let mut values = collect_numeric_values(&args[..1], ctx)?;
+    let (mut values, dates) = collect_numbers_and_dates(&args[..1], ctx)?;
     if values.is_empty() {
         return Err(EvalError::new("SMALL: array is empty"));
     }
@@ -273,7 +276,7 @@ fn eval_small(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, Eva
     };
     // Sort ascending and get k-th smallest
     values.sort_by(f64::total_cmp);
-    Ok(Value::Number(values[k - 1]))
+    Ok(number_or_date(values[k - 1], dates))
 }
 
 /// Evaluate `RANK` and `RANK.EQ`.
@@ -334,6 +337,24 @@ fn rank_in(k: f64, n: usize) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+    // ADR-060 addendum: the k-th largest or smallest of dates is a date
+    #[test]
+    fn large_and_small_of_dates_are_dates() {
+        let ctx = EvalContext::new();
+        let dates = "{\"2026-01-05\", \"2029-09-08\", \"2027-06-30\"}";
+        assert_eq!(
+            eval(&format!("LARGE({dates}, 2)"), &ctx).unwrap(),
+            Value::Text("2027-06-30".to_string())
+        );
+        assert_eq!(
+            eval(&format!("SMALL({dates}, 1)"), &ctx).unwrap(),
+            Value::Text("2026-01-05".to_string())
+        );
+        assert_eq!(
+            eval("LARGE({5, 9, 7}, 2)", &ctx).unwrap(),
+            Value::Number(7.0)
+        );
+    }
 
     /// RANK finds the number in the list as an exact lookup does, as
     /// `LibreOffice` 26.2 does (not checked in Excel; ADR-065)
