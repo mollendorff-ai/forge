@@ -80,6 +80,7 @@ Technical documentation for Forge's architecture.
 | [ADR-065](ADR-065-HOW-TWO-NUMBERS-COMPARE.md) | How Two Numbers Compare | Accepted by merging; checked in Excel (2026-11-18) |
 | [ADR-066](ADR-066-A-LAST-SUM-NEAR-ZERO.md) | A Last Sum Near Zero Is Zero | Accepted by merging; measured in Excel (2026-11-18) |
 | [ADR-067](ADR-067-A-SCENARIO-WITHOUT-A-PROBABILITY.md) | A Scenario Without a Probability Is Compared, Not Weighted | Accepted (option 1); built |
+| [ADR-068](ADR-068-GAMES.md) | Games: a Payoff Table, Its Equilibria, and Tournaments | Proposed |
 
 ## Architecture Principles
 
