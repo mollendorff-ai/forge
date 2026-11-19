@@ -230,3 +230,25 @@ panic = "abort"
 [profile.wasm]
 inherits = "release"
 opt-level = "s"
+
+# The JSON Schema check runs once for a model that is read, never in a loop, so
+# its crates are built for size alone ("z"): 86,816 bytes less gzipped
+# (1,973,854 to 1,887,038, measured 2026-11-19), and as fast (simulations and
+# seeks 0.97 of the time, all cases 0.98, five interleaved runs each; the noise
+# between runs of one build is about 5%). The regex, Excel and zip crates at "z"
+# too saved 50 KB more but read 3 to 4% slower, within that noise, and are left
+# out. The calculator stays at "s".
+[profile.wasm.package.jsonschema]
+opt-level = "z"
+[profile.wasm.package.jsonschema-regex]
+opt-level = "z"
+[profile.wasm.package.jsonschema-value]
+opt-level = "z"
+[profile.wasm.package.referencing]
+opt-level = "z"
+[profile.wasm.package.fancy-regex]
+opt-level = "z"
+[profile.wasm.package.fluent-uri]
+opt-level = "z"
+[profile.wasm.package.fraction]
+opt-level = "z"
