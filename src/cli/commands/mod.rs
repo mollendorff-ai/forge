@@ -348,10 +348,11 @@ fn print_table_results(c: &mut Console<'_>, result: &ParsedModel) {
     // same on every run
     for (table_name, table) in &result.tables {
         outln!(c, "   📊 Table: {}", table_name.bright_blue().bold());
-        for col_name in table.column_names() {
-            let Some(column) = table.columns.get(col_name) else {
-                continue;
-            };
+        let calculated = table
+            .column_names()
+            .into_iter()
+            .filter_map(|name| table.columns.get(name).map(|column| (name, column)));
+        for (col_name, column) in calculated {
             let raw = format_column_values(&column.values);
             // With a format (ADR-061): the values as it shows them, then the
             // full values underneath, which are what the file holds
@@ -1149,5 +1150,182 @@ b:
             );
             assert!(!ran.out.contains("7935.533406400002"), "{}", ran.out);
         }
+    }
+}
+
+#[cfg(test)]
+mod command_output {
+    //! What `calculate` and `validate` print, in the cases the other tests do
+    //! not reach: empty cells, units, scenarios, batches, a result already stored.
+
+    use super::*;
+    use crate::cli::console::capture;
+    use std::fs;
+
+    const GOOD: &str = "_forge_version: \"5.0.0\"\ninputs:\n  a:\n    value: 2\n    formula: null\noutputs:\n  b:\n    value: 4\n    formula: \"=a * 2\"\n";
+
+    fn model(dir: &Path, name: &str, text: &str) -> PathBuf {
+        let path = dir.join(name);
+        fs::write(&path, text).unwrap();
+        path
+    }
+
+    #[test]
+    fn an_empty_cell_shows_as_blank_null_or_nothing() {
+        let column = ColumnValue::Blanks(vec![Some(1.5), None]);
+        assert_eq!(format_column_values(&column), "[1.5, null]");
+        assert_eq!(formatted_column(&column, "0.00"), ["1.50", ""]);
+        assert_eq!(
+            column_json_values(&column),
+            [serde_json::json!(1.5), serde_json::Value::Null]
+        );
+    }
+
+    #[test]
+    fn booleans_are_shown_by_a_format_as_they_are() {
+        let column = ColumnValue::Boolean(vec![true, false]);
+        assert_eq!(formatted_column(&column, "General"), ["TRUE", "FALSE"]);
+    }
+
+    #[test]
+    fn units_that_do_not_add_are_warned_about() {
+        let mut model = ParsedModel::new();
+        let mut table = crate::types::Table::new("data".to_string());
+        for (name, unit) in [("revenue", "CAD"), ("item_count", "units")] {
+            let mut column =
+                crate::types::Column::new(name.to_string(), ColumnValue::Number(vec![1.0]));
+            column.metadata.unit = Some(unit.to_string());
+            table.add_column(column);
+        }
+        table
+            .row_formulas
+            .insert("bad".to_string(), "=revenue + item_count".to_string());
+        model.add_table(table);
+        let ((), captured) = capture(|c| print_unit_warnings(c, &model));
+        assert!(
+            captured.out.contains("Unit Consistency Warnings"),
+            "{}",
+            captured.out
+        );
+
+        let ((), captured) = capture(|c| print_unit_warnings(c, &ParsedModel::new()));
+        assert_eq!(captured.out, "");
+    }
+
+    #[test]
+    fn calculating_says_what_verbose_and_a_scenario_ask_for() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = model(
+            dir.path(),
+            "m.yaml",
+            "_forge_version: \"5.1.0\"\nrate: 2\ndouble: {formula: \"=rate * 2\"}\nscenarios:\n  high:\n    probability: 1\n    scalars:\n      rate: 5\n",
+        );
+        let (result, captured) = capture(|c| calculate(c, &file, true, true, Some("high")));
+        result.unwrap();
+        for line in [
+            "Scenario: high",
+            "Parsing YAML file",
+            "Found 0 tables, 2 scalars",
+            "Found 1 scenarios",
+            "Applied scenario: high",
+            "Calculating tables and scalars",
+            "double = 10",
+        ] {
+            assert!(captured.out.contains(line), "{line} in {}", captured.out);
+        }
+        let (result, captured) = capture(|c| calculate(c, &file, true, false, Some("high")));
+        result.unwrap();
+        assert!(
+            !captured.out.contains("Applied scenario"),
+            "{}",
+            captured.out
+        );
+        let (result, _) = capture(|c| calculate(c, &file, true, false, Some("absent")));
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn calculating_twice_finds_nothing_to_update() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = model(
+            dir.path(),
+            "m.yaml",
+            &GOOD.replace("value: 4", "value: null"),
+        );
+        let (result, captured) = capture(|c| calculate(c, &file, false, false, None));
+        result.unwrap();
+        assert!(captured.out.contains("1 value updated"), "{}", captured.out);
+        let (result, captured) = capture(|c| calculate(c, &file, false, false, None));
+        result.unwrap();
+        assert!(captured.out.contains("is up to date"), "{}", captured.out);
+    }
+
+    #[test]
+    fn validating_a_batch_says_which_files_failed() {
+        let dir = tempfile::tempdir().unwrap();
+        let good = model(dir.path(), "good.yaml", GOOD);
+        let stale = model(
+            dir.path(),
+            "stale.yaml",
+            &GOOD.replace("value: 4", "value: 5"),
+        );
+        let (result, captured) = capture(|c| validate(c, &[good.clone(), stale]));
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("1 file(s) failed validation"), "{message}");
+        for line in [
+            "Validating 2 files",
+            "good.yaml - OK",
+            "stale.yaml - FAILED",
+            "1 passed",
+            "1 failed out of 2 files",
+        ] {
+            assert!(captured.out.contains(line), "{line} in {}", captured.out);
+        }
+        let (result, captured) = capture(|c| validate(c, &[good.clone(), good]));
+        result.unwrap();
+        assert!(captured.out.contains("2 passed"), "{}", captured.out);
+    }
+
+    #[test]
+    fn validating_one_file_says_what_it_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let good = model(dir.path(), "good.yaml", GOOD);
+        let (result, captured) = capture(|c| validate(c, &[good]));
+        result.unwrap();
+        assert!(
+            captured.out.contains("All scalar values match"),
+            "{}",
+            captured.out
+        );
+
+        let unstored = model(
+            dir.path(),
+            "u.yaml",
+            &GOOD.replace("value: 4", "value: null"),
+        );
+        let (result, captured) = capture(|c| validate(c, &[unstored]));
+        result.unwrap();
+        assert!(
+            captured.out.contains("1 formula(s) have no stored value"),
+            "{}",
+            captured.out
+        );
+
+        let empty = model(dir.path(), "e.yaml", "_forge_version: \"5.0.0\"\n");
+        let (result, captured) = capture(|c| validate(c, &[empty]));
+        result.unwrap();
+        assert!(
+            captured.out.contains("No tables or scalars"),
+            "{}",
+            captured.out
+        );
+
+        let stale = model(dir.path(), "s.yaml", &GOOD.replace("value: 4", "value: 5"));
+        let (result, captured) = capture(|c| validate(c, std::slice::from_ref(&stale)));
+        assert!(result.unwrap_err().to_string().contains("out of date"));
+        assert!(captured.out.contains("Expected: 4"), "{}", captured.out);
+        let found = validate_core(&stale).unwrap();
+        assert_eq!(found.mismatches.len(), 1);
+        assert!(!found.scalars_valid);
     }
 }
