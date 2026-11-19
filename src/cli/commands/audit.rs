@@ -781,7 +781,10 @@ mod tests {
             assert_eq!(found.dependencies[0].name, "a");
             assert_eq!(found.calculated_value, Some(11.0));
             // No empty cell in what NPV reads, no warning
-            assert!(audit_core_of(SCALARS, "npv_clean").warnings.is_empty());
+            assert_eq!(
+                audit_core_of(SCALARS, "npv_clean").warnings,
+                Vec::<String>::new()
+            );
         }
 
         #[test]
@@ -945,7 +948,7 @@ mod tests {
 
         #[test]
         fn a_formula_that_cannot_be_read_has_no_references() {
-            assert!(formula_references("=\"unterminated").is_empty());
+            assert_eq!(formula_references("=\"unterminated"), Vec::<String>::new());
             assert!(calls("=NPV(0.1, x)", "npv"));
             assert!(!calls("=npv + 1", "NPV"));
             assert!(!calls("=\"unterminated", "NPV"));
