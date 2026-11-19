@@ -1,15 +1,26 @@
 //! CLI command handlers
 
+#[cfg(feature = "cli")]
+pub mod args;
 pub mod commands;
+pub mod console;
+#[cfg(feature = "cli")]
+mod run;
+
+pub use console::Console;
+#[cfg(all(test, feature = "cli"))]
+pub use run::{forge, forge_at_width, Ran};
+#[cfg(feature = "cli")]
+pub use run::{run_from, starts_a_server};
 
 pub use commands::{
-    audit, break_even, calculate, compare, examples, functions, goal_seek, schema, sensitivity,
+    audit, break_even, calculate, compare, functions, goal_seek, schema, sensitivity,
     sensitivity_in_format, validate, variance,
 };
 
 // Watch, update, export and import need the `cli` feature
 #[cfg(feature = "cli")]
-pub use commands::{export, import, update, watch};
+pub use commands::{examples, export, import, update, watch};
 
 pub use commands::upgrade;
 

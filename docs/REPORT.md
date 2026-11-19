@@ -83,4 +83,4 @@ forge report /tmp/options.yaml --no-inputs --format markdown
 | --- | ---: | ---: |
 | summary | 1,542 | 19,884 |
 
-The `budget` group holds only inputs, so `--no-inputs` leaves it out. Its numbers, and the five options', are checked against the same calculation in Python in `tests/demo_examples.rs`. `--keys monthly,first_year` gives a narrower table, for a phone.
+The `budget` group holds only inputs, so `--no-inputs` leaves it out. Its numbers, and the five options', are checked against the same calculation in Python in `src/cli/commands/examples.rs` (its `demo_examples` tests). `--keys monthly,first_year` gives a narrower table, for a phone.

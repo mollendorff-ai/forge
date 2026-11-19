@@ -161,8 +161,8 @@
 | `INDEX` | Value by position | `=INDEX(array, row, col)` |
 | `MATCH` | Find position (an exact match, type 0, reads the wildcards *, ? and ~) | `=MATCH(lookup_value, array, type)` |
 | `CHOOSE` | Pick by index | `=CHOOSE(index, value1, value2, ...)` |
-| `VLOOKUP` | Vertical lookup | `=VLOOKUP(lookup, table, col, exact)` |
-| `HLOOKUP` | Horizontal lookup | `=HLOOKUP(lookup, table, row, exact)` |
+| `VLOOKUP` | Vertical lookup in one column: col_index is 1, range_lookup TRUE (the default) searches as MATCH type 1 | `=VLOOKUP(lookup, column, 1, range_lookup)` |
+| `HLOOKUP` | Horizontal lookup in one row: row_index is 1, range_lookup TRUE (the default) searches as MATCH type 1 | `=HLOOKUP(lookup, row, 1, range_lookup)` |
 | `XMATCH` | Find position: exactly, the nearest, or a wildcard pattern (match mode 2); from the first, from the last, or a binary search | `=XMATCH(lookup_value, lookup_array, match_mode, search_mode)` |
 | `XLOOKUP` | Extended lookup, with XMATCH's match and search modes | `=XLOOKUP(lookup, lookup_array, return_array, not_found, match_mode, search_mode)` |
 | `OFFSET` | Reference offset | `=OFFSET(ref, rows, cols, height, width)` |
@@ -209,7 +209,7 @@
 | `MC.Uniform` | Uniform distribution | `=MC.Uniform(min, max)` |
 | `MC.PERT` | PERT distribution | `=MC.PERT(min, mode, max)` |
 | `MC.Lognormal` | Lognormal distribution | `=MC.Lognormal(mean, std_dev)` |
-| `MC.Discrete` | Discrete distribution | `=MC.Discrete(values, probabilities)` |
+| `MC.Discrete` | Discrete distribution | `=MC.Discrete({values}, {probabilities})` |
 
 ## Statistical (30 functions)
 

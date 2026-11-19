@@ -1,12 +1,11 @@
 //! Random functions: RAND, RANDBETWEEN
 
-// Random casts: f64 bounds to i64 (RANDBETWEEN integer bounds).
-#![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
-
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::precision;
 
+use num_traits::ToPrimitive;
 use rand::RngExt;
 
 /// Evaluate RAND function - returns a random number between 0 and 1
@@ -31,8 +30,12 @@ pub fn eval_randbetween(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
         return Err(EvalError::new("RANDBETWEEN: bottom must be <= top"));
     }
 
-    let bottom_int = bottom.ceil() as i64;
-    let top_int = top.floor() as i64;
+    // The whole numbers from bottom to top, which an i64 must hold
+    let Some((bottom_int, top_int)) = bottom.ceil().to_i64().zip(top.floor().to_i64()) else {
+        return Err(EvalError::new(format!(
+            "#NUM!: RANDBETWEEN: {bottom} to {top} is past the whole numbers it counts"
+        )));
+    };
 
     if bottom_int > top_int {
         return Err(EvalError::new("RANDBETWEEN: no integers in range"));
@@ -40,7 +43,7 @@ pub fn eval_randbetween(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
 
     let mut rng = rand::rng();
     let result = rng.random_range(bottom_int..=top_int);
-    Ok(Value::Number(result as f64))
+    Ok(Value::Number(precision::whole(result)))
 }
 
 #[cfg(test)]
@@ -117,5 +120,16 @@ mod tests {
             .expect("Should calculate");
         let val = result.scalars.get("random").unwrap().value.unwrap();
         assert!((1.0..=100.0).contains(&val));
+    }
+
+    /// The whole numbers from bottom (rounded up) to top (rounded down);
+    /// none in an i64 is #NUM!
+    #[test]
+    fn randbetween_draws_whole_numbers_an_i64_holds() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("RANDBETWEEN(2.5, 3.5)", 3.0);
+        h::fails_with("RANDBETWEEN(2.5, 2.7)", "no integers");
+        h::fails_with("RANDBETWEEN(1, 1E+20)", "#NUM!");
+        h::fails_with("RANDBETWEEN(-1E+20, 1)", "#NUM!");
     }
 }

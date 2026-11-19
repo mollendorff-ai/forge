@@ -14,6 +14,207 @@ pub struct FormulaTranslator {
     table_row_counts: HashMap<String, usize>,
 }
 
+/// The column letters, by their place in the alphabet
+const LETTERS: &[u8; 26] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/// The function names the translator leaves as they are, in byte order, so
+/// that a lookup can bisect. A test keeps the order.
+const EXCEL_FUNCTIONS: [&str; 193] = [
+    "ABS",
+    "ACCRINT",
+    "ACOS",
+    "ADDRESS",
+    "AND",
+    "ASIN",
+    "ATAN",
+    "AVERAGE",
+    "AVERAGEIF",
+    "AVERAGEIFS",
+    "AVG",
+    "CEILING",
+    "CHOOSE",
+    "COLUMN",
+    "COLUMNS",
+    "CONCAT",
+    "CONCATENATE",
+    "CORREL",
+    "COS",
+    "COSH",
+    "COUNT",
+    "COUNTA",
+    "COUNTBLANK",
+    "COUNTIF",
+    "COUNTIFS",
+    "COUNTUNIQUE",
+    "COVARIANCE.P",
+    "COVARIANCE.S",
+    "CUMIPMT",
+    "CUMPRINC",
+    "DATE",
+    "DATEDIF",
+    "DAY",
+    "DAYS",
+    "DB",
+    "DDB",
+    "DEGREES",
+    "E",
+    "EDATE",
+    "EFFECT",
+    "EOMONTH",
+    "EXP",
+    "FALSE",
+    "FILTER",
+    "FIND",
+    "FLOOR",
+    "FORECAST",
+    "FORECAST.LINEAR",
+    "FV",
+    "GEOMEAN",
+    "HLOOKUP",
+    "HOUR",
+    "IF",
+    "IFERROR",
+    "IFNA",
+    "IFS",
+    "INDEX",
+    "INDIRECT",
+    "INT",
+    "INTERCEPT",
+    "IPMT",
+    "IRR",
+    "ISBLANK",
+    "ISERROR",
+    "ISEVEN",
+    "ISFORMULA",
+    "ISLOGICAL",
+    "ISNA",
+    "ISNUMBER",
+    "ISODD",
+    "ISOWEEKNUM",
+    "ISREF",
+    "ISTEXT",
+    "LAMBDA",
+    "LARGE",
+    "LEFT",
+    "LEN",
+    "LET",
+    "LN",
+    "LOG",
+    "LOG10",
+    "LOWER",
+    "MATCH",
+    "MAX",
+    "MAXIFS",
+    "MEDIAN",
+    "MID",
+    "MIN",
+    "MINIFS",
+    "MINUTE",
+    "MIRR",
+    "MOD",
+    "MODE",
+    "MODE.SNGL",
+    "MONTH",
+    "MROUND",
+    "N",
+    "NA",
+    "NETWORKDAYS",
+    "NOMINAL",
+    "NORM.DIST",
+    "NORM.INV",
+    "NORM.S.DIST",
+    "NORM.S.INV",
+    "NOT",
+    "NOW",
+    "NPER",
+    "NPV",
+    "OFFSET",
+    "OR",
+    "PERCENTILE",
+    "PERCENTILE.EXC",
+    "PERCENTILE.INC",
+    "PI",
+    "PMT",
+    "POW",
+    "POWER",
+    "PPMT",
+    "PRICEDISC",
+    "PRODUCT",
+    "PV",
+    "QUARTILE",
+    "QUARTILE.EXC",
+    "QUARTILE.INC",
+    "RADIANS",
+    "RAND",
+    "RANDARRAY",
+    "RANDBETWEEN",
+    "RANK",
+    "RANK.EQ",
+    "RATE",
+    "REPLACE",
+    "REPT",
+    "RIGHT",
+    "ROUND",
+    "ROUNDDOWN",
+    "ROUNDUP",
+    "ROW",
+    "ROWS",
+    "RRI",
+    "RSQ",
+    "SEARCH",
+    "SECOND",
+    "SEQUENCE",
+    "SIGN",
+    "SIN",
+    "SINH",
+    "SLN",
+    "SLOPE",
+    "SMALL",
+    "SORT",
+    "SQRT",
+    "STDEV",
+    "STDEV.P",
+    "STDEV.S",
+    "STDEVP",
+    "SUBSTITUTE",
+    "SUM",
+    "SUMIF",
+    "SUMIFS",
+    "SUMPRODUCT",
+    "SWITCH",
+    "SYD",
+    "TAN",
+    "TANH",
+    "TEXT",
+    "TEXTJOIN",
+    "TIME",
+    "TODAY",
+    "TRIM",
+    "TRUE",
+    "TRUNC",
+    "TYPE",
+    "UNIQUE",
+    "UPPER",
+    "VALUE",
+    "VAR",
+    "VAR.P",
+    "VAR.S",
+    "VARP",
+    "VDB",
+    "VLOOKUP",
+    "WEEKDAY",
+    "WEEKNUM",
+    "WORKDAY",
+    "XIRR",
+    "XLOOKUP",
+    "XMATCH",
+    "XNPV",
+    "XOR",
+    "YEAR",
+    "YEARFRAC",
+    "YIELDDISC",
+];
+
 impl FormulaTranslator {
     /// Create a new formula translator with column mappings (legacy, for backwards compat)
     #[must_use]
@@ -52,13 +253,64 @@ impl FormulaTranslator {
     /// # Panics
     ///
     /// Panics if a regex capture group 0 is missing (should never occur).
-    #[allow(clippy::too_many_lines)] // splitting hurts readability: single coherent translation pipeline
     pub fn translate_row_formula(&self, formula: &str, excel_row: u32) -> ForgeResult<String> {
         // Remove leading = if present
         let formula_body = formula.strip_prefix('=').unwrap_or(formula);
 
         let mut result = formula_body.to_string();
 
+        // Aggregations first, then other tables, then names without a table, then columns
+        self.replace_aggregate_ranges(&mut result)?;
+        self.replace_table_ranges(&mut result)?;
+        Self::replace_unknown_table_cells(&mut result, excel_row)?;
+        self.replace_column_references(&mut result, excel_row)?;
+
+        Ok(format!("={result}"))
+    }
+
+    /// Check if a word is an Excel function
+    pub(crate) fn is_excel_function(word: &str) -> bool {
+        EXCEL_FUNCTIONS
+            .binary_search(&word.to_uppercase().as_str())
+            .is_ok()
+    }
+
+    /// Translate a scalar formula to an Excel formula
+    ///
+    /// Examples:
+    /// - `=SUM(table.column)` → `=SUM(table!A2:A4)`
+    /// - `=table.column[0]` → `=table!A2`
+    /// - `=scalar_name / 100` → `=B3 / 100`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a regex compilation fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a regex capture group 0 is missing (should never occur).
+    pub fn translate_scalar_formula(
+        &self,
+        formula: &str,
+        scalar_row_map: &HashMap<String, u32>,
+    ) -> ForgeResult<String> {
+        // Remove leading = if present
+        let formula_body = formula.strip_prefix('=').unwrap_or(formula);
+
+        let mut result = formula_body.to_string();
+
+        // Indexed references first, then ranges, then single cells, then scalars
+        self.replace_indexed_cells(&mut result)?;
+        self.replace_aggregate_ranges(&mut result)?;
+        self.replace_table_ranges(&mut result)?;
+        self.replace_first_row_cells(&mut result, scalar_row_map)?;
+        Self::replace_scalar_cells(&mut result, scalar_row_map)?;
+
+        Ok(format!("={result}"))
+    }
+
+    /// Rewrite `SUM(table.column)` and the like as a range: `SUM('table'!A2:A4)`.
+    fn replace_aggregate_ranges(&self, result: &mut String) -> ForgeResult<()> {
         // FIRST: Handle table.column references in aggregation functions that need ranges
         // Pattern for simple aggregations: SUM(table.column) → SUM(table!A2:A4)
         let agg_pattern = Regex::new(r"(SUM|AVERAGE|MAX|MIN|COUNT|COUNTA|PRODUCT)\(([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\)")
@@ -91,6 +343,12 @@ impl FormulaTranslator {
             result.replace_range(range, &replacement);
         }
 
+        Ok(())
+    }
+
+    /// Rewrite any other `table.column` of a known table as a range, for `SUMIFS`,
+    /// `PERCENTILE`, `RANK`, `CORREL` and the rest that the aggregate pass leaves.
+    fn replace_table_ranges(&self, result: &mut String) -> ForgeResult<()> {
         // SECOND: Handle general table.column references that need ranges (for functions like SUMIFS, PERCENTILE, etc.)
         let general_table_pattern =
             Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b")
@@ -133,6 +391,11 @@ impl FormulaTranslator {
             result.replace_range(range, &replacement);
         }
 
+        Ok(())
+    }
+
+    /// Rewrite a `table.column` of no known table as a cell of this row.
+    fn replace_unknown_table_cells(result: &mut String, excel_row: u32) -> ForgeResult<()> {
         // THIRD: Handle remaining table.column references (not in known tables, use fallback)
         let remaining_table_pattern =
             Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)")
@@ -162,6 +425,12 @@ impl FormulaTranslator {
             result.replace_range(range, &replacement);
         }
 
+        Ok(())
+    }
+
+    /// Rewrite each name of this table as the cell of its column on this row; a
+    /// name that is neither a column, a function, a cell nor a number is an error.
+    fn replace_column_references(&self, result: &mut String, excel_row: u32) -> ForgeResult<()> {
         // FOURTH: Handle simple column references in the current table
         let var_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b")
             .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
@@ -216,249 +485,11 @@ impl FormulaTranslator {
             }
         }
 
-        Ok(format!("={result}"))
+        Ok(())
     }
 
-    /// Check if a word is an Excel function
-    #[allow(clippy::too_many_lines)] // comprehensive function list is intentionally exhaustive
-    pub(crate) fn is_excel_function(word: &str) -> bool {
-        let upper = word.to_uppercase();
-        matches!(
-            upper.as_str(),
-            // Aggregation functions
-            "SUM"
-                | "AVERAGE"
-                | "MAX"
-                | "MIN"
-                | "COUNT"
-                | "COUNTA"
-                | "COUNTBLANK"
-                | "PRODUCT"
-                | "SUMPRODUCT"
-                | "MEDIAN"
-                | "AVG"
-                // Conditional aggregations
-                | "SUMIF"
-                | "SUMIFS"
-                | "COUNTIF"
-                | "COUNTIFS"
-                | "AVERAGEIF"
-                | "AVERAGEIFS"
-                | "MAXIFS"
-                | "MINIFS"
-                // Logical functions
-                | "IF"
-                | "AND"
-                | "OR"
-                | "NOT"
-                | "XOR"
-                | "TRUE"
-                | "FALSE"
-                | "IFERROR"
-                | "IFNA"
-                | "CHOOSE"
-                // Math functions
-                | "ABS"
-                | "ROUND"
-                | "ROUNDUP"
-                | "ROUNDDOWN"
-                | "SQRT"
-                | "POW"
-                | "POWER"
-                | "EXP"
-                | "LN"
-                | "LOG"
-                | "LOG10"
-                | "PI"
-                | "E"
-                | "MOD"
-                | "CEILING"
-                | "FLOOR"
-                | "INT"
-                | "TRUNC"
-                | "SIGN"
-                // Trigonometric functions
-                | "SIN"
-                | "COS"
-                | "TAN"
-                | "ASIN"
-                | "ACOS"
-                | "ATAN"
-                | "SINH"
-                | "COSH"
-                | "TANH"
-                | "RADIANS"
-                | "DEGREES"
-                // Text functions
-                | "CONCATENATE"
-                | "CONCAT"
-                | "LEFT"
-                | "RIGHT"
-                | "MID"
-                | "LEN"
-                | "UPPER"
-                | "LOWER"
-                | "TRIM"
-                | "TEXT"
-                | "VALUE"
-                | "FIND"
-                | "SEARCH"
-                | "REPLACE"
-                | "SUBSTITUTE"
-                | "REPT"
-                // Date functions
-                | "TODAY"
-                | "NOW"
-                | "DATE"
-                | "YEAR"
-                | "MONTH"
-                | "DAY"
-                | "WEEKDAY"
-                | "HOUR"
-                | "MINUTE"
-                | "SECOND"
-                | "DATEDIF"
-                | "EDATE"
-                | "EOMONTH"
-                | "NETWORKDAYS"
-                | "WORKDAY"
-                | "YEARFRAC"
-                | "DAYS"
-                | "TIME"
-                // Financial functions
-                | "NPV"
-                | "IRR"
-                | "MIRR"
-                | "XNPV"
-                | "XIRR"
-                | "PMT"
-                | "FV"
-                | "PV"
-                | "RATE"
-                | "NPER"
-                | "SLN"
-                | "DB"
-                | "DDB"
-                | "IPMT"
-                | "PPMT"
-                | "EFFECT"
-                | "NOMINAL"
-                | "PRICEDISC"
-                | "YIELDDISC"
-                | "ACCRINT"
-                // Information functions
-                | "ISEVEN"
-                | "ISODD"
-                | "ISBLANK"
-                | "ISERROR"
-                | "ISNA"
-                | "ISNUMBER"
-                | "ISTEXT"
-                | "ISLOGICAL"
-                | "ISREF"
-                | "ISFORMULA"
-                | "NA"
-                | "TYPE"
-                | "N"
-                // Lookup functions
-                | "VLOOKUP"
-                | "HLOOKUP"
-                | "XLOOKUP"
-                | "INDEX"
-                | "MATCH"
-                | "OFFSET"
-                | "INDIRECT"
-                | "ADDRESS"
-                | "ROW"
-                | "COLUMN"
-                | "ROWS"
-                | "COLUMNS"
-                // Array functions (v4.1.0)
-                | "UNIQUE"
-                | "COUNTUNIQUE"
-                | "SORT"
-                | "FILTER"
-                | "SEQUENCE"
-                | "RANDARRAY"
-                // Statistical functions
-                | "VAR"
-                | "VARP"
-                | "STDEV"
-                | "STDEVP"
-                | "CORREL"
-                | "PERCENTILE"
-                | "QUARTILE"
-                | "LARGE"
-                | "SMALL"
-                | "RANK"
-                | "RANK.EQ"
-                | "STDEV.S"
-                | "STDEV.P"
-                | "VAR.S"
-                | "VAR.P"
-                | "MODE"
-                | "MODE.SNGL"
-                | "SLOPE"
-                | "INTERCEPT"
-                | "RSQ"
-                | "FORECAST"
-                | "FORECAST.LINEAR"
-                | "COVARIANCE.P"
-                | "COVARIANCE.S"
-                | "GEOMEAN"
-                | "PERCENTILE.INC"
-                | "PERCENTILE.EXC"
-                | "QUARTILE.INC"
-                | "QUARTILE.EXC"
-                | "NORM.DIST"
-                | "NORM.INV"
-                | "NORM.S.DIST"
-                | "NORM.S.INV"
-                | "RRI"
-                | "SYD"
-                | "CUMIPMT"
-                | "CUMPRINC"
-                | "VDB"
-                | "MROUND"
-                | "TEXTJOIN"
-                | "WEEKNUM"
-                | "ISOWEEKNUM"
-                | "XMATCH"
-                | "RAND"
-                | "RANDBETWEEN"
-                // Advanced functions
-                | "LET"
-                | "LAMBDA"
-                | "SWITCH"
-                | "IFS"
-        )
-    }
-
-    /// Translate a scalar formula to an Excel formula
-    ///
-    /// Examples:
-    /// - `=SUM(table.column)` → `=SUM(table!A2:A4)`
-    /// - `=table.column[0]` → `=table!A2`
-    /// - `=scalar_name / 100` → `=B3 / 100`
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if a regex compilation fails.
-    ///
-    /// # Panics
-    ///
-    /// Panics if a regex capture group 0 is missing (should never occur).
-    #[allow(clippy::too_many_lines)] // splitting hurts readability: single coherent translation pipeline
-    pub fn translate_scalar_formula(
-        &self,
-        formula: &str,
-        scalar_row_map: &HashMap<String, u32>,
-    ) -> ForgeResult<String> {
-        // Remove leading = if present
-        let formula_body = formula.strip_prefix('=').unwrap_or(formula);
-
-        let mut result = formula_body.to_string();
-
+    /// Rewrite `table.column[index]` as one cell of the table: `table!A2`.
+    fn replace_indexed_cells(&self, result: &mut String) -> ForgeResult<()> {
         // Pattern for table.column[index] references (must be processed first)
         let indexed_pattern =
             Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\[(\d+)\]")
@@ -492,87 +523,16 @@ impl FormulaTranslator {
             result.replace_range(range, &replacement);
         }
 
-        // Pattern for table.column references inside aggregation functions
-        // SUM(table.column) → SUM(table!A2:A4)
-        let agg_pattern = Regex::new(r"(SUM|AVERAGE|MAX|MIN|COUNT|COUNTA|PRODUCT)\(([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\)")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
+        Ok(())
+    }
 
-        let agg_replacements: Vec<(std::ops::Range<usize>, String)> = agg_pattern
-            .captures_iter(&result.clone())
-            .map(|cap| {
-                let full_match = cap.get(0).unwrap();
-                let func_name = &cap[1];
-                let table_name = &cap[2];
-                let col_name = &cap[3];
-
-                let col_letter = self
-                    .table_column_maps
-                    .get(table_name)
-                    .and_then(|cols| cols.get(col_name))
-                    .cloned()
-                    .unwrap_or_else(|| col_name.to_string());
-
-                let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
-                // Range: row 2 to row (row_count + 1) - header is row 1
-                let end_row = row_count + 1;
-                let replacement =
-                    format!("{func_name}('{table_name}'!{col_letter}2:{col_letter}{end_row})");
-                (full_match.range(), replacement)
-            })
-            .collect();
-
-        // Apply aggregation replacements in reverse order
-        for (range, replacement) in agg_replacements.into_iter().rev() {
-            result.replace_range(range, &replacement);
-        }
-
-        // Pattern for general table.column references that need range conversion
-        // This handles functions like SUMIFS, AVERAGEIFS, PERCENTILE, QUARTILE, RANK, CORREL, etc.
-        // that weren't caught by the simple aggregation pattern above
-        let general_table_pattern =
-            Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
-
-        // Collect all table.column references that should be converted to ranges
-        let general_replacements: Vec<(std::ops::Range<usize>, String)> = general_table_pattern
-            .captures_iter(&result.clone())
-            .filter_map(|cap| {
-                let full_match = cap.get(0).unwrap();
-                let table_name = &cap[1];
-                let col_name = &cap[2];
-
-                // Skip if already processed (contains !)
-                if result[..full_match.start()].ends_with('\'')
-                    || result[full_match.end()..].starts_with('!')
-                {
-                    return None;
-                }
-
-                // Only convert if this is a known table (not a scalar reference)
-                if !self.table_column_maps.contains_key(table_name) {
-                    return None;
-                }
-
-                let col_letter = self
-                    .table_column_maps
-                    .get(table_name)
-                    .and_then(|cols| cols.get(col_name))
-                    .cloned()
-                    .unwrap_or_else(|| col_name.to_string());
-
-                let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
-                // Range: row 2 to row (row_count + 1) - header is row 1
-                let end_row = row_count + 1;
-                let replacement = format!("'{table_name}'!{col_letter}2:{col_letter}{end_row}");
-                Some((full_match.range(), replacement))
-            })
-            .collect();
-
-        // Apply general replacements in reverse order
-        for (range, replacement) in general_replacements.into_iter().rev() {
-            result.replace_range(range, &replacement);
-        }
-
+    /// Rewrite a `table.column` that is none of the above as the first data row of
+    /// the table, or as a scalar's cell when the name is a scalar.
+    fn replace_first_row_cells(
+        &self,
+        result: &mut String,
+        scalar_row_map: &HashMap<String, u32>,
+    ) -> ForgeResult<()> {
         // Pattern for simple table.column references (not in aggregations, not indexed)
         // These become references to row 2 (first data row)
         let simple_table_pattern =
@@ -620,6 +580,14 @@ impl FormulaTranslator {
             result.replace_range(range, &replacement);
         }
 
+        Ok(())
+    }
+
+    /// Rewrite a scalar's name, `metrics.total_savings`, as its cell: `B3`.
+    fn replace_scalar_cells(
+        result: &mut String,
+        scalar_row_map: &HashMap<String, u32>,
+    ) -> ForgeResult<()> {
         // Handle scalar-to-scalar references (e.g., metrics.total_savings → B3)
         // Pattern for standalone scalar names
         let scalar_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)\b")
@@ -648,7 +616,7 @@ impl FormulaTranslator {
             result.replace_range(range, &replacement);
         }
 
-        Ok(format!("={result}"))
+        Ok(())
     }
 
     /// Convert a column name to an Excel column letter
@@ -664,11 +632,7 @@ impl FormulaTranslator {
         let mut idx = index;
 
         loop {
-            let remainder = idx % 26;
-            // Remainder is always 0..25, fits in u8
-            #[allow(clippy::cast_possible_truncation)] // remainder is 0..25, always fits in u8
-            let ch = (b'A' + remainder as u8) as char;
-            result.insert(0, ch);
+            result.insert(0, char::from(LETTERS[idx % 26]));
             if idx < 26 {
                 break;
             }
@@ -1046,6 +1010,12 @@ mod tests {
         // Test more column letters
         assert_eq!(FormulaTranslator::column_index_to_letter(702), "AAA");
         assert_eq!(FormulaTranslator::column_index_to_letter(52), "BA");
+    }
+
+    /// The list is sorted and has no repeats, or the bisection would miss a name
+    #[test]
+    fn the_excel_function_names_are_sorted_and_distinct() {
+        assert!(EXCEL_FUNCTIONS.windows(2).all(|pair| pair[0] < pair[1]));
     }
 
     #[test]

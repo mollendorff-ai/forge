@@ -68,6 +68,7 @@ pub fn eval_xor(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 mod tests {
     use super::super::super::tests::eval;
     use super::*;
+    use crate::core::array_calculator::evaluator::tests::array_ctx;
 
     #[test]
     fn test_logical() {
@@ -128,5 +129,19 @@ mod tests {
         assert_eq!(eval("XOR(1, 1, 0)", &ctx).unwrap(), Value::Boolean(false)); // 2 true
         assert_eq!(eval("XOR(1, 1, 1)", &ctx).unwrap(), Value::Boolean(true)); // 3 true
         assert_eq!(eval("XOR(0, 0, 0)", &ctx).unwrap(), Value::Boolean(false)); // 0 true
+    }
+
+    #[test]
+    fn test_logical_functions_with_arrays() {
+        let ctx = array_ctx();
+        assert_eq!(eval("AND(p.a > 0)", &ctx).unwrap(), Value::Boolean(true));
+        assert_eq!(eval("AND(p.a > 1)", &ctx).unwrap(), Value::Boolean(false));
+        assert_eq!(eval("OR(p.a > 2)", &ctx).unwrap(), Value::Boolean(true));
+        assert_eq!(eval("OR(p.a > 3)", &ctx).unwrap(), Value::Boolean(false));
+        assert_eq!(eval("XOR(p.a > 1)", &ctx).unwrap(), Value::Boolean(false));
+        assert_eq!(
+            eval("SUM(NOT(p.a > 1) * p.b)", &ctx).unwrap(),
+            Value::Number(10.0)
+        );
     }
 }

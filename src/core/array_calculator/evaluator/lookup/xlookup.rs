@@ -2,10 +2,7 @@
 //!
 //! Functions
 
-// Lookup casts: f64 row/col indices to usize (bounded by array length).
-#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-
-use super::match_fn::{exact_match, xmatch_index};
+use super::match_fn::{approximate_match, exact_match, xmatch_index};
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
@@ -69,94 +66,95 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 /// Evaluate VLOOKUP function
 /// `VLOOKUP(lookup_value`, `table_array`, `col_index`, [`range_lookup`])
 pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    require_args_range("VLOOKUP", args, 3, 4)?;
-
-    let lookup_val = evaluate(&args[0], ctx)?;
-    let table_array = evaluate_without_row(&args[1], ctx)?;
-    let _col_index = evaluate(&args[2], ctx)?
-        .as_cell_number()
-        .ok_or_else(|| EvalError::new("VLOOKUP: col_index must be a number"))?
-        as usize;
-    let range_lookup = if args.len() > 3 {
-        evaluate(&args[3], ctx)?.is_truthy()
-    } else {
-        true
-    };
-
-    // For Forge, VLOOKUP works on arrays. Column selection is simulated.
-    // Since we don't have 2D arrays in the same way as Excel, we implement
-    // a simplified version that works with single-column lookups.
-    let Value::Array(lookup_arr) = table_array else {
-        return Err(EvalError::new("VLOOKUP: table_array must be an array"));
-    };
-
-    // Simplified: find match in first column (the array itself acts as first column)
-    // For full VLOOKUP semantics, you'd need a 2D table structure
-    let idx = if range_lookup {
-        // Approximate match - find largest value <= lookup_val
-        let mut best_idx: Option<usize> = None;
-        let mut best_val: Option<f64> = None;
-        if let Some(ln) = lookup_val.as_number() {
-            for (i, v) in lookup_arr.iter().enumerate() {
-                if let Some(vn) = v.as_number() {
-                    if vn <= ln && (best_val.is_none() || vn > best_val.unwrap()) {
-                        best_val = Some(vn);
-                        best_idx = Some(i);
-                    }
-                }
-            }
-        }
-        best_idx
-    } else {
-        // Exact match
-        lookup_arr
-            .iter()
-            .position(|v| exact_match(&lookup_val, v, true))
-    };
-
-    idx.map_or_else(
-        || Err(EvalError::new("#N/A: VLOOKUP: value not found")),
-        |i| Ok(lookup_arr.get(i).cloned().unwrap_or(Value::Null)),
-    )
+    first_line_lookup(&ONE_COLUMN, args, ctx)
 }
 
 /// Evaluate HLOOKUP function
 /// `HLOOKUP(lookup_value`, `table_array`, `row_index`, [`range_lookup`])
 pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    require_args_range("HLOOKUP", args, 3, 4)?;
+    first_line_lookup(&ONE_ROW, args, ctx)
+}
+
+/// What tells VLOOKUP and HLOOKUP apart in their messages
+struct Orientation {
+    function: &'static str,
+    /// The third argument: `col_index` or `row_index`
+    index: &'static str,
+    /// What the table has one of: `column` or `row`
+    line: &'static str,
+}
+
+const ONE_COLUMN: Orientation = Orientation {
+    function: "VLOOKUP",
+    index: "col_index",
+    line: "column",
+};
+
+const ONE_ROW: Orientation = Orientation {
+    function: "HLOOKUP",
+    index: "row_index",
+    line: "row",
+};
+
+/// VLOOKUP and HLOOKUP on a table of one column or one row: Forge has no
+/// two-dimensional values (ADR-064), so a table column, a list or an array
+/// constant is the whole table, and the only column (or row) to return from
+/// is the first. Excel's rules for the index (Microsoft's VLOOKUP page): a
+/// fraction is cut to a whole number, below 1 is #VALUE!, past the table is
+/// #REF!, both before the search. The approximate search (`range_lookup`
+/// TRUE, the default) is MATCH's with match type 1, the exact one MATCH's
+/// with match type 0, so VLOOKUP gives what INDEX and MATCH give.
+fn first_line_lookup(
+    o: &Orientation,
+    args: &[Expr],
+    ctx: &EvalContext,
+) -> Result<Value, EvalError> {
+    require_args_range(o.function, args, 3, 4)?;
 
     let lookup_val = evaluate(&args[0], ctx)?;
     let table_array = evaluate_without_row(&args[1], ctx)?;
-    let _row_index = evaluate(&args[2], ctx)?
+    let index = evaluate(&args[2], ctx)?
         .as_cell_number()
-        .ok_or_else(|| EvalError::new("HLOOKUP: row_index must be a number"))?
-        as usize;
+        .ok_or_else(|| {
+            EvalError::new(format!(
+                "#VALUE!: {}: {} must be a number",
+                o.function, o.index
+            ))
+        })?
+        .trunc();
     let range_lookup = if args.len() > 3 {
         evaluate(&args[3], ctx)?.is_truthy()
     } else {
         true
     };
 
-    // HLOOKUP is horizontal - search in first row, return from specified row
-    // Simplified implementation similar to VLOOKUP
     let Value::Array(lookup_arr) = table_array else {
-        return Err(EvalError::new("HLOOKUP: table_array must be an array"));
+        return Err(EvalError::new(format!(
+            "{}: table_array must be an array",
+            o.function
+        )));
     };
 
+    if index.is_nan() || index < 1.0 {
+        return Err(EvalError::new(format!(
+            "#VALUE!: {}: {} {index} is less than 1",
+            o.function, o.index
+        )));
+    }
+    if index > 1.0 {
+        return Err(EvalError::new(format!(
+            "#REF!: {f}: {i} {index} is past the table, which has one {l}: \
+             Forge has no two-dimensional values. To return a value from \
+             another column, use XLOOKUP(value, t.key, t.other) or \
+             INDEX(t.other, MATCH(value, t.key, 0))",
+            f = o.function,
+            i = o.index,
+            l = o.line
+        )));
+    }
+
     let idx = if range_lookup {
-        let mut best_idx: Option<usize> = None;
-        let mut best_val: Option<f64> = None;
-        if let Some(ln) = lookup_val.as_number() {
-            for (i, v) in lookup_arr.iter().enumerate() {
-                if let Some(vn) = v.as_number() {
-                    if vn <= ln && (best_val.is_none() || vn > best_val.unwrap()) {
-                        best_val = Some(vn);
-                        best_idx = Some(i);
-                    }
-                }
-            }
-        }
-        best_idx
+        approximate_match(&lookup_val, &lookup_arr, false)
     } else {
         lookup_arr
             .iter()
@@ -164,14 +162,18 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     };
 
     idx.map_or_else(
-        || Err(EvalError::new("#N/A: HLOOKUP: value not found")),
-        |i| Ok(lookup_arr.get(i).cloned().unwrap_or(Value::Null)),
+        || {
+            Err(EvalError::new(format!(
+                "#N/A: {}: value not found",
+                o.function
+            )))
+        },
+        |i| Ok(lookup_arr[i].clone()),
     )
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::evaluator::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;
@@ -297,8 +299,40 @@ mod tests {
         }
     }
 
+    /// A whole table is not a value in Forge: VLOOKUP over one is refused by
+    /// name, and a column of it is the table (one column), so its third
+    /// column is #REF! and its first is the value found
     #[test]
     fn test_vlookup_exact_match() {
+        let calculate = |formula: &str| {
+            let mut model = products_and_data();
+            model
+                .tables
+                .get_mut("data")
+                .unwrap()
+                .row_formulas
+                .insert("found".to_string(), formula.to_string());
+            ArrayCalculator::new(model).calculate_all()
+        };
+        let whole_table = calculate("=VLOOKUP(search_id, products, 3, FALSE)")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            whole_table.contains("Unknown variable: products"),
+            "{whole_table}"
+        );
+        let third = calculate("=VLOOKUP(search_id, products.id, 3, FALSE)")
+            .unwrap_err()
+            .to_string();
+        assert!(third.contains("#REF!: VLOOKUP: col_index 3"), "{third}");
+        let first = calculate("=VLOOKUP(search_id, products.id, 1, FALSE)").unwrap();
+        assert_eq!(
+            first.tables["data"].columns["found"].values,
+            ColumnValue::Number(vec![102.0])
+        );
+    }
+
+    fn products_and_data() -> ParsedModel {
         let mut model = ParsedModel::new();
 
         let mut lookup_table = Table::new("products".to_string());
@@ -325,32 +359,8 @@ mod tests {
             "search_id".to_string(),
             ColumnValue::Number(vec![102.0]),
         ));
-        data.row_formulas.insert(
-            "found_price".to_string(),
-            "=VLOOKUP(search_id, products, 3, FALSE)".to_string(),
-        );
         model.add_table(data);
-
-        let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all();
-        if let Err(err) = result {
-            let err_msg = err.to_string();
-            assert!(
-                err_msg.contains("VLOOKUP")
-                    || err_msg.contains("table")
-                    || err_msg.contains("Unknown variable")
-                    || err_msg.contains("products"),
-                "VLOOKUP should error with meaningful message, got: {err_msg}"
-            );
-        } else {
-            let model_result = result.unwrap();
-            let table = model_result.tables.get("data").unwrap();
-            if let Some(col) = table.columns.get("found_price") {
-                if let ColumnValue::Number(vals) = &col.values {
-                    assert_eq!(vals[0], 0.75);
-                }
-            }
-        }
+        model
     }
 
     #[test]
@@ -386,7 +396,7 @@ mod tests {
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("emp_salary") {
             if let ColumnValue::Number(vals) = &col.values {
-                assert_eq!(vals[0], 60000.0);
+                assert_exact!(vals[0], 60000.0);
             }
         }
     }
@@ -424,7 +434,7 @@ mod tests {
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("emp_salary") {
             if let ColumnValue::Number(vals) = &col.values {
-                assert_eq!(vals[0], -1.0);
+                assert_exact!(vals[0], -1.0);
             }
         }
     }
@@ -458,7 +468,7 @@ mod tests {
         );
         let model_result = result.unwrap();
         let val = model_result.scalars.get("result").unwrap().value.unwrap();
-        assert_eq!(val, -1.0);
+        assert_exact!(val, -1.0);
     }
 
     #[test]
@@ -598,5 +608,171 @@ mod tests {
         assert_eq!(column("hl"), vec![3.0, 1.0, 2.0]);
         assert_eq!(column("off"), vec![30.0, 10.0, 20.0]);
         assert_eq!(column("total"), vec![63.0, 61.0, 62.0]);
+    }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn xlookup_searches_from_the_end_when_asked() {
+            assert_exact!(h::sweep_number("XLOOKUP(2, t.lu, t.pr, -1, 0, -1)"), 40.0);
+            assert_exact!(h::sweep_number("XLOOKUP(2, t.lu, t.pr, -1, 0, 1)"), 20.0);
+            assert_exact!(h::sweep_number("XLOOKUP(3, t.lu, t.pr, -1, 1, -1)"), 60.0);
+        }
+    }
+
+    /// VLOOKUP and HLOOKUP read their table as one column (VLOOKUP) or one
+    /// row (HLOOKUP), since Forge has no two-dimensional values, so the only
+    /// column or row to return from is the first. Each answer here was checked
+    /// in `LibreOffice` 2026-11-17 on a range of cells; Excel's documentation
+    /// gives #VALUE! below 1 and #REF! past the table, where `LibreOffice`
+    /// gives Err:502 for both.
+    mod one_column {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn an_index_past_the_table_is_ref() {
+            let ctx = h::table(&[("v", h::numbers(&[1.0, 2.0, 3.0]))]);
+            for formula in [
+                "VLOOKUP(2, {1;2;3}, 5, FALSE)",
+                "VLOOKUP(2, t.v, 2, FALSE)",
+                "VLOOKUP(2.5, t.v, 2, TRUE)",
+                "HLOOKUP(2, {1,2,3}, 2, FALSE)",
+                "HLOOKUP(2, t.v, 3)",
+            ] {
+                h::fails_in(formula, &ctx, "#REF!");
+            }
+        }
+
+        /// The index is checked before the search: a value that is not there
+        /// is still #REF!, not #N/A
+        #[test]
+        fn the_index_is_checked_before_the_search() {
+            let ctx = crate::core::array_calculator::evaluator::EvalContext::new();
+            h::fails_in("VLOOKUP(9, {1;2;3}, 5, FALSE)", &ctx, "#REF!");
+            h::fails_in("HLOOKUP(9, {1,2,3}, 2, FALSE)", &ctx, "#REF!");
+            h::fails_in("VLOOKUP(9, {1;2;3}, 0, FALSE)", &ctx, "#VALUE!");
+        }
+
+        #[test]
+        fn an_index_below_one_is_value() {
+            let ctx = crate::core::array_calculator::evaluator::EvalContext::new();
+            for index in ["0", "-1", "0.5", "-0.5"] {
+                h::fails_in(
+                    &format!("VLOOKUP(2, {{1;2;3}}, {index}, FALSE)"),
+                    &ctx,
+                    "#VALUE!",
+                );
+                h::fails_in(
+                    &format!("HLOOKUP(2, {{1,2,3}}, {index}, FALSE)"),
+                    &ctx,
+                    "#VALUE!",
+                );
+            }
+        }
+
+        /// A fraction is cut, and TRUE and "1" are 1, as in `LibreOffice`
+        #[test]
+        fn an_index_is_cut_to_a_whole_number() {
+            for index in ["1", "1.9", "TRUE", "\"1\""] {
+                h::is_exactly(&format!("VLOOKUP(2, {{1;2;3}}, {index}, FALSE)"), 2.0);
+                h::is_exactly(&format!("HLOOKUP(2, {{1,2,3}}, {index}, FALSE)"), 2.0);
+            }
+        }
+
+        /// A column given for the index has no single value
+        #[test]
+        fn a_column_for_the_index_fails() {
+            let ctx = h::table(&[("v", h::numbers(&[1.0, 2.0, 3.0]))]);
+            h::fails_in(
+                "VLOOKUP(2, t.v, t.v, FALSE)",
+                &ctx,
+                "col_index must be a number",
+            );
+            h::fails_in(
+                "HLOOKUP(2, t.v, t.v, FALSE)",
+                &ctx,
+                "row_index must be a number",
+            );
+        }
+
+        /// A single number is no table to search
+        #[test]
+        fn a_number_for_the_table_fails() {
+            let ctx = crate::core::array_calculator::evaluator::EvalContext::new();
+            h::fails_in(
+                "VLOOKUP(2, 2, 1)",
+                &ctx,
+                "VLOOKUP: table_array must be an array",
+            );
+            h::fails_in(
+                "HLOOKUP(2, 2, 1)",
+                &ctx,
+                "HLOOKUP: table_array must be an array",
+            );
+        }
+
+        /// The approximate search is MATCH's with match type 1: the same
+        /// halving search, so on values not sorted ascending it finds what
+        /// MATCH finds. `LibreOffice` gives VLOOKUP(v, range, 1, TRUE) =
+        /// INDEX(range, MATCH(v, range, 1)) on every one of these.
+        #[test]
+        fn the_approximate_search_is_match_type_1() {
+            let ctx = h::table(&[
+                ("a", h::numbers(&[5.0, 1.0, 9.0, 2.0])),
+                ("b", h::numbers(&[4.0, 2.0, 9.0, 2.0, 7.0, 4.0])),
+                ("s", h::numbers(&[1.0, 2.0, 3.0])),
+            ]);
+            for column in ["a", "b", "s"] {
+                for v in [0.0, 1.0, 2.0, 2.5, 3.0, 4.0, 6.0, 8.0, 10.0] {
+                    let via_match = format!("INDEX(t.{column}, MATCH({v}, t.{column}, 1))");
+                    for lookup in [
+                        format!("VLOOKUP({v}, t.{column}, 1, TRUE)"),
+                        format!("VLOOKUP({v}, t.{column}, 1)"),
+                        format!("HLOOKUP({v}, t.{column}, 1, TRUE)"),
+                    ] {
+                        match h::eval(&via_match, &ctx) {
+                            Ok(want) => assert_eq!(h::eval(&lookup, &ctx), Ok(want), "{lookup}"),
+                            Err(_) => h::fails_in(&lookup, &ctx, "#N/A"),
+                        }
+                    }
+                }
+            }
+            // Where the two searches part: a search from the first finds 2,
+            // the largest value at most 3; MATCH's halving search finds 1
+            h::is_exactly_in("VLOOKUP(3, t.a, 1, TRUE)", &ctx, 1.0);
+            // On sorted values, the largest at most the lookup value
+            h::is_exactly_in("VLOOKUP(2.5, t.s, 1, TRUE)", &ctx, 2.0);
+            h::fails_in("VLOOKUP(0, t.s, 1, TRUE)", &ctx, "#N/A");
+        }
+
+        /// Text takes part in the approximate search, ignoring case, as in
+        /// `LibreOffice`: "b" finds "a", the last text before it
+        #[test]
+        fn text_is_found_approximately_and_exactly() {
+            let ctx = h::table(&[("w", h::texts(&["a", "c"]))]);
+            assert_eq!(h::text_in("VLOOKUP(\"b\", t.w, 1, TRUE)", &ctx), "a");
+            assert_eq!(h::text_in("HLOOKUP(\"b\", t.w, 1)", &ctx), "a");
+            assert_eq!(h::text_in("VLOOKUP(\"A\", t.w, 1, FALSE)", &ctx), "a");
+            h::fails_in("VLOOKUP(\"b\", t.w, 1, FALSE)", &ctx, "#N/A");
+        }
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("v", h::numbers(&[1.0, 2.0, 3.0]))]);
+        assert!(
+            h::error_in("VLOOKUP(1, t.v, \"x\")", &ctx).contains("col_index must be a number"),
+            "VLOOKUP(1, t.v, \"x\")"
+        );
+        assert!(
+            h::error_in("HLOOKUP(1, t.v, \"x\")", &ctx).contains("row_index must be a number"),
+            "HLOOKUP(1, t.v, \"x\")"
+        );
     }
 }

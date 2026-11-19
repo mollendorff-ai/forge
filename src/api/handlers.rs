@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::cli::commands::results::{AuditResult, CalculationResult, ValidationResult};
 use crate::cli::{audit_core, calculate_core, validate_core};
-use crate::cli::{export as cli_export, import as cli_import};
+use crate::cli::{export as cli_export, import as cli_import, Console};
 use crate::error::ForgeError;
 use crate::inline_model::resolve_model_input;
 
@@ -386,7 +386,9 @@ pub async fn export(
     );
     let outcome = outcome
         .map_err(ForgeError::Validation)
-        .and_then(|(yaml_path, excel_path)| cli_export(&yaml_path, &excel_path, false));
+        .and_then(|(yaml_path, excel_path)| {
+            quietly(|c| cli_export(c, &yaml_path, &excel_path, false))
+        });
     match outcome {
         Ok(()) => Json(ApiResponse::ok(ExportResponse {
             exported: true,
@@ -401,6 +403,13 @@ pub async fn export(
             message: format!("Error: {e}"),
         })),
     }
+}
+
+/// Run a command whose output has nowhere to go: a request gets its answer in
+/// the response, and the server's own output is its log.
+fn quietly<T>(command: impl FnOnce(&mut Console<'_>) -> T) -> T {
+    let (mut out, mut err, mut input) = (std::io::sink(), std::io::sink(), std::io::empty());
+    command(&mut Console::new(&mut out, &mut err, &mut input))
 }
 
 /// Import request
@@ -436,7 +445,7 @@ pub async fn import_excel(
     let outcome = outcome
         .map_err(ForgeError::Validation)
         .and_then(|(excel_path, yaml_path)| {
-            cli_import(&excel_path, &yaml_path, false, false, false)
+            quietly(|c| cli_import(c, &excel_path, &yaml_path, false, false, false))
         });
     match outcome {
         Ok(()) => Json(ApiResponse::ok(ImportResponse {

@@ -5,7 +5,5 @@
 
 mod definitions;
 pub mod registry;
-#[cfg(test)]
-mod registry_tests;
 
 pub use registry::*;

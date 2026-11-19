@@ -31,6 +31,7 @@ mod examples;
 mod excel_io;
 mod functions;
 mod names;
+pub(crate) use names::{input_name, scalar};
 mod prediction;
 mod probability_seek;
 mod report;
@@ -41,13 +42,15 @@ mod simulate;
 #[cfg(feature = "cli")]
 mod update;
 mod upgrade;
-#[cfg(test)]
-mod what_if_tests;
+// Watch mode brings the file watcher (feature `cli`)
+#[cfg(feature = "cli")]
+mod watch;
 
 // Re-exports
 pub use analysis::{break_even, goal_seek, sensitivity, sensitivity_in_format, variance};
 pub use audit::audit;
 pub use compare::{compare, comparison_json, render_comparison, terminal_width};
+#[cfg(feature = "cli")]
 pub use examples::examples;
 #[cfg(feature = "cli")]
 pub use excel_io::{export, import};
@@ -59,12 +62,13 @@ pub use simulate::simulate;
 #[cfg(feature = "cli")]
 pub use update::update;
 pub use upgrade::upgrade;
+#[cfg(feature = "cli")]
+pub use watch::watch;
 
 // Core function re-exports (return structured results, no printing)
-pub use analysis::{
-    compare_core, goal_seek_core, pct_is_meaningful, sensitivity_core, variance_core,
-};
+pub use analysis::{goal_seek_core, pct_is_meaningful, sensitivity_core, variance_core};
 pub use audit::audit_core;
+pub use compare::compare_core;
 pub use examples::examples_core;
 #[cfg(feature = "cli")]
 pub use excel_io::export_buffer_core;
@@ -93,26 +97,17 @@ pub use analysis::{
 #[cfg(test)]
 pub use upgrade::split_scalars_to_inputs_outputs;
 
+use crate::cli::console::outln;
+use crate::cli::Console;
 use crate::core::precision::to_15_digits;
 use crate::core::{ArrayCalculator, UnitValidator};
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
-use crate::types::ColumnValue;
+use crate::types::{ColumnValue, ParsedModel};
 use crate::writer;
 use colored::Colorize;
 use std::path::Path;
 use std::path::PathBuf;
-
-// Watch-related imports only for non-coverage builds (see ADR-006) with the
-// `cli` feature, which brings the file watcher
-#[cfg(all(not(coverage), feature = "cli"))]
-use notify::RecursiveMode;
-#[cfg(all(not(coverage), feature = "cli"))]
-use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
-#[cfg(all(not(coverage), feature = "cli"))]
-use std::sync::mpsc::channel;
-#[cfg(all(not(coverage), feature = "cli"))]
-use std::time::Duration;
 
 /// Format a number for display, removing unnecessary decimal places
 #[must_use]
@@ -309,12 +304,21 @@ pub fn calculate_core(
 /// `calculate` and `validate` are deterministic and cannot evaluate `MC.*` distributions; say so
 /// up front instead of failing later with an unknown-function or unknown-column error.
 fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
-    let mut names: Vec<&str> = model
+    let mut names: Vec<String> = model
         .scalars
         .iter()
         .filter(|(_, v)| v.formula.as_deref().is_some_and(|f| f.contains("MC.")))
-        .map(|(name, _)| name.as_str())
+        .map(|(name, _)| name.clone())
         .collect();
+    for (table_name, table) in &model.tables {
+        names.extend(
+            table
+                .row_formulas
+                .iter()
+                .filter(|(_, f)| f.contains("MC."))
+                .map(|(column, _)| format!("{table_name}.{column}")),
+        );
+    }
     if names.is_empty() {
         return Ok(());
     }
@@ -325,95 +329,30 @@ fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
     )))
 }
 
-/// Execute the calculate command
-///
-/// # Errors
-///
-/// Returns an error if the file cannot be parsed, calculation fails,
-/// or results cannot be written back to the file.
-#[allow(clippy::too_many_lines)]
-pub fn calculate(
-    file: &Path,
-    dry_run: bool,
-    verbose: bool,
-    scenario: Option<&str>,
-) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Calculating formulas".bold().green());
-    println!("   File: {}", file.display());
-    if let Some(s) = scenario {
-        println!("   Scenario: {}", s.bright_yellow().bold());
-    }
-    println!();
-
-    if dry_run {
-        println!(
-            "{}",
-            "📋 DRY RUN MODE - No changes will be written\n".yellow()
-        );
-    }
-
-    // Parse file
-    if verbose {
-        println!("{}", "📖 Parsing YAML file...".cyan());
-    }
-
-    let mut model = parser::parse_model(file)?;
-    reject_distributions(&model)?;
-
-    if verbose {
-        println!(
-            "   Found {} tables, {} scalars",
-            model.tables.len(),
-            model.scalars.len()
-        );
-        if !model.scenarios.is_empty() {
-            println!(
-                "   Found {} scenarios: {:?}",
-                model.scenarios.len(),
-                model.scenario_names()
-            );
-        }
-        println!();
-    }
-
-    // Apply scenario overrides if specified
-    if let Some(scenario_name) = scenario {
-        apply_scenario(&mut model, scenario_name)?;
-        if verbose {
-            println!("{}", format!("📊 Applied scenario: {scenario_name}").cyan());
-        }
-    }
-
-    // Unit consistency validation (v4.0)
-    let unit_validator = UnitValidator::new(&model);
+/// Print the unit warnings of a model, if it has any.
+fn print_unit_warnings(c: &mut Console<'_>, model: &ParsedModel) {
+    let unit_validator = UnitValidator::new(model);
     let unit_warnings = unit_validator.validate();
     if !unit_warnings.is_empty() {
-        println!("{}", "⚠️  Unit Consistency Warnings:".yellow().bold());
+        outln!(c, "{}", "⚠️  Unit Consistency Warnings:".yellow().bold());
         for warning in &unit_warnings {
-            println!("   {}", warning.to_string().yellow());
+            outln!(c, "   {}", warning.to_string().yellow());
         }
-        println!();
+        outln!(c);
     }
+}
 
-    // Calculate using ArrayCalculator
-    if verbose {
-        println!("{}", "🧮 Calculating tables and scalars...".cyan());
-    }
-
-    let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all()?;
-
-    // Display results
-    println!("{}", "✅ Calculation Results:".bold().green());
-
-    // Show table results in model order (the order of the file), which is the
+/// Print each table's columns, in the order of the file, which is the same on
+/// every run.
+fn print_table_results(c: &mut Console<'_>, result: &ParsedModel) {
     // same on every run
     for (table_name, table) in &result.tables {
-        println!("   📊 Table: {}", table_name.bright_blue().bold());
-        for col_name in table.column_names() {
-            let Some(column) = table.columns.get(col_name) else {
-                continue;
-            };
+        outln!(c, "   📊 Table: {}", table_name.bright_blue().bold());
+        let calculated = table
+            .column_names()
+            .into_iter()
+            .filter_map(|name| table.columns.get(name).map(|column| (name, column)));
+        for (col_name, column) in calculated {
             let raw = format_column_values(&column.values);
             // With a format (ADR-061): the values as it shows them, then the
             // full values underneath, which are what the file holds
@@ -421,21 +360,24 @@ pub fn calculate(
                 Some(format) => {
                     // `;` between values, since a format may put commas in them
                     let shown = formatted_column(&column.values, format).join("; ");
-                    println!("      {} = [{shown}]", col_name.cyan());
-                    println!(
+                    outln!(c, "      {} = [{shown}]", col_name.cyan());
+                    outln!(
+                        c,
                         "      {}   {}",
                         " ".repeat(col_name.chars().count()),
                         raw.dimmed()
                     );
                 },
-                None => println!("      {} = {raw}", col_name.cyan()),
+                None => outln!(c, "      {} = {raw}", col_name.cyan()),
             }
         }
     }
+}
 
-    // Show scalar results
+/// Print each scalar's value, with the formatted one beside it where it differs.
+fn print_scalar_results(c: &mut Console<'_>, result: &ParsedModel) {
     if !result.scalars.is_empty() {
-        println!("\n   📐 Scalars:");
+        outln!(c, "\n   📐 Scalars:");
         for (name, var) in &result.scalars {
             if let Some(value) = var.value {
                 let full = var
@@ -444,26 +386,34 @@ pub fn calculate(
                 // With a format (ADR-061): as it shows the value, then the
                 // full value when the two differ
                 match var.formatted().filter(|f| *f != full) {
-                    Some(shown) => println!(
+                    Some(shown) => outln!(
+                        c,
                         "      {} = {}  {}",
                         name.bright_blue(),
                         shown.bold(),
                         format!("({full})").dimmed()
                     ),
-                    None => println!("      {} = {}", name.bright_blue(), full.bold()),
+                    None => outln!(c, "      {} = {}", name.bright_blue(), full.bold()),
                 }
             }
         }
     }
-    println!();
+}
 
-    // Write results back to file (v4.3.0)
+/// Write the results into the file, or say that a dry run wrote nothing.
+fn write_back(
+    c: &mut Console<'_>,
+    file: &Path,
+    result: &ParsedModel,
+    dry_run: bool,
+) -> ForgeResult<()> {
     if dry_run {
-        println!("{}", "📋 Dry run complete - no changes written".yellow());
+        outln!(c, "{}", "📋 Dry run complete - no changes written".yellow());
     } else {
-        match writer::write_calculated_results(file, &result)? {
+        match writer::write_calculated_results(file, result)? {
             0 => {
-                println!(
+                outln!(
+                    c,
                     "{}",
                     format!(
                         "✅ {} is up to date (no stored result changed)",
@@ -473,7 +423,8 @@ pub fn calculate(
                 );
             },
             n => {
-                println!(
+                outln!(
+                    c,
                     "{}",
                     format!(
                         "💾 {n} value{} updated in {}",
@@ -483,13 +434,102 @@ pub fn calculate(
                     .bold()
                     .green()
                 );
-                println!(
+                outln!(
+                    c,
                     "{}",
                     format!("   Backup saved to {}.bak", file.display()).dimmed()
                 );
             },
         }
     }
+    Ok(())
+}
+
+/// Execute the calculate command
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, calculation fails,
+/// or results cannot be written back to the file.
+pub fn calculate(
+    c: &mut Console<'_>,
+    file: &Path,
+    dry_run: bool,
+    verbose: bool,
+    scenario: Option<&str>,
+) -> ForgeResult<()> {
+    outln!(c, "{}", "🔥 Forge - Calculating formulas".bold().green());
+    outln!(c, "   File: {}", file.display());
+    if let Some(s) = scenario {
+        outln!(c, "   Scenario: {}", s.bright_yellow().bold());
+    }
+    outln!(c);
+
+    if dry_run {
+        outln!(
+            c,
+            "{}",
+            "📋 DRY RUN MODE - No changes will be written\n".yellow()
+        );
+    }
+
+    // Parse file
+    if verbose {
+        outln!(c, "{}", "📖 Parsing YAML file...".cyan());
+    }
+
+    let mut model = parser::parse_model(file)?;
+    reject_distributions(&model)?;
+
+    if verbose {
+        outln!(
+            c,
+            "   Found {} tables, {} scalars",
+            model.tables.len(),
+            model.scalars.len()
+        );
+        if !model.scenarios.is_empty() {
+            outln!(
+                c,
+                "   Found {} scenarios: {:?}",
+                model.scenarios.len(),
+                model.scenario_names()
+            );
+        }
+        outln!(c);
+    }
+
+    // Apply scenario overrides if specified
+    if let Some(scenario_name) = scenario {
+        apply_scenario(&mut model, scenario_name)?;
+        if verbose {
+            outln!(
+                c,
+                "{}",
+                format!("📊 Applied scenario: {scenario_name}").cyan()
+            );
+        }
+    }
+
+    print_unit_warnings(c, &model);
+
+    // Calculate using ArrayCalculator
+    if verbose {
+        outln!(c, "{}", "🧮 Calculating tables and scalars...".cyan());
+    }
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all()?;
+
+    // Display results
+    outln!(c, "{}", "✅ Calculation Results:".bold().green());
+
+    print_table_results(c, &result);
+
+    print_scalar_results(c, &result);
+    outln!(c);
+
+    write_back(c, file, &result, dry_run)?;
 
     Ok(())
 }
@@ -544,16 +584,17 @@ pub fn validate_core(file: &Path) -> ForgeResult<results::ValidationResult> {
 /// # Errors
 ///
 /// Returns an error if any file fails validation or cannot be parsed.
-pub fn validate(files: &[PathBuf]) -> ForgeResult<()> {
+pub fn validate(c: &mut Console<'_>, files: &[PathBuf]) -> ForgeResult<()> {
     let file_count = files.len();
     let is_batch = file_count > 1;
 
     if is_batch {
-        println!(
+        outln!(
+            c,
             "{}",
             format!("✅ Validating {file_count} files").bold().green()
         );
-        println!();
+        outln!(c);
     }
 
     let mut all_passed = true;
@@ -561,17 +602,17 @@ pub fn validate(files: &[PathBuf]) -> ForgeResult<()> {
 
     for file in files {
         if is_batch {
-            println!("{}", format!("─── {} ───", file.display()).cyan());
+            outln!(c, "{}", format!("─── {} ───", file.display()).cyan());
         } else {
-            println!("{}", "✅ Validating model".bold().green());
-            println!("   File: {}\n", file.display());
+            outln!(c, "{}", "✅ Validating model".bold().green());
+            outln!(c, "   File: {}\n", file.display());
         }
 
-        match validate_single_file(file) {
+        match validate_single_file(c, file) {
             Ok(()) => {
                 if is_batch {
-                    println!("{}", format!("   ✅ {} - OK", file.display()).green());
-                    println!();
+                    outln!(c, "{}", format!("   ✅ {} - OK", file.display()).green());
+                    outln!(c);
                 }
             },
             Err(e) => {
@@ -581,18 +622,19 @@ pub fn validate(files: &[PathBuf]) -> ForgeResult<()> {
                 }
                 all_passed = false;
                 failed_files.push(format!("{}: {}", file.display(), e));
-                println!("{}", format!("   ❌ {} - FAILED", file.display()).red());
-                println!("      {}", e.to_string().red());
-                println!();
+                outln!(c, "{}", format!("   ❌ {} - FAILED", file.display()).red());
+                outln!(c, "      {}", e.to_string().red());
+                outln!(c);
             },
         }
     }
 
     // Summary for batch validation
     if is_batch {
-        println!("{}", "─".repeat(50));
+        outln!(c, "{}", "─".repeat(50));
         let passed = file_count - failed_files.len();
-        println!(
+        outln!(
+            c,
             "   {} passed, {} failed out of {} files",
             passed.to_string().green(),
             failed_files.len().to_string().red(),
@@ -611,7 +653,7 @@ pub fn validate(files: &[PathBuf]) -> ForgeResult<()> {
 }
 
 /// Validate a single file
-fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
+fn validate_single_file(c: &mut Console<'_>, file: &std::path::Path) -> ForgeResult<()> {
     const TOLERANCE: f64 = 0.0001; // Floating point comparison tolerance
 
     // Parse YAML file
@@ -619,11 +661,16 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
     reject_distributions(&model)?;
 
     if model.tables.is_empty() && model.scalars.is_empty() {
-        println!("{}", "⚠️  No tables or scalars found in YAML file".yellow());
+        outln!(
+            c,
+            "{}",
+            "⚠️  No tables or scalars found in YAML file".yellow()
+        );
         return Ok(());
     }
 
-    println!(
+    outln!(
+        c,
         "   Found {} tables, {} scalars",
         model.tables.len(),
         model.scalars.len()
@@ -632,7 +679,7 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
     // A table nothing reads would otherwise pass with columns of different
     // lengths; a formula that reads one finds out when it runs.
     if let Err(e) = model.check_table_lengths() {
-        println!("\n{}", format!("❌ {e}").bold().red());
+        outln!(c, "\n{}", format!("❌ {e}").bold().red());
         return Err(ForgeError::Validation(e));
     }
 
@@ -641,7 +688,8 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
     let calculated = match calculator.calculate_all() {
         Ok(vals) => vals,
         Err(e) => {
-            println!(
+            outln!(
+                c,
                 "\n{}",
                 format!("❌ Formula validation failed: {e}").bold().red()
             );
@@ -672,44 +720,56 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
         }
     }
 
-    // Report results
-    println!();
+    report_validation(c, &mismatches, unstored)
+}
+
+/// What `forge validate` found: every stored value matches its formula, or
+/// each one that does not, with what it should be.
+fn report_validation(
+    c: &mut Console<'_>,
+    mismatches: &[(String, f64, f64, f64)],
+    unstored: usize,
+) -> ForgeResult<()> {
+    outln!(c);
     if mismatches.is_empty() {
-        println!("{}", "✅ All tables are valid!".bold().green());
+        outln!(c, "{}", "✅ All tables are valid!".bold().green());
         if unstored == 0 {
-            println!(
+            outln!(
+                c,
                 "{}",
                 "✅ All scalar values match their formulas!".bold().green()
             );
         } else {
-            println!("{}", "✅ The formulas are valid.".bold().green());
-            println!(
-                "   {unstored} formula(s) have no stored value yet; run 'forge calculate' to store them"
+            outln!(c, "{}", "✅ The formulas are valid.".bold().green());
+            outln!(c, "   {unstored} formula(s) have no stored value yet; run 'forge calculate' to store them"
             );
         }
         Ok(())
     } else {
-        println!(
+        outln!(
+            c,
             "{}",
             format!("❌ Found {} value mismatches!", mismatches.len())
                 .bold()
                 .red()
         );
-        println!(
+        outln!(
+            c,
             "{}",
             "   The formulas are valid; the stored values are out of date.\n".yellow()
         );
 
-        for (name, current, expected, diff) in &mismatches {
-            println!("   {}", name.bright_blue().bold());
+        for (name, current, expected, diff) in mismatches {
+            outln!(c, "   {}", name.bright_blue().bold());
             // Format numbers with reasonable precision (remove trailing zeros)
-            println!("      Current:  {}", format_number(*current).red());
-            println!("      Expected: {}", format_number(*expected).green());
-            println!("      Diff:     {}", format!("{diff:.6}").yellow());
-            println!();
+            outln!(c, "      Current:  {}", format_number(*current).red());
+            outln!(c, "      Expected: {}", format_number(*expected).green());
+            outln!(c, "      Diff:     {}", format!("{diff:.6}").yellow());
+            outln!(c);
         }
 
-        println!(
+        outln!(
+            c,
             "{}",
             "💡 Run 'forge calculate' to update values".bold().yellow()
         );
@@ -719,261 +779,6 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
                 .to_string(),
         ))
     }
-}
-
-/// Execute the watch command
-///
-/// # Errors
-///
-/// Returns an error if the file does not exist, the directory cannot be watched,
-/// or file system event handling fails.
-///
-/// # Coverage Exclusion (ADR-006)
-/// Contains infinite loop waiting for file system events - cannot unit test.
-/// Tested via: `cli_integration_tests.rs` (manual termination after initial run)
-#[cfg(all(not(coverage), feature = "cli"))]
-pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()> {
-    println!("{}", "👁️  Forge - Watch Mode".bold().green());
-    println!("   Watching: {}", file.display());
-    println!(
-        "   Mode: {}",
-        if validate_only {
-            "validate only"
-        } else {
-            "calculate"
-        }
-    );
-    println!("   Press {} to stop\n", "Ctrl+C".bold().yellow());
-
-    // Verify file exists
-    if !file.exists() {
-        return Err(ForgeError::Validation(format!(
-            "File not found: {}",
-            file.display()
-        )));
-    }
-
-    // Get canonical path and parent directory
-    let canonical_path = file.canonicalize().map_err(ForgeError::Io)?;
-    let parent_dir = canonical_path
-        .parent()
-        .ok_or_else(|| ForgeError::Validation("Cannot determine parent directory".to_string()))?;
-
-    // Create channel for file system events
-    let (tx, rx) = channel();
-
-    // Create a debouncer to avoid rapid-fire events during file saves
-    let mut debouncer = new_debouncer(Duration::from_millis(200), tx)
-        .map_err(|e| ForgeError::Validation(format!("Failed to create file watcher: {e}")))?;
-
-    // Watch the parent directory (watches all YAML files in that directory)
-    debouncer
-        .watcher()
-        .watch(parent_dir, RecursiveMode::NonRecursive)
-        .map_err(|e| ForgeError::Validation(format!("Failed to watch directory: {e}")))?;
-
-    if verbose {
-        println!(
-            "   {} {}",
-            "Watching directory:".cyan(),
-            parent_dir.display()
-        );
-    }
-
-    // Run initial validation/calculation
-    println!("{}", "🔄 Initial run...".cyan());
-    run_watch_action(file, validate_only, verbose);
-    println!();
-
-    // Watch loop
-    loop {
-        match rx.recv() {
-            Ok(Ok(events)) => {
-                // Check if any event is for our file (or any .yaml file in directory)
-                let relevant = events.iter().any(|event| {
-                    if event.kind != DebouncedEventKind::Any {
-                        return false;
-                    }
-                    // Check if it's our main file
-                    if let Ok(event_canonical) = event.path.canonicalize() {
-                        if event_canonical == canonical_path {
-                            return true;
-                        }
-                    }
-                    // Check if filename matches our file
-                    if let Some(filename) = event.path.file_name() {
-                        if let Some(our_filename) = canonical_path.file_name() {
-                            if filename == our_filename {
-                                return true;
-                            }
-                        }
-                        // Also trigger on any .yaml file changes in the directory
-                        if let Some(ext) = event.path.extension().and_then(|e| e.to_str()) {
-                            if ext.eq_ignore_ascii_case("yaml") || ext.eq_ignore_ascii_case("yml") {
-                                return true;
-                            }
-                        }
-                    }
-                    false
-                });
-
-                if relevant {
-                    // Clear screen for fresh output (optional, can be verbose mode only)
-                    if verbose {
-                        print!("\x1B[2J\x1B[1;1H"); // ANSI clear screen
-                    }
-                    println!(
-                        "\n{} {}",
-                        "🔄 Change detected at".cyan(),
-                        chrono_lite_timestamp().cyan()
-                    );
-                    run_watch_action(file, validate_only, verbose);
-                    println!();
-                }
-            },
-            Ok(Err(error)) => {
-                eprintln!("{} Watch error: {}", "❌".red(), error);
-            },
-            Err(e) => {
-                eprintln!("{} Channel error: {}", "❌".red(), e);
-                break;
-            },
-        }
-    }
-
-    Ok(())
-}
-
-/// Stub for coverage builds - see ADR-006
-#[cfg(all(coverage, feature = "cli"))]
-pub fn watch(file: &Path, _validate_only: bool, _verbose: bool) -> ForgeResult<()> {
-    // Validate file exists (testable error path)
-    if !file.exists() {
-        return Err(ForgeError::Validation(format!(
-            "File not found: {}",
-            file.display()
-        )));
-    }
-    Ok(())
-}
-
-/// Get a simple timestamp without external dependencies
-#[cfg(all(feature = "cli", any(not(coverage), test)))]
-fn chrono_lite_timestamp() -> String {
-    use std::time::SystemTime;
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = now.as_secs();
-    let hours = (secs / 3600) % 24;
-    let minutes = (secs / 60) % 60;
-    let seconds = secs % 60;
-    format!("{hours:02}:{minutes:02}:{seconds:02} UTC")
-}
-
-/// Run the watch action (validate or calculate)
-#[cfg(all(feature = "cli", any(not(coverage), test)))]
-fn run_watch_action(file: &Path, validate_only: bool, verbose: bool) {
-    if validate_only {
-        match validate_internal(file, verbose) {
-            Ok(()) => println!("{}", "✅ Validation passed".bold().green()),
-            Err(e) => println!("{} {}", "❌ Validation failed:".bold().red(), e),
-        }
-    } else {
-        match calculate_internal(file, verbose) {
-            Ok(()) => println!("{}", "✅ Calculation complete".bold().green()),
-            Err(e) => println!("{} {}", "❌ Calculation failed:".bold().red(), e),
-        }
-    }
-}
-
-/// Internal validation function for watch mode
-#[cfg(all(feature = "cli", any(not(coverage), test)))]
-fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
-    const TOLERANCE: f64 = 0.0001;
-
-    let model = parser::parse_model(file)?;
-    reject_distributions(&model)?;
-
-    if verbose {
-        println!(
-            "   Found {} tables, {} scalars",
-            model.tables.len(),
-            model.scalars.len()
-        );
-    }
-
-    // Note: Table column length validation is deferred to calculation time
-    // Row-wise operations will validate at runtime in array_calculator
-
-    // Calculate and compare
-    let calculator = ArrayCalculator::new(model.clone());
-    let calculated = calculator.calculate_all()?;
-
-    // Check for mismatches
-    let mut mismatches = Vec::new();
-
-    for (var_name, var) in &calculated.scalars {
-        if let Some(calculated_value) = var.value {
-            if let Some(original) = model.scalars.get(var_name) {
-                if let Some(current_value) = original.value {
-                    let diff = (current_value - calculated_value).abs();
-                    if diff > TOLERANCE {
-                        mismatches.push((var_name.clone(), current_value, calculated_value));
-                    }
-                }
-            }
-        }
-    }
-
-    if !mismatches.is_empty() {
-        let msg = mismatches
-            .iter()
-            .map(|(name, current, expected)| {
-                format!("  {name} current={current} expected={expected}")
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        return Err(ForgeError::Validation(format!(
-            "{} value mismatches:\n{}",
-            mismatches.len(),
-            msg
-        )));
-    }
-
-    Ok(())
-}
-
-/// Internal calculation function for watch mode
-#[cfg(all(feature = "cli", any(not(coverage), test)))]
-fn calculate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
-    let model = parser::parse_model(file)?;
-
-    if verbose {
-        println!(
-            "   Found {} tables, {} scalars",
-            model.tables.len(),
-            model.scalars.len()
-        );
-    }
-
-    let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all()?;
-
-    // Show summary
-    for (table_name, table) in &result.tables {
-        println!(
-            "   📊 {} ({} columns)",
-            table_name.bright_blue(),
-            table.columns.len()
-        );
-    }
-
-    if !result.scalars.is_empty() && verbose {
-        println!("   📐 {} scalars calculated", result.scalars.len());
-    }
-
-    Ok(())
 }
 
 /// Apply scenario overrides to the model
@@ -1013,6 +818,7 @@ pub fn apply_scenario(
 #[cfg(test)]
 mod calculate_tests {
     use super::*;
+    use crate::cli::console::capture;
     use std::io::Write;
 
     #[test]
@@ -1023,7 +829,8 @@ mod calculate_tests {
             "_forge_version: \"5.0.0\"\nassumptions:\n  growth:\n    value: null\n    formula: \"=MC.Normal(0.15, 0.05)\"\n  doubled:\n    value: null\n    formula: \"=assumptions.growth * 2\"\n"
         )
         .unwrap();
-        let err = calculate(file.path(), true, false, None)
+        let err = capture(|c| calculate(c, file.path(), true, false, None))
+            .0
             .unwrap_err()
             .to_string();
         assert!(err.contains("assumptions.growth"), "{err}");
@@ -1040,10 +847,6 @@ mod calculate_tests {
         .unwrap();
         let err = validate_core(file.path()).unwrap_err().to_string();
         assert!(err.contains("assumptions.growth"), "{err}");
-        assert!(err.contains("forge simulate"), "{err}");
-        let err = validate_internal(file.path(), false)
-            .unwrap_err()
-            .to_string();
         assert!(err.contains("forge simulate"), "{err}");
     }
 
@@ -1121,5 +924,448 @@ mod calculate_tests {
             .scalars_valid
             .then_some(())
             .expect("stored values match the formulas");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod what_if {
+        //! Scenarios and goal seek must change the numbers, find them, or fail; never quietly do neither.
+
+        use super::{calculate_core, scenarios_core};
+        use std::path::PathBuf;
+
+        const COSTS: &str =
+            "_forge_version: \"5.0.0\"\nprices:\n  flour:\n    value: 2\n    formula: null\n";
+
+        /// A model where profit = units * (price - @costs.prices.flour).
+        fn write_model(dir: &std::path::Path, override_line: &str) -> PathBuf {
+            std::fs::write(dir.join("costs.yaml"), COSTS).unwrap();
+            let model = format!(
+                "_forge_version: \"5.0.0\"\n_includes:\n  - file: costs.yaml\n    as: costs\n\
+         inputs:\n  price:\n    value: 5\n    formula: null\n  units:\n    value: 100\n    formula: null\n\
+         out:\n  profit:\n    value: null\n    formula: \"=inputs.units * (inputs.price - @costs.prices.flour)\"\n\
+         scenarios:\n  base:\n    probability: 0.5\n    scalars: {{}}\n  shock:\n    probability: 0.5\n    scalars:\n      {override_line}\n"
+            );
+            let path = dir.join("model.yaml");
+            std::fs::write(&path, model).unwrap();
+            path
+        }
+
+        fn shock_profit(results: &crate::scenarios::ScenarioResults) -> f64 {
+            results
+                .scenarios
+                .iter()
+                .find(|s| s.name == "shock")
+                .unwrap()
+                .scalars["out.profit"]
+        }
+
+        #[test]
+        fn test_misspelled_override_is_an_error_with_a_suggestion() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = write_model(dir.path(), "prise: 6");
+            let err = scenarios_core(&path, None).unwrap_err().to_string();
+            assert!(err.contains("'prise' does not name a scalar"), "{err}");
+            assert!(err.contains("Did you mean 'inputs.price'"), "{err}");
+            // `forge calculate --scenario` takes the same path
+            let err = calculate_core(&path, true, Some("shock"))
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("'prise' does not name a scalar"), "{err}");
+        }
+
+        #[test]
+        fn test_bare_and_dotted_overrides_change_the_result() {
+            let dir = tempfile::tempdir().unwrap();
+            for line in ["price: 6", "inputs.price: 6"] {
+                let path = write_model(dir.path(), line);
+                let results = scenarios_core(&path, None).unwrap();
+                assert!((shock_profit(&results) - 400.0).abs() < 1e-9, "{line}");
+            }
+        }
+
+        #[test]
+        fn test_override_of_an_included_value() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = write_model(dir.path(), "\"@costs.prices.flour\": 3");
+            let results = scenarios_core(&path, None).unwrap();
+            assert!((shock_profit(&results) - 200.0).abs() < 1e-9);
+            let calc = calculate_core(&path, true, Some("shock")).unwrap();
+            assert!((calc.scalars["out.profit"].unwrap() - 200.0).abs() < 1e-9);
+        }
+
+        #[test]
+        fn test_override_of_an_unknown_include_or_name_is_an_error() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = write_model(dir.path(), "\"@rates.prices.flour\": 3");
+            let err = scenarios_core(&path, None).unwrap_err().to_string();
+            assert!(
+                err.contains("no `_includes` entry with `as: rates`"),
+                "{err}"
+            );
+            let path = write_model(dir.path(), "\"@costs.prices.flower\": 3");
+            let err = scenarios_core(&path, None).unwrap_err().to_string();
+            assert!(err.contains("Did you mean 'prices.flour'"), "{err}");
+        }
+
+        #[test]
+        fn test_outputs_ranges_and_filter() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = write_model(dir.path(), "price: 1");
+            let results = scenarios_core(&path, Some("shock")).unwrap();
+            assert_eq!(results.scenarios.len(), 1);
+            assert_eq!(results.scenarios[0].name, "shock");
+            // base 300, shock -100: half the probability is positive
+            assert!((results.probability_positive["out.profit"] - 0.5).abs() < 1e-9);
+            assert_eq!(results.ranges["out.profit"], (-100.0, 300.0));
+            let err = scenarios_core(&path, Some("nope")).unwrap_err().to_string();
+            assert!(err.contains("Scenario 'nope' not found"), "{err}");
+        }
+
+        /// A steep output (each unit of input moves it by 25,000) used to stop with
+        /// `converged: false` when the answer was already within a cent: the loop
+        /// compared the width of the input range with a tolerance meant for the output.
+        #[test]
+        fn test_goal_seek_converges_on_a_steep_output() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("steep.yaml");
+            std::fs::write(
+                &path,
+                "_forge_version: \"5.0.0\"\ninputs:\n  price:\n    value: 16\n    formula: null\n\
+         out:\n  profit:\n    value: null\n    formula: \"=inputs.price * 25000 - 399000\"\n",
+            )
+            .unwrap();
+            for target in [0.0, 60_000.0] {
+                let r = super::goal_seek_core(
+                    &path,
+                    "out.profit",
+                    target,
+                    "inputs.price",
+                    (Some(10.0), Some(40.0)),
+                    0.0001,
+                )
+                .unwrap();
+                assert!(r.converged, "{target}: {}", r.error);
+                assert!(r.error <= 0.0001);
+                assert!((r.solution - (target + 399_000.0) / 25_000.0).abs() < 1e-8);
+            }
+        }
+    }
+
+    mod validate_gaps {
+        //! Two gaps `forge validate` had (T1-VALIDATE-GAPS): a table whose columns
+        //! have different lengths passed `validate` when no formula read it, and a scalar name
+        //! with a typo was reported as an unknown column with no suggestion.
+
+        use crate::cli::forge;
+        use std::path::Path;
+
+        const RAGGED: &str = r#"_forge_version: "5.1.0"
+sales:
+  month: [Jan, Feb, Mar]
+  units: [10, 20]
+"#;
+
+        const TYPO: &str = r#"_forge_version: "5.1.0"
+a:
+  prce: 100
+b:
+  total:
+    formula: "=a.price * 2"
+"#;
+
+        fn write(dir: &Path, name: &str, text: &str) -> String {
+            let path = dir.join(name);
+            std::fs::write(&path, text).expect("write");
+            path.to_string_lossy().into_owned()
+        }
+
+        #[test]
+        fn validate_refuses_a_table_with_columns_of_different_lengths() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "ragged.yaml", RAGGED);
+            let out = forge(&["validate", &file]);
+            let text = out.both();
+            assert_eq!(out.code, 1, "{text}");
+            assert!(!text.contains("All tables are valid"), "{text}");
+            assert!(text.contains("sales"), "names the table: {text}");
+            assert!(
+                text.contains("units") && text.contains("2 rows") && text.contains("3 rows"),
+                "names the column and both lengths: {text}"
+            );
+        }
+
+        #[test]
+        fn export_writes_a_table_with_columns_of_different_lengths_and_warns() {
+            // Columns of different lengths are ranges in the workbook (the Gnumeric
+            // suite's fixtures rely on it), so export warns instead of refusing.
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "ragged.yaml", RAGGED);
+            let output = dir.path().join("out.xlsx");
+            let out = forge(&["export", &file, output.to_str().expect("utf-8")]);
+            let text = out.both();
+            assert!(out.success(), "{text}");
+            assert!(output.exists(), "the workbook is written");
+            assert!(text.contains("units") && text.contains("2 rows"), "{text}");
+        }
+
+        #[test]
+        fn a_misspelled_scalar_suggests_the_closest_name() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "typo.yaml", TYPO);
+            let out = forge(&["validate", &file]);
+            let text = out.both();
+            assert_eq!(out.code, 1, "{text}");
+            assert!(text.contains("a.price"), "{text}");
+            assert!(
+                text.contains("a.prce"),
+                "suggests the name that exists: {text}"
+            );
+            assert!(
+                !text.contains("Unknown column"),
+                "it is a name, not a column: {text}"
+            );
+        }
+    }
+
+    mod printed_noise {
+        //! The bagel dry run printed `year.worst_month_profit = -7935.533406400002`:
+        //! binary rounding noise in the last digits. Numbers Forge prints have at
+        //! most 15 significant digits, as in Excel (`core::precision`).
+
+        use crate::cli::forge;
+
+        #[test]
+        fn the_bagel_dry_run_prints_the_worst_month_without_noise() {
+            let ran = forge(&["calculate", "examples/bagel/bagel.yaml", "--dry-run"]);
+            assert!(ran.success(), "{}", ran.both());
+            assert!(
+                ran.out
+                    .contains("year.worst_month_profit = -7935.5334064\n"),
+                "{}",
+                ran.out
+            );
+            assert!(!ran.out.contains("7935.533406400002"), "{}", ran.out);
+        }
+    }
+}
+
+#[cfg(test)]
+mod command_output {
+    //! What `calculate` and `validate` print, in the cases the other tests do
+    //! not reach: empty cells, units, scenarios, batches, a result already stored.
+
+    use super::*;
+    use crate::cli::console::capture;
+    use std::fs;
+
+    const GOOD: &str = "_forge_version: \"5.0.0\"\ninputs:\n  a:\n    value: 2\n    formula: null\noutputs:\n  b:\n    value: 4\n    formula: \"=a * 2\"\n";
+
+    fn model(dir: &Path, name: &str, text: &str) -> PathBuf {
+        let path = dir.join(name);
+        fs::write(&path, text).unwrap();
+        path
+    }
+
+    #[test]
+    fn an_empty_cell_shows_as_blank_null_or_nothing() {
+        let column = ColumnValue::Blanks(vec![Some(1.5), None]);
+        assert_eq!(format_column_values(&column), "[1.5, null]");
+        assert_eq!(formatted_column(&column, "0.00"), ["1.50", ""]);
+        assert_eq!(
+            column_json_values(&column),
+            [serde_json::json!(1.5), serde_json::Value::Null]
+        );
+    }
+
+    #[test]
+    fn booleans_are_shown_by_a_format_as_they_are() {
+        let column = ColumnValue::Boolean(vec![true, false]);
+        assert_eq!(formatted_column(&column, "General"), ["TRUE", "FALSE"]);
+    }
+
+    #[test]
+    fn units_that_do_not_add_are_warned_about() {
+        let mut model = ParsedModel::new();
+        let mut table = crate::types::Table::new("data".to_string());
+        for (name, unit) in [("revenue", "CAD"), ("item_count", "units")] {
+            let mut column =
+                crate::types::Column::new(name.to_string(), ColumnValue::Number(vec![1.0]));
+            column.metadata.unit = Some(unit.to_string());
+            table.add_column(column);
+        }
+        table
+            .row_formulas
+            .insert("bad".to_string(), "=revenue + item_count".to_string());
+        model.add_table(table);
+        let ((), captured) = capture(|c| print_unit_warnings(c, &model));
+        assert!(
+            captured.out.contains("Unit Consistency Warnings"),
+            "{}",
+            captured.out
+        );
+
+        let ((), captured) = capture(|c| print_unit_warnings(c, &ParsedModel::new()));
+        assert_eq!(captured.out, "");
+    }
+
+    #[test]
+    fn calculating_says_what_verbose_and_a_scenario_ask_for() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = model(
+            dir.path(),
+            "m.yaml",
+            "_forge_version: \"5.1.0\"\nrate: 2\ndouble: {formula: \"=rate * 2\"}\nscenarios:\n  high:\n    probability: 1\n    scalars:\n      rate: 5\n",
+        );
+        let (result, captured) = capture(|c| calculate(c, &file, true, true, Some("high")));
+        result.unwrap();
+        for line in [
+            "Scenario: high",
+            "Parsing YAML file",
+            "Found 0 tables, 2 scalars",
+            "Found 1 scenarios",
+            "Applied scenario: high",
+            "Calculating tables and scalars",
+            "double = 10",
+        ] {
+            assert!(captured.out.contains(line), "{line} in {}", captured.out);
+        }
+        let (result, captured) = capture(|c| calculate(c, &file, true, false, Some("high")));
+        result.unwrap();
+        assert!(
+            !captured.out.contains("Applied scenario"),
+            "{}",
+            captured.out
+        );
+        let (result, _) = capture(|c| calculate(c, &file, true, false, Some("absent")));
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn calculating_twice_finds_nothing_to_update() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = model(
+            dir.path(),
+            "m.yaml",
+            &GOOD.replace("value: 4", "value: null"),
+        );
+        let (result, captured) = capture(|c| calculate(c, &file, false, false, None));
+        result.unwrap();
+        assert!(captured.out.contains("1 value updated"), "{}", captured.out);
+        let (result, captured) = capture(|c| calculate(c, &file, false, false, None));
+        result.unwrap();
+        assert!(captured.out.contains("is up to date"), "{}", captured.out);
+    }
+
+    #[test]
+    fn validating_a_batch_says_which_files_failed() {
+        let dir = tempfile::tempdir().unwrap();
+        let good = model(dir.path(), "good.yaml", GOOD);
+        let stale = model(
+            dir.path(),
+            "stale.yaml",
+            &GOOD.replace("value: 4", "value: 5"),
+        );
+        let (result, captured) = capture(|c| validate(c, &[good.clone(), stale]));
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("1 file(s) failed validation"), "{message}");
+        for line in [
+            "Validating 2 files",
+            "good.yaml - OK",
+            "stale.yaml - FAILED",
+            "1 passed",
+            "1 failed out of 2 files",
+        ] {
+            assert!(captured.out.contains(line), "{line} in {}", captured.out);
+        }
+        let (result, captured) = capture(|c| validate(c, &[good.clone(), good]));
+        result.unwrap();
+        assert!(captured.out.contains("2 passed"), "{}", captured.out);
+    }
+
+    #[test]
+    fn validating_one_file_says_what_it_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let good = model(dir.path(), "good.yaml", GOOD);
+        let (result, captured) = capture(|c| validate(c, &[good]));
+        result.unwrap();
+        assert!(
+            captured.out.contains("All scalar values match"),
+            "{}",
+            captured.out
+        );
+
+        let unstored = model(
+            dir.path(),
+            "u.yaml",
+            &GOOD.replace("value: 4", "value: null"),
+        );
+        let (result, captured) = capture(|c| validate(c, &[unstored]));
+        result.unwrap();
+        assert!(
+            captured.out.contains("1 formula(s) have no stored value"),
+            "{}",
+            captured.out
+        );
+
+        let empty = model(dir.path(), "e.yaml", "_forge_version: \"5.0.0\"\n");
+        let (result, captured) = capture(|c| validate(c, &[empty]));
+        result.unwrap();
+        assert!(
+            captured.out.contains("No tables or scalars"),
+            "{}",
+            captured.out
+        );
+
+        let stale = model(dir.path(), "s.yaml", &GOOD.replace("value: 4", "value: 5"));
+        let (result, captured) = capture(|c| validate(c, std::slice::from_ref(&stale)));
+        assert!(result.unwrap_err().to_string().contains("out of date"));
+        assert!(captured.out.contains("Expected: 4"), "{}", captured.out);
+        let found = validate_core(&stale).unwrap();
+        assert_eq!(found.mismatches.len(), 1);
+        assert!(!found.scalars_valid);
+    }
+
+    #[test]
+    fn text_columns_print_as_they_are_and_an_empty_scalar_is_left_out() {
+        let text = ColumnValue::Text(vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(format_column_values(&text), "[\"a\", \"b\"]");
+        let dir = tempfile::tempdir().unwrap();
+        let file = model(
+            dir.path(),
+            "t.yaml",
+            "_forge_version: \"5.1.0\"\nt:\n  n: [1, 2]\n  label: '=IF(n > 1, \"big\", \"small\")'\nempty: {value: null, formula: null}\n",
+        );
+        let (result, captured) = capture(|c| calculate(c, &file, true, true, None));
+        result.unwrap();
+        assert!(
+            captured.out.contains("label = [\"small\", \"big\"]"),
+            "{}",
+            captured.out
+        );
+        assert!(
+            !captured.out.contains("Found 0 scenarios"),
+            "{}",
+            captured.out
+        );
+    }
+
+    #[test]
+    fn results_that_cannot_be_written_back_are_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = model(
+            dir.path(),
+            "m.yaml",
+            &GOOD.replace("value: 4", "value: null"),
+        );
+        // A folder where the backup goes
+        fs::create_dir(dir.path().join("m.yaml.bak")).unwrap();
+        let (result, _) = capture(|c| calculate(c, &file, false, false, None));
+        assert!(result.is_err());
+        assert!(calculate_core(&file, false, None).is_err());
+        assert!(fs::read_to_string(&file).unwrap().contains("value: null"));
     }
 }

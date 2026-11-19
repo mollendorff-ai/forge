@@ -4,6 +4,8 @@
 //! Validated against R's boot package.
 
 use super::config::{BootstrapConfig, BootstrapMethod, BootstrapStatistic};
+use crate::core::precision;
+use num_traits::ToPrimitive;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use serde::{Deserialize, Serialize};
@@ -85,9 +87,10 @@ impl BootstrapResult {
 
 /// Value at probability `p` of a sorted distribution (index `floor(p * len)`, kept inside the data)
 fn quantile(sorted: &[f64], p: f64) -> f64 {
-    // cast_possible_truncation: the index is clamped to the data below
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let index = (p.clamp(0.0, 1.0) * sorted.len() as f64) as usize;
+    // A NaN probability reads the smallest value
+    let index = (p.clamp(0.0, 1.0) * precision::count(sorted.len()))
+        .to_usize()
+        .unwrap_or(0);
     sorted[index.min(sorted.len() - 1)]
 }
 
@@ -161,12 +164,13 @@ impl BootstrapEngine {
         distribution.sort_by(f64::total_cmp);
 
         // Calculate bootstrap statistics
-        let bootstrap_mean = distribution.iter().sum::<f64>() / distribution.len() as f64;
+        let bootstrap_mean =
+            distribution.iter().sum::<f64>() / precision::count(distribution.len());
         let variance: f64 = distribution
             .iter()
             .map(|x| (x - bootstrap_mean).powi(2))
             .sum::<f64>()
-            / (distribution.len() - 1) as f64;
+            / precision::count(distribution.len() - 1);
         let bootstrap_std_error = variance.sqrt();
         let bias = bootstrap_mean - original_estimate;
 
@@ -193,7 +197,7 @@ impl BootstrapEngine {
         }
 
         match self.config.statistic {
-            BootstrapStatistic::Mean => sample.iter().sum::<f64>() / sample.len() as f64,
+            BootstrapStatistic::Mean => sample.iter().sum::<f64>() / precision::count(sample.len()),
             BootstrapStatistic::Median => {
                 let mut sorted = sample.to_vec();
                 sorted.sort_by(f64::total_cmp);
@@ -205,23 +209,27 @@ impl BootstrapEngine {
                 }
             },
             BootstrapStatistic::Std => {
-                let mean = sample.iter().sum::<f64>() / sample.len() as f64;
+                let mean = sample.iter().sum::<f64>() / precision::count(sample.len());
                 let variance: f64 = sample.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
-                    / (sample.len() - 1) as f64;
+                    / precision::count(sample.len() - 1);
                 variance.sqrt()
             },
             BootstrapStatistic::Var => {
-                let mean = sample.iter().sum::<f64>() / sample.len() as f64;
-                sample.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (sample.len() - 1) as f64
+                let mean = sample.iter().sum::<f64>() / precision::count(sample.len());
+                sample.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                    / precision::count(sample.len() - 1)
             },
             BootstrapStatistic::Percentile => {
                 let mut sorted = sample.to_vec();
                 sorted.sort_by(f64::total_cmp);
-                // cast_possible_truncation: percentile index is always in [0, sorted.len()-1]
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                let idx = ((self.config.percentile_value / 100.0) * (sorted.len() as f64 - 1.0))
-                    .round() as usize;
-                sorted[idx.min(sorted.len() - 1)]
+                // Below 0 is the smallest value, above 100 the largest, and NaN the smallest
+                let last = precision::count(sorted.len()) - 1.0;
+                let idx = ((self.config.percentile_value / 100.0) * last)
+                    .clamp(0.0, last)
+                    .round()
+                    .to_usize()
+                    .unwrap_or(0);
+                sorted[idx]
             },
             BootstrapStatistic::Min => sample.iter().copied().fold(f64::INFINITY, f64::min),
             BootstrapStatistic::Max => sample.iter().copied().fold(f64::NEG_INFINITY, f64::max),
@@ -282,7 +290,7 @@ impl BootstrapEngine {
             );
         }
         let normal = Normal::new(0.0, 1.0).map_err(|e| e.to_string())?;
-        let z0 = normal.inverse_cdf(below as f64 / distribution.len() as f64);
+        let z0 = normal.inverse_cdf(precision::count(below) / precision::count(distribution.len()));
 
         let data = &self.config.data;
         let leave_one_out: Vec<f64> = (0..data.len())
@@ -296,7 +304,7 @@ impl BootstrapEngine {
                 self.compute_statistic(&rest)
             })
             .collect();
-        let mean = leave_one_out.iter().sum::<f64>() / leave_one_out.len() as f64;
+        let mean = leave_one_out.iter().sum::<f64>() / precision::count(leave_one_out.len());
         let sum_squares: f64 = leave_one_out.iter().map(|x| (mean - x).powi(2)).sum();
         let sum_cubes: f64 = leave_one_out.iter().map(|x| (mean - x).powi(3)).sum();
         let a = if sum_squares > 0.0 {
@@ -317,6 +325,17 @@ impl BootstrapEngine {
 #[cfg(test)]
 mod engine_tests {
     use super::*;
+
+    #[test]
+    fn a_quantile_stays_inside_the_data_and_nan_reads_the_smallest() {
+        let sorted = [1.0, 2.0, 3.0, 4.0];
+        assert_exact!(quantile(&sorted, 0.5), 3.0);
+        assert_exact!(quantile(&sorted, 0.0), 1.0);
+        assert_exact!(quantile(&sorted, 1.0), 4.0);
+        assert_exact!(quantile(&sorted, 2.0), 4.0);
+        assert_exact!(quantile(&sorted, -1.0), 1.0);
+        assert_exact!(quantile(&sorted, f64::NAN), 1.0);
+    }
 
     #[test]
     fn test_bootstrap_mean() {

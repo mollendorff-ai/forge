@@ -1,0 +1,112 @@
+# A last + or - that nearly cancels is 0 (ADR-066, 2026-11-18).
+#
+# Excel sets the result of a formula's last + or - to 0 when it is less than
+# 8 units in the last place of the larger operand, and so does SUM at its last
+# addition; not inside parentheses around the whole formula, nor inside
+# another operation or function. Checked in Excel (iPhone app) on 2026-11-18,
+# in three sheets of 69 formulas; each case here gives Excel's answer.
+# Gnumeric 1.12 never sets a result to 0, so the cases where Excel does are
+# judged by LibreOffice 24.2 and later, which sets one to 0 below 16 units in
+# the last place, everywhere (each says so). Before, Forge kept every result
+# as binary arithmetic gives it: =0.1+0.2-0.3 was 5.55E-17.
+#
+# A cell is a row of the table h, so a case reads its first with INDEX (two
+# rows: Gnumeric 1.12 gives #REF! for INDEX of a one-cell range); a
+# test of 5.55E-17 against 0 is an IF giving 1 or 0, since the suite compares
+# to 1E-9. c.v is 0.1, 0.2, -0.3.
+
+_forge_version: "5.4.0"
+
+h:
+  n: [1, 2]
+  a: [0.1, 0.1]
+  b: [0.2, 0.2]
+  c: [0.3, 0.3]
+  s1: "=0.1+0.2-0.3"
+  d: "=a+b-c"
+  w7: "=1+7*2^-52-1"
+  w8: "=1+8*2^-52-1"
+  p: "=(0.1+0.2-0.3)"
+  absolute: "=ABS(0.1+0.2-0.3)"
+  sum: "=SUM(0.1,0.2,-0.3)"
+  sum0: "=SUM(0.1,0.2,-0.3,0)"
+
+c:
+  v: [0.1, 0.2, -0.3]
+
+assumptions:
+  # ── The last + or - of a formula ──────────────────────────────────────────
+  # Excel for iPhone gives the cell 0, and =B5=0 TRUE (2026-11-18)
+  test_last_minus_is_zero:
+    value: null
+    formula: "=IF(INDEX(h.s1, 1) = 0, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 keeps 5.55E-17 (0); LibreOffice and Excel set it to 0"
+  # A balance check: a difference of cells in its own cell (Excel: TRUE)
+  test_last_minus_of_cells_is_zero:
+    value: null
+    formula: "=IF(INDEX(h.d, 1) = 0, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 keeps 5.55E-17 (0); LibreOffice and Excel set it to 0"
+  # 0.25 is 2 units in the last place of 1000000000000000.25 (Excel: 0)
+  test_last_minus_of_large_numbers_is_zero:
+    value: null
+    formula: "=1E15 + 0.2 - 1E15"
+    expected: 0
+    libreoffice: "Gnumeric 1.12 keeps 0.25; LibreOffice and Excel set it to 0"
+  # 0.5 is 4 units (Excel: 0)
+  test_four_units_is_zero:
+    value: null
+    formula: "=1E15 + 0.5 - 1E15"
+    expected: 0
+    libreoffice: "Gnumeric 1.12 keeps 0.5; LibreOffice and Excel set it to 0"
+  # 7 units of 1 (Excel: 0)
+  test_seven_units_is_zero:
+    value: null
+    formula: "=IF(INDEX(h.w7, 1) = 0, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 keeps 1.55E-15 (0); LibreOffice (below 16 units) and Excel (below 8) set it to 0"
+  # ── Kept ──────────────────────────────────────────────────────────────────
+  # 1 is 8 units in the last place of 1000000000000001 (Excel: 1)
+  test_eight_units_of_a_large_number_is_kept:
+    value: null
+    formula: "=1E15 + 1 - 1E15"
+    expected: 1
+  # 8 units of 1 (Excel: 1.77636E-15)
+  test_eight_units_is_kept:
+    value: null
+    formula: "=IF(INDEX(h.w8, 1) = 0, 1, 0)"
+    expected: 0
+  # Parentheses around the whole formula (Excel: 5.55112E-17)
+  test_parentheses_keep_it:
+    value: null
+    formula: "=IF(INDEX(h.p, 1) = 0, 1, 0)"
+    expected: 0
+  # Inside a function (Excel: 5.55112E-17)
+  test_inside_a_function_is_kept:
+    value: null
+    formula: "=IF(INDEX(h.absolute, 1) = 0, 1, 0)"
+    expected: 0
+  # The check in one formula: the subtraction is not its last step (Excel: FALSE)
+  test_a_check_in_one_formula_is_kept:
+    value: null
+    formula: "=IF(0.1 + 0.2 - 0.3 = 0, 1, 0)"
+    expected: 0
+  # ── SUM, at its last addition ─────────────────────────────────────────────
+  # Excel: 0
+  test_sum_is_zero:
+    value: null
+    formula: "=IF(INDEX(h.sum, 1) = 0, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 keeps 5.55E-17 (0); LibreOffice and Excel set it to 0"
+  # SUM of a range, inside another formula (Excel: 0)
+  test_sum_of_a_range_is_zero:
+    value: null
+    formula: "=IF(SUM(c.v) = 0, 1, 0)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 keeps 5.55E-17 (0); LibreOffice and Excel set it to 0"
+  # A last addition of 0 cancels nothing (Excel: 5.55112E-17)
+  test_sum_ending_in_zero_is_kept:
+    value: null
+    formula: "=IF(INDEX(h.sum0, 1) = 0, 1, 0)"
+    expected: 0
