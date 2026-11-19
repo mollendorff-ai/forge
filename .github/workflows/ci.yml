@@ -549,12 +549,15 @@ jobs:
       # 87.95%, 90.58%), when the command line ran in-process, and from PR
       # #262's (92.45%, 88.52%, 91.19%), when its tests ran under coverage, and
       # from PR #263's regions (91.20%), and from PR #266's (93.18%, 89.20%,
-      # 91.97%), when 612 lines of dead date code were deleted.
+      # 91.97%), when 612 lines of dead date code were deleted, and on 2026-11-19
+      # from a local run (95.20%, 91.93%, 95.01%) after update, upgrade, watch
+      # and the API server were tested with nothing compiled out; set a tenth
+      # lower, in case CI measures a hair differently.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "93.1"
-          FLOOR_FUNCTIONS: "89.2"
-          FLOOR_REGIONS: "91.9"
+          FLOOR_LINES: "95.1"
+          FLOOR_FUNCTIONS: "91.8"
+          FLOOR_REGIONS: "94.9"
         run: |
           fail=0
           for kind in lines functions regions; do

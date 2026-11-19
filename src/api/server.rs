@@ -3,9 +3,6 @@
 //! HTTP REST API server using Axum for integrations.
 //! Provides endpoints for validate, calculate, audit, export, import.
 
-// During coverage builds, stubbed functions don't use all imports
-#![cfg_attr(coverage, allow(unused_imports, dead_code))]
-
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
@@ -239,20 +236,29 @@ pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
 ///
 /// A configuration it refuses (a host other than this machine without a
 /// token, any origin) returns its error before anything starts; a test runs
-/// that part. Serving binds a real port and runs until the process is
-/// stopped, which no test runs yet.
+/// that part, and one serves on a free port until told to stop. It runs
+/// until the process gets Ctrl+C or SIGTERM.
 pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
+    serve_until(config, shutdown_signal()).await
+}
+
+/// Serve until `shutdown` is ready
+async fn serve_until(
+    config: ApiConfig,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+) -> anyhow::Result<()> {
     let app = build_router(&config)
         .map_err(anyhow::Error::msg)?
         .layer(TraceLayer::new_for_http());
 
     // The log starts once the configuration is accepted
-    tracing_subscriber::fmt()
+    // A second server in one process finds the log started already
+    let _ = tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "forge=info,tower_http=info".into()),
         )
-        .init();
+        .try_init();
 
     let addr: SocketAddr = config.socket_address().parse()?;
     info!("🔥 Forge API Server starting on http://{}", addr);
@@ -277,7 +283,7 @@ pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(shutdown)
         .await?;
 
     info!("Forge API Server shutdown complete");
@@ -285,10 +291,6 @@ pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
 }
 
 /// Graceful shutdown signal handler
-///
-/// # Coverage Exclusion (ADR-006)
-/// Waits for OS signals (Ctrl+C, SIGTERM) - cannot be triggered in unit tests
-#[cfg(not(coverage))]
 async fn shutdown_signal() {
     let ctrl_c = async {
         tokio::signal::ctrl_c()
@@ -314,10 +316,6 @@ async fn shutdown_signal() {
 
     info!("Shutdown signal received, stopping server...");
 }
-
-/// Stub for coverage builds - see ADR-006
-#[cfg(coverage)]
-async fn shutdown_signal() {}
 
 #[cfg(test)]
 mod tests {
@@ -785,5 +783,114 @@ mod tests {
                 1e-6
             ));
         }
+    }
+
+    // ==================== Serving and stopping ====================
+
+    /// A port nothing listens on now
+    fn free_port() -> u16 {
+        std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port()
+    }
+
+    #[tokio::test]
+    async fn the_server_answers_until_told_to_stop() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let port = free_port();
+        let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+        let dir = tempfile::tempdir().unwrap();
+        let config = ApiConfig {
+            port,
+            token: Some("secret".to_string()),
+            cors_origins: vec!["https://app.example".to_string()],
+            root: Some(dir.path().to_path_buf()),
+            ..ApiConfig::default()
+        };
+        let server = tokio::spawn(serve_until(config, async {
+            let _ = stopped.await;
+        }));
+
+        let mut reply = String::new();
+        for _ in 0..100 {
+            if let Ok(mut stream) = tokio::net::TcpStream::connect(("127.0.0.1", port)).await {
+                stream
+                    .write_all(
+                        format!(
+                            "GET /health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
+                        )
+                        .as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+                stream.read_to_string(&mut reply).await.unwrap();
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        assert!(reply.starts_with("HTTP/1.1 200"), "{reply}");
+
+        stop.send(()).unwrap();
+        server.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_server_without_a_token_or_a_root_stops_when_told_to() {
+        let config = ApiConfig {
+            port: free_port(),
+            ..ApiConfig::default()
+        };
+        serve_until(config, std::future::ready(())).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_server_reports_an_address_it_cannot_use() {
+        let bad_host = ApiConfig {
+            host: "not an address".to_string(),
+            token: Some("secret".to_string()),
+            ..ApiConfig::default()
+        };
+        let err = serve_until(bad_host, std::future::ready(()))
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("invalid socket address"), "{err}");
+
+        let taken = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let busy = ApiConfig {
+            port: taken.local_addr().unwrap().port(),
+            ..ApiConfig::default()
+        };
+        let err = serve_until(busy, std::future::ready(())).await.unwrap_err();
+        assert!(err.to_string().contains("in use"), "{err}");
+    }
+
+    /// Send this process `signal` once `shutdown_signal` is waiting for it
+    async fn signal_the_shutdown(signal: &str) {
+        let mut waiting = Box::pin(shutdown_signal());
+        // Polling it installs the handlers; it is not ready, so it times out
+        let polled =
+            tokio::time::timeout(std::time::Duration::from_millis(200), &mut waiting).await;
+        assert!(polled.is_err(), "it stopped with no signal");
+        let sent = std::process::Command::new("kill")
+            .arg(signal)
+            .arg(std::process::id().to_string())
+            .status()
+            .unwrap();
+        assert!(sent.success());
+        tokio::time::timeout(std::time::Duration::from_secs(10), waiting)
+            .await
+            .expect("the signal ends the wait");
+    }
+
+    // One test: a signal goes to the whole process, so two waiting at once
+    // would both be ended by the first
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn ctrl_c_and_sigterm_stop_the_server() {
+        signal_the_shutdown("-INT").await;
+        signal_the_shutdown("-TERM").await;
     }
 }
