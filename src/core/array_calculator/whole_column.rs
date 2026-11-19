@@ -309,10 +309,10 @@ quarters:
             assert!(took.as_secs_f64() < 1.0, "{took:?}");
         }
 
-        /// ADR-058's target. Timed in a release build only (`cargo test --release`,
-        /// as the weekly workflow runs); a debug build is several times slower.
+        /// ADR-058's target. The time is held to it in a release build only
+        /// (`cargo test --release`, as the weekly workflow runs); a debug build
+        /// is several times slower, so it checks the result alone.
         #[test]
-        #[cfg_attr(debug_assertions, ignore = "timed in a release build")]
         fn five_thousand_rows_aggregating_five_thousand_rows_take_under_a_second() {
             let model = sumifs_model(5_000);
             let start = std::time::Instant::now();
@@ -320,7 +320,10 @@ quarters:
             let took = start.elapsed();
             // Key 0 is in rows 0, 50, ..., 4,950: 50 * (0 + 99) * 100 / 2 = 247,500
             assert_exact!(column(&result, "b", "total")[0], 247_500.0);
-            assert!(took.as_secs_f64() < 1.0, "{took:?}");
+            assert!(
+                cfg!(debug_assertions) || took.as_secs_f64() < 1.0,
+                "{took:?}"
+            );
         }
     }
 }

@@ -355,12 +355,11 @@ tier1:
   # guess that a year's delay "costs IRR, not much NPV" was wrong: at 12% it
   # costs 3.0 million of value as well as 1.8 points.
 
-  - id: T1-DATE-OF-MAX
-    title: "MAX of a date column is a number, and a date format on it is refused"
-    run_with: "Sonnet 5.5, medium effort: a contained decision under ADR-060, and a change test-first"
-    why: "Found building examples/fund (2026-11-18): fund.last_exit = MAX(deals.exit_date) is 47369, and format: \"d mmm yyyy\" on it is refused (\"is a date format, and the value is a number\"). In Excel MAX of dates is a day number too, and a date format shows it as a date, so a spreadsheet user writes exactly this. ADR-060 decision 3 lists the functions whose result is a date (EDATE, EOMONTH, DATE, IF, INDEX, XLOOKUP and the like); MAX, MIN, MAXIFS, MINIFS and LARGE of dates are not among them"
-    how: "An ADR-060 addendum: either MAX, MIN, MAXIFS, MINIFS, LARGE and SMALL of dates give a date (as XLOOKUP of a date does), or a date format on a number shows the day number as a date, as Excel does. Then the change, test-first, and examples/fund's last_exit gets its format"
-    acceptance: "fund.last_exit shows 8 Sep 2029 in forge calculate, the workbook and Studio; the addendum says which rule and why; a test fails on the commit before"
+  # T1-DATE-OF-MAX is done (2026-11-19): MAX, MIN, LARGE, SMALL, MAXIFS and MINIFS of
+  # dates give a date (ADR-060 addendum), so examples/fund's last_exit has its
+  # format and shows 8 Sep 2029 in calculate and the workbook. SUM, AVERAGE and
+  # MEDIAN of dates stay numbers. Not measured in Excel here: Excel shows a date
+  # format on any number, so the rule is Forge's, not Excel's.
 
   # T1-EXCEL-XNPV-ORDER is done (2026-11-19): Excel for iOS gives an error for XNPV
   # with a date before the first, and the rate for XIRR (0.23587 for -100, -50, 200

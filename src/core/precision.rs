@@ -733,4 +733,105 @@ mod tests {
             assert!(digits <= SIGNIFICANT_DIGITS, "{x} -> {shown}");
         }
     }
+
+    mod rounded_serialization {
+        //! `Rounded` passes every kind of value through, rounding each `f64`
+        //! at any depth and changing nothing else.
+
+        use super::super::Rounded;
+        use serde::{Serialize, Serializer};
+
+        #[derive(Serialize)]
+        struct Marker;
+
+        #[derive(Serialize)]
+        struct Wrapped(f64);
+
+        #[derive(Serialize)]
+        struct Pair(f64, i8);
+
+        #[derive(Serialize)]
+        enum Shape {
+            Newtype(f64),
+            Tuple(f64, u8),
+            Record {
+                a: f64,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                b: Option<f64>,
+            },
+        }
+
+        struct Raw;
+
+        impl Serialize for Raw {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.serialize_bytes(&[1, 2])
+            }
+        }
+
+        struct Readable;
+
+        impl Serialize for Readable {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let readable = serializer.is_human_readable();
+                serializer.serialize_bool(readable)
+            }
+        }
+
+        #[derive(Serialize)]
+        struct Every {
+            small: (i8, i16, i128, u8, u16, u128),
+            single: f32,
+            letter: char,
+            marker: Marker,
+            wrapped: Wrapped,
+            pair: Pair,
+            raw: Raw,
+            readable: Readable,
+            newtype: Shape,
+            tuple: Shape,
+            record: Shape,
+            skipped: Shape,
+            map: std::collections::BTreeMap<String, f64>,
+            some: Option<f64>,
+            none: Option<f64>,
+            noisy: f64,
+        }
+
+        #[test]
+        fn every_kind_of_value_comes_through_and_only_floats_change() {
+            let value = Every {
+                small: (-1, -2, -3, 4, 5, 6),
+                single: 0.5,
+                letter: 'x',
+                marker: Marker,
+                wrapped: Wrapped(0.1 + 0.2),
+                pair: Pair(0.1 + 0.2, 7),
+                raw: Raw,
+                readable: Readable,
+                newtype: Shape::Newtype(0.1 + 0.2),
+                tuple: Shape::Tuple(0.1 + 0.2, 8),
+                record: Shape::Record {
+                    a: 0.1 + 0.2,
+                    b: Some(0.5),
+                },
+                skipped: Shape::Record { a: 1.0, b: None },
+                map: std::iter::once(("k".to_string(), 0.1 + 0.2)).collect(),
+                some: Some(0.1 + 0.2),
+                none: None,
+                noisy: 0.300_000_000_000_000_04,
+            };
+            let text = serde_json::to_string(&Rounded(&value)).unwrap();
+            assert_eq!(
+                text,
+                concat!(
+                    r#"{"small":[-1,-2,-3,4,5,6],"single":0.5,"letter":"x","marker":null,"#,
+                    r#""wrapped":0.3,"pair":[0.3,7],"raw":[1,2],"readable":true,"#,
+                    r#""newtype":{"Newtype":0.3},"tuple":{"Tuple":[0.3,8]},"#,
+                    r#""record":{"Record":{"a":0.3,"b":0.5}},"skipped":{"Record":{"a":1.0}},"#,
+                    r#""map":{"k":0.3},"some":0.3,"none":null,"noisy":0.3}"#
+                )
+            );
+        }
+    }
 }
