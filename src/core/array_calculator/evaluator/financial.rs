@@ -1,6 +1,8 @@
 //! Financial functions: PMT, FV, PV, NPV, IRR, NPER, RATE, SLN, DB, DDB, MIRR, XIRR, XNPV,
 //! PPMT, IPMT, EFFECT, NOMINAL, PRICEDISC, YIELDDISC, ACCRINT
 
+mod dated;
+
 use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::day_count::{self, Basis};
@@ -12,7 +14,7 @@ use num_traits::ToPrimitive;
 ///
 /// Without a negative and a positive flow there is no rate where NPV is zero,
 /// which Excel reports as `#NUM!`.
-fn require_sign_change(name: &str, values: &[f64]) -> Result<(), EvalError> {
+pub(super) fn require_sign_change(name: &str, values: &[f64]) -> Result<(), EvalError> {
     let has_positive = values.iter().any(|v| *v > 0.0);
     let has_negative = values.iter().any(|v| *v < 0.0);
     if has_positive && has_negative {
@@ -36,7 +38,7 @@ const RATE_GRID: [f64; 22] = [
 /// looks for a sign change on a fixed grid of rates and bisects the bracket
 /// closest to `guess`. `scale` (the size of the cash flows) sets the
 /// tolerance. Returns an error rather than an unconverged rate.
-fn solve_rate(
+pub(super) fn solve_rate(
     name: &str,
     guess: f64,
     scale: f64,
@@ -205,39 +207,6 @@ fn basis_arg(
     Basis::from_number(optional_number(args, index, ctx, 0.0)?, name)
 }
 
-/// The cash flows and dates of XNPV and XIRR. A pair whose cash flow is an
-/// empty cell is left out with its date, as `LibreOffice` does for both and
-/// Gnumeric for XIRR (ADR-059).
-fn dated_cash_flows(
-    name: &str,
-    values: &Expr,
-    dates: &Expr,
-    ctx: &EvalContext,
-) -> Result<(Vec<f64>, Vec<f64>), EvalError> {
-    let dates = match evaluate(dates, ctx)? {
-        Value::Array(arr) => std::sync::Arc::unwrap_or_clone(arr),
-        Value::Number(n) => vec![Value::Number(n)],
-        _ => return Err(EvalError::new(format!("{name} requires dates"))),
-    };
-    let values = match evaluate(values, ctx)? {
-        Value::Array(arr) => std::sync::Arc::unwrap_or_clone(arr),
-        single => vec![single],
-    };
-    if values.len() == dates.len() {
-        let (kept_values, kept_dates) = values
-            .iter()
-            .zip(&dates)
-            .filter(|(v, _)| !matches!(v, Value::Null))
-            .filter_map(|(v, d)| Some((v.as_number()?, d.as_number()?)))
-            .unzip();
-        return Ok((kept_values, kept_dates));
-    }
-    Ok((
-        values.iter().filter_map(Value::as_number).collect(),
-        dates.iter().filter_map(Value::as_number).collect(),
-    ))
-}
-
 /// Try to evaluate a financial function. Returns None if function not recognized.
 pub fn try_evaluate(
     name: &str,
@@ -250,8 +219,8 @@ pub fn try_evaluate(
         "PV" => eval_pv(name, args, ctx)?,
         "NPV" => eval_npv(name, args, ctx)?,
         "IRR" => eval_irr(args, ctx)?,
-        "XIRR" => eval_xirr(name, args, ctx)?,
-        "XNPV" => eval_xnpv(name, args, ctx)?,
+        "XIRR" => dated::eval_xirr(name, args, ctx)?,
+        "XNPV" => dated::eval_xnpv(name, args, ctx)?,
         "NPER" => eval_nper(name, args, ctx)?,
         "RATE" => eval_rate(name, args, ctx)?,
         "SLN" => eval_sln(name, args, ctx)?,
@@ -367,57 +336,6 @@ fn eval_irr(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
             .sum()
     })?;
     Ok(Value::Number(rate))
-}
-
-/// Evaluate `XIRR`.
-fn eval_xirr(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    require_args_range(name, args, 2, 3)?;
-    let (values, dates) = dated_cash_flows("XIRR", &args[0], &args[1], ctx)?;
-    if values.len() != dates.len() || values.is_empty() {
-        return Err(EvalError::new(
-            "XIRR: values and dates must have same length",
-        ));
-    }
-    require_sign_change("XIRR", &values)?;
-    let guess = if args.len() > 2 {
-        evaluate(&args[2], ctx)?
-            .as_cell_number()
-            .ok_or_else(|| EvalError::new("XIRR guess must be a number"))?
-    } else {
-        0.1
-    };
-    let base_date = dates[0];
-    let year_fracs: Vec<f64> = dates.iter().map(|d| (d - base_date) / 365.0).collect();
-    let scale: f64 = values.iter().map(|v| v.abs()).sum();
-    let rate = solve_rate("XIRR", guess, scale, |rate| {
-        values
-            .iter()
-            .zip(&year_fracs)
-            .map(|(cf, t)| cf / (1.0 + rate).powf(*t))
-            .sum()
-    })?;
-    Ok(Value::Number(rate))
-}
-
-/// Evaluate `XNPV`.
-fn eval_xnpv(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    require_args(name, args, 3)?;
-    let rate = evaluate(&args[0], ctx)?
-        .as_cell_number()
-        .ok_or_else(|| EvalError::new("XNPV requires rate"))?;
-    let (values, dates) = dated_cash_flows("XNPV", &args[1], &args[2], ctx)?;
-    if values.len() != dates.len() || values.is_empty() {
-        return Err(EvalError::new(
-            "XNPV: values and dates must have same length",
-        ));
-    }
-    let base_date = dates[0];
-    let mut npv = 0.0;
-    for (i, cf) in values.iter().enumerate() {
-        let t = (dates[i] - base_date) / 365.0;
-        npv += cf / (1.0 + rate).powf(t);
-    }
-    Ok(Value::Number(npv))
 }
 
 /// Evaluate `NPER`.
@@ -949,17 +867,6 @@ mod tests {
         let with = eval_number("IRR(t.cf, 0.2)", &ctx);
         assert!((without - with).abs() < 1e-9, "{without} vs {with}");
         assert!((without - 0.170_936_863_395).abs() < 1e-9, "{without}");
-    }
-
-    #[test]
-    fn test_xirr_without_sign_change_is_error() {
-        let ctx = EvalContext::new();
-        let err = eval("XIRR(100, 45000)", &ctx).unwrap_err();
-        assert!(
-            err.message.contains("positive and one negative"),
-            "{}",
-            err.message
-        );
     }
 
     #[test]
