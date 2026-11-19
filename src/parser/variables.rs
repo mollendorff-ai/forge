@@ -223,6 +223,11 @@ pub fn looks_like_date(text: &str) -> bool {
 /// Returns an error naming `path` for a month, a date that does not exist and
 /// a date before 1900-03-01, saying which form is wanted.
 pub fn scalar_date(text: &str, path: &str) -> ForgeResult<Option<f64>> {
+    date_or_message(text, path).map_err(ForgeError::Parse)
+}
+
+/// `scalar_date` with the reason as plain text.
+pub(super) fn date_or_message(text: &str, path: &str) -> Result<Option<f64>, String> {
     if !looks_like_date(text) {
         return Ok(None);
     }
@@ -246,7 +251,7 @@ pub fn scalar_date(text: &str, path: &str) -> ForgeResult<Option<f64>> {
              Excel's day numbers count right"
         )
     };
-    Err(ForgeError::Parse(message))
+    Err(message)
 }
 
 /// A YAML value in a few words, for an error message.

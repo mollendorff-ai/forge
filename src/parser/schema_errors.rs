@@ -367,9 +367,8 @@ fn collect(error: &ValidationError<'_>, schema: &Value, out: &mut Vec<Problem>) 
             );
         },
         ValidationErrorKind::Required { property } => {
-            let name = property
-                .as_str()
-                .map_or_else(|| property.to_string(), str::to_string);
+            // A schema lists the names it requires as text
+            let name = property.as_str().unwrap_or_default();
             push(out, format!("'{path}' needs '{name}'"), false);
         },
         ValidationErrorKind::AnyOf { context } | ValidationErrorKind::OneOfNotValid { context } => {
@@ -479,17 +478,17 @@ fn any_of(
             .max()
             .unwrap_or(0)
     };
+    // (Some alternative has an error: none of them fitted)
     if let Some(best) = context
         .iter()
         .filter(|b| !b.is_empty())
         .max_by(|a, b| depth(a).cmp(&depth(b)).then(b.len().cmp(&a.len())))
+        .filter(|best| depth(best) > pointer.matches('/').count())
     {
-        if depth(best) > pointer.matches('/').count() {
-            for e in best {
-                collect(e, schema, out);
-            }
-            return;
+        for e in best {
+            collect(e, schema, out);
         }
+        return;
     }
     out.push(Problem {
         path: path.to_string(),
@@ -503,8 +502,179 @@ fn any_of(
 
 #[cfg(test)]
 mod tests {
+    use super::{describe_errors, key_path, or_list, unknown_keys, what};
     use crate::parser::schema::validate_against_schema;
+    use serde_json::{json, Value};
     use std::fmt::Write as _;
+
+    /// What the errors of `model` against a schema of our own are called.
+    fn described(schema: &Value, model: &Value) -> String {
+        let validator = jsonschema::validator_for(schema).unwrap();
+        describe_errors(validator.iter_errors(model), model, schema)
+    }
+
+    #[test]
+    fn a_limit_or_a_count_is_named_with_what_was_found() {
+        let schema = json!({"properties": {
+            "low": {"exclusiveMinimum": 5},
+            "high": {"maximum": 9},
+            "above": {"exclusiveMaximum": 9},
+            "list": {"minItems": 2},
+        }});
+        let model = json!({"low": 3, "high": 12, "above": 9, "list": [1]});
+        let text = described(&schema, &model);
+        for expected in [
+            "  - 'low' must be at least 5, not the number 3",
+            "  - 'high' must be at most 9, not the number 12",
+            "  - 'above' must be at most 9, not the number 9",
+            "  - 'list' needs at least 2 entries",
+        ] {
+            assert!(text.lines().any(|l| l == expected), "{expected}\n{text}");
+        }
+        assert_eq!(text.lines().count(), 4, "{text}");
+    }
+
+    #[test]
+    fn a_missing_key_a_forbidden_value_and_any_other_rule_are_named() {
+        let schema = json!({"required": ["a"], "properties": {
+            "x": {"not": {"type": "string"}},
+            "y": {"minLength": 3},
+        }});
+        let text = described(&schema, &json!({"x": "a", "y": "b"}));
+        let lines: Vec<&str> = text.lines().collect();
+        assert!(lines.contains(&"  - 'the model' needs 'a'"), "{text}");
+        assert!(
+            lines.contains(&"  - 'x' cannot be the text \"a\" here"),
+            "{text}"
+        );
+        assert!(lines.iter().any(|l| l.starts_with("  - 'y': ")), "{text}");
+        assert_eq!(lines.len(), 3, "{text}");
+    }
+
+    #[test]
+    fn every_type_is_called_by_its_plain_name() {
+        let schema = json!({"properties": {
+            "list": {"type": "array"},
+            "flag": {"type": "boolean"},
+            "whole": {"type": "integer"},
+            "none": {"type": "null"},
+            "num": {"type": "number"},
+            "map": {"type": "object"},
+            "text": {"type": "string"},
+        }});
+        let model = json!({"list": 1, "flag": 1, "whole": 1.5, "none": 1, "num": "a", "map": [], "text": {}});
+        let text = described(&schema, &model);
+        for expected in [
+            "  - 'list' must be a list, not the number 1",
+            "  - 'flag' must be true or false, not the number 1",
+            "  - 'whole' must be a whole number, not the number 1.5",
+            "  - 'none' must be empty, not the number 1",
+            "  - 'num' must be a number, not the text \"a\"",
+            "  - 'map' must be a mapping, not a list",
+            "  - 'text' must be text, not a mapping",
+        ] {
+            assert!(text.lines().any(|l| l == expected), "{expected}\n{text}");
+        }
+        assert_eq!(text.lines().count(), 7, "{text}");
+    }
+
+    #[test]
+    fn a_value_is_described_in_a_few_words() {
+        assert_eq!(what(&Value::Null), "empty");
+        assert_eq!(what(&json!(true)), "true");
+        assert_eq!(what(&json!(false)), "false");
+        assert_eq!(what(&json!(2.5)), "the number 2.5");
+        assert_eq!(what(&json!("abc")), "the text \"abc\"");
+        let long = "x".repeat(41);
+        assert_eq!(
+            what(&json!(long)),
+            format!("the text \"{}...\"", "x".repeat(40))
+        );
+        assert_eq!(
+            what(&json!("y".repeat(40))),
+            format!("the text \"{}\"", "y".repeat(40))
+        );
+        assert_eq!(what(&json!([1])), "a list");
+        assert_eq!(what(&json!({"a": 1})), "a mapping");
+    }
+
+    #[test]
+    fn a_pointer_is_a_key_path() {
+        assert_eq!(key_path(""), "the model");
+        assert_eq!(key_path("/loan/payment"), "loan.payment");
+        assert_eq!(key_path("/months/revenue/2"), "months.revenue[2]");
+        assert_eq!(key_path("/a~1b/c~0d"), "a/b.c~d");
+    }
+
+    #[test]
+    fn a_list_of_words_is_joined_with_or() {
+        assert_eq!(or_list(&[]), "");
+        assert_eq!(or_list(&["a"]), "a");
+        assert_eq!(or_list(&["a", "b"]), "a or b");
+        assert_eq!(or_list(&["a", "b", "c"]), "a, b or c");
+    }
+
+    #[test]
+    fn an_unknown_key_at_the_top_has_no_path_in_front_of_it() {
+        let schema = json!({"properties": {"price": {}}, "additionalProperties": false});
+        let text = described(&schema, &json!({"pirce": 1}));
+        assert_eq!(
+            text,
+            "  - 'pirce': there is no key 'pirce' here. Did you mean 'price'? The keys here are price."
+        );
+        let none = unknown_keys(
+            &["x".to_string()],
+            "the model",
+            &json!({}),
+            "/additionalProperties",
+            &json!({}),
+        );
+        assert_eq!(none, ["'x': there is no key 'x' here."]);
+    }
+
+    #[test]
+    fn the_same_problem_is_listed_once() {
+        let schema = json!({"properties": {"n": {"minimum": 5}}});
+        let model = json!({"n": 3});
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        let twice = validator
+            .iter_errors(&model)
+            .chain(validator.iter_errors(&model));
+        assert_eq!(
+            describe_errors(twice, &model, &schema),
+            "  - 'n' must be at least 5, not the number 3"
+        );
+    }
+
+    #[test]
+    fn a_column_of_mixed_values_names_each_kind_once() {
+        let got = lines(
+            "_forge_version: \"5.3.0\"\nt:\n  x: [1, \"=x\", true, [2], {a: 1}, null, \"y\", 3]\n",
+        );
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(
+            got[0].starts_with(
+                "'t.x' mixes numbers, formulas, true/false, lists, mappings, empty entries and text: "
+            ),
+            "{got:?}"
+        );
+    }
+
+    #[test]
+    fn a_sound_scenario_is_not_searched_for_misspellings() {
+        let got = lines(
+            "_forge_version: \"5.1.0\"\na:\n  b: 1\nscenarios:\n  good:\n    probability: 0.5\n    scalars:\n      a.b: 2\nprice: \"x\"\n",
+        );
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(got[0].starts_with("'price' must be"), "{got:?}");
+    }
+
+    #[test]
+    fn a_scenario_that_is_not_a_mapping_is_left_to_the_schemas_words() {
+        let got = lines("_forge_version: \"5.1.0\"\nscenarios:\n  bad: 5\n");
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(got[0].starts_with("'scenarios.bad'"), "{got:?}");
+    }
 
     /// The message for a model, or "" if it fits its schema.
     fn message(model: &str) -> String {
@@ -638,10 +808,20 @@ monte_carlo:
 
     #[test]
     fn every_example_still_fits() {
-        for entry in walk(std::path::Path::new("examples")) {
-            let text = std::fs::read_to_string(&entry).unwrap();
-            assert_eq!(message(&text), "", "{}", entry.display());
-        }
+        let failing: Vec<std::path::PathBuf> = walk(std::path::Path::new("examples"))
+            .into_iter()
+            .filter(|entry| !message(&std::fs::read_to_string(entry).unwrap()).is_empty())
+            .collect();
+        assert_eq!(failing, Vec::<std::path::PathBuf>::new());
+    }
+
+    #[test]
+    fn a_model_or_scenarios_that_are_not_mappings_are_named_as_they_are() {
+        let text = described(&json!({"type": "object"}), &json!([1]));
+        assert_eq!(text, "  - 'the model' must be a mapping, not a list");
+        let got = lines("_forge_version: \"5.1.0\"\nscenarios: 5\n");
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(got[0].starts_with("'scenarios' must be"), "{got:?}");
     }
 
     fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
