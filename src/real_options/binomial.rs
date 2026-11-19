@@ -388,4 +388,55 @@ mod binomial_tests {
             "American put should match QuantLib: {amer_put}"
         );
     }
+
+    /// The (time, spot) pairs where early exercise first beats holding, latest
+    /// time first. Expected values are the same Cox-Ross-Rubinstein recursion
+    /// worked in Python (u = e^(sigma sqrt(dt)), d = 1/u, p = (e^((r-q) dt) - d)
+    /// / (u - d)), outside Forge.
+    #[test]
+    fn early_exercise_boundary_of_an_american_put() {
+        // S=100, K=100, r=5%, sigma=20%, T=1, 2 steps: only the middle node
+        // of step 1 (spot 100 * d = 86.81) is worth exercising early
+        let put =
+            BinomialTree::new(100.0, 100.0, 0.05, 0.20, 1.0, 2).early_exercise_boundary(false);
+        assert_eq!(put.len(), 1, "{put:?}");
+        assert!((put[0].0 - 0.5).abs() < 1e-12, "{put:?}");
+        assert!((put[0].1 - 86.812_344_539_458_48).abs() < 1e-9, "{put:?}");
+
+        // Deep in the money (S=60): exercise at once as well, at the spot itself
+        let deep =
+            BinomialTree::new(60.0, 100.0, 0.05, 0.20, 1.0, 2).early_exercise_boundary(false);
+        assert_eq!(deep.len(), 2, "{deep:?}");
+        assert!(
+            (deep[0].0 - 0.5).abs() < 1e-12 && (deep[0].1 - 52.087_406_723_675_095).abs() < 1e-9
+        );
+        assert!(
+            deep[1].0.abs() < 1e-12 && (deep[1].1 - 60.0).abs() < 1e-9,
+            "{deep:?}"
+        );
+    }
+
+    #[test]
+    fn early_exercise_boundary_of_a_call_needs_a_dividend() {
+        // Without a dividend an American call is never exercised early
+        let plain =
+            BinomialTree::new(100.0, 100.0, 0.05, 0.20, 1.0, 2).early_exercise_boundary(true);
+        assert!(plain.is_empty(), "{plain:?}");
+
+        // With a 12% yield, deep in the money: exercised at every step, the
+        // spot where it first pays rising towards today's 150
+        let paying = BinomialTree::new(150.0, 100.0, 0.02, 0.20, 1.0, 3)
+            .with_dividend_yield(0.12)
+            .early_exercise_boundary(true);
+        let expected = [
+            (2.0 / 3.0, 119.068_050_954_040_33),
+            (1.0 / 3.0, 133.642_087_843_261_6),
+            (0.0, 150.0),
+        ];
+        assert_eq!(paying.len(), expected.len(), "{paying:?}");
+        for ((time, spot), (want_time, want_spot)) in paying.iter().zip(expected) {
+            assert!((time - want_time).abs() < 1e-12, "{paying:?}");
+            assert!((spot - want_spot).abs() < 1e-9, "{paying:?}");
+        }
+    }
 }

@@ -209,7 +209,7 @@
 | `MC.Uniform` | Uniform distribution | `=MC.Uniform(min, max)` |
 | `MC.PERT` | PERT distribution | `=MC.PERT(min, mode, max)` |
 | `MC.Lognormal` | Lognormal distribution | `=MC.Lognormal(mean, std_dev)` |
-| `MC.Discrete` | Discrete distribution | `=MC.Discrete(values, probabilities)` |
+| `MC.Discrete` | Discrete distribution | `=MC.Discrete({values}, {probabilities})` |
 
 ## Statistical (30 functions)
 

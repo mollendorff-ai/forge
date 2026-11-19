@@ -322,4 +322,27 @@ mod tests {
             assert!(text.contains("Time horizon: 3 years\n"), "{text}");
         }
     }
+
+    mod acquisition_example {
+        //! `examples/acquisition/halo_option.yaml`: Quillon's Halo platform, which a
+        //! DCF values at -40. Cox-Ross-Rubinstein, 200 steps, American, written
+        //! from the textbook: S=220, sigma=0.45, r=0.04, q=0.05, T=2. Defer (call,
+        //! K=260) = 37.62128284340222; abandon (put, K=90) = 3.0696346363395386.
+
+        use crate::cli::real_options_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_right_to_wait_turns_halo_from_minus_40_to_plus_37() {
+            let r = real_options_core(Path::new("examples/acquisition/halo_option.yaml")).unwrap();
+            let defer = r.options["Launch Halo within two years, or never"].value;
+            let abandon = r.options["Sell Halo's patents if it flops"].value;
+            assert!((defer - 37.621_282_843_402_22).abs() <= 1e-9, "{defer}");
+            assert!(
+                (abandon - 3.069_634_636_339_538_6).abs() <= 1e-9,
+                "{abandon}"
+            );
+            assert_eq!(r.traditional_npv, Some(-40.0));
+        }
+    }
 }

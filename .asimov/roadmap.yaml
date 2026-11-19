@@ -187,10 +187,14 @@ tier1:
   # first. Found on the way and not casts, so left for their own change:
   # VLOOKUP and HLOOKUP ignored col_index and row_index (fixed 2026-11-17:
   # #VALUE! below 1, #REF! past the one column or row, and the approximate
-  # search is MATCH's); ROUND(x, -400) is
-  # #NUM! (Gnumeric 0); DB with a fractional period cuts it (Gnumeric 0);
-  # TIME(1, -30, 0) is 0:30 (Gnumeric #NUM!); HOUR(1E+20) is 0 (Gnumeric
-  # #NUM!). cast_precision_loss is done too (2026-11-18): no allow is left, in
+  # search is MATCH's). The other four were checked against Gnumeric,
+  # LibreOffice and the Excel cases in validation/gnumeric (2026-11-18):
+  # ROUND(x, -400) was #NUM! and is 0, as both engines give (fixed);
+  # DB with a fractional period is right (Excel 3690, edge_excel_checks_2;
+  # only Gnumeric gives 0); TIME(1, -30, 0) is 0:30 as in LibreOffice (only
+  # Gnumeric gives #NUM!); HOUR(1E+20) was 0 and is #NUM! (Excel for iOS,
+  # 2026-11-18: HOUR, MINUTE and SECOND past 9999-12-31, serial 2,958,466,
+  # are #NUM!; fixed). cast_precision_loss is done too (2026-11-18): no allow is left, in
   # Cargo.toml or in an attribute. A count, a place in an array or a day count
   # becomes a number through precision::count, whole and unsigned, built from
   # 32-bit halves that convert without loss and give the bits `as f64` gives
@@ -207,6 +211,11 @@ tier1:
   # and the ten exact comparisons in the engine (MODE, a variance on budget,
   # the depreciation periods, the writer's same number) go through
   # core::precision::same, IEEE equality named and tested. 155 allows left.
+  # T1-NO-SKIPPING, ignored tests (budget 0 since #289): round_trip_corpus
+  # walks all of examples/, subfolders included, and asserts which models
+  # round-trip (39) and that the 9 that do not draw from MC. distributions;
+  # the 5,000-row SUMIFS test holds its time in every build, against a plain
+  # loop of the same work (limit 100 times), not in release only.
   - id: T1-NO-SKIPPING
     title: "No way round the three rules, in every crate"
     why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs, which fails if any count rises: 218 lint allow or expect attributes (float_cmp 62, cast_possible_truncation 59, approx_constant 18, cast_precision_loss 16, too_many_lines 13, unnecessary_wraps 8, dead_code 6, and 15 more), 16 lints allowed in Cargo.toml files (multiple_crate_versions and cast_precision_loss in the main crate and forge-wasm; 8 in validation/gnumeric and 4 in validation/r), the cargo lint group missing in both validation crates, 31 places of code compiled only for or only without coverage (23 test files run nothing under coverage), and 2 ignored tests (a release-only timing test, and a round-trip corpus that needs FORGE_ROUNDTRIP_DIR)"
@@ -233,11 +242,10 @@ tier1:
     how: "An ADR or a short decision first: refuse an output whose values cannot be summarized, or report the standard deviation by scaling (the largest deviation out, then back in) and the variance as too large to show. Keep the results of every model that calculates today the same to the last digit (compute the plain way first, as triangular_quantile does)"
     acceptance: "forge simulate on MC.Triangular(-1E+307, 0, 1E+307) prints no inf and no NaN, or exits 1 saying why; the decision is written down; the refused_everywhere tests in src/monte_carlo/distributions.rs no longer allow the one inf line"
 
-  - id: T1-DISCRETE
-    title: "MC.Discrete is documented and cannot be used"
-    why: "Found 2026-11-16: docs/FEATURES.md, docs/FUNCTIONS.md, docs/MCP.md, docs/FPA-PREDICTION-METHODS.md and forge simulate --help list MC.Discrete(values, probabilities), but parse_distribution (src/monte_carlo/distributions.rs) has no branch for it: MC.Discrete(1, 0.5, 2, 0.5) gives 'Unknown distribution type: Discrete', and with array constants {1,2} or [1, 2] the arguments do not parse. Distribution::discrete exists, is checked, and is reached only from tests"
-    how: "Decide the syntax (array constants, ADR-064, are the Excel way: MC.Discrete({1,2,3}, {0.2,0.5,0.3})) and parse it, with an example and a test against a hand calculation; or take MC.Discrete out of the five places that list it, until it is built"
-    acceptance: "Either a model with MC.Discrete simulates and its probabilities are checked in a test, or no document or help text names it"
+  # T1-DISCRETE is done (2026-11-18): MC.Discrete takes two array constants,
+  # the values and their probabilities, each a row or a column:
+  # MC.Discrete({0, 0.3}, {0.9, 0.1}) (distributions.rs, its discrete_*
+  # tests). examples/vineyard draws a spring frost with it.
 
   # T1-EQUAL-NEAR-ZERO is done (2026-11-17, ADR-065): the six operators and
   # the COUNTIF-family criteria compare two numbers rounded to 15 significant
@@ -267,11 +275,128 @@ tier1:
     how: "permissions: contents: read at the top of each workflow, widened per job where a job writes; pin each action by commit with its tag in a comment; commit studio/package-lock.json and use npm ci; drop the stale audit ignore"
     acceptance: "Every workflow starts with a permissions: block; no uses: line ends in a branch or tag name that can move; npm ci works in studio/ and CI uses it; cargo audit passes with no ignore for a crate absent from Cargo.lock"
 
-  - id: T1-MA-EXAMPLE
-    title: "An acquisition example: what Forge already does for a deal"
-    why: "Asked 2026-11-16 why Forge has nothing for mergers and acquisitions, which large companies do all the time. Most of a deal model is not game theory but arithmetic Forge already has: a price and how it is paid, synergies by year, the buyer's earnings per share before and after (accretion or dilution), an earn-out, scenarios, a tornado and a simulation on the synergies. examples/ has a bagel shop, a household, a mortgage and a capital plan, and no deal"
-    how: "examples/acquisition/, as examples/bagel is built: a buyer and a target as included files, a deal table by year (price, debt and shares issued, synergies, integration cost), accretion or dilution per year, NPV and IRR of the deal, three scenarios, a tornado, and a Monte Carlo on the synergies. Invented companies and round numbers, with a README that says what each file shows. No engine change; what the example makes hard goes here as tier items"
-    acceptance: "The example runs from a fresh install with every analytics command it names, its headline numbers are asserted in a test against an independent calculation (as src/cli/commands/examples.rs (its bagel_example tests) does), and docs/EXAMPLES.md lists it"
+  # T1-MA-EXAMPLE is done (2026-11-18): examples/acquisition, Project
+  # Kittiwake, runs every analytics command on one takeover (calculate,
+  # scenarios, tornado, break-even, goal-seek, sensitivity, compare, export,
+  # simulate with a scenario and --seek, decision-tree, real-options,
+  # bootstrap, bayesian, variance). Its numbers were written again in Python
+  # and are asserted beside each command (acquisition_example). It needed no
+  # engine change; what it made hard is the three items below
+  # (T1-VARY-INCLUDED done since).
+
+  # T1-VARY-INCLUDED is done (2026-11-18): tornado, goal-seek, break-even
+  # and sensitivity find `@alias.name` in the included file (names.rs) and
+  # set it there (ParsedModel::set_input); a date there is refused up front.
+  # The acquisition example's README breaks even on Quillon's free cash flow
+  # through target.yaml.
+
+  # T1-SEEK-UNUSED-FORMULA is done (2026-11-18): forge simulate --seek
+  # calculates for the goal's output only (ArrayCalculator::calculate_outputs),
+  # as break-even does; the acquisition example's seek starts at 0.
+
+  # T1-UNWEIGHTED-SCENARIOS is done (2026-11-18, ADR-067, option 1): forge
+  # scenarios weighs the scenarios that have a probability and names the rest
+  # (`unweighted`), where it refused the file. examples/acquisition has
+  # all_cash and all_shares beside its four weighted scenarios; forge compare
+  # shows the three structures, checked against the Python, and forge
+  # scenarios still weighs the four (139.49) and names the two.
+
+  # Examples where no example has been (decided 2026-11-18). Building models
+  # is what finds Forge's bugs: bagel found PR 76 and the rc.5 fixes,
+  # realestate found the table column drawn per row (013f98d6) and break-even
+  # stopping on a formula its output does not use (68bd898e). But a fourth
+  # project-finance story would re-check what bagel, microgrid and realestate
+  # already check, and each example costs Python, tests, a Studio entry and a
+  # forge-wasm case to keep current. So three examples, each aimed at code no
+  # example uses (grep of examples/ on 2026-11-18: no correlations:, no
+  # XNPV, XIRR, DATE, VLOOKUP, LET, LAMBDA or IFERROR, nothing starting from
+  # a workbook), and one item that checks MCP and the REST API give the
+  # examples' numbers. MCP and the API get no examples of their own: they are
+  # ways to run a model, not models. T1-MA-EXAMPLE above is the fourth
+  # example and stays as it is.
+  #
+  # The four items below are written to run in parallel, one session each.
+  # How an example is built, for all of them (follow examples/realestate,
+  # the newest):
+  # - examples/<name>/ with a README that says what each file shows, the
+  #   commands to run, and the numbers they should print. Invented names,
+  #   round numbers, all figures made up, model format 5.1.0 or the newest
+  #   feature it uses.
+  # - The headline numbers written again in Python from the README's
+  #   description, not translated from the formulas, and the Python quoted
+  #   in a doc comment of the test that asserts them.
+  # - Tests inline, next to the command they exercise (realestate's are in
+  #   simulate/mod.rs, prediction/tornado.rs, prediction/scenarios.rs,
+  #   analysis/goal_seek.rs), never in a tests/ folder. Several of those
+  #   files are near 1,500 lines (simulate/mod.rs is 1,332,
+  #   src/cli/commands/examples.rs 1,420): split by what the code does
+  #   before adding, never move tests out to make room.
+  # - Wired into studio/build.mjs (the examples list), forge-wasm/tests/cases.json
+  #   (a "calculate <name>" case) and examples/README.md; a CHANGELOG entry
+  #   under Unreleased. These four files are where parallel sessions collide:
+  #   fetch and merge main before pushing.
+  # - What the example makes hard or gets wrong is fixed test-first (a
+  #   wrong answer first) or added here as its own item; the example is not
+  #   bent around it.
+
+  # T1-EXAMPLE-CORRELATION is done (2026-11-18): examples/vineyard. A
+  # vineyard's crop and price correlated at -0.7 cut the chance of a losing
+  # season from 33% to 26%, and the mean with it. numpy and scipy checked the
+  # draws (rank correlation, marginals, the frost), every season from them,
+  # and ran 2,000,000 seasons of their own (monte_carlo/correlation.rs,
+  # vineyard_example). It found T1-DISCRETE still open (built here) and a
+  # refusal that named a matrix cell instead of the inputs (fixed). The
+  # "same file with the correlation at 0" is a second file: a scenario cannot
+  # change a coefficient, and including the risk file does not calculate its
+  # tables in the including model.
+
+  # T1-EXAMPLE-DATES is done (2026-11-18): examples/fund. A venture fund's
+  # calls, fees and exits on their dates (EDATE, EOMONTH, DATE, XLOOKUP, LET,
+  # IFERROR), XIRR and XNPV agreeing with scipy to 1e-9 and the cent in the
+  # plan, four scenarios, a tornado and a goal seek. LibreOffice recalculates
+  # the exported workbook to Forge's digits; Gnumeric 1.12 has no XLOOKUP or
+  # LET, so the dated flows are a validation case it judges
+  # (edge_fund_cash_flows.yaml). It found the two items below. The roadmap's
+  # guess that a year's delay "costs IRR, not much NPV" was wrong: at 12% it
+  # costs 3.0 million of value as well as 1.8 points.
+
+  # T1-DATE-OF-MAX is done (2026-11-19): MAX, MIN, LARGE, SMALL, MAXIFS and MINIFS of
+  # dates give a date (ADR-060 addendum), so examples/fund's last_exit has its
+  # format and shows 8 Sep 2029 in calculate and the workbook. SUM, AVERAGE and
+  # MEDIAN of dates stay numbers. Not measured in Excel here: Excel shows a date
+  # format on any number, so the rule is Forge's, not Excel's.
+
+  # T1-EXCEL-XNPV-ORDER is done (2026-11-19): Excel for iOS gives an error for XNPV
+  # with a date before the first, and the rate for XIRR (0.23587 for -100, -50, 200
+  # on 2021-01-01, 2020-01-01, 2022-01-01), so Microsoft's documentation is wrong
+  # about XIRR. Forge's XNPV now gives #NUM! (financial/dated.rs, test first); XIRR
+  # was right. The two cases are test_excel_xn1 and test_excel_xn2 (VALIDATION.md
+  # section 5, sixth round). The error is #NUM!:
+  # ERROR.TYPE of Excel's XNPV is 6 (measured the same day).
+
+  - id: T1-EXAMPLE-EXCEL-ROUNDTRIP
+    title: "An example that starts from a messy workbook: import, audit, change, export"
+    run_with: "Opus 5.5, high effort: forge import has never met a realistic workbook, and judging what it should do with one takes care"
+    why: "Every example starts in YAML. forge import (src/cli/commands/excel_io/import.rs) and forge audit are tested on small cases only; rc.20 fixed two wrong answers in import (an empty cell imported as 0, a range read as the row's value), found by accident. The way many people would actually start is with a workbook they inherited"
+    how: "examples/inherited-budget/ with a .xlsx an FP&A analyst might inherit: a few sheets (assumptions, a monthly table, a summary), cross-sheet references, a named range, a hard-coded number where a formula should be, a merged header, a blank row inside a table, number formats. The workbook must not be written by forge export (that would check Forge against itself): write it with openpyxl or by hand in a spreadsheet, and record its calculated values from LibreOffice or Gnumeric (or Excel, when the maintainer has it at hand). Then: forge import, forge audit (the README says what it should flag, the hard-coded number at least), change one assumption with forge update or in the YAML, forge calculate, forge export, and recalculate the exported workbook outside Forge. Whatever import gets wrong or drops is the point of the item: each gets a failing test, then a fix or a written-down limit in docs"
+    acceptance: "The workbook and the script or steps that made it are in the example; forge import of it calculates to the spreadsheet's own values, asserted in inline tests; forge audit's findings on it are asserted; the exported workbook after the change recalculates outside Forge to Forge's numbers; each limit found is fixed or written down in the README and the docs"
+
+  # T1-INTERFACE-PARITY is done (2026-11-18): every one of the 20 MCP tools and
+  # the 5 REST endpoints has an inline test that runs a story example and asserts
+  # a number the command-line tests assert, by file path and as inline content
+  # (bagel for most; the takeover's calculate, scenarios and break-even on an
+  # included input, and the vineyard's simulate, for the examples built since).
+  # The three discovery tools run no model, so they are checked against the
+  # models that use them. The tests are beside each tool (src/mcp/server/*_tools.rs)
+  # and in src/api/server.rs (bagel_over_http). One difference was found and fixed
+  # test-first: an included file that includes another (bagel_simulate.yaml ->
+  # costs_risk.yaml -> costs.yaml) failed as inline content, because only the
+  # files the model itself includes were written (src/inline_model.rs, CHANGELOG
+  # Fixed). Over REST, export and import take file paths only, so their bagel
+  # tests name files; the other three take the model as text. A failed operation
+  # answers HTTP 200 with success: true and the flag false (docs/FEATURES.md says so).
+  # The new examples still to come (T1-EXAMPLE-EXCEL-ROUNDTRIP, examples/fund when
+  # it merges) get their matching tool's test when they land.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)

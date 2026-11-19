@@ -146,6 +146,41 @@ impl ArrayCalculator {
             .ok_or_else(|| ForgeError::Validation(format!("Output variable '{name}' has no value")))
     }
 
+    /// Calculate the model for some outputs, scalars and columns of tables,
+    /// and return it. As [`Self::calculate_scalar`] does for one scalar, a
+    /// failed formula that none of them uses does not fail the answer: a
+    /// search that moves an input through many simulations (`forge simulate
+    /// --seek`) can pass through values where a result it does not ask for
+    /// has no answer, such as a ratio over an input at 0.
+    ///
+    /// # Errors
+    ///
+    /// Returns the calculation's report when an output failed or uses a failed
+    /// cell, or when the model cannot be calculated at all (a cycle, a table
+    /// of uneven columns).
+    pub fn calculate_outputs(
+        mut self,
+        scalars: &[String],
+        columns: &[(String, String)],
+    ) -> ForgeResult<ParsedModel> {
+        let outcome = self.calculate_cells()?;
+        let asked =
+            scalars
+                .iter()
+                .map(|name| Cell::Scalar(name.clone()))
+                .chain(columns.iter().map(|(table, column)| Cell::Column {
+                    table: table.clone(),
+                    column: column.clone(),
+                }));
+        if asked.into_iter().any(|cell| outcome.failed.contains(&cell)) {
+            return Err(outcome.report());
+        }
+        if outcome.failures.is_empty() {
+            check_formula_formats(&self.model)?;
+        }
+        Ok(self.model)
+    }
+
     /// Calculate every cell of the model in order. A failing cell does not
     /// stop the calculation: every cell that does not use it is still
     /// calculated, so all errors are reported at once. A failed cell gets no
@@ -1041,12 +1076,42 @@ mod tests {
             text
         }
 
-        /// Under 1 s in a release build. A debug build is too slow to tell the copies
-        /// from the search (2 s here against 13 s before, and CI runners vary), so it
-        /// checks only the results; the Validation workflow runs this in release.
-        fn in_time(took: Duration, limit: Duration, what: &str) {
+        /// The time one plain search of the column takes, as one row's formula
+        /// does it, for every row: `ROWS` squared comparisons of whole numbers.
+        /// What the calculator is held to, so a slow or busy machine slows both.
+        fn one_search_per_row() -> Duration {
+            let keys: Vec<usize> = (0..ROWS).collect();
+            let values: Vec<usize> = (0..ROWS).map(|i| i * 2).collect();
+            let start = Instant::now();
+            let mut total = 0_usize;
+            for row in 0..ROWS {
+                let wanted = (row * 7919) % ROWS;
+                for (key, value) in keys.iter().zip(&values) {
+                    if std::hint::black_box(*key) == wanted {
+                        total += value;
+                    }
+                }
+            }
+            std::hint::black_box(total);
+            start.elapsed()
+        }
+
+        /// In a release build, `took` is less than `times` the time of
+        /// [`one_search_per_row`]. A fixed limit failed twice on a CI runner
+        /// (2.09 s and 2.19 s against 2 s), and 5 s would hardly have told the
+        /// copies from the search there. Against the same loop on the same
+        /// machine, the search takes 4 times it for INDEX/MATCH and 15 for
+        /// SUMIF, and the copies took about 29 and 35 times it (measured on the
+        /// commit before the fix, 2026-11-18); the limits, 10 and 24, sit
+        /// between. A debug build is too slow to tell them apart, so it checks
+        /// only the results; the Validation workflow runs this in release.
+        fn in_time(took: Duration, times: u32, what: &str) {
             if !cfg!(debug_assertions) {
-                assert!(took < limit, "16,000 rows of {what} took {took:?}");
+                let one = one_search_per_row();
+                assert!(
+                    took < one * times,
+                    "16,000 rows of {what} took {took:?}, more than {times} times the {one:?} of one plain search of the column"
+                );
             }
         }
 
@@ -1075,7 +1140,7 @@ mod tests {
         #[test]
         fn sixteen_thousand_rows_of_index_match_calculate_in_time() {
             let (took, values) = run("=INDEX(d.v, MATCH(k, d.k, 0))");
-            in_time(took, Duration::from_secs(1), "INDEX/MATCH");
+            in_time(took, 10, "INDEX/MATCH");
             assert_eq!(values, expected());
         }
 
@@ -1083,7 +1148,7 @@ mod tests {
         fn sixteen_thousand_rows_of_sumif_calculate_in_time() {
             // SUMIF reads its ranges another way (collect_values_as_vec)
             let (took, values) = run("=SUMIF(d.k, k, d.v)");
-            in_time(took, Duration::from_secs(2), "SUMIF");
+            in_time(took, 24, "SUMIF");
             assert_eq!(values, expected());
         }
     }

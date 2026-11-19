@@ -213,6 +213,7 @@ summary:
 - A column of a table of the included file is `@namespace.table.column` (`@prices.list.per_kg`), its formula columns calculated. In a row formula it pairs row by row with the formula's own table, so both must have as many rows; otherwise the error names both files and their lengths. A lookup or an aggregate reads the whole column whatever the lengths: `INDEX(@prices.list.per_kg, 2)` in a row formula, `SUM(@prices.list.per_kg)` in a scalar or a row formula (ADR-058).
 - A name that the included file does not have is an error that names the `_includes` entry it needs.
 - A group in the model can have the same name as a namespace; `@` keeps them apart.
+- `forge tornado`, `goal-seek`, `break-even` and `sensitivity` vary a scalar of the included file named as a scenario names it, `@rates.fx.usd_eur` (or `@rates.usd_eur` when only one of its scalars has that name), and the included file is calculated with each value. An `_includes` entry that is not there is an error that lists the model's entries.
 - `forge export` writes the included file's scalars to a sheet of their own (`rates.Scalars`, names `rates.fx.eur_usd`), and a formula that reads one (`@rates.fx.eur_usd`) as a reference to its cell, so changing the rate in Excel changes every result that uses it. The included file's own formulas are formulas on that sheet. Its tables are written to their own sheets (`rates.prices`), with their formulas, and a formula that reads one of their columns (`@rates.prices.eur`) as a reference to that sheet: the same row in a row formula, the whole column in an aggregate. An include of the included file is not followed: a formula that reads one is written as its value and listed.
 - `forge import` turns such sheets back into the included file (`rates.yaml`, beside the imported model, with its scalars and its tables) and their references into `@rates.fx.eur_usd` and `@rates.prices.eur`, with an `_includes` entry. If a file of that name is already there and calculates to the sheets' values (usually the original), it is kept as it is; if it holds other values, the import stops before writing anything.
 - With the MCP server and inline `content`, pass the included files in the `includes` map (see [MCP.md](MCP.md)).
@@ -275,19 +276,75 @@ curl -X POST http://localhost:8080/api/v1/calculate \
 
 Give `file_path` or `content`, not both. Include paths in inline content must be relative and cannot use `..`.
 
-**Response:**
+**Response:** every answer is `{"success": true, "request_id": "...", "data": {...}}` with HTTP 200, also when the model could not be read or calculated: `success` says the request was handled, and the `data` says whether the operation worked (`valid`, `calculated`, `audited`, `exported`, `imported`) with the reason in `message`. Numbers have 15 significant digits.
+
+**Each endpoint**, on a model `model.yaml` with `sales.price: 40`, `sales.units: 120` and `sales.revenue: {formula: "=sales.price * sales.units"}`:
+
+`POST /api/v1/validate`: the formulas, the cycles and any value that differs from its formula.
 
 ```json
-{
-  "success": true,
-  "request_id": "550e8400-e29b-41d4-a716-446655440000",
-  "data": {
-    "valid": true,
-    "file_path": "model.yaml",
-    "message": "Validation successful"
-  }
-}
+{"file_path": "model.yaml"}
 ```
+
+```json
+{"success": true, "request_id": "c93c5b29-4564-4836-919d-ab5fd463a53b",
+ "data": {"valid": true, "file_path": "model.yaml", "message": "Validation successful",
+          "result": {"tables_valid": true, "scalars_valid": true, "table_count": 0,
+                     "scalar_count": 3, "mismatches": []}}}
+```
+
+`POST /api/v1/calculate`: every formula; without `"dry_run": true` the values are written into the file (for `content`, returned as `calculated_content`). `"scenario": "name"` applies a scenario's overrides first, including one for a value in an included file.
+
+```json
+{"file_path": "model.yaml", "dry_run": true}
+```
+
+```json
+{"success": true, "request_id": "deae6616-ca91-4ee9-9dd8-f487f8826b4c",
+ "data": {"calculated": true, "file_path": "model.yaml", "dry_run": true, "message": "Dry run completed",
+          "result": {"tables": {}, "scalars": {"sales.price": 40.0, "sales.revenue": 4800.0, "sales.units": 120.0},
+                     "unit_warnings": [], "file_updated": false, "dry_run": true}}}
+```
+
+`POST /api/v1/audit`: where one variable's value comes from, down to the inputs (and the included files).
+
+```json
+{"file_path": "model.yaml", "variable": "sales.revenue"}
+```
+
+```json
+{"success": true, "request_id": "f2ce4d6f-b7e5-4b34-8e29-39278e7c6011",
+ "data": {"audited": true, "file_path": "model.yaml", "variable": "sales.revenue", "message": "Audit completed",
+          "result": {"variable": "sales.revenue", "var_type": "Scalar", "current_value": null,
+                     "calculated_value": 4800.0, "formula": "=sales.price * sales.units",
+                     "dependencies": [{"name": "sales.price", "dep_type": "Scalar", "formula": null, "value": 40.0, "children": []},
+                                      {"name": "sales.units", "dep_type": "Scalar", "formula": null, "value": 120.0, "children": []}],
+                     "is_valid": true}}}
+```
+
+`POST /api/v1/export`: a model to an Excel workbook. It names files, on the machine that runs Forge; the other endpoints that take a model also take its text.
+
+```json
+{"yaml_path": "model.yaml", "excel_path": "model.xlsx"}
+```
+
+```json
+{"success": true, "request_id": "c00d5d55-7cdb-4203-95bc-0d635a3f7c23",
+ "data": {"exported": true, "yaml_path": "model.yaml", "excel_path": "model.xlsx", "message": "Export completed"}}
+```
+
+`POST /api/v1/import`: a workbook to a model, with the included files its sheets came from written beside it.
+
+```json
+{"excel_path": "model.xlsx", "yaml_path": "back.yaml"}
+```
+
+```json
+{"success": true, "request_id": "15c17987-ab60-4b0f-9afc-1d45ef0c4c0e",
+ "data": {"imported": true, "excel_path": "model.xlsx", "yaml_path": "back.yaml", "message": "Import completed"}}
+```
+
+A model that cannot be read answers in the same shape with the operation's flag false, for example `{"valid": false, "file_path": "missing.yaml", "message": "IO error: No such file or directory (os error 2)"}`. The tests in `src/api/server.rs` (`bagel_over_http`) run each endpoint on `examples/bagel` and assert the numbers the command-line tests assert.
 
 ---
 
@@ -358,7 +415,7 @@ The price barely drives profit: a higher price brings fewer units (the correlati
 | `MC.Uniform(min, max)` | minimum, maximum | Anything in a range, equally likely |
 | `MC.PERT(min, mode, max)` | minimum, most likely, maximum | Three-point estimates, smoother than triangular |
 | `MC.Lognormal(mean, std_dev)` | mean, standard deviation | Prices and values that cannot go negative |
-| `MC.Discrete(values, probabilities)` | two arrays | A few specific outcomes |
+| `MC.Discrete({values}, {probabilities})` | two array constants, a row `{0, 0.3}` or a column `{0; 0.3}` | A few specific outcomes: `MC.Discrete({0, 0.3}, {0.9, 0.1})` is 0 nine times in ten and 0.3 the tenth |
 
 Every argument is a finite number: `inf`, `NaN` and a literal too large for a number (`1E+400`) are refused with the scalar and the argument named, and so is a distribution whose `max - min` or whose draws would overflow (`MC.Normal(0, 1E+308)`).
 
@@ -368,7 +425,7 @@ An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}
 
 - `iterations` (100 to 1,000,000 in the file, default 10,000; `-n` accepts any count from 1), `sampling` (`latin_hypercube`, the default, spreads each input's samples evenly and gives steadier results for the same count; or `monte_carlo`), and `seed` for the same samples on every run.
 - `outputs`: for each output, `variable` (a scalar, or a table column such as `months.profit`, which gives one result per row, printed as a table); `percentiles` (added to P5, P10, P25, P50, P75, P90 and P95, each 0 to 100); `threshold` or `thresholds` (`"> 0"`, `"<= 100000"`; operators `>`, `>=`, `<`, `<=`, `=`); `expected_shortfall` (`[5, 10]`: the mean of the worst 5% and 10% of runs, the lowest results, or the highest when the variable has `better: lower`; the worst ceil(n × p / 100) runs are averaged). An unknown key is an error.
-- `correlations`: pairs of inputs and a coefficient between -1 and 1, applied as a Gaussian copula, so each input keeps its own distribution (the rank correlation that results is a little lower: 0.58 for 0.6). A name can be the full name or its last part when that is unique, and an input of an included file can be paired with one of the model.
+- `correlations`: pairs of inputs and a coefficient between -1 and 1, applied as a Gaussian copula, so each input keeps its own distribution (the rank correlation that results is a little lower, (6/π) asin(ρ/2): 0.58 for 0.6). Coefficients that no set of inputs can have together, such as a with b 0.9, b with c 0.9 and a with c -0.9, or a coefficient of exactly 1 or -1, are refused before anything is drawn, naming the inputs. `examples/vineyard` shows what a correlation changes: the crop and the price at -0.7 cut the chance of a losing season from 33% to 26%, and the mean with it. A name can be the full name or its last part when that is unique, and an input of an included file can be paired with one of the model.
 
 ### Seeking a probability
 
@@ -404,6 +461,7 @@ Scenario Analysis models strategic decision-making through distinct future state
 
 **Key Features:**
 - Define 2-10 scenarios with probability weights (must sum to 1.0)
+- Keep choices beside them: a scenario without a probability is left out of the weighting, named in the output, and compared with `forge compare`
 - Override any scalar variable per scenario
 - Calculate expected values across all scenarios
 - Full integration with existing Forge models

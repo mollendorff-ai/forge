@@ -32,14 +32,17 @@ pub struct ImportText {
 /// model cannot be written as YAML.
 pub fn import_text_core(bytes: Vec<u8>) -> ForgeResult<ImportText> {
     let (model, warnings) = ExcelImporter::from_bytes(bytes).import_with_warnings()?;
-    let mut includes = Vec::new();
-    for include in &model.includes {
-        if let Some(resolved) = model.resolved_includes.get(&include.namespace) {
-            includes.push((include.file.clone(), model_to_yaml(&resolved.model)?));
-        }
-    }
+    check_names(&model)?;
+    let includes = model
+        .includes
+        .iter()
+        .filter_map(|include| {
+            let resolved = model.resolved_includes.get(&include.namespace)?;
+            Some((include.file.clone(), model_to_yaml(&resolved.model)))
+        })
+        .collect();
     Ok(ImportText {
-        main: model_to_yaml(&model)?,
+        main: model_to_yaml(&model),
         includes,
         table_count: model.tables.len(),
         scalar_count: model.scalars.len(),
@@ -164,9 +167,10 @@ fn scalars_to_value(
                 let group_entry = map
                     .entry(Value::String(group.to_string()))
                     .or_insert_with(|| Value::Mapping(Mapping::new()));
-                if let Value::Mapping(group_map) = group_entry {
-                    group_map.insert(Value::String(name.to_string()), entry);
-                }
+                // `check_names` has refused a group that is also a scalar
+                let _ = group_entry
+                    .as_mapping_mut()
+                    .map(|group_map| group_map.insert(Value::String(name.to_string()), entry));
             },
             None => {
                 map.insert(Value::String(path.clone()), entry);
@@ -224,7 +228,7 @@ fn include_files(
                 path.display()
             )));
         }
-        files.push((path, model_to_yaml(&resolved.model)?));
+        files.push((path, model_to_yaml(&resolved.model)));
     }
     Ok(files)
 }
@@ -286,28 +290,32 @@ fn holds_the_same_values(path: &Path, sheet: &crate::types::ParsedModel) -> bool
 
 /// Write the imported model as one file, with its included files beside it.
 fn write_single(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<Vec<String>> {
-    let yaml = model_to_yaml(model)?;
-    let dir = output.parent().unwrap_or_else(|| Path::new("."));
-    let written = write_include_files(dir, model)?;
+    let yaml = model_to_yaml(model);
+    let written = write_include_files(&output.with_file_name(""), model)?;
     fs::write(output, yaml).map_err(ForgeError::Io)?;
     Ok(written)
+}
+
+/// Write each file, and give the paths written.
+fn write_files(files: Vec<(std::path::PathBuf, String)>) -> ForgeResult<Vec<std::path::PathBuf>> {
+    files
+        .into_iter()
+        .map(|(path, text)| {
+            fs::write(&path, text)
+                .map(|()| path)
+                .map_err(ForgeError::Io)
+        })
+        .collect()
 }
 
 /// Write the included files the workbook holds, beside the model, and give
 /// their names. A file that is already there with the same values is not
 /// written again, and is not listed.
 fn write_include_files(dir: &Path, model: &crate::types::ParsedModel) -> ForgeResult<Vec<String>> {
-    let mut written = Vec::new();
-    for (path, text) in include_files(dir, model)? {
-        fs::write(&path, text).map_err(ForgeError::Io)?;
-        written.push(
-            path.strip_prefix(dir)
-                .unwrap_or(&path)
-                .display()
-                .to_string(),
-        );
-    }
-    Ok(written)
+    Ok(write_files(include_files(dir, model)?)?
+        .iter()
+        .map(|path| path.strip_prefix(dir).unwrap_or(path).display().to_string())
+        .collect())
 }
 
 /// The model format an imported model needs: 5.4.0 when a scalar is a date
@@ -339,26 +347,52 @@ fn import_format(model: &crate::types::ParsedModel) -> &'static str {
     }
 }
 
-/// The whole imported model as YAML that `forge validate` and `forge calculate` accept.
-fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
-    let includes = includes_block(model, None);
-    let mut map = tables_to_value(&model.tables);
-    for (key, value) in scalars_to_value(&model.scalars) {
-        if map.contains_key(&key) {
+/// A model's YAML text: its values, rounded to 15 digits. Values read from a
+/// workbook always serialize.
+fn yaml_of<T: serde::Serialize>(value: &T) -> String {
+    yaml_serde::to_string(&crate::core::precision::Rounded(value)).expect("model values serialize")
+}
+
+/// Refuse a model, or an included file's model, in which a name is both a table
+/// and a scalar group, or both a scalar and a scalar group: one would overwrite
+/// the other.
+fn check_names(model: &crate::types::ParsedModel) -> ForgeResult<()> {
+    let included = model.resolved_includes.values().map(|r| &r.model);
+    for each in std::iter::once(model).chain(included) {
+        let tables = tables_to_value(&each.tables);
+        let groups = scalars_to_value(&each.scalars);
+        if let Some(key) = groups.keys().find(|key| tables.contains_key(*key)) {
             return Err(ForgeError::Import(format!(
                 "'{}' is both a table and a scalar group; rename one sheet",
                 key.as_str().unwrap_or_default()
             )));
         }
-        map.insert(key, value);
+        if let Some(name) = each
+            .scalars
+            .keys()
+            .filter_map(|path| path.split_once('.'))
+            .map(|(group, _)| group)
+            .find(|group| each.scalars.contains_key(*group))
+        {
+            return Err(ForgeError::Import(format!(
+                "'{name}' is both a scalar and a scalar group; rename one"
+            )));
+        }
     }
+    Ok(())
+}
+
+/// The whole imported model as YAML that `forge validate` and `forge calculate` accept.
+fn model_to_yaml(model: &crate::types::ParsedModel) -> String {
+    let includes = includes_block(model, None);
+    let mut map = tables_to_value(&model.tables);
+    map.extend(scalars_to_value(&model.scalars));
     if map.is_empty() {
-        return Ok(format!("_forge_version: \"5.1.0\"\n{includes}"));
+        return format!("_forge_version: \"5.1.0\"\n{includes}");
     }
-    let body =
-        yaml_serde::to_string(&crate::core::precision::Rounded(&map)).map_err(ForgeError::Yaml)?;
+    let body = yaml_of(&map);
     let version = import_format(model);
-    Ok(format!("_forge_version: \"{version}\"\n{includes}\n{body}"))
+    format!("_forge_version: \"{version}\"\n{includes}\n{body}")
 }
 
 /// Import Excel to YAML and return structured results (no printing).
@@ -374,6 +408,7 @@ pub fn import_core(
 ) -> ForgeResult<crate::cli::commands::results::ImportResult> {
     let importer = ExcelImporter::new(input);
     let (model, warnings) = importer.import_with_warnings()?;
+    check_names(&model)?;
     let table_count = model.tables.len();
     let scalar_count = model.scalars.len();
 
@@ -479,33 +514,24 @@ fn write_split_files_quiet(
     for (table_name, table) in &model.tables {
         let mut one = indexmap::IndexMap::new();
         one.insert(table_name.clone(), table.clone());
-        let body = yaml_serde::to_string(&crate::core::precision::Rounded(&tables_to_value(&one)))
-            .map_err(ForgeError::Yaml)?;
+        let body = yaml_of(&tables_to_value(&one));
         parts.push((format!("{table_name}.yaml"), table_name.clone(), body));
     }
     if !model.scalars.is_empty() {
-        let body = yaml_serde::to_string(&crate::core::precision::Rounded(&scalars_to_value(
-            &model.scalars,
-        )))
-        .map_err(ForgeError::Yaml)?;
+        let body = yaml_of(&scalars_to_value(&model.scalars));
         parts.push(("scalars.yaml".to_string(), "scalars".to_string(), body));
     }
     fs::create_dir_all(output).map_err(ForgeError::Io)?;
     let includes = include_files(output, model)?;
-    let mut written = Vec::new();
+    let version = import_format(model);
+    let mut files = Vec::new();
     for (file, name, body) in parts {
-        let path = output.join(file);
         let includes = includes_block(model, Some(&body));
-        let version = import_format(model);
         let text = format!("_forge_version: \"{version}\"\n_name: \"{name}\"\n{includes}\n{body}");
-        fs::write(&path, text).map_err(ForgeError::Io)?;
-        written.push(path);
+        files.push((output.join(file), text));
     }
-    for (path, text) in includes {
-        fs::write(&path, text).map_err(ForgeError::Io)?;
-        written.push(path);
-    }
-    Ok(written)
+    files.extend(includes);
+    write_files(files)
 }
 
 /// Execute the import command.
@@ -538,6 +564,7 @@ pub fn import(
 
     let importer = ExcelImporter::new(input);
     let (model, warnings) = importer.import_with_warnings()?;
+    check_names(&model)?;
 
     if verbose {
         outln!(c, "   Found {} tables", model.tables.len());
@@ -608,19 +635,13 @@ fn write_multi_doc_quiet(
     for (table_name, table) in &model.tables {
         let mut one = indexmap::IndexMap::new();
         one.insert(table_name.clone(), table.clone());
-        let body = yaml_serde::to_string(&crate::core::precision::Rounded(&tables_to_value(&one)))
-            .map_err(ForgeError::Yaml)?;
+        let body = yaml_of(&tables_to_value(&one));
         document(table_name, format!("{body}\n"));
     }
     if !model.scalars.is_empty() {
-        let body = yaml_serde::to_string(&crate::core::precision::Rounded(&scalars_to_value(
-            &model.scalars,
-        )))
-        .map_err(ForgeError::Yaml)?;
-        document("scalars", body);
+        document("scalars", yaml_of(&scalars_to_value(&model.scalars)));
     }
-    let dir = output.parent().unwrap_or_else(|| Path::new("."));
-    let written = write_include_files(dir, model)?;
+    let written = write_include_files(&output.with_file_name(""), model)?;
     fs::write(output, yaml_output).map_err(ForgeError::Io)?;
     Ok(written)
 }
@@ -673,7 +694,7 @@ mod import_output_tests {
             Variable::new("rate".to_string(), Some(0.1), None),
         );
 
-        let yaml = model_to_yaml(&model).unwrap();
+        let yaml = model_to_yaml(&model);
         assert!(yaml.starts_with("_forge_version: \"5.1.0\""), "{yaml}");
         // 5.1.0 short form: an input is a plain number, whole numbers stay whole
         assert!(yaml.contains("rate: 0.1\n"), "{yaml}");
@@ -749,6 +770,444 @@ mod tests {
             ])
             .printed();
             assert!(!again.contains("Included files"), "{again}");
+        }
+    }
+
+    mod commands {
+        //! What `forge import` prints and writes in each of its modes, from a
+        //! workbook `forge export` made of the bagel (a table, scalars and an
+        //! included file).
+
+        use crate::cli::forge;
+        use std::fs;
+        use std::path::{Path, PathBuf};
+
+        fn bagel_workbook(dir: &Path) -> PathBuf {
+            let xlsx = dir.join("bagel.xlsx");
+            let exported = forge(&[
+                "export",
+                "examples/bagel/bagel.yaml",
+                xlsx.to_str().unwrap(),
+            ]);
+            assert!(exported.success(), "{}", exported.err);
+            xlsx
+        }
+
+        #[test]
+        fn a_verbose_import_lists_the_sheets_it_read() {
+            let dir = tempfile::tempdir().unwrap();
+            let xlsx = bagel_workbook(dir.path());
+            let out = dir.path().join("m.yaml");
+            let text = forge(&[
+                "import",
+                xlsx.to_str().unwrap(),
+                out.to_str().unwrap(),
+                "--verbose",
+            ])
+            .printed();
+            for line in [
+                "Reading Excel file",
+                "Found",
+                "tables",
+                "scalars",
+                "Table:",
+                "columns,",
+                "Writing YAML",
+            ] {
+                assert!(text.contains(line), "{line} in {text}");
+            }
+            assert!(out.exists());
+        }
+
+        #[test]
+        fn split_files_writes_one_yaml_per_sheet() {
+            let dir = tempfile::tempdir().unwrap();
+            let model = dir.path().join("two.yaml");
+            fs::write(
+                &model,
+                "_forge_version: \"5.1.0\"\na:\n  n: [1, 2]\n  d: \"=n * 2\"\nb:\n  m: [3, 4]\n",
+            )
+            .unwrap();
+            let xlsx = dir.path().join("two.xlsx");
+            let exported = forge(&["export", model.to_str().unwrap(), xlsx.to_str().unwrap()]);
+            assert!(exported.success(), "{}", exported.err);
+            let out = dir.path().join("split");
+            fs::create_dir(&out).unwrap();
+            let args = [
+                "import",
+                xlsx.to_str().unwrap(),
+                out.to_str().unwrap(),
+                "--split-files",
+            ];
+            let text = forge(&args).printed();
+            assert!(text.contains("Split files"), "{text}");
+            assert!(text.contains("Import Complete"), "{text}");
+            assert!(!text.contains("Created:"), "{text}");
+            let verbose = forge(&[args[0], args[1], args[2], args[3], "--verbose"]).printed();
+            assert!(verbose.contains("Created:"), "{verbose}");
+            assert!(out.join("a.yaml").exists() && out.join("b.yaml").exists());
+        }
+
+        #[test]
+        fn multi_doc_writes_one_file_of_several_documents() {
+            let dir = tempfile::tempdir().unwrap();
+            let xlsx = bagel_workbook(dir.path());
+            let out = dir.path().join("all.yaml");
+            let text = forge(&[
+                "import",
+                xlsx.to_str().unwrap(),
+                out.to_str().unwrap(),
+                "--multi-doc",
+            ])
+            .printed();
+            assert!(text.contains("Multi-document YAML"), "{text}");
+            assert!(text.contains("YAML file:"), "{text}");
+            assert!(fs::read_to_string(&out).unwrap().contains("---"));
+        }
+
+        #[test]
+        fn an_import_that_cannot_read_or_write_is_an_error() {
+            let dir = tempfile::tempdir().unwrap();
+            let xlsx = bagel_workbook(dir.path());
+            let junk = dir.path().join("junk.xlsx");
+            fs::write(&junk, "not a workbook").unwrap();
+            let out = dir.path().join("m.yaml");
+            let ran = forge(&["import", junk.to_str().unwrap(), out.to_str().unwrap()]);
+            assert!(!ran.success());
+            let elsewhere = dir.path().join("absent").join("m.yaml");
+            for flags in [&[][..], &["--multi-doc"][..], &["--split-files"][..]] {
+                let mut args = vec![
+                    "import",
+                    xlsx.to_str().unwrap(),
+                    elsewhere.to_str().unwrap(),
+                ];
+                args.extend_from_slice(flags);
+                let ran = forge(&args);
+                assert!(!ran.success(), "{flags:?}");
+            }
+        }
+    }
+
+    mod failures {
+        //! What `forge import` does with a workbook it cannot carry, and with
+        //! places it cannot write.
+
+        use super::super::{import_core, import_text_core};
+        use crate::cli::forge;
+        use rust_xlsxwriter::Workbook;
+        use std::fs;
+        use std::path::{Path, PathBuf};
+
+        /// A workbook with a table sheet `a` and a scalar of the group `a`
+        fn clashing_workbook(dir: &Path) -> PathBuf {
+            let mut book = Workbook::new();
+            let table = book.add_worksheet().set_name("a").unwrap();
+            table.write_string(0, 0, "n").unwrap();
+            table.write_number(1, 0, 1.0).unwrap();
+            let scalars = book.add_worksheet().set_name("Scalars").unwrap();
+            scalars.write_string(0, 0, "Name").unwrap();
+            scalars.write_string(0, 1, "Value").unwrap();
+            scalars.write_string(1, 0, "a.x").unwrap();
+            scalars.write_number(1, 1, 5.0).unwrap();
+            let path = dir.join("clash.xlsx");
+            book.save(&path).unwrap();
+            path
+        }
+
+        #[test]
+        fn a_name_that_is_a_table_and_a_scalar_group_is_refused_in_every_form() {
+            let dir = tempfile::tempdir().unwrap();
+            let xlsx = clashing_workbook(dir.path());
+            let out = dir.path().join("m.yaml");
+            let message = import_core(&xlsx, &out, false, false)
+                .err()
+                .unwrap()
+                .to_string();
+            assert!(
+                message.contains("'a' is both a table and a scalar group"),
+                "{message}"
+            );
+            assert!(import_text_core(fs::read(&xlsx).unwrap()).is_err());
+            let ran = forge(&["import", xlsx.to_str().unwrap(), out.to_str().unwrap()]);
+            assert!(!ran.success());
+            assert!(
+                ran.err.contains("both a table and a scalar group"),
+                "{}",
+                ran.err
+            );
+            assert!(!out.exists());
+        }
+
+        #[test]
+        fn a_scalar_that_is_also_a_scalar_group_is_refused() {
+            let dir = tempfile::tempdir().unwrap();
+            let mut book = Workbook::new();
+            let scalars = book.add_worksheet().set_name("Scalars").unwrap();
+            scalars.write_string(0, 0, "Name").unwrap();
+            scalars.write_string(0, 1, "Value").unwrap();
+            for (row, (name, value)) in [("a", 1.0), ("a.x", 2.0)].into_iter().enumerate() {
+                let row = u32::try_from(row).unwrap() + 1;
+                scalars.write_string(row, 0, name).unwrap();
+                scalars.write_number(row, 1, value).unwrap();
+            }
+            let xlsx = dir.path().join("scalar.xlsx");
+            book.save(&xlsx).unwrap();
+            let message = import_core(&xlsx, &dir.path().join("m.yaml"), false, false)
+                .err()
+                .unwrap()
+                .to_string();
+            assert!(
+                message.contains("'a' is both a scalar and a scalar group"),
+                "{message}"
+            );
+        }
+
+        #[test]
+        fn a_workbook_that_is_not_one_is_an_error_for_the_library_too() {
+            let dir = tempfile::tempdir().unwrap();
+            let junk = dir.path().join("junk.xlsx");
+            fs::write(&junk, "not a workbook").unwrap();
+            let out = dir.path().join("m.yaml");
+            for (split, multi) in [(false, false), (true, false), (false, true)] {
+                assert!(import_core(&junk, &out, split, multi).is_err());
+            }
+        }
+
+        #[test]
+        fn a_place_that_cannot_be_written_is_an_error_in_every_mode() {
+            let dir = tempfile::tempdir().unwrap();
+            let model = dir.path().join("two.yaml");
+            fs::write(
+                &model,
+                "_forge_version: \"5.1.0\"\na:\n  n: [1, 2]\nb:\n  m: [3, 4]\n",
+            )
+            .unwrap();
+            let xlsx = dir.path().join("two.xlsx");
+            assert!(forge(&["export", model.to_str().unwrap(), xlsx.to_str().unwrap()]).success());
+
+            // The output is a folder where a file should go
+            let folder = dir.path().join("folder.yaml");
+            fs::create_dir(&folder).unwrap();
+            assert!(import_core(&xlsx, &folder, false, false).is_err());
+            assert!(import_core(&xlsx, &folder, false, true).is_err());
+            // The output is a file where a folder should go
+            let file = dir.path().join("file");
+            fs::write(&file, "x").unwrap();
+            assert!(import_core(&xlsx, &file, true, false).is_err());
+            // A part of a split import cannot be written
+            let split = dir.path().join("split");
+            fs::create_dir_all(split.join("a.yaml")).unwrap();
+            assert!(import_core(&xlsx, &split, true, false).is_err());
+        }
+
+        #[test]
+        fn a_split_that_would_break_one_formula_says_so_in_the_singular() {
+            let dir = tempfile::tempdir().unwrap();
+            let model = dir.path().join("m.yaml");
+            fs::write(
+                &model,
+                "_forge_version: \"5.1.0\"\na:\n  n: [1, 2]\ntotal: {formula: \"=SUM(a.n)\"}\n",
+            )
+            .unwrap();
+            let xlsx = dir.path().join("m.xlsx");
+            assert!(forge(&["export", model.to_str().unwrap(), xlsx.to_str().unwrap()]).success());
+            let err = import_core(&xlsx, &dir.path().join("out"), true, false)
+                .err()
+                .unwrap()
+                .to_string();
+            assert!(err.contains("would break 1 formula,"), "{err}");
+            assert!(!err.contains("; ..."), "{err}");
+        }
+    }
+
+    mod yaml_forms {
+        //! How each kind of value is written, and which format version a model needs.
+
+        use super::super::{
+            holds_the_same_values, import_format, include_files, includes_block, scalars_to_value,
+            table_to_value, write_split_files_quiet,
+        };
+        use crate::types::{
+            Column, ColumnValue, Include, ParsedModel, ResolvedInclude, Table, Variable,
+        };
+        use std::fs;
+        use std::path::Path;
+
+        fn parsed(dir: &Path, name: &str, text: &str) -> ParsedModel {
+            let path = dir.join(name);
+            fs::write(&path, text).unwrap();
+            crate::parser::parse_model(&path).unwrap()
+        }
+
+        fn yaml(value: &impl serde::Serialize) -> String {
+            yaml_serde::to_string(value).unwrap()
+        }
+
+        #[test]
+        fn a_boolean_column_and_a_column_with_empty_cells_are_written_as_they_are() {
+            let mut table = Table::new("t".to_string());
+            table.add_column(Column::new(
+                "flag".to_string(),
+                ColumnValue::Boolean(vec![true, false]),
+            ));
+            table.add_column(Column::new(
+                "gappy".to_string(),
+                ColumnValue::Blanks(vec![Some(1.5), None]),
+            ));
+            let text = yaml(&table_to_value(&table));
+            assert!(text.contains("flag:\n- true\n- false"), "{text}");
+            assert!(text.contains("gappy:\n- 1.5\n- null"), "{text}");
+            let mut model = ParsedModel::new();
+            model.add_table(table);
+            assert_eq!(import_format(&model), "5.3.0");
+        }
+
+        #[test]
+        fn scalars_are_written_by_what_they_hold() {
+            let mut model = ParsedModel::new();
+            let mut dated = Variable::new("when".to_string(), Some(46_023.0), None);
+            dated.is_date = true;
+            let mut formatted = Variable::new("share".to_string(), Some(0.5), None);
+            formatted.metadata.format = Some("0.0%".to_string());
+            let mut formula = Variable::new("g.f".to_string(), None, Some("=1 + 1".to_string()));
+            formula.metadata.format = Some("0.00".to_string());
+            for variable in [
+                dated,
+                formatted,
+                formula,
+                Variable::new("empty".to_string(), None, None),
+            ] {
+                model.add_scalar(variable.path.clone(), variable);
+            }
+            let text = yaml(&scalars_to_value(&model.scalars));
+            assert!(text.contains("when: 2026-01-01"), "{text}");
+            assert!(
+                text.contains("share:\n  value: 0.5\n  format: 0.0%"),
+                "{text}"
+            );
+            assert!(
+                text.contains("g:\n  f:\n    formula: =1 + 1\n    format: '0.00'"),
+                "{text}"
+            );
+            assert!(text.contains("empty:\n  value: null"), "{text}");
+            assert_eq!(import_format(&model), "5.4.0");
+        }
+
+        #[test]
+        fn only_the_includes_a_part_reads_are_listed() {
+            let mut model = ParsedModel::new();
+            model.includes = vec![
+                Include::new("a.yaml".to_string(), "a".to_string()),
+                Include::new("b.yaml".to_string(), "b".to_string()),
+            ];
+            let all = includes_block(&model, None);
+            assert!(
+                all.contains("file: a.yaml") && all.contains("file: b.yaml"),
+                "{all}"
+            );
+            let some = includes_block(&model, Some("=@b.total * 2"));
+            assert!(
+                !some.contains("a.yaml") && some.contains("file: b.yaml"),
+                "{some}"
+            );
+            assert_eq!(includes_block(&model, Some("=1")), "");
+        }
+
+        #[test]
+        fn an_include_with_no_sheets_is_skipped_and_one_with_other_values_is_refused() {
+            let dir = tempfile::tempdir().unwrap();
+            let mut model = ParsedModel::new();
+            model.includes = vec![
+                Include::new("gone.yaml".to_string(), "gone".to_string()),
+                Include::new("kept.yaml".to_string(), "kept".to_string()),
+            ];
+            let kept = parsed(dir.path(), "kept.yaml", "_forge_version: \"5.1.0\"\nx: 2\n");
+            let resolved = ResolvedInclude {
+                include: model.includes[1].clone(),
+                resolved_path: dir.path().join("kept.yaml"),
+                model: parsed(
+                    dir.path(),
+                    "sheet.yaml",
+                    "_forge_version: \"5.1.0\"\nx: 3\n",
+                ),
+            };
+            model.resolved_includes.insert("kept".to_string(), resolved);
+            assert!(kept.scalars.contains_key("x"));
+            let err = include_files(dir.path(), &model).err().unwrap().to_string();
+            assert!(err.contains("hold other values than"), "{err}");
+            // The same error stops a split import before it writes anything
+            let split = write_split_files_quiet(dir.path(), &model).err().unwrap();
+            assert!(split.to_string().contains("hold other values"), "{split}");
+        }
+
+        #[test]
+        fn a_file_holds_the_same_values_only_when_everything_agrees() {
+            let dir = tempfile::tempdir().unwrap();
+            let sheet = parsed(
+                dir.path(),
+                "sheet.yaml",
+                "_forge_version: \"5.1.0\"\nx: 2\nempty: {value: null, formula: null}\nt:\n  n: [1, 2]\n  label: [\"a\", \"b\"]\n  d: \"=n * 2\"\n",
+            );
+            let same = |text: &str| {
+                let path = dir.path().join("existing.yaml");
+                fs::write(&path, text).unwrap();
+                holds_the_same_values(&path, &sheet)
+            };
+            let base = "_forge_version: \"5.1.0\"\nx: 2\nempty: {value: null, formula: null}\nt:\n  n: [1, 2]\n  label: [\"a\", \"b\"]\n  d: \"=n * 2\"\n";
+            assert!(same(base));
+            assert!(!same(&base.replace("x: 2", "x: 3")));
+            assert!(!same(
+                &base.replace("empty: {value: null, formula: null}", "empty: 1")
+            ));
+            assert!(!same(&base.replace("[\"a\", \"b\"]", "[\"a\", \"c\"]")));
+            assert!(!same(&base.replace("[1, 2]", "[1, 3]")));
+            assert!(!same(&base.replace("d: \"=n * 2\"", "d: [2, 4]")));
+            assert!(!same("_forge_version: \"5.1.0\"\nx: 2\n"));
+            // A file that does not parse, or does not calculate
+            assert!(!same("a: [1, 2\n"));
+            assert!(!same(
+                "_forge_version: \"5.1.0\"\ny: {formula: \"=nosuch + 1\"}\n"
+            ));
+            // A sheet that does not calculate
+            let broken = parsed(
+                dir.path(),
+                "broken.yaml",
+                "_forge_version: \"5.1.0\"\ny: {formula: \"=nosuch + 1\"}\n",
+            );
+            assert!(!holds_the_same_values(
+                &dir.path().join("sheet.yaml"),
+                &broken
+            ));
+        }
+    }
+
+    mod text {
+        //! `import_text_core`: the same import with no files.
+
+        use super::super::import_text_core;
+        use crate::excel::ExcelExporter;
+
+        #[test]
+        fn a_workbook_comes_back_as_text_with_its_included_files() {
+            let model =
+                crate::parser::parse_model(std::path::Path::new("examples/bagel/bagel.yaml"))
+                    .unwrap();
+            let model = crate::core::ArrayCalculator::new(model)
+                .calculate_all()
+                .unwrap();
+            let dir = tempfile::tempdir().unwrap();
+            let xlsx = dir.path().join("b.xlsx");
+            ExcelExporter::new(model).export(&xlsx).unwrap();
+            let imported = import_text_core(std::fs::read(&xlsx).unwrap()).unwrap();
+            assert!(
+                imported.main.starts_with("_forge_version:"),
+                "{}",
+                imported.main
+            );
+            assert_eq!(imported.includes.len(), 1);
+            assert_eq!(imported.includes[0].0, "costs.yaml");
+            assert!(imported.table_count > 0 && imported.scalar_count > 0);
+            assert!(import_text_core(b"not a workbook".to_vec()).is_err());
         }
     }
 }

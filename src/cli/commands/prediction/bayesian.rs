@@ -253,3 +253,45 @@ fn print_bayesian_var_result(
     );
     outln!(c);
 }
+
+#[cfg(test)]
+mod tests {
+    mod acquisition_example {
+        //! examples/acquisition/diligence.yaml: was Quillon's last quarter stuffed?
+        //! Enumerating the joint distribution of stuffing x grid contract x spike x
+        //! receivables: P(stuffing) = 0.08; P(stuffing | spike) = 0.23333333333333336;
+        //! with receivables jumped too, 0.6187845303867404; and if the grid
+        //! contract is real, 0.386277001270648 (the contract explains the spike
+        //! away, but not the receivables).
+
+        use crate::cli::bayesian_core;
+        use std::path::Path;
+
+        fn stuffing(evidence: &[&str]) -> f64 {
+            let ev: Vec<String> = evidence.iter().map(ToString::to_string).collect();
+            let file = Path::new("examples/acquisition/diligence.yaml");
+            let r = bayesian_core(file, Some("stuffing"), &ev).unwrap();
+            let q = &r.queries["stuffing"];
+            q.probabilities[q.states.iter().position(|s| s == "yes").unwrap()]
+        }
+
+        #[test]
+        fn the_receivables_make_stuffing_likelier_than_not() {
+            for (evidence, want) in [
+                (&[][..], 0.08),
+                (&["q4_spike=yes"][..], 0.233_333_333_333_333_36),
+                (
+                    &["q4_spike=yes", "receivables=jumped"][..],
+                    0.618_784_530_386_740_4,
+                ),
+                (
+                    &["q4_spike=yes", "receivables=jumped", "grid_contract=yes"][..],
+                    0.386_277_001_270_648,
+                ),
+            ] {
+                let got = stuffing(evidence);
+                assert!((got - want).abs() <= 1e-12, "{evidence:?}: {got}");
+            }
+        }
+    }
+}
