@@ -24,7 +24,7 @@ pub const BUDGET: [(&str, usize); 8] = [
     ("lints allowed in a Cargo.toml", 13),
     ("lint groups a crate does not enable", 2),
     ("code compiled only for or only without coverage", 0),
-    ("ignored tests", 2),
+    ("ignored tests", 0),
     ("formatting skips", 0),
     ("test files in a tests folder", 0),
     ("test modules in a file of their own", 0),

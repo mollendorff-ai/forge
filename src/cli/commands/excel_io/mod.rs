@@ -630,36 +630,29 @@ g:
         }
     }
 
-    /// `FORGE_ROUNDTRIP_DIR=<dir> cargo test round_trip_corpus -- --ignored --nocapture`
-    /// round-trips every YAML model in a directory and prints a summary.
+    /// Every model in `examples/` (not in a subfolder) is exported and
+    /// imported again: the numbers come back, or the model is one the round
+    /// trip is known not to carry (the draws of `monte-carlo.yaml`).
     #[test]
-    #[ignore = "needs FORGE_ROUNDTRIP_DIR"]
-    fn round_trip_corpus() {
-        let dir = std::env::var("FORGE_ROUNDTRIP_DIR").expect("set FORGE_ROUNDTRIP_DIR");
+    fn round_trip_examples() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples");
         let mut files: Vec<_> = fs::read_dir(dir)
             .unwrap()
-            .filter_map(Result::ok)
-            .map(|e| e.path())
+            .map(|e| e.unwrap().path())
             .filter(|p| p.extension().is_some_and(|x| x == "yaml"))
             .collect();
         files.sort();
-        let (mut same, mut different, mut skipped) = (0, 0, 0);
         for file in &files {
-            match round_trip(file) {
-                Ok(d) if d.is_empty() => same += 1,
-                Ok(d) => {
-                    different += 1;
-                    println!("DIFF {}: {} values, e.g. {}", file.display(), d.len(), d[0]);
-                },
-                Err(e) => {
-                    skipped += 1;
-                    println!("SKIP {}: {e}", file.display());
-                },
+            let name = file.file_name().unwrap().to_string_lossy().to_string();
+            let result = round_trip(file);
+            if name == "monte-carlo.yaml" {
+                // Its formulas are draws: only `forge simulate` calculates them
+                let err = result.unwrap_err();
+                assert!(err.starts_with("original does not calculate"), "{err}");
+            } else {
+                assert_eq!(result, Ok(Vec::new()), "{name}");
             }
         }
-        println!(
-            "models {}: same {same}, different {different}, not round-tripped {skipped}",
-            files.len()
-        );
+        assert_eq!(files.len(), 11);
     }
 }
