@@ -65,7 +65,7 @@ jobs:
             target/wasm32-unknown-unknown/wasm/forge_wasm.wasm
           node studio/build.mjs forge-wasm/pkg-web studio-site
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v4
         with:
