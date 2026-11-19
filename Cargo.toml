@@ -170,7 +170,7 @@ libc = "0.2"
 # jsonschema may follow a $ref to a local file everywhere but in a browser,
 # where its file resolver does not build (Forge's schemas are built in)
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
-jsonschema = { version = "0.60", default-features = false, features = ["resolve-file"] }
+jsonschema = { version = "0.61", default-features = false, features = ["resolve-file"] }
 
 # In a browser (wasm32-unknown-unknown, ADR-055): randomness for unseeded
 # simulations from the browser's crypto, and today's date from its clock.
