@@ -50,6 +50,10 @@ pub fn game_core(
 /// # Errors
 ///
 /// As [`game_core`], and when the output file cannot be written.
+///
+/// # Panics
+///
+/// Never in practice: a report is plain data and always serialises.
 pub fn game(
     c: &mut Console<'_>,
     file: &Path,
@@ -68,7 +72,7 @@ pub fn game(
         print_table(c, report);
     }
     if let Some(path) = output {
-        let text = serialize_for_file(&reports, &path)?;
+        let text = serialize_for_file(&reports, &path).expect("a report serialises");
         fs::write(&path, text).map_err(ForgeError::Io)?;
         outln!(
             c,
@@ -331,6 +335,16 @@ games:
     payoffs:
       x: {l: [2, 1], r: [0, 1]}
       y: {l: [0, 1], r: [2, 0]}
+  solo:
+    players: [p, q, r]
+    strategies: [u, d]
+    payoffs:
+      u:
+        u: {u: [1, 1, 1], d: [1, 1, 0]}
+        d: {u: [1, 0, 1], d: [1, 0, 0]}
+      d:
+        u: {u: [0, 1, 1], d: [0, 1, 0]}
+        d: {u: [0, 0, 1], d: [0, 0, 0]}
   three:
     players: [p, q, r]
     strategies: [u, d]
@@ -354,7 +368,10 @@ games:
             out.contains("Mixed equilibria were not looked for"),
             "{out}"
         );
-        assert!(out.contains("pure equilibria:"), "{out}");
+        assert!(out.contains("5 pure equilibria:"), "{out}");
+        // Each of the three gains 1 by choosing u, whatever the others do:
+        // u is dominant and (u, u, u) is the only equilibrium
+        assert!(out.contains("1 pure equilibrium:"), "{out}");
     }
 
     #[test]
@@ -397,6 +414,18 @@ games:
             ran.err
         );
         let ran = forge(&["game", &file, "--scenario", "nope"]);
+        assert_eq!(ran.code, 1, "{}", ran.both());
+        let ran = forge(&["game", "no/such/file.yaml"]);
+        assert_eq!(ran.code, 1, "{}", ran.both());
+        // A model that cannot be calculated at all (a cycle) stops the command
+        let cycle = write(
+            &dir,
+            &MODEL.replace("c: 0\n", "c: {formula: \"=d\"}\nd: {formula: \"=c\"}\n"),
+        );
+        let ran = forge(&["game", &cycle]);
+        assert!(ran.err.contains("depend on each other"), "{}", ran.err);
+        // An output that cannot be written is an error too
+        let ran = forge(&["game", &file, "-o", dir.path().to_str().unwrap()]);
         assert_eq!(ran.code, 1, "{}", ran.both());
         let plain = write(&dir, "_forge_version: \"5.5.0\"\nx: 1\n");
         let ran = forge(&["game", &plain]);
