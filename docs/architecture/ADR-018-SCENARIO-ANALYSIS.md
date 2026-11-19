@@ -1,6 +1,8 @@
 # ADR-018: Scenario Analysis
 
 > **Note (2026-11-08):** The decision holds; the CLI flags differ (`--compare` and `--expected-value` do not exist). `forge scenarios --help` is current.
+>
+> **Note (2026-11-18):** A scenario without a probability is not weighted: `forge scenarios` leaves it out and names it, and the probabilities of the rest must sum to 1 (ADR-067).
 
 ## Status
 

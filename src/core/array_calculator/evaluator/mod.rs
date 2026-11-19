@@ -5,14 +5,6 @@
 //!
 //! Function implementations are organized into submodules by category.
 
-// Evaluator casts: array lengths and indices between f64, usize, and integer types.
-// Values are bounded by practical worksheet sizes (well within f64 mantissa).
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
-
 mod aggregation;
 mod criterion;
 mod dates;
@@ -37,6 +29,12 @@ pub use serial::{date_serial, excel_date_serial, serial_date_text};
 pub use values::number_text;
 pub(crate) use values::{is_na_error, paired_numbers};
 
+mod operators;
+mod value;
+use operators::{evaluate_binary_op, evaluate_final_op, evaluate_unary_op};
+pub(crate) use operators::{power, values_equal};
+pub use value::Value;
+
 // Extended evaluator modules
 mod advanced;
 mod array;
@@ -45,126 +43,8 @@ mod forge;
 mod info;
 
 use super::parser::{Expr, Reference};
+use num_traits::ToPrimitive;
 use std::collections::HashMap;
-
-/// Value type that can be returned from evaluation
-#[derive(Debug, Clone)]
-pub enum Value {
-    /// A numeric value
-    Number(f64),
-    /// A text value
-    Text(String),
-    /// A boolean value
-    Boolean(bool),
-    /// An array of values (for table columns), shared, not copied (T1-COLUMN-COPIES)
-    Array(std::sync::Arc<Vec<Self>>),
-    /// A lambda function value (parameter names, body expression)
-    Lambda {
-        params: Vec<String>,
-        body: Box<Expr>,
-    },
-    /// Null/empty value
-    Null,
-}
-
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Number(a), Self::Number(b)) => a == b,
-            (Self::Text(a), Self::Text(b)) => a == b,
-            (Self::Boolean(a), Self::Boolean(b)) => a == b,
-            (Self::Array(a), Self::Array(b)) => a == b,
-            (Self::Null, Self::Null) => true,
-            _ => false, // Lambdas and mismatched types don't compare equal
-        }
-    }
-}
-
-impl Value {
-    /// Try to convert to f64
-    /// For text, tries numeric parsing first, then date parsing (YYYY-MM-DD -> Excel serial)
-    ///
-    /// # Panics
-    ///
-    /// Cannot panic in practice: the Excel epoch date (1899-12-30) is always valid.
-    #[must_use]
-    pub fn as_number(&self) -> Option<f64> {
-        match self {
-            Self::Number(n) => Some(*n),
-            Self::Text(s) => {
-                // First try direct numeric parse
-                if let Ok(n) = s.parse::<f64>() {
-                    return Some(n);
-                }
-                // Then a date (YYYY-MM-DD), as its day number
-                date_serial(s)
-            },
-            Self::Boolean(b) => Some(if *b { 1.0 } else { 0.0 }),
-            // A one-element array is its element. A longer array has no single
-            // numeric value; callers must aggregate it or report an error.
-            Self::Array(arr) => match arr.as_slice() {
-                [only] => only.as_number(),
-                _ => None,
-            },
-            Self::Lambda { .. } | Self::Null => None,
-        }
-    }
-
-    /// A value used as one number, where an empty cell is 0, as in Excel
-    /// (`=A3 + 1`, `ROUND(A3, 0)`, ADR-059). Elements of a range keep
-    /// [`Value::as_number`], which skips an empty cell, as aggregates must.
-    #[must_use]
-    pub fn as_cell_number(&self) -> Option<f64> {
-        match self {
-            Self::Null => Some(0.0),
-            other => other.as_number(),
-        }
-    }
-
-    /// Try to convert to string
-    pub fn as_text(&self) -> String {
-        match self {
-            Self::Number(n) => number_text(*n),
-            Self::Text(s) => s.clone(),
-            Self::Boolean(b) => if *b { "TRUE" } else { "FALSE" }.to_string(),
-            Self::Null => String::new(),
-            Self::Array(arr) => {
-                let strs: Vec<String> = arr.iter().map(Self::as_text).collect();
-                format!("[{}]", strs.join(", "))
-            },
-            Self::Lambda { params, .. } => {
-                format!("LAMBDA({})", params.join(", "))
-            },
-        }
-    }
-
-    /// Try to convert to boolean
-    #[must_use]
-    pub fn as_bool(&self) -> Option<bool> {
-        match self {
-            Self::Boolean(b) => Some(*b),
-            Self::Array(arr) if arr.len() == 1 => arr[0].as_bool(),
-            Self::Number(n) => Some(*n != 0.0),
-            Self::Text(s) => {
-                let upper = s.to_uppercase();
-                if upper == "TRUE" || upper == "1" {
-                    Some(true)
-                } else if upper == "FALSE" || upper == "0" {
-                    Some(false)
-                } else {
-                    None
-                }
-            },
-            _ => None,
-        }
-    }
-
-    /// Check if value is truthy
-    #[must_use]
-    pub fn is_truthy(&self) -> bool {
-        self.as_bool().unwrap_or(false)
-    }
-}
 
 /// A map by name with fast, fixed hashing: formulas look names up many
 /// times per calculation, and the keys are the model's own names.
@@ -282,6 +162,56 @@ impl std::fmt::Display for EvalError {
 
 impl std::error::Error for EvalError {}
 
+/// Evaluate a cell's formula: a scalar's, or one row of a row formula.
+///
+/// When its last operation is a `+` or `-` that `body` (the formula's text
+/// after `=`) does not wrap in parentheses, a result that nearly cancels is
+/// 0, as in Excel (ADR-066); anything else is [`evaluate`].
+///
+/// # Errors
+///
+/// Returns `EvalError` as [`evaluate`] does.
+pub fn evaluate_cell(expr: &Expr, body: &str, ctx: &EvalContext) -> Result<Value, EvalError> {
+    match expr {
+        Expr::BinaryOp { op, left, right }
+            if (op == "+" || op == "-") && !wrapped_in_parentheses(body) =>
+        {
+            let left_val = evaluate(left, ctx)?;
+            let right_val = evaluate(right, ctx)?;
+            evaluate_final_op(op, &left_val, &right_val)
+        },
+        _ => evaluate(expr, ctx),
+    }
+}
+
+/// Whether a formula's text is wrapped in one pair of parentheses: `(a+b-c)`,
+/// not `(a+b)-c`. Parentheses inside a text in quotes do not count.
+#[must_use]
+pub fn wrapped_in_parentheses(body: &str) -> bool {
+    let body = body.trim().trim_start_matches('=').trim();
+    if !body.starts_with('(') {
+        return false;
+    }
+    let mut depth = 0_usize;
+    let mut in_text = false;
+    for (at, c) in body.char_indices() {
+        match c {
+            '"' => in_text = !in_text,
+            '(' if !in_text => depth += 1,
+            ')' if !in_text => {
+                depth = depth.saturating_sub(1);
+                // The first parenthesis closes: the formula is wrapped only if
+                // nothing follows
+                if depth == 0 {
+                    return body[at + 1..].trim().is_empty();
+                }
+            },
+            _ => {},
+        }
+    }
+    false
+}
+
 /// Evaluate an expression in the given context
 ///
 /// # Errors
@@ -349,12 +279,13 @@ fn evaluate_expr(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
 
             let idx = idx_val
                 .as_number()
-                .ok_or_else(|| EvalError::new("Array index must be a number"))?
-                as usize;
+                .ok_or_else(|| EvalError::new("Array index must be a number"))?;
 
+            // A place from 0, cut to a whole number; a negative one is none
             match arr_val {
-                Value::Array(arr) => arr
-                    .get(idx)
+                Value::Array(arr) => idx
+                    .to_usize()
+                    .and_then(|at| arr.get(at))
                     .cloned()
                     .ok_or_else(|| EvalError::new(format!("Array index {idx} out of bounds"))),
                 _ => Err(EvalError::new("Cannot index non-array value")),
@@ -534,241 +465,6 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
     }
 }
 
-/// Evaluate a binary operation, element by element when an operand is an array.
-///
-/// Arrays of equal length pair up by position. A scalar or one-element array
-/// applies to every element. Any other length mismatch is an error.
-fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
-    match (left, right) {
-        (Value::Array(l), Value::Array(r)) if l.len() == r.len() => l
-            .iter()
-            .zip(r.iter())
-            .map(|(a, b)| evaluate_binary_op(op, a, b))
-            .collect::<Result<Vec<_>, _>>()
-            .map(|items| Value::Array(items.into())),
-        (Value::Array(l), Value::Array(r)) if r.len() == 1 => broadcast_left(op, l, &r[0]),
-        (Value::Array(l), Value::Array(r)) if l.len() == 1 => broadcast_right(op, &l[0], r),
-        (Value::Array(l), Value::Array(r)) => Err(EvalError::new(format!(
-            "Array length mismatch for '{op}': {} and {}",
-            l.len(),
-            r.len()
-        ))),
-        (Value::Array(l), scalar) => broadcast_left(op, l, scalar),
-        (scalar, Value::Array(r)) => broadcast_right(op, scalar, r),
-        _ => evaluate_scalar_binary_op(op, left, right),
-    }
-}
-
-/// Apply `op` between each element of `items` and a single right operand.
-fn broadcast_left(op: &str, items: &[Value], right: &Value) -> Result<Value, EvalError> {
-    items
-        .iter()
-        .map(|item| evaluate_binary_op(op, item, right))
-        .collect::<Result<Vec<_>, _>>()
-        .map(|items| Value::Array(items.into()))
-}
-
-/// Apply `op` between a single left operand and each element of `items`.
-fn broadcast_right(op: &str, left: &Value, items: &[Value]) -> Result<Value, EvalError> {
-    items
-        .iter()
-        .map(|item| evaluate_binary_op(op, left, item))
-        .collect::<Result<Vec<_>, _>>()
-        .map(|items| Value::Array(items.into()))
-}
-
-/// Evaluate a binary operation on two non-array values
-// Arithmetic + comparison + logical operators require many match arms.
-#[allow(clippy::too_many_lines)]
-/// `base ^ exponent` as Excel computes it, for `^`, `POWER` and `POW`: 0^0
-/// and a negative base with a fractional exponent are #NUM!, and 0 to a
-/// negative power is #DIV/0!.
-pub(crate) fn power(base: f64, exponent: f64) -> Result<Value, EvalError> {
-    if base == 0.0 && exponent == 0.0 {
-        return Err(EvalError::new("#NUM!: 0^0 is undefined"));
-    }
-    if base == 0.0 && exponent < 0.0 {
-        return Err(EvalError::new("#DIV/0!: zero to a negative power"));
-    }
-    let result = base.powf(exponent);
-    if result.is_nan() {
-        return Err(EvalError::new(
-            "#NUM!: negative base with a fractional exponent",
-        ));
-    }
-    finite(result)
-}
-
-/// Excel returns #NUM! when arithmetic overflows; an f64 would quietly become inf.
-fn finite(result: f64) -> Result<Value, EvalError> {
-    if result.is_infinite() {
-        Err(EvalError::new("#NUM!: result is too large"))
-    } else {
-        Ok(Value::Number(result))
-    }
-}
-
-/// Both operands as numbers, or an error naming the side that is not one.
-fn numbers(left: &Value, right: &Value) -> Result<(f64, f64), EvalError> {
-    let l = left
-        .as_number()
-        .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-    let r = right
-        .as_number()
-        .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
-    Ok((l, r))
-}
-
-fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
-    // An empty cell is 0 in arithmetic and comparison, and equal to both 0 and
-    // "" (and to FALSE), as in Excel (ADR-059); `&` reads it as ""
-    if matches!(left, Value::Null) || matches!(right, Value::Null) {
-        let empty_equal = |other: &Value| match other {
-            Value::Null => true,
-            Value::Text(t) => t.is_empty(),
-            Value::Boolean(b) => !b,
-            other => other.as_number() == Some(0.0),
-        };
-        let other = if matches!(left, Value::Null) {
-            right
-        } else {
-            left
-        };
-        match op {
-            "=" => return Ok(Value::Boolean(empty_equal(other))),
-            "<>" => return Ok(Value::Boolean(!empty_equal(other))),
-            "&" => {},
-            _ => {
-                let zero = Value::Number(0.0);
-                let l = if matches!(left, Value::Null) {
-                    &zero
-                } else {
-                    left
-                };
-                let r = if matches!(right, Value::Null) {
-                    &zero
-                } else {
-                    right
-                };
-                return evaluate_scalar_binary_op(op, l, r);
-            },
-        }
-    }
-    match op {
-        // Arithmetic operators
-        // `+` adds, as in Excel: a date is its day number and "5" is 5.
-        // Text that is neither is #VALUE!; `&` joins text (ADR-054).
-        "+" => {
-            let (Some(l), Some(r)) = (left.as_number(), right.as_number()) else {
-                return Err(EvalError::new(
-                    "#VALUE!: + adds numbers; use & or CONCAT to join text",
-                ));
-            };
-            finite(l + r)
-        },
-        "-" => {
-            let (l, r) = numbers(left, right)?;
-            finite(l - r)
-        },
-        "*" => {
-            let (l, r) = numbers(left, right)?;
-            finite(l * r)
-        },
-        "/" => {
-            let (l, r) = numbers(left, right)?;
-            if r == 0.0 {
-                Err(EvalError::new("Division by zero"))
-            } else {
-                finite(l / r)
-            }
-        },
-        "^" => {
-            let (l, r) = numbers(left, right)?;
-            power(l, r)
-        },
-
-        // String concatenation operator
-        "&" => Ok(Value::Text(format!(
-            "{}{}",
-            left.as_text(),
-            right.as_text()
-        ))),
-
-        // Comparison operators
-        "=" => Ok(Value::Boolean(values_equal(left, right))),
-        "<>" => Ok(Value::Boolean(!values_equal(left, right))),
-        "<" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l < r))
-        },
-        ">" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l > r))
-        },
-        "<=" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l <= r))
-        },
-        ">=" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l >= r))
-        },
-
-        _ => Err(EvalError::new(format!("Unknown operator: {op}"))),
-    }
-}
-
-/// Check if two values are equal
-pub(crate) fn values_equal(left: &Value, right: &Value) -> bool {
-    match (left, right) {
-        (Value::Number(l), Value::Number(r)) => (l - r).abs() < 1e-10,
-        (Value::Text(l), Value::Text(r)) => l.to_lowercase() == r.to_lowercase(),
-        (Value::Boolean(l), Value::Boolean(r)) => l == r,
-        (Value::Null, Value::Null) => true,
-        (Value::Array(l), Value::Array(r)) => {
-            // Arrays are equal if same length and all elements equal
-            if l.len() != r.len() {
-                return false;
-            }
-            l.iter().zip(r.iter()).all(|(a, b)| values_equal(a, b))
-        },
-        // Single-element array compared with scalar
-        (Value::Array(arr), other) if arr.len() == 1 => values_equal(&arr[0], other),
-        (other, Value::Array(arr)) if arr.len() == 1 => values_equal(other, &arr[0]),
-        // A date is equal to its day number: `d = DATE(2026, 1, 31)` (ADR-054).
-        // Other text is never equal to a number, as in Excel (`"5" = 5` is FALSE).
-        (Value::Text(text), Value::Number(n)) | (Value::Number(n), Value::Text(text)) => {
-            date_serial(text).is_some_and(|serial| (serial - n).abs() < 1e-10)
-        },
-        // Boolean vs Number is never equal: in Excel and Gnumeric `TRUE = 1`
-        // and `FALSE = 0` are FALSE (arithmetic still coerces: TRUE + 1 = 2).
-        _ => false,
-    }
-}
-
-/// Evaluate a unary operation
-fn evaluate_unary_op(op: &str, operand: &Value) -> Result<Value, EvalError> {
-    if let Value::Array(items) = operand {
-        return items
-            .iter()
-            .map(|item| evaluate_unary_op(op, item))
-            .collect::<Result<Vec<_>, _>>()
-            .map(|items| Value::Array(items.into()));
-    }
-    match op {
-        // -(an empty cell) is 0 (ADR-059)
-        "-" if matches!(operand, Value::Null) => Ok(Value::Number(0.0)),
-        "-" => {
-            let n = operand
-                .as_number()
-                .ok_or_else(|| EvalError::new("Operand must be a number"))?;
-            // 0 - n, so that -(0) is 0 and not -0, as Excel shows it
-            Ok(Value::Number(0.0 - n))
-        },
-        _ => Err(EvalError::new(format!("Unknown unary operator: {op}"))),
-    }
-}
-
 /// Evaluate a function call - dispatches to category-specific modules
 fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     let upper_name = name.to_uppercase();
@@ -900,7 +596,23 @@ pub(crate) fn collect_numeric_values(
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Vec<f64>, EvalError> {
+    Ok(collect_numbers_and_dates(args, ctx)?.0)
+}
+
+/// Whether a value is a date Excel holds: date text from 1900-03-01 on.
+pub(crate) fn is_a_date(value: &Value) -> bool {
+    matches!(value, Value::Text(text) if excel_date_serial(text).is_some())
+}
+
+/// The numbers of `args` as `collect_numeric_values` reads them, and whether
+/// they are all dates: at least one, and none a plain number (ADR-060
+/// addendum). `MAX`, `MIN`, `LARGE` and `SMALL` of dates give a date.
+pub(crate) fn collect_numbers_and_dates(
+    args: &[Expr],
+    ctx: &EvalContext,
+) -> Result<(Vec<f64>, bool), EvalError> {
     let mut values = Vec::new();
+    let (mut dates, mut plain) = (false, false);
 
     for arg in args {
         let val = evaluate(arg, ctx)?;
@@ -909,18 +621,44 @@ pub(crate) fn collect_numeric_values(
                 for v in arr.iter() {
                     if let Some(n) = v.as_number() {
                         values.push(n);
+                        if is_a_date(v) {
+                            dates = true;
+                        } else {
+                            plain = true;
+                        }
                     }
                 }
             },
-            Value::Number(n) => values.push(n),
+            Value::Number(n) => {
+                values.push(n);
+                plain = true;
+            },
             // A date is a number wherever one is read, from a column (above)
             // or as a single value: `MAX(due, DATE(2026, 6, 1))` (ADR-054)
-            Value::Text(text) => values.extend(date_serial(&text)),
+            Value::Text(ref text) => {
+                if let Some(n) = date_serial(text) {
+                    values.push(n);
+                    if is_a_date(&val) {
+                        dates = true;
+                    } else {
+                        plain = true;
+                    }
+                }
+            },
             _ => {},
         }
     }
 
-    Ok(values)
+    Ok((values, dates && !plain))
+}
+
+/// `number`, shown as the date it is when `is_date` says it came from dates.
+pub(crate) fn number_or_date(number: f64, is_date: bool) -> Value {
+    if is_date {
+        Value::Text(serial_date_text(number))
+    } else {
+        Value::Number(number)
+    }
 }
 
 /// The number a criterion such as `>=2026-02-01` or `>50` compares with: a
@@ -959,9 +697,10 @@ pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalErr
         Value::Number(n) => {
             // Excel serial number (days since 1899-12-30)
             // Note: Excel incorrectly treats 1900 as a leap year, we handle this
+            // Whole days on from it: a negative serial is no date
             let base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
-            let days = *n as i64;
-            base.checked_add_days(chrono::Days::new(days as u64))
+            n.to_u64()
+                .and_then(|days| base.checked_add_days(chrono::Days::new(days)))
                 .ok_or_else(|| EvalError::new(format!("Invalid Excel date serial: {n}")))
         },
         _ => Err(EvalError::new("Expected date string or serial number")),
@@ -969,20 +708,33 @@ pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalErr
 }
 
 #[cfg(test)]
-mod batch_tests;
-#[cfg(test)]
-mod date_tests;
-#[cfg(test)]
-mod empty_cell_tests;
-#[cfg(test)]
-mod excel_checks_tests;
-#[cfg(test)]
-mod generated_tests;
-#[cfg(test)]
-mod sweep_text_lookup_tests;
-
-#[cfg(test)]
 mod tests {
+
+    mod wrapped {
+        //! A formula wrapped in one pair of parentheses has no last `+` or
+        //! `-` of its own, as Excel reads it (ADR-066)
+
+        use super::super::wrapped_in_parentheses;
+
+        #[test]
+        fn only_one_pair_around_the_whole_formula_wraps_it() {
+            for wrapped in ["=(a+b-c)", "((a+b-c))", " = ( a - b ) ", "(\"(\" & a)"] {
+                assert!(wrapped_in_parentheses(wrapped), "{wrapped}");
+            }
+            for not in [
+                "=a+b-c",
+                "=(a+b)-c",
+                "=(a)+(b)",
+                "=a-(b+c)",
+                "=(\")\" & a)-b",
+                "=(a+b",
+                "=)a(",
+                "",
+            ] {
+                assert!(!wrapped_in_parentheses(not), "{not}");
+            }
+        }
+    }
     use super::*;
     use crate::core::array_calculator::parser::parse;
     use crate::core::array_calculator::tokenizer::tokenize;
@@ -993,49 +745,157 @@ mod tests {
         evaluate(&ast, ctx)
     }
 
-    /// `POWER` and `POW` gave 1 for 0^0, where Excel and Forge's own `^` give
-    /// #NUM!; all three now follow Excel.
-    #[test]
-    fn power_functions_match_the_operator() {
-        let ctx = EvalContext::new();
-        for (formula, error) in [
-            ("0^0", "#NUM!"),
-            ("POWER(0, 0)", "#NUM!"),
-            ("POW(0, 0)", "#NUM!"),
-            ("POWER(0, -1)", "#DIV/0!"),
-            ("POW(-8, 1/3)", "#NUM!"),
-        ] {
-            let err = eval(formula, &ctx).unwrap_err().to_string();
-            assert!(err.contains(error), "{formula}: {err}");
-        }
-        assert_eq!(eval("POWER(2, 10)", &ctx).unwrap(), Value::Number(1024.0));
-        assert_eq!(eval("POW(-2, 3)", &ctx).unwrap(), Value::Number(-8.0));
+    // Helpers for the tests of every module of the evaluator, which reach
+    // them as `evaluator::tests`
+
+    /// A context with one table, `t`, of these columns
+    pub fn table(columns: &[(&str, Vec<Value>)]) -> EvalContext {
+        let mut ctx = EvalContext::new();
+        let table: HashMap<String, Vec<Value>> = columns
+            .iter()
+            .map(|(name, values)| ((*name).to_string(), values.clone()))
+            .collect();
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
+        ctx
     }
 
-    /// `ADDRESS` as Excel computes it: R1C1 brackets on the relative part,
-    /// `sheet_text`, and #VALUE! outside the sheet (it gave `$A$0`).
-    #[test]
-    fn address_matches_excel() {
-        let ctx = EvalContext::new();
-        for (formula, text) in [
-            ("ADDRESS(2, 3)", "$C$2"),
-            ("ADDRESS(2, 3, 2)", "C$2"),
-            ("ADDRESS(2, 3, 2, FALSE)", "R2C[3]"),
-            ("ADDRESS(2, 3, 3, FALSE)", "R[2]C3"),
-            ("ADDRESS(2, 3, 4, FALSE)", "R[2]C[3]"),
-            ("ADDRESS(1, 1, 1, TRUE, \"Sheet1\")", "Sheet1!$A$1"),
-            ("ADDRESS(1, 1, 1, TRUE, \"My Sheet\")", "'My Sheet'!$A$1"),
-            ("ADDRESS(2, 3, 1, FALSE, \"S\")", "S!R2C3"),
-        ] {
-            assert_eq!(
-                eval(formula, &ctx).unwrap(),
-                Value::Text(text.to_string()),
-                "{formula}"
-            );
+    pub fn numbers(values: &[f64]) -> Vec<Value> {
+        values.iter().map(|v| Value::Number(*v)).collect()
+    }
+
+    pub fn texts(items: &[&str]) -> Vec<Value> {
+        items
+            .iter()
+            .map(|s| Value::Text((*s).to_string()))
+            .collect()
+    }
+
+    pub fn number_in(formula: &str, ctx: &EvalContext) -> f64 {
+        match eval(formula, ctx) {
+            Ok(Value::Number(n)) => n,
+            other => panic!("{formula}: {other:?}"),
         }
-        for formula in ["ADDRESS(0, 1)", "ADDRESS(1048577, 1)", "ADDRESS(1, 1, 5)"] {
-            assert!(eval(formula, &ctx).is_err(), "{formula}");
+    }
+
+    pub fn number(formula: &str) -> f64 {
+        number_in(formula, &EvalContext::new())
+    }
+
+    pub fn text_in(formula: &str, ctx: &EvalContext) -> String {
+        match eval(formula, ctx) {
+            Ok(Value::Text(t)) => t,
+            other => panic!("{formula}: {other:?}"),
         }
+    }
+
+    pub fn text(formula: &str) -> String {
+        text_in(formula, &EvalContext::new())
+    }
+
+    pub fn truth(formula: &str) -> bool {
+        match eval(formula, &EvalContext::new()) {
+            Ok(Value::Boolean(b)) => b,
+            other => panic!("{formula}: {other:?}"),
+        }
+    }
+
+    /// The formula is an error, any error
+    pub fn fails(formula: &str) {
+        assert!(eval(formula, &EvalContext::new()).is_err(), "{formula}");
+    }
+
+    /// The formula is an error whose message holds `code`
+    pub fn fails_in(formula: &str, ctx: &EvalContext, code: &str) {
+        match eval(formula, ctx) {
+            Err(e) => assert!(e.to_string().contains(code), "{formula}: {e}"),
+            Ok(v) => panic!("{formula} gave {v:?}, not {code}"),
+        }
+    }
+
+    pub fn fails_with(formula: &str, code: &str) {
+        fails_in(formula, &EvalContext::new(), code);
+    }
+
+    pub fn error_in(formula: &str, ctx: &EvalContext) -> String {
+        eval(formula, ctx).unwrap_err().to_string()
+    }
+
+    /// Within 1e-9 of `b`, relative to it once it is past 1
+    pub fn near(a: f64, b: f64) -> bool {
+        (a - b).abs() <= 1e-9 * b.abs().max(1.0)
+    }
+
+    /// The formula's number is `value` to the last bit: an exact answer,
+    /// checked without comparing floats with `==`
+    pub fn is_exactly(formula: &str, value: f64) {
+        is_exactly_in(formula, &EvalContext::new(), value);
+    }
+
+    pub fn is_exactly_in(formula: &str, ctx: &EvalContext, value: f64) {
+        let got = number_in(formula, ctx);
+        assert!(
+            got.to_bits() == value.to_bits(),
+            "{formula}: {got}, not exactly {value}"
+        );
+    }
+
+    pub fn sweep_is_exactly(formula: &str, value: f64) {
+        is_exactly_in(formula, &sweep_table(), value);
+    }
+
+    /// The formula's number within 1e-14 of the exact value, relative to it
+    /// once it is past 1
+    pub fn exactly(formula: &str, exact: f64) {
+        let got = number(formula);
+        assert!(
+            (got - exact).abs() <= 1e-14 * exact.abs().max(1.0),
+            "{formula}: {got}, exact {exact}"
+        );
+    }
+
+    /// The table of the sweeps against Gnumeric and `LibreOffice`
+    /// (`validation/sweep`): names `t.nm`, prices `t.pr`, lookups `t.lu` and
+    /// a column with an empty text, `t.s`
+    pub fn sweep_table() -> EvalContext {
+        table(&[
+            (
+                "nm",
+                texts(&["apple", "Banana", "cherry", "apple pie", "date", "b*"]),
+            ),
+            ("pr", numbers(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0])),
+            ("lu", numbers(&[4.0, 2.0, 9.0, 2.0, 7.0, 4.0])),
+            ("s", texts(&["a", "", "b", "c"])),
+        ])
+    }
+
+    pub fn sweep_number(formula: &str) -> f64 {
+        number_in(formula, &sweep_table())
+    }
+
+    pub fn sweep_text(formula: &str) -> String {
+        text_in(formula, &sweep_table())
+    }
+
+    pub fn sweep_fails(formula: &str, code: &str) {
+        fails_in(formula, &sweep_table(), code);
+    }
+
+    /// The table of ADR-059: `t.x` is 10, empty, 30, empty, 0; `t.b` is a
+    /// column of only empty cells; `blank` is one empty cell
+    pub fn empty_cells() -> EvalContext {
+        let n = Value::Number;
+        let mut ctx = table(&[
+            (
+                "x",
+                vec![n(10.0), Value::Null, n(30.0), Value::Null, n(0.0)],
+            ),
+            ("b", vec![Value::Null; 5]),
+        ]);
+        ctx.scalars.insert("blank".into(), Value::Null);
+        ctx
     }
 
     #[test]
@@ -1043,163 +903,6 @@ mod tests {
         let ctx = EvalContext::new();
         let result = eval("42", &ctx).unwrap();
         assert_eq!(result, Value::Number(42.0));
-    }
-
-    #[test]
-    fn test_eval_arithmetic() {
-        let ctx = EvalContext::new();
-        assert_eq!(eval("2 + 3", &ctx).unwrap(), Value::Number(5.0));
-        assert_eq!(eval("10 - 4", &ctx).unwrap(), Value::Number(6.0));
-        assert_eq!(eval("3 * 4", &ctx).unwrap(), Value::Number(12.0));
-        assert_eq!(eval("15 / 3", &ctx).unwrap(), Value::Number(5.0));
-        assert_eq!(eval("2 ^ 3", &ctx).unwrap(), Value::Number(8.0));
-    }
-
-    #[test]
-    fn test_eval_power_zero_to_zero() {
-        let ctx = EvalContext::new();
-        // Excel: 0^0 is #NUM!
-        assert!(eval("0 ^ 0", &ctx)
-            .unwrap_err()
-            .to_string()
-            .contains("#NUM!"));
-        // Excel: 0 to a negative power is #DIV/0!
-        assert!(eval("0 ^ -1", &ctx)
-            .unwrap_err()
-            .to_string()
-            .contains("#DIV/0!"));
-        // Excel: negative base, fractional exponent is #NUM!
-        assert!(eval("(0 - 8) ^ 0.5", &ctx).is_err());
-    }
-
-    #[test]
-    fn test_eval_overflow_is_num_error() {
-        // Excel: arithmetic that overflows is #NUM!, never infinity
-        let ctx = EvalContext::new();
-        for formula in [
-            "2 ^ 1024",
-            "1E308 * 10",
-            "1E308 + 1E308",
-            "-1E308 - 1E308",
-            "1E308 / 1E-10",
-        ] {
-            let err = eval(formula, &ctx).unwrap_err().to_string();
-            assert!(err.contains("#NUM!"), "{formula}: {err}");
-        }
-        for formula in ["POWER(2, 1024)", "EXP(1000)", "SUM(1E308, 1E308)"] {
-            let err = eval(formula, &ctx).unwrap_err().to_string();
-            assert!(err.contains("#NUM!"), "{formula}: {err}");
-        }
-        assert_eq!(
-            eval("2 ^ 1023", &ctx)
-                .unwrap()
-                .as_number()
-                .map(f64::is_finite),
-            Some(true)
-        );
-    }
-
-    #[test]
-    fn test_eval_precedence() {
-        let ctx = EvalContext::new();
-        assert_eq!(eval("2 + 3 * 4", &ctx).unwrap(), Value::Number(14.0));
-        assert_eq!(eval("(2 + 3) * 4", &ctx).unwrap(), Value::Number(20.0));
-    }
-
-    #[test]
-    fn test_eval_unary_minus() {
-        let ctx = EvalContext::new();
-        assert_eq!(eval("-5", &ctx).unwrap(), Value::Number(-5.0));
-        assert_eq!(eval("10 + -3", &ctx).unwrap(), Value::Number(7.0));
-    }
-
-    #[test]
-    fn test_eval_double_negative() {
-        let ctx = EvalContext::new();
-        // --5 = 5
-        assert_eq!(eval("--5", &ctx).unwrap(), Value::Number(5.0));
-    }
-
-    #[test]
-    fn test_eval_triple_negative() {
-        let ctx = EvalContext::new();
-        // ---5 = -5
-        assert_eq!(eval("---5", &ctx).unwrap(), Value::Number(-5.0));
-    }
-
-    #[test]
-    fn test_eval_comparison() {
-        let ctx = EvalContext::new();
-        assert_eq!(eval("5 > 3", &ctx).unwrap(), Value::Boolean(true));
-        assert_eq!(eval("5 < 3", &ctx).unwrap(), Value::Boolean(false));
-        assert_eq!(eval("5 = 5", &ctx).unwrap(), Value::Boolean(true));
-        assert_eq!(eval("5 <> 3", &ctx).unwrap(), Value::Boolean(true));
-    }
-
-    #[test]
-    fn test_eval_boolean_comparison() {
-        let ctx = EvalContext::new();
-        // TRUE > FALSE = true (TRUE is 1, FALSE is 0)
-        assert_eq!(eval("TRUE > FALSE", &ctx).unwrap(), Value::Boolean(true));
-    }
-
-    #[test]
-    fn test_eval_boolean_number_equality() {
-        let ctx = EvalContext::new();
-        // Excel and Gnumeric: a boolean never equals a number
-        assert_eq!(eval("TRUE = 1", &ctx).unwrap(), Value::Boolean(false));
-        assert_eq!(eval("FALSE = 0", &ctx).unwrap(), Value::Boolean(false));
-        assert_eq!(eval("TRUE <> 1", &ctx).unwrap(), Value::Boolean(true));
-    }
-
-    #[test]
-    fn test_eval_string_equality() {
-        let ctx = EvalContext::new();
-        // "ABC" = "ABC" = true (exact string match)
-        assert_eq!(
-            eval("\"ABC\" = \"ABC\"", &ctx).unwrap(),
-            Value::Boolean(true)
-        );
-        // Note: Forge uses case-insensitive string comparison (differs from Excel)
-        // In Excel: "ABC" = "abc" would be false (case sensitive)
-        // In Forge: "ABC" = "abc" is true (case insensitive)
-        assert_eq!(
-            eval("\"ABC\" = \"abc\"", &ctx).unwrap(),
-            Value::Boolean(true)
-        );
-    }
-
-    #[test]
-    fn test_eval_floating_point_precision() {
-        let ctx = EvalContext::new();
-        // Note: Forge uses epsilon comparison (1e-10) for floating point equality
-        // 0.1 + 0.2 = 0.3 = true (difference is ~5.5e-17, less than epsilon)
-        // In strict floating point: this would be false
-        // Forge's epsilon comparison makes this true to avoid precision issues
-        assert_eq!(eval("0.1 + 0.2 = 0.3", &ctx).unwrap(), Value::Boolean(true));
-        // ROUND also ensures equality
-        assert_eq!(
-            eval("ROUND(0.1 + 0.2, 1) = 0.3", &ctx).unwrap(),
-            Value::Boolean(true)
-        );
-    }
-
-    #[test]
-    fn test_eval_boolean_addition() {
-        let ctx = EvalContext::new();
-        // TRUE + 1 = 2 (TRUE coerces to 1)
-        assert_eq!(eval("TRUE + 1", &ctx).unwrap(), Value::Number(2.0));
-        // FALSE + 1 = 1 (FALSE coerces to 0)
-        assert_eq!(eval("FALSE + 1", &ctx).unwrap(), Value::Number(1.0));
-    }
-
-    #[test]
-    fn test_eval_boolean_multiplication() {
-        let ctx = EvalContext::new();
-        // TRUE * 5 = 5 (TRUE coerces to 1)
-        assert_eq!(eval("TRUE * 5", &ctx).unwrap(), Value::Number(5.0));
-        // FALSE * 5 = 0 (FALSE coerces to 0)
-        assert_eq!(eval("FALSE * 5", &ctx).unwrap(), Value::Number(0.0));
     }
 
     #[test]
@@ -1276,49 +979,7 @@ mod tests {
     // VALUE ENUM EDGE CASES (ADR-006 coverage)
     // ═══════════════════════════════════════════════════════════════════════
 
-    #[test]
-    fn test_value_array_equality() {
-        let arr1 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)].into());
-        let arr2 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)].into());
-        let arr3 = Value::Array(vec![Value::Number(1.0)].into());
-        assert_eq!(arr1, arr2);
-        assert_ne!(arr1, arr3);
-    }
-
-    #[test]
-    fn test_value_null_equality() {
-        assert_eq!(Value::Null, Value::Null);
-        assert_ne!(Value::Null, Value::Number(0.0));
-    }
-
-    #[test]
-    fn test_value_lambda_never_equal() {
-        use crate::core::array_calculator::parser::Expr;
-        let lambda1 = Value::Lambda {
-            params: vec!["x".to_string()],
-            body: Box::new(Expr::Number(1.0)),
-        };
-        let lambda2 = Value::Lambda {
-            params: vec!["x".to_string()],
-            body: Box::new(Expr::Number(1.0)),
-        };
-        // Lambdas never compare equal
-        assert_ne!(lambda1, lambda2);
-    }
-
-    #[test]
-    fn test_value_array_as_number() {
-        // An array has no single number, so it must not become its length
-        let arr =
-            Value::Array(vec![Value::Number(1.0), Value::Number(2.0), Value::Number(3.0)].into());
-        assert_eq!(arr.as_number(), None);
-        assert_eq!(
-            Value::Array(vec![Value::Number(7.0)].into()).as_number(),
-            Some(7.0)
-        );
-    }
-
-    fn array_ctx() -> EvalContext {
+    pub fn array_ctx() -> EvalContext {
         let mut ctx = EvalContext::new();
         let mut table = HashMap::new();
         let column = |values: &[f64]| {
@@ -1340,74 +1001,6 @@ mod tests {
     }
 
     #[test]
-    fn test_array_arithmetic_inside_aggregates() {
-        let ctx = array_ctx();
-        for (formula, expected) in [
-            ("SUM(p.a * p.b)", 140.0),
-            ("SUM(p.a + 1)", 9.0),
-            ("SUM(1 + p.a)", 9.0),
-            ("SUM(-p.a)", -6.0),
-            ("SUM(p.b / p.a)", 30.0),
-            ("SUM(p.a ^ 2)", 14.0),
-            ("SUM(p.a * p.one)", 30.0),
-            ("AVERAGE(p.b / p.a)", 10.0),
-            ("MAX(p.a + p.b)", 33.0),
-            ("MIN(p.a * p.b)", 10.0),
-            ("SUM((p.a > 1) * p.b)", 50.0),
-        ] {
-            assert_eq!(
-                eval(formula, &ctx).unwrap(),
-                Value::Number(expected),
-                "{formula}"
-            );
-        }
-    }
-
-    #[test]
-    fn test_array_arithmetic_length_mismatch_is_error() {
-        let err = eval("SUM(p.a * p.short)", &array_ctx()).unwrap_err();
-        assert!(err.message.contains("length mismatch"), "{}", err.message);
-    }
-
-    #[test]
-    fn test_array_division_by_zero_element_is_error() {
-        let err = eval("SUM(p.a / (p.a - 1))", &array_ctx()).unwrap_err();
-        assert!(err.message.contains("zero"), "{}", err.message);
-    }
-
-    #[test]
-    fn test_if_with_array_condition() {
-        let ctx = array_ctx();
-        assert_eq!(
-            eval("SUM(IF(p.a > 1, p.b, 0))", &ctx).unwrap(),
-            Value::Number(50.0)
-        );
-        assert_eq!(
-            eval("SUM(IF(p.a > 1, 1, p.b))", &ctx).unwrap(),
-            Value::Number(12.0)
-        );
-        // No else branch: false elements are skipped, not counted as zero
-        assert_eq!(
-            eval("AVERAGE(IF(p.a > 1, p.b))", &ctx).unwrap(),
-            Value::Number(25.0)
-        );
-    }
-
-    #[test]
-    fn test_logical_functions_with_arrays() {
-        let ctx = array_ctx();
-        assert_eq!(eval("AND(p.a > 0)", &ctx).unwrap(), Value::Boolean(true));
-        assert_eq!(eval("AND(p.a > 1)", &ctx).unwrap(), Value::Boolean(false));
-        assert_eq!(eval("OR(p.a > 2)", &ctx).unwrap(), Value::Boolean(true));
-        assert_eq!(eval("OR(p.a > 3)", &ctx).unwrap(), Value::Boolean(false));
-        assert_eq!(eval("XOR(p.a > 1)", &ctx).unwrap(), Value::Boolean(false));
-        assert_eq!(
-            eval("SUM(NOT(p.a > 1) * p.b)", &ctx).unwrap(),
-            Value::Number(10.0)
-        );
-    }
-
-    #[test]
     fn test_array_in_scalar_argument_is_error() {
         let ctx = array_ctx();
         for formula in ["PMT(p.a, 10, 1000)", "ROUND(1.5, p.a)", "TEXT(p.a, \"0\")"] {
@@ -1422,43 +1015,131 @@ mod tests {
         assert!(err.message.contains("single value"), "{}", err.message);
     }
 
-    #[test]
-    fn test_value_lambda_as_number() {
-        use crate::core::array_calculator::parser::Expr;
-        let lambda = Value::Lambda {
-            params: vec![],
-            body: Box::new(Expr::Number(42.0)),
-        };
-        assert_eq!(lambda.as_number(), None);
+    /// A date is a date (ADR-054): the text `2026-01-31` in a model, and its day
+    /// number wherever a formula reads a number. `+` adds and `&` joins, as in
+    /// Excel. Each result here is what Gnumeric and `LibreOffice` give for the
+    /// exported formula over a real date (forge-e2e-gnumeric,
+    /// `edge_real_dates.yaml`).
+    mod dates_as_dates {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        /// `MAX(d, DATE(2026, 6, 1))` ignored the date `d` of a row, and
+        /// `COUNT(d, e, n)` counted only the number.
+        #[test]
+        fn a_single_date_counts_as_a_number_in_aggregates() {
+            // MAX and MIN of dates give a date (ADR-060 addendum)
+            assert_eq!(
+                h::eval(
+                    "MAX(\"2026-12-01\", DATE(2026, 6, 1))",
+                    &crate::core::array_calculator::evaluator::EvalContext::new()
+                ),
+                Ok(crate::core::array_calculator::evaluator::Value::Text(
+                    "2026-12-01".to_string()
+                ))
+            );
+            assert_eq!(
+                h::eval(
+                    "MIN(\"2026-01-31\", \"2026-02-01\")",
+                    &crate::core::array_calculator::evaluator::EvalContext::new()
+                ),
+                Ok(crate::core::array_calculator::evaluator::Value::Text(
+                    "2026-01-31".to_string()
+                ))
+            );
+            assert!((h::number("SUM(\"2026-01-31\", 1)") - 46054.0).abs() < 1e-12);
+            assert!((h::number("AVERAGE(\"2026-01-31\", \"2026-02-02\")") - 46054.0).abs() < 1e-12);
+            assert!((h::number("COUNT(\"2026-01-31\", 1, \"x\")") - 2.0).abs() < 1e-12);
+            // Text that is not a date is still not a number here
+            assert!((h::number("SUM(\"x\", 1)") - 1.0).abs() < 1e-12);
+        }
     }
 
-    #[test]
-    fn test_value_null_as_number() {
-        assert_eq!(Value::Null.as_number(), None);
+    /// An empty cell (ADR-059): the table of the ADR, measured in Gnumeric 1.12
+    /// and `LibreOffice` 26.2 on 2026-11-12, which agree on every value here.
+    /// `x` is 10, empty, 30, empty, 0; `blank` is one empty cell; `b` is a column
+    /// of empty cells.
+    mod empty_cells {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::Value;
+
+        #[test]
+        fn aggregates_skip_an_empty_cell_and_count_a_zero() {
+            let ctx = h::empty_cells();
+            for (formula, expected) in [
+                ("SUM(t.x)", 40.0),
+                ("COUNT(t.x)", 3.0),
+                ("COUNTA(t.x)", 3.0),
+                ("COUNTBLANK(t.x)", 2.0),
+                ("AVERAGE(t.x)", 40.0 / 3.0),
+                ("MEDIAN(t.x)", 10.0),
+                ("MIN(t.x)", 0.0),
+                ("MAX(t.x)", 30.0),
+                ("PRODUCT(t.x)", 0.0),
+                ("LARGE(t.x, 3)", 0.0),
+                ("SMALL(t.x, 1)", 0.0),
+                ("RANK(30, t.x)", 1.0),
+                ("PERCENTILE(t.x, 0.5)", 10.0),
+                ("SUMPRODUCT(t.x, t.x)", 1000.0),
+                ("COUNTIF(t.x, \"\")", 2.0),
+                ("COUNTIF(t.x, \"=\")", 2.0),
+                ("COUNTIF(t.x, \"<>\")", 3.0),
+                ("COUNTIF(t.x, 0)", 1.0),
+                ("COUNTIFS(t.x, \"\")", 2.0),
+                ("SUMIF(t.x, \">=0\")", 40.0),
+                ("AVERAGEIF(t.x, \">=0\")", 40.0 / 3.0),
+                // 10 / 1.1 + 30 / 1.1^2 + 0 / 1.1^3: the empty cells are skipped
+                ("NPV(0.1, t.x)", 10.0 / 1.1 + 30.0 / 1.21),
+            ] {
+                match h::eval(formula, &ctx).unwrap() {
+                    Value::Number(n) => assert!((n - expected).abs() < 1e-12, "{formula}: {n}"),
+                    other => panic!("{formula}: {other:?}"),
+                }
+            }
+            // STDEV of 10, 30, 0, the empty cells left out: R gives sd(c(10, 30, 0))
+            match h::eval("STDEV(t.x)", &ctx).unwrap() {
+                Value::Number(n) => assert!((n - 15.275_252_316_519_467).abs() < 1e-12, "{n}"),
+                other => panic!("{other:?}"),
+            }
+        }
+
+        #[test]
+        fn a_column_of_only_empty_cells() {
+            let ctx = h::empty_cells();
+            for formula in ["SUM(t.b)", "COUNT(t.b)", "MAX(t.b)", "MIN(t.b)"] {
+                // 0, and not -0 or an error
+                let value = h::eval(formula, &ctx).unwrap();
+                assert!(
+                    matches!(value, Value::Number(n) if n == 0.0 && n.is_sign_positive()),
+                    "{formula}: {value:?}"
+                );
+            }
+            assert!(h::eval("AVERAGE(t.b)", &ctx).is_err());
+            assert_eq!(
+                h::eval("COUNTBLANK(t.b)", &ctx).unwrap(),
+                Value::Number(5.0)
+            );
+        }
     }
 
+    /// An index from 0 is cut to a whole number; a negative one is no place,
+    /// where the cast made it 0. A negative day number is no date.
     #[test]
-    fn test_value_date_string_as_number() {
-        // Date string converts to Excel serial number
-        let date = Value::Text("2024-01-01".to_string());
-        // Excel serial: days since 1899-12-30
-        // 2024-01-01 is 45292 days from 1899-12-30
-        assert_eq!(date.as_number(), Some(45292.0));
-
-        // Invalid date string returns None
-        let invalid = Value::Text("not-a-date".to_string());
-        assert_eq!(invalid.as_number(), None);
-
-        // Numeric string still works
-        let num = Value::Text("42.5".to_string());
-        assert_eq!(num.as_number(), Some(42.5));
+    fn an_index_and_a_serial_are_whole_and_not_negative() {
+        let ctx = table(&[("col", numbers(&[10.0, 20.0, 30.0]))]);
+        is_exactly_in("t.col[1.9]", &ctx, 20.0);
+        is_exactly_in("t.col[-0.5]", &ctx, 10.0);
+        assert!(error_in("t.col[-1]", &ctx).contains("out of bounds"));
+        assert!(error_in("t.col[1E+20]", &ctx).contains("out of bounds"));
+        is_exactly("YEAR(0.5)", 1899.0);
+        is_exactly("YEAR(45000.9)", 2023.0);
+        fails_with("YEAR(-1)", "Invalid Excel date serial");
+        fails_with("YEAR(1E+20)", "Invalid Excel date serial");
     }
 
+    /// Text is no index
     #[test]
-    fn test_value_mixed_type_inequality() {
-        // Different types should not be equal
-        assert_ne!(Value::Number(1.0), Value::Text("1".to_string()));
-        assert_ne!(Value::Boolean(true), Value::Number(1.0));
-        assert_ne!(Value::Array(vec![].into()), Value::Null);
+    fn an_index_that_is_no_number_fails() {
+        let ctx = table(&[("col", numbers(&[10.0]))]);
+        assert!(error_in("t.col[\"x\"]", &ctx).contains("must be a number"));
     }
 }

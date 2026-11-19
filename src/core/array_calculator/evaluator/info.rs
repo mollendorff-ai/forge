@@ -1,9 +1,7 @@
 //! Information functions: IS*, NA, TYPE, N
 
-// Info function casts: TYPE returns f64 type codes from small bounded integers.
-#![allow(clippy::cast_possible_truncation)]
-
 use super::{evaluate, is_na_error, require_args, EvalContext, EvalError, Expr, Value};
+use crate::core::precision::same;
 
 /// Try to evaluate an info function. Returns None if function not recognized.
 pub fn try_evaluate(
@@ -50,8 +48,8 @@ pub fn try_evaluate(
             let val = evaluate(&args[0], ctx)?
                 .as_cell_number()
                 .ok_or_else(|| EvalError::new("ISEVEN requires a number"))?;
-            let int_val = val.trunc() as i64;
-            Value::Boolean(int_val % 2 == 0)
+            // The remainder of a float is exact, past 2^63 too
+            Value::Boolean(val.trunc() % 2.0 == 0.0)
         },
 
         "ISODD" => {
@@ -59,8 +57,7 @@ pub fn try_evaluate(
             let val = evaluate(&args[0], ctx)?
                 .as_cell_number()
                 .ok_or_else(|| EvalError::new("ISODD requires a number"))?;
-            let int_val = val.trunc() as i64;
-            Value::Boolean(int_val % 2 != 0)
+            Value::Boolean(same((val.trunc() % 2.0).abs(), 1.0))
         },
 
         "ISREF" => {
@@ -303,5 +300,41 @@ mod tests {
         let ctx = EvalContext::new();
         // ISFORMULA always returns FALSE in current implementation
         assert_eq!(eval("ISFORMULA(5)", &ctx).unwrap(), Value::Boolean(false));
+    }
+
+    /// Fixes for what the generated cases found (ADR-062) that the engines cannot
+    /// check: answers Forge gives on its own, with the reason, and the exact
+    /// values where every engine loses digits.
+    mod generated_cases {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::{EvalContext, Value};
+
+        #[test]
+        fn na_is_an_error_and_an_empty_cell_is_not() {
+            h::is_exactly("TYPE(NA())", 16.0);
+            assert_eq!(
+                h::eval("ISBLANK(NA())", &EvalContext::new()).unwrap(),
+                Value::Boolean(false)
+            );
+            h::fails_with("NA() + 1", "#N/A");
+            h::is_exactly("IFNA(NA(), 5)", 5.0);
+            h::fails_with("IFNA(1/0, 5)", "");
+        }
+    }
+
+    /// Past 2^63 a float is even, as is every float from 2^53 on: the cast
+    /// to an i64 stopped at its largest, an odd number, so ISEVEN(1E+20)
+    /// was FALSE. The remainder of the float, as Gnumeric takes it.
+    #[test]
+    fn a_number_past_any_integer_is_even() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert!(h::truth("ISEVEN(1E+20)"));
+        assert!(!h::truth("ISODD(1E+20)"));
+        assert!(h::truth("ISEVEN(1E+300)"));
+        assert!(h::truth("ISEVEN(9007199254740993)"));
+        assert!(h::truth("ISODD(-3.5)"));
+        assert!(h::truth("ISEVEN(-2.5)"));
+        assert!(h::truth("ISEVEN(-0.5)"));
+        assert!(!h::truth("ISODD(4)"));
     }
 }

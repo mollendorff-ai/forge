@@ -1,0 +1,143 @@
+_forge_version: "5.4.0"
+# Linden Court, under uncertainty: realestate.yaml with the five inputs a
+# buyer can least pin down made uncertain (rent growth, vacancy, running
+# costs and their growth, and the exit cap rate). Everything else is the
+# plan, and value: beside each MC.* formula is realestate.yaml's figure.
+# Run it with forge simulate (calculate cannot evaluate MC.* inputs):
+#
+#   forge simulate realestate_risk.yaml
+
+building:
+  units: 24
+  rent_per_unit_month: {value: 1450, format: "$#,##0"}
+  # Parking, storage and laundry, a flat a month
+  other_income_per_unit_month: 60
+  vacancy: {value: 0.06, formula: "=MC.Triangular(0.03, 0.06, 0.12)", format: "0.0%"}
+  # Rent billed and never paid
+  credit_loss: {value: 0.01, format: "0.0%"}
+  # Property tax, insurance, utilities and repairs, a flat a year
+  opex_per_unit_year: {value: 5200, formula: "=MC.PERT(4600, 5200, 6200)"}
+  management_fee: {value: 0.04, format: "0.0%"}
+  # Set aside for roofs, boilers and kitchens, a flat a year
+  reserves_per_unit_year: 350
+
+market:
+  rent_growth: {value: 0.03, formula: "=MC.Normal(0.03, 0.012)", format: "0.0%"}
+  expense_growth: {value: 0.025, formula: "=MC.Normal(0.025, 0.01)", format: "0.0%"}
+  # What the buyer in year 10 pays for each unit of year 11's income
+  exit_cap_rate: {value: 0.0575, formula: "=MC.Triangular(0.05, 0.0575, 0.07)", format: "0.00%"}
+  selling_costs: {value: 0.02, format: "0.0%"}
+
+deal:
+  price: {value: 4600000, format: "$#,##0"}
+  closing_costs: {value: 0.015, format: "0.0%"}
+  hold_years: 10
+  # The return a buyer of this building asks for, before debt
+  discount_rate: {value: 0.08, format: "0.0%"}
+
+loan:
+  ltv: {value: 0.65, format: "0%"}
+  interest_rate: {value: 0.06, format: "0.00%"}
+  amortization_years: 30
+  amount:
+    formula: "=deal.price * ltv"
+    format: "$#,##0"
+  # Paid once a year, to keep the table yearly
+  payment:
+    formula: "=PMT(interest_rate, amortization_years, -amount)"
+    format: "$#,##0"
+  # Still owed when the building is sold
+  balance_at_sale:
+    formula: "=amount * (1 + interest_rate) ^ deal.hold_years - payment * ((1 + interest_rate) ^ deal.hold_years - 1) / interest_rate"
+    format: "$#,##0"
+  equity:
+    formula: "=deal.price * (1 + deal.closing_costs) - amount"
+    format: "$#,##0"
+
+# The building, year by year
+years:
+  year: {start: 2027, count: 11, unit: year}
+  n: "=ROW()"
+  potential_rent: "=building.units * building.rent_per_unit_month * 12 * (1 + market.rent_growth) ^ (n - 1)"
+  other_income: "=building.units * building.other_income_per_unit_month * 12 * (1 + market.rent_growth) ^ (n - 1)"
+  lost_rent: "=potential_rent * (building.vacancy + building.credit_loss)"
+  income: {formula: "=potential_rent + other_income - lost_rent", format: "#,##0"}
+  operating_costs: "=building.units * building.opex_per_unit_year * (1 + market.expense_growth) ^ (n - 1)"
+  management: "=income * building.management_fee"
+  noi: {formula: "=income - operating_costs - management", format: "#,##0"}
+  reserves: "=building.units * building.reserves_per_unit_year * (1 + market.expense_growth) ^ (n - 1)"
+  # Cash before debt; nothing after the year of the sale
+  cash: {formula: "=IF(n <= deal.hold_years, noi - reserves, 0)", format: "#,##0"}
+  debt_service: "=IF(n <= deal.hold_years, loan.payment, 0)"
+  dscr: {formula: "=IF(debt_service > 0, noi / debt_service, 0)", format: "0.00"}
+  discount: "=1 / (1 + deal.discount_rate) ^ n"
+
+sale:
+  # Year 11's income, capitalised at the exit rate
+  price:
+    formula: "=INDEX(years.noi, deal.hold_years + 1) / market.exit_cap_rate"
+    format: "$#,##0"
+  net_proceeds:
+    formula: "=price * (1 - market.selling_costs)"
+    format: "$#,##0"
+  to_equity:
+    formula: "=net_proceeds - loan.balance_at_sale"
+    format: "$#,##0"
+
+valuation:
+  # Ten years of cash and the sale, discounted at the buyer's rate: what the
+  # building is worth to a buyer who pays cash
+  dcf:
+    formula: "=SUMPRODUCT(years.cash, years.discount) + sale.net_proceeds / (1 + deal.discount_rate) ^ deal.hold_years"
+    format: "$#,##0"
+  # What the building is worth less what it costs to buy
+  npv:
+    formula: "=dcf - deal.price * (1 + deal.closing_costs)"
+    format: "$#,##0"
+  going_in_cap_rate:
+    formula: "=INDEX(years.noi, 1) / deal.price"
+    format: "0.00%"
+  price_per_unit:
+    formula: "=deal.price / building.units"
+    format: "$#,##0"
+  # Of the value, the share that is the sale in year 10
+  sale_share_of_value:
+    formula: "=sale.net_proceeds / (1 + deal.discount_rate) ^ deal.hold_years / dcf"
+    format: "0.0%"
+
+returns:
+  unlevered_irr:
+    formula: "=IRR(-deal.price * (1 + deal.closing_costs), years.cash + IF(years.n = deal.hold_years, sale.net_proceeds, 0))"
+    format: "0.00%"
+  equity_irr:
+    formula: "=IRR(-loan.equity, years.cash - years.debt_service + IF(years.n = deal.hold_years, sale.to_equity, 0))"
+    format: "0.00%"
+  equity_multiple:
+    formula: "=(SUM(years.cash) - SUM(years.debt_service) + sale.to_equity) / loan.equity"
+    format: "0.00"
+  first_year_cash_on_cash:
+    formula: "=(INDEX(years.cash, 1) - loan.payment) / loan.equity"
+    format: "0.0%"
+  min_dscr:
+    formula: "=MINIFS(years.dscr, years.debt_service, \">0\")"
+    format: "0.00"
+
+monte_carlo:
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 41
+  outputs:
+    # Worth more than it costs; worth 500,000 less
+    - variable: valuation.npv
+      percentiles: [5, 50, 95]
+      thresholds: ["> 0", "< -500000"]
+      expected_shortfall: [5]
+    - variable: valuation.dcf
+      percentiles: [5, 50, 95]
+    - variable: returns.equity_irr
+      percentiles: [5, 50, 95]
+      thresholds: ["< 0.08", "< 0"]
+    # The bank's covenant is usually 1.20
+    - variable: returns.min_dscr
+      percentiles: [5, 50]
+      thresholds: ["< 1.2", "< 1.0"]

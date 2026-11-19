@@ -1,0 +1,130 @@
+# VLOOKUP and HLOOKUP on a table of one column or one row (2026-11-17).
+# Forge has no two-dimensional values (ADR-064), so it reads the table of a
+# VLOOKUP as one column and that of an HLOOKUP as one row, and the only index
+# is 1. Before this, both ignored the index (VLOOKUP(2, {1;2;3}, 5, FALSE) was
+# 2) and the approximate search scanned for the largest value and skipped
+# text. `forge export` writes them as formulas where Excel's table is one
+# column (a table column, a column constant) or one row (a row constant), so
+# each case here is recalculated by Gnumeric.
+#
+# The index: a fraction is cut, below 1 is #VALUE!, past the table #REF!, as
+# Microsoft documents, before the search, so ISNA is 0 for a value that is
+# not there too. An error is wrapped in IFERROR(..., -1); text results are
+# compared with = in an IF.
+#
+# lk.ls: 1, 3, 5, 7, 9, 11 (sorted). lk.nm: apple, Banana, cherry, date, egg, fig.
+
+_forge_version: "5.4.0"
+
+lk:
+  ls: [1, 3, 5, 7, 9, 11]
+  nm: ["apple", "Banana", "cherry", "date", "egg", "fig"]
+  # A row formula: the whole column is the table, the row's value is looked up
+  near: "=VLOOKUP(ls + 1, ls, 1)"
+
+assumptions:
+  # ── The searches ──────────────────────────────────────────────────────────
+  test_vlookup1_exact:
+    value: null
+    formula: "=VLOOKUP(7, lk.ls, 1, FALSE)"
+    expected: 7
+  test_vlookup1_exact_missing:
+    value: null
+    formula: "=IFERROR(VLOOKUP(4, lk.ls, 1, FALSE), -1)"
+    expected: -1
+  # TRUE: the largest value at most the lookup value, in sorted values
+  test_vlookup1_approx:
+    value: null
+    formula: "=VLOOKUP(6, lk.ls, 1, TRUE)"
+    expected: 5
+  # TRUE is the default
+  test_vlookup1_approx_default:
+    value: null
+    formula: "=VLOOKUP(12, lk.ls, 1)"
+    expected: 11
+  test_vlookup1_approx_below_first:
+    value: null
+    formula: "=IFERROR(VLOOKUP(0, lk.ls, 1), -1)"
+    expected: -1
+  # Each row looks up its own value plus one in the whole column
+  test_vlookup1_row_formula:
+    value: null
+    formula: "=SUM(lk.near)"
+    expected: 36
+  # Text in the approximate search, ignoring case: "b" finds "apple", the
+  # last text before it (it was #N/A)
+  test_vlookup1_approx_text:
+    value: null
+    formula: "=IF(VLOOKUP(\"b\", lk.nm, 1, TRUE) = \"apple\", 1, 0)"
+    expected: 1
+  test_vlookup1_approx_text_case:
+    value: null
+    formula: "=IF(VLOOKUP(\"Cz\", lk.nm, 1) = \"cherry\", 1, 0)"
+    expected: 1
+  # The exact search ignores case and reads wildcards
+  test_vlookup1_exact_case:
+    value: null
+    formula: "=IF(VLOOKUP(\"BANANA\", lk.nm, 1, FALSE) = \"Banana\", 1, 0)"
+    expected: 1
+  test_vlookup1_exact_wildcard:
+    value: null
+    formula: "=IF(VLOOKUP(\"ch*\", lk.nm, 1, FALSE) = \"cherry\", 1, 0)"
+    expected: 1
+
+  # ── The index ─────────────────────────────────────────────────────────────
+  # Past the one column: #REF! (it was the value found)
+  test_vlookup1_index_past:
+    value: null
+    formula: "=IFERROR(VLOOKUP(7, lk.ls, 2, FALSE), -1)"
+    expected: -1
+  # ... checked before the search: a value not there is not #N/A
+  test_vlookup1_index_past_not_na:
+    value: null
+    formula: "=IF(ISNA(VLOOKUP(4, lk.ls, 2, FALSE)), 1, 0)"
+    expected: 0
+  test_vlookup1_index_zero:
+    value: null
+    formula: "=IFERROR(VLOOKUP(7, lk.ls, 0, FALSE), -1)"
+    expected: -1
+  # 0.5 is cut to 0
+  test_vlookup1_index_half:
+    value: null
+    formula: "=IFERROR(VLOOKUP(7, lk.ls, 0.5, FALSE), -1)"
+    expected: -1
+  # 1.9 is cut to 1
+  test_vlookup1_index_cut:
+    value: null
+    formula: "=VLOOKUP(7, lk.ls, 1.9, FALSE)"
+    expected: 7
+
+  # ── Array constants ───────────────────────────────────────────────────────
+  # A column constant is one column
+  test_vlookup1_column_constant:
+    value: null
+    formula: "=VLOOKUP(2.5, {1;2;3}, 1)"
+    expected: 2
+  test_vlookup1_column_constant_past:
+    value: null
+    formula: "=IFERROR(VLOOKUP(2, {1;2;3}, 5, FALSE), -1)"
+    expected: -1
+  # A row constant is one row
+  test_hlookup1_row_constant:
+    value: null
+    formula: "=HLOOKUP(2, {1,2,3}, 1, FALSE)"
+    expected: 2
+  test_hlookup1_row_constant_approx:
+    value: null
+    formula: "=HLOOKUP(2.5, {1,2,3}, 1)"
+    expected: 2
+  test_hlookup1_row_constant_past:
+    value: null
+    formula: "=IFERROR(HLOOKUP(2, {1,2,3}, 2, FALSE), -1)"
+    expected: -1
+  test_hlookup1_row_constant_cut:
+    value: null
+    formula: "=HLOOKUP(3, {1,2,3}, 1.5, FALSE)"
+    expected: 3
+  test_hlookup1_row_constant_text:
+    value: null
+    formula: "=IF(HLOOKUP(\"b\", {\"a\",\"c\"}, 1) = \"a\", 1, 0)"
+    expected: 1

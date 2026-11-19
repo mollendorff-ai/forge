@@ -8,7 +8,7 @@ with both spreadsheet engines. A confirmed case goes into
 
 `generate.py` draws each function's arguments from a seed, weighted toward the
 edges (month ends, Feb 29, zero, halves, 1E±12, multi-byte text, wildcards,
-columns with empty cells), over a catalogue of 133 functions, and judges each
+columns with empty cells), over a catalogue of 135 functions, and judges each
 case against both engines (LibreOffice alone where `JUDGES` says why). Forge
 alone against the judges, or all three different, fails unless a rule in
 `known.py` covers it: one class of input each, with its reason and where it is

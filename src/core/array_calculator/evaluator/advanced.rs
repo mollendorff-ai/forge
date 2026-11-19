@@ -1,6 +1,7 @@
 //! Advanced functions: LAMBDA, LET, SWITCH
 
 use super::{evaluate, values_equal, EvalContext, EvalError, Expr, Reference, Value};
+use num_traits::ToPrimitive;
 
 /// Try to evaluate an advanced function. Returns None if function not recognized.
 pub fn try_evaluate(
@@ -116,16 +117,17 @@ fn prev(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
         ));
     };
     let back = match args.get(2) {
-        None => 1,
-        Some(expr) => match evaluate(expr, ctx)?.as_number() {
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            Some(n) if n >= 1.0 && n.fract() == 0.0 && n <= 1e9 => n as usize,
-            _ => {
-                return Err(EvalError::new(
-                    "PREV: the number of rows back must be a whole number, 1 or more",
-                ))
-            },
-        },
+        None => Some(1),
+        Some(expr) => evaluate(expr, ctx)?
+            .as_number()
+            .filter(|n| n.fract() == 0.0)
+            .and_then(|n| n.to_usize())
+            .filter(|back| (1..=1_000_000_000).contains(back)),
+    };
+    let Some(back) = back else {
+        return Err(EvalError::new(
+            "PREV: the number of rows back must be a whole number, 1 or more",
+        ));
     };
     if row < back {
         return evaluate(&args[1], ctx);
@@ -190,9 +192,6 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -404,9 +403,9 @@ mod integration_tests {
             .get("result")
             .unwrap();
         if let ColumnValue::Number(values) = &col.values {
-            assert_eq!(values[0], 25.0);
-            assert_eq!(values[1], 45.0);
-            assert_eq!(values[2], 65.0);
+            assert_exact!(values[0], 25.0);
+            assert_exact!(values[1], 45.0);
+            assert_exact!(values[2], 65.0);
         }
     }
 
@@ -436,9 +435,9 @@ mod integration_tests {
             .get("label")
             .unwrap();
         if let ColumnValue::Number(values) = &col.values {
-            assert_eq!(values[0], 100.0);
-            assert_eq!(values[1], 200.0);
-            assert_eq!(values[2], 0.0);
+            assert_exact!(values[0], 100.0);
+            assert_exact!(values[1], 200.0);
+            assert_exact!(values[2], 0.0);
         }
     }
 
@@ -472,8 +471,8 @@ mod integration_tests {
             .get("product")
             .unwrap();
         if let ColumnValue::Number(values) = &col.values {
-            assert_eq!(values[0], 6.0, "2 * 3 = 6");
-            assert_eq!(values[1], 12.0, "3 * 4 = 12");
+            assert_exact!(values[0], 6.0, "2 * 3 = 6");
+            assert_exact!(values[1], 12.0, "3 * 4 = 12");
         } else {
             panic!("Expected number column");
         }
@@ -496,7 +495,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let let_val = result.scalars.get("let_result").unwrap().value.unwrap();
-        assert_eq!(let_val, 30.0, "LET(x, 10, y, 20, x + y) should return 30");
+        assert_exact!(let_val, 30.0, "LET(x, 10, y, 20, x + y) should return 30");
     }
 
     #[test]
@@ -516,7 +515,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let lambda_val = result.scalars.get("lambda_result").unwrap().value.unwrap();
-        assert_eq!(lambda_val, 10.0, "LAMBDA(x, x * 2)(5) should return 10");
+        assert_exact!(lambda_val, 10.0, "LAMBDA(x, x * 2)(5) should return 10");
     }
 
     #[test]
@@ -644,9 +643,6 @@ mod integration_tests {
 
 #[cfg(test)]
 mod edge_case_tests {
-    #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
 
@@ -894,5 +890,16 @@ mod edge_case_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(200.0));
+    }
+
+    /// An error where the rows back go is that error
+    #[test]
+    fn prev_rows_back_that_fail_fail() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("x", h::numbers(&[1.0, 2.0]))]).with_row(1, 2);
+        let e = h::error_in("PREV(t.x, 0, 1/0)", &ctx);
+        assert!(e.contains("Division by zero"), "{e}");
+        assert!(h::error_in("PREV(t.x, 0, 1.5)", &ctx).contains("whole number"));
+        assert!(h::error_in("PREV(t.x, 0, 1E+10)", &ctx).contains("whole number"));
     }
 }

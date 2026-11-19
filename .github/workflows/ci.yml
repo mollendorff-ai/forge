@@ -57,19 +57,16 @@ jobs:
           toolchain: ${{ matrix.rust }}
           targets: x86_64-unknown-linux-gnu
 
-      # Cache disabled - proc-macro issues
-      # - name: Cache cargo
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       ~/.cargo/registry
-      #       ~/.cargo/git
-      #       target
-      #     key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # shell: bash runs with -o pipefail. Without it the step's status is
       # tee's, so failing tests passed the job (roadmap T1-PROPERTIES PR).
-      # The seed fixes the property tests' draws (tests/properties.rs).
+      # The seed fixes the property tests' draws (src/lib.rs (its properties tests)).
       - name: Run tests
         shell: bash
         env:
@@ -106,15 +103,12 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      # Cache disabled - proc-macro issues
-      # - name: Cache cargo
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       ~/.cargo/registry
-      #       ~/.cargo/git
-      #       target
-      #     key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -126,10 +120,44 @@ jobs:
       # (ADR-057); here only their lint and their own unit tests. The
       # Validation workflow runs them against Gnumeric and R.
       - name: Lint the validation suites
-        run: cargo clippy -p mollendorff-forge-e2e-gnumeric -p mollendorff-forge-e2e-r --all-targets -- -D warnings
+        run: cargo clippy -p mollendorff-forge-e2e-gnumeric -p mollendorff-forge-e2e-r -p mollendorff-forge-repo --all-targets -- -D warnings
 
       - name: Unit tests of the validation suites
         run: cargo test -p mollendorff-forge-e2e-gnumeric -p mollendorff-forge-e2e-r
+
+  # What Forge says about itself is what it does (validation/repo): the docs,
+  # workflows and sources checked against the code and against what the
+  # release binary of the Build job prints, every command the docs show run
+  # as a reader types it, forge simulate --seek included
+  repo-checks:
+    name: Repository checks
+    timeout-minutes: 20
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: forge-binary
+          path: target/release
+
+      - name: Check the repository against the binary
+        env:
+          FORGE_BIN: target/release/forge
+        run: |
+          chmod +x target/release/forge
+          cargo test -p mollendorff-forge-repo
 
   # The oldest Rust Forge says it builds with (Cargo.toml rust-version,
   # clippy.toml msrv): a newer API used by accident breaks this job, not a
@@ -149,6 +177,13 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           components: clippy
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build the command line and the library
         run: cargo build --locked --bin forge --lib
@@ -173,6 +208,13 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
           components: clippy
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build the core for wasm32-unknown-unknown
         run: cargo build --lib --release --no-default-features --target wasm32-unknown-unknown
@@ -199,6 +241,13 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
           components: clippy
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: actions/setup-node@v6
         with:
@@ -302,6 +351,10 @@ jobs:
         working-directory: studio
         run: node tests/grid.mjs ../studio-site
 
+      - name: Studio weighs the scenarios Forge weighs and names the ones it leaves out
+        working-directory: studio
+        run: node tests/scenarios.mjs ../studio-site
+
       - name: Studio shows a format as Forge gives it
         working-directory: studio
         run: node tests/formats.mjs ../studio-site
@@ -349,15 +402,12 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      # Cache disabled - proc-macro issues
-      # - name: Cache cargo
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       ~/.cargo/registry
-      #       ~/.cargo/git
-      #       target
-      #     key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build release
         run: cargo build --release --verbose
@@ -442,6 +492,19 @@ jobs:
           fi
           echo "PASS: Tool count is $TOOLS"
 
+      # `forge functions | head` must end quietly, like other command-line
+      # tools: only a real process has a pipe to close, so this runs the
+      # built binary (it was tests/broken_pipe.rs)
+      - name: A closed pipe ends quietly
+        run: |
+          ./forge functions 2> stderr.txt | head -1
+          if [ -s stderr.txt ]; then
+            echo "FAIL: forge wrote to stderr when its output was closed:"
+            cat stderr.txt
+            exit 1
+          fi
+          echo "PASS: nothing on stderr"
+
   coverage:
     name: Coverage
     timeout-minutes: 45
@@ -454,15 +517,66 @@ jobs:
         with:
           components: llvm-tools-preview
 
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Generate coverage
         run: |
-          cargo llvm-cov --ignore-filename-regex 'tests/' --json --output-path cov.json
+          # The tests, then the built program for what only it runs (main,
+          # MCP over stdio): scripts/coverage.sh
+          scripts/coverage.sh --json --output-path cov.json
+          for kind in lines functions regions; do
+            echo "Coverage of $kind: $(jq ".data[0].totals.$kind.percent" cov.json)%"
+          done
           COV=$(jq '.data[0].totals.functions.percent' cov.json | xargs printf '%.0f')
           echo "COVERAGE=$COV" >> $GITHUB_ENV
-          echo "Function coverage: ${COV}%"
+
+      # 100% coverage, no skipping (CLAUDE.md, roadmap T1-COVERAGE-GATE). Until
+      # the code is at 100%, these floors are the coverage of the last merge,
+      # rounded down to a tenth (the weekly run's new property-test seeds can
+      # move it by hundredths): raise them whenever coverage goes up, to 100,
+      # and never lower them. Set 2026-11-16 from PR #257's run (lines
+      # 88.04%, functions 84.46%, regions 86.31%); raised 2026-11-17 from
+      # PR #258's (88.94%, 85.47%, 87.35%) and PR #259's (89.62%, 86.14%,
+      # 88.14%), as the inline tests moved in, and from PR #261's (91.91%,
+      # 87.95%, 90.58%), when the command line ran in-process, and from PR
+      # #262's (92.45%, 88.52%, 91.19%), when its tests ran under coverage, and
+      # from PR #263's regions (91.20%), and from PR #266's (93.18%, 89.20%,
+      # 91.97%), when 612 lines of dead date code were deleted, and on 2026-11-19
+      # from a local run (95.20%, 91.93%, 95.01%) after update, upgrade, watch
+      # and the API server were tested with nothing compiled out; set a tenth
+      # lower, in case CI measures a hair differently. CI measured the regions
+      # 0.9 points lower (94.14%, lines 95.20%, functions 92.13%: its run on
+      # this PR), so the regions floor is 94.1, lowered at the maintainer's
+      # word (2026-11-19) and to be raised again, to 100, as the rest is
+      # covered: floors are set from CI's number, never a local one.
+      # Raised 2026-11-19 from CI's run on main after PR #290 (95.69%, 92.68%,
+      # 94.64%), rounded down to a tenth: from CI's number, never a local one.
+      - name: Fail below the coverage floor
+        env:
+          FLOOR_LINES: "95.6"
+          FLOOR_FUNCTIONS: "92.6"
+          FLOOR_REGIONS: "94.6"
+        run: |
+          fail=0
+          for kind in lines functions regions; do
+            floor_var="FLOOR_${kind^^}"
+            got=$(jq ".data[0].totals.$kind.percent" cov.json)
+            if jq -e --argjson floor "${!floor_var}" ".data[0].totals.$kind.percent >= \$floor" cov.json >/dev/null; then
+              echo "$kind: $got% (floor ${!floor_var}%)"
+            else
+              echo "::error::$kind coverage is $got%, below the floor of ${!floor_var}%: add tests, do not lower the floor"
+              fail=1
+            fi
+          done
+          exit $fail
 
       - name: Update coverage badge
         if: github.ref == 'refs/heads/main'
@@ -480,7 +594,7 @@ jobs:
   update-docs:
     name: Update Generated Docs
     timeout-minutes: 30
-    needs: [test, lint, build]
+    needs: [test, lint, build, repo-checks]
     runs-on: ubuntu-22.04
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # One run at a time, so two merges close together do not push over each other
@@ -557,7 +671,7 @@ jobs:
   auto-release:
     name: Auto Release
     timeout-minutes: 15
-    needs: [test, lint, build]
+    needs: [test, lint, build, repo-checks]
     runs-on: ubuntu-22.04
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:

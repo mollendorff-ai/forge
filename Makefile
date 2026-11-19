@@ -1,7 +1,7 @@
 # Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed build-all uninstall install install-forge cross-forge lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
+.PHONY: help build build-static build-compressed build-all uninstall install install-forge cross-forge lint lint-fix format format-check test test-unit test-repo test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OS AND ARCHITECTURE DETECTION
@@ -98,7 +98,7 @@ help:
 	@echo "Test Targets:"
 	@echo "  make test               - Run all cargo tests (unit + inline tests)"
 	@echo "  make test-unit          - Run unit tests only (--lib)"
-	@echo "  make test-integration   - Run integration tests only"
+	@echo "  make test-repo          - Check the docs and sources against the binary"
 	@echo "  make test-validate      - Validate all test-data files"
 	@echo "  make test-calculate     - Calculate all test-data files (dry-run)"
 	@echo "  make test-all           - Run ALL tests (unit + validate + calculate)"
@@ -329,6 +329,7 @@ endif
 lint:
 	@echo "🔍 Running pedantic clippy checks..."
 	@cargo clippy --all-targets -- -D warnings
+	@cargo clippy -p mollendorff-forge-repo --all-targets -- -D warnings
 	@echo "✅ Clippy checks passed!"
 
 lint-fix:
@@ -361,14 +362,19 @@ test-calculate:
 test:
 	@echo "🧪 Running all cargo tests..."
 	@cargo test
+	@cargo build --bin forge
+	@cargo test -p mollendorff-forge-repo
 
 test-unit:
 	@echo "🧪 Running unit tests..."
 	@cargo test --lib
 
-test-integration:
-	@echo "🧪 Running integration tests..."
-	@cargo test --test '*'
+# Every test is inline (CLAUDE.md); what was here checks the repository
+# against the binary (validation/repo)
+test-repo:
+	@echo "📄 Checking the repository against the binary..."
+	@cargo build --bin forge
+	@cargo test -p mollendorff-forge-repo
 
 # E2E tests: forge-e2e-gnumeric and forge-e2e-r (ADR-027, run by validation.yml)
 
@@ -397,9 +403,9 @@ coverage:
 		echo "❌ cargo-llvm-cov not found. Installing..."; \
 		cargo install cargo-llvm-cov; \
 	fi
-	@cargo llvm-cov --ignore-filename-regex '(tests/|test_)'
+	@scripts/coverage.sh --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
 	@echo ""
-	@echo "✅ Coverage analysis complete (see CI badge for current %)"
+	@echo "✅ 100% coverage (no skipping; CLAUDE.md)"
 
 # Coverage report: Generate detailed HTML report and open in browser
 coverage-report:
@@ -408,7 +414,7 @@ coverage-report:
 		echo "❌ cargo-llvm-cov not found. Installing..."; \
 		cargo install cargo-llvm-cov; \
 	fi
-	@cargo llvm-cov --html --ignore-filename-regex '(tests/|test_)' --output-dir coverage-report
+	@scripts/coverage.sh --html --output-dir coverage-report
 	@echo "✅ Coverage report generated: coverage-report/html/index.html"
 	@if command -v xdg-open >/dev/null 2>&1; then \
 		xdg-open coverage-report/html/index.html; \
@@ -422,7 +428,7 @@ coverage-report:
 coverage-ci:
 	@echo "📊 CI Coverage Analysis"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo llvm-cov --ignore-filename-regex '(tests/|test_)' --lcov --output-path lcov.info
+	@scripts/coverage.sh --lcov --output-path lcov.info
 	@echo ""
 	@echo "✅ Coverage analysis complete"
 	@echo "📄 lcov.info generated for CI badge"

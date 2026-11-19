@@ -8,7 +8,9 @@
 //! - 4: European 30/360
 
 use super::EvalError;
+use crate::core::precision;
 use chrono::{Datelike, Months, NaiveDate};
+use num_traits::ToPrimitive;
 
 /// A validated day-count basis
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,14 +29,13 @@ impl Basis {
     ///
     /// Returns #NUM! for a basis outside 0 to 4.
     pub fn from_number(basis: f64, function: &str) -> Result<Self, EvalError> {
-        // Excel truncates the basis; values are tiny integers
-        #[allow(clippy::cast_possible_truncation)]
-        match basis.trunc() as i64 {
-            0 => Ok(Self::Us30360),
-            1 => Ok(Self::ActualActual),
-            2 => Ok(Self::Actual360),
-            3 => Ok(Self::Actual365),
-            4 => Ok(Self::European30360),
+        // Excel truncates the basis, as to_i8 does
+        match basis.to_i8() {
+            Some(0) => Ok(Self::Us30360),
+            Some(1) => Ok(Self::ActualActual),
+            Some(2) => Ok(Self::Actual360),
+            Some(3) => Ok(Self::Actual365),
+            Some(4) => Ok(Self::European30360),
             _ => Err(EvalError::new(format!(
                 "#NUM!: {function} basis must be 0, 1, 2, 3 or 4, got {basis}"
             ))),
@@ -51,10 +52,7 @@ fn is_last_day_of_february(date: NaiveDate) -> bool {
 }
 
 fn actual_days(start: NaiveDate, end: NaiveDate) -> f64 {
-    // Day counts between real dates fit easily in f64
-    #[allow(clippy::cast_precision_loss)]
-    let days = (end - start).num_days() as f64;
-    days
+    precision::whole((end - start).num_days())
 }
 
 /// Days between two dates in 30/360, the way Excel's `YEARFRAC` counts them
@@ -241,8 +239,7 @@ pub fn accrued_interest(
     basis: Basis,
 ) -> Result<f64, EvalError> {
     // frequency is 1, 2 or 4, so the step is 12, 6 or 3 months
-    #[allow(clippy::cast_possible_wrap)]
-    let step = (12 / frequency) as i32;
+    let step = i32::try_from(12 / frequency).unwrap_or(12);
     let month_end = is_month_end(first_interest);
     let coupon = |k: i32| {
         shift_months(first_interest, k * step, month_end)
@@ -483,5 +480,22 @@ mod tests {
         )
         .unwrap();
         assert!(close(value, 5000.0 * 0.10 * 44.0 / 360.0), "{value}");
+    }
+
+    /// A basis is cut to a whole number, as Excel cuts it; one no i8 holds
+    /// is no basis
+    #[test]
+    fn a_basis_is_a_whole_number() {
+        assert_eq!(
+            Basis::from_number(4.9, "YEARFRAC").ok(),
+            Some(Basis::European30360)
+        );
+        assert_eq!(
+            Basis::from_number(-0.5, "YEARFRAC").ok(),
+            Some(Basis::Us30360)
+        );
+        assert!(Basis::from_number(1E+20, "YEARFRAC").is_err());
+        assert!(Basis::from_number(f64::NAN, "YEARFRAC").is_err());
+        assert!(Basis::from_number(5.0, "YEARFRAC").is_err());
     }
 }

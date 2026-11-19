@@ -2,7 +2,6 @@
 //!
 //! Provides functions for comparing stochastic outputs within tolerance.
 
-#![allow(clippy::cast_precision_loss)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_sign_loss)]
 
@@ -78,6 +77,21 @@ pub fn relative_difference(actual: f64, expected: f64) -> f64 {
     }
 }
 
+/// A count as a number: exact up to 2^53, the nearest number above it. Built
+/// from 32-bit halves, which convert without loss; this crate checks Forge
+/// from outside and does not link it, so it does not share Forge's own
+/// conversion.
+fn count(n: usize) -> f64 {
+    let bytes = n.to_le_bytes();
+    let mut wide = [0_u8; 8];
+    wide[..bytes.len()].copy_from_slice(&bytes);
+    let [b0, b1, b2, b3, b4, b5, b6, b7] = wide;
+    f64::from(u32::from_le_bytes([b4, b5, b6, b7])).mul_add(
+        4_294_967_296.0,
+        f64::from(u32::from_le_bytes([b0, b1, b2, b3])),
+    )
+}
+
 /// Computes the Kolmogorov-Smirnov test statistic (D).
 #[must_use]
 pub fn ks_statistic(sample1: &[f64], sample2: &[f64]) -> f64 {
@@ -90,33 +104,33 @@ pub fn ks_statistic(sample1: &[f64], sample2: &[f64]) -> f64 {
     sorted1.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     sorted2.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-    let n1 = sorted1.len() as f64;
-    let n2 = sorted2.len() as f64;
+    let n1 = count(sorted1.len());
+    let n2 = count(sorted2.len());
 
     let mut i = 0usize;
     let mut j = 0usize;
     let mut max_d = 0.0f64;
 
     while i < sorted1.len() && j < sorted2.len() {
-        let ecdf1 = (i + 1) as f64 / n1;
-        let ecdf2 = (j + 1) as f64 / n2;
+        let ecdf1 = count(i + 1) / n1;
+        let ecdf2 = count(j + 1) / n2;
 
         if sorted1[i] <= sorted2[j] {
-            max_d = max_d.max((ecdf1 - (j as f64 / n2)).abs());
+            max_d = max_d.max((ecdf1 - (count(j) / n2)).abs());
             i += 1;
         } else {
-            max_d = max_d.max(((i as f64 / n1) - ecdf2).abs());
+            max_d = max_d.max(((count(i) / n1) - ecdf2).abs());
             j += 1;
         }
     }
 
     while i < sorted1.len() {
-        let ecdf1 = (i + 1) as f64 / n1;
+        let ecdf1 = count(i + 1) / n1;
         max_d = max_d.max((ecdf1 - 1.0).abs());
         i += 1;
     }
     while j < sorted2.len() {
-        let ecdf2 = (j + 1) as f64 / n2;
+        let ecdf2 = count(j + 1) / n2;
         max_d = max_d.max((1.0 - ecdf2).abs());
         j += 1;
     }
@@ -134,7 +148,7 @@ pub fn ks_pvalue(d: f64, n1: usize, n2: usize) -> f64 {
         return 0.0;
     }
 
-    let n = (n1 as f64 * n2 as f64) / (n1 as f64 + n2 as f64);
+    let n = (count(n1) * count(n2)) / (count(n1) + count(n2));
     let sqrt_n = n.sqrt();
 
     let lambda = (sqrt_n + 0.12 + 0.11 / sqrt_n) * d;
@@ -171,7 +185,7 @@ pub fn compute_stats(sample: &[f64]) -> (f64, f64) {
         return (0.0, 0.0);
     }
 
-    let n = sample.len() as f64;
+    let n = count(sample.len());
     let mean = sample.iter().sum::<f64>() / n;
     let variance = sample.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
     let std = variance.sqrt();
@@ -182,6 +196,22 @@ pub fn compute_stats(sample: &[f64]) -> (f64, f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_count_is_the_number_ieee_rounds_it_to() {
+        for (n, number) in [
+            (0, 0.0),
+            (1, 1.0),
+            (4_294_967_295, 4_294_967_295.0),
+            (4_294_967_296, 4_294_967_296.0),
+            (9_007_199_254_740_992, 9_007_199_254_740_992.0),
+            // Above 2^53 the spacing is 2: a tie goes to the even neighbour
+            (9_007_199_254_740_993, 9_007_199_254_740_992.0),
+            (9_007_199_254_740_995, 9_007_199_254_740_996.0),
+        ] {
+            assert_eq!(count(n).to_bits(), f64::to_bits(number), "{n}");
+        }
+    }
 
     #[test]
     fn test_within_tolerance_pass() {

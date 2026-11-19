@@ -207,9 +207,10 @@ pub struct RealOptionsConfig {
     /// Options to value
     #[serde(default)]
     pub options: Vec<OptionDefinition>,
-    /// Number of steps in binomial tree
+    /// Number of steps in binomial tree (at most 65,535: the work grows with
+    /// the square of the steps)
     #[serde(default = "default_binomial_steps")]
-    pub binomial_steps: usize,
+    pub binomial_steps: u16,
     /// Number of Monte Carlo iterations
     #[serde(default = "default_mc_iterations")]
     pub monte_carlo_iterations: usize,
@@ -221,7 +222,7 @@ pub struct RealOptionsConfig {
     pub traditional_npv: Option<f64>,
 }
 
-const fn default_binomial_steps() -> usize {
+const fn default_binomial_steps() -> u16 {
     100
 }
 
@@ -261,7 +262,7 @@ impl RealOptionsConfig {
 
     /// Set binomial steps
     #[must_use]
-    pub const fn with_binomial_steps(mut self, steps: usize) -> Self {
+    pub const fn with_binomial_steps(mut self, steps: u16) -> Self {
         self.binomial_steps = steps;
         self
     }
@@ -300,9 +301,22 @@ impl RealOptionsConfig {
 
 #[cfg(test)]
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 mod config_tests {
     use super::*;
+
+    #[test]
+    fn a_tree_has_at_most_65535_steps() {
+        let yaml = |steps: u64| {
+            format!(
+                "name: t\nunderlying: {{current_value: 100, volatility: 0.3, risk_free_rate: 0.05, \
+                 time_horizon: 1}}\noptions: []\nbinomial_steps: {steps}\n"
+            )
+        };
+        let config: RealOptionsConfig = yaml_serde::from_str(&yaml(65_535)).unwrap();
+        assert_eq!(config.binomial_steps, 65_535);
+        let err = yaml_serde::from_str::<RealOptionsConfig>(&yaml(65_536)).unwrap_err();
+        assert!(err.to_string().contains("binomial_steps"), "{err}");
+    }
 
     #[test]
     fn test_underlying_validation() {
@@ -338,10 +352,10 @@ mod config_tests {
 
         let expand = OptionDefinition::expand("Scale up", 1.5, 500_000.0);
         assert_eq!(expand.option_type, OptionType::Expand);
-        assert_eq!(expand.expansion_factor, 1.5);
+        assert_exact!(expand.expansion_factor, 1.5);
 
         let abandon = OptionDefinition::abandon("Exit", 200_000.0);
         assert_eq!(abandon.option_type, OptionType::Abandon);
-        assert_eq!(abandon.salvage_value, 200_000.0);
+        assert_exact!(abandon.salvage_value, 200_000.0);
     }
 }

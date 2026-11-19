@@ -1,5 +1,7 @@
 //! Schema command - display JSON schemas for Forge model formats
 
+use crate::cli::console::outln;
+use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use colored::Colorize;
 
@@ -50,93 +52,111 @@ pub fn schema_core(version: Option<&str>) -> ForgeResult<String> {
 /// # Errors
 ///
 /// Returns an error if an unsupported schema version is requested.
-pub fn schema(version: Option<&str>, list: bool) -> ForgeResult<()> {
-    if list || version.is_none() {
-        print_schema_list();
+pub fn schema(c: &mut Console<'_>, version: Option<&str>, list: bool) -> ForgeResult<()> {
+    let Some(version) = version.filter(|_| !list) else {
+        print_schema_list(c);
         return Ok(());
-    }
+    };
 
     let schema = match version {
-        Some("v1" | "v1.0.0" | "1" | "1.0.0") => SCHEMA_V1,
-        Some("v5" | "v5.0.0" | "5" | "5.0.0") => SCHEMA_V5,
-        Some("v5.1" | "v5.1.0" | "5.1" | "5.1.0") => SCHEMA_V5_1,
-        Some("v5.2" | "v5.2.0" | "5.2" | "5.2.0") => SCHEMA_V5_2,
-        Some("v5.3" | "v5.3.0" | "5.3" | "5.3.0") => SCHEMA_V5_3,
-        Some("v5.4" | "v5.4.0" | "5.4" | "5.4.0") => SCHEMA_V5_4,
-        Some(v) => {
-            eprintln!(
-                "{}: Unknown model format '{}'. Use 'v1', 'v5', 'v5.1', 'v5.2', 'v5.3' or 'v5.4'.",
-                "Error".red().bold(),
-                v
-            );
-            eprintln!();
-            eprintln!(
-                "Run {} to see available versions.",
+        "v1" | "v1.0.0" | "1" | "1.0.0" => SCHEMA_V1,
+        "v5" | "v5.0.0" | "5" | "5.0.0" => SCHEMA_V5,
+        "v5.1" | "v5.1.0" | "5.1" | "5.1.0" => SCHEMA_V5_1,
+        "v5.2" | "v5.2.0" | "5.2" | "5.2.0" => SCHEMA_V5_2,
+        "v5.3" | "v5.3.0" | "5.3" | "5.3.0" => SCHEMA_V5_3,
+        "v5.4" | "v5.4.0" | "5.4" | "5.4.0" => SCHEMA_V5_4,
+        v => {
+            return Err(ForgeError::Validation(format!(
+                "Unknown model format '{v}'. Use 'v1', 'v5', 'v5.1', 'v5.2', 'v5.3' or 'v5.4'.\n\n\
+                 Run {} to see available versions.",
                 "forge schema --list".yellow()
-            );
-            std::process::exit(1);
-        },
-        None => {
-            print_schema_list();
-            return Ok(());
+            )));
         },
     };
 
-    println!("{schema}");
+    outln!(c, "{schema}");
     Ok(())
 }
 
+/// Each model format: its version, what it is, and what it adds.
+const FORMATS: [(&str, &str, &[&str]); 6] = [
+    (
+        "v1.0.0",
+        "Scalar-only models (simple key-value pairs)",
+        &[
+            "Named variables with value/formula/metadata",
+            "Scenarios for what-if analysis",
+            "No arrays or tables",
+        ],
+    ),
+    (
+        "v5.0.0",
+        "Full feature set",
+        &[
+            "Arrays and tables with row-wise formulas",
+            "inputs/outputs separation",
+            "Monte Carlo, Decision Trees, Real Options",
+            "Cross-file includes",
+        ],
+    ),
+    (
+        "v5.1.0",
+        "5.0.0 plus the short form (use for new models)",
+        &[
+            "Inputs as plain numbers: price: 16",
+            "Formulas without value: null: {formula: \"=a * b\"}",
+            "forge calculate writes each result next to its formula",
+            "forge upgrade converts a 5.0.0 model, keeping comments",
+        ],
+    ),
+    (
+        "v5.2.0",
+        "5.1.0 plus the period column (ADR-053)",
+        &[
+            "month: {start: 2026-12, count: 300, unit: month}",
+            "Needed only for a table with a period column",
+        ],
+    ),
+    (
+        "v5.3.0",
+        "5.2.0 plus the empty cell (ADR-059)",
+        &[
+            "actual: [985, 1032, null]: aggregates skip it, formulas read 0",
+            "Needed only for a column with an empty cell",
+        ],
+    ),
+    (
+        "v5.4.0",
+        "5.3.0 plus a date as a scalar (ADR-060) and a number format (ADR-061)",
+        &[
+            "last_actual: 2026-10-31: a date, read as a date column's cell is",
+            "price: {value: 16, format: \"$#,##0.00\"}: how a number is shown, never its value",
+            "Needed only for a scalar written as a date or a format:",
+        ],
+    ),
+];
+
 /// Print list of available schema versions
-fn print_schema_list() {
-    println!("{}", "Forge Model Formats (_forge_version)".bold().green());
-    println!("These are versions of the model file format, not of Forge.");
-    println!();
-    println!(
-        "  {}  Scalar-only models (simple key-value pairs)",
-        "v1.0.0".cyan().bold()
+fn print_schema_list(c: &mut Console<'_>) {
+    outln!(
+        c,
+        "{}",
+        "Forge Model Formats (_forge_version)".bold().green()
     );
-    println!("         - Named variables with value/formula/metadata");
-    println!("         - Scenarios for what-if analysis");
-    println!("         - No arrays or tables");
-    println!();
-    println!("  {}  Full feature set", "v5.0.0".cyan().bold());
-    println!("         - Arrays and tables with row-wise formulas");
-    println!("         - inputs/outputs separation");
-    println!("         - Monte Carlo, Decision Trees, Real Options");
-    println!("         - Cross-file includes");
-    println!();
-    println!(
-        "  {}  5.0.0 plus the short form (use for new models)",
-        "v5.1.0".cyan().bold()
+    outln!(
+        c,
+        "These are versions of the model file format, not of Forge."
     );
-    println!("         - Inputs as plain numbers: price: 16");
-    println!("         - Formulas without value: null: {{formula: \"=a * b\"}}");
-    println!("         - forge calculate writes each result next to its formula");
-    println!("         - forge upgrade converts a 5.0.0 model, keeping comments");
-    println!();
-    println!(
-        "  {}  5.1.0 plus the period column (ADR-053)",
-        "v5.2.0".cyan().bold()
-    );
-    println!("         - month: {{start: 2026-12, count: 300, unit: month}}");
-    println!("         - Needed only for a table with a period column");
-    println!();
-    println!(
-        "  {}  5.2.0 plus the empty cell (ADR-059)",
-        "v5.3.0".cyan().bold()
-    );
-    println!("         - actual: [985, 1032, null]: aggregates skip it, formulas read 0");
-    println!("         - Needed only for a column with an empty cell");
-    println!();
-    println!(
-        "  {}  5.3.0 plus a date as a scalar (ADR-060) and a number format (ADR-061)",
-        "v5.4.0".cyan().bold()
-    );
-    println!("         - last_actual: 2026-10-31: a date, read as a date column's cell is");
-    println!("         - price: {{value: 16, format: \"$#,##0.00\"}}: how a number is shown, never its value");
-    println!("         - Needed only for a scalar written as a date or a format:");
-    println!();
-    println!(
+    for (version, summary, adds) in FORMATS {
+        outln!(c);
+        outln!(c, "  {}  {summary}", version.cyan().bold());
+        for line in adds {
+            outln!(c, "         - {line}");
+        }
+    }
+    outln!(c);
+    outln!(
+        c,
         "Usage: {}, {}, {}, {}, {} or {}",
         "forge schema v1".yellow(),
         "forge schema v5".yellow(),
@@ -145,8 +165,9 @@ fn print_schema_list() {
         "forge schema v5.3".yellow(),
         "forge schema v5.4".yellow()
     );
-    println!();
-    println!(
+    outln!(c);
+    outln!(
+        c,
         "Pipe to file: {}",
         "forge schema v5.1 > schema.json".dimmed()
     );
@@ -155,6 +176,7 @@ fn print_schema_list() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::console::capture;
 
     #[test]
     fn test_schema_v1_is_valid_json() {
@@ -177,36 +199,52 @@ mod tests {
     }
 
     #[test]
-    fn test_schema_list_mode() {
-        // Just ensure it doesn't panic
-        let result = schema(None, true);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_schema_v1_output() {
-        let result = schema(Some("v1"), false);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_schema_v5_output() {
-        let result = schema(Some("v5"), false);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_schema_version_aliases() {
-        // All these should work for v1
-        for alias in ["v1", "v1.0.0", "1", "1.0.0"] {
-            let result = schema(Some(alias), false);
-            assert!(result.is_ok(), "Alias '{alias}' should work for v1");
+    fn the_list_names_every_format() {
+        for (version, list) in [(None, false), (None, true), (Some("v1"), true)] {
+            let (result, printed) = capture(|c| schema(c, version, list));
+            result.unwrap();
+            assert!(
+                printed
+                    .out
+                    .starts_with("Forge Model Formats (_forge_version)\n"),
+                "{}",
+                printed.out
+            );
+            for format in ["v1.0.0", "v5.0.0", "v5.1.0", "v5.2.0", "v5.3.0", "v5.4.0"] {
+                assert!(printed.out.contains(format), "{format}: {}", printed.out);
+            }
+            assert!(printed
+                .out
+                .ends_with("Pipe to file: forge schema v5.1 > schema.json\n"));
         }
+    }
 
-        // All these should work for v5
-        for alias in ["v5", "v5.0.0", "5", "5.0.0"] {
-            let result = schema(Some(alias), false);
-            assert!(result.is_ok(), "Alias '{alias}' should work for v5");
+    #[test]
+    fn each_name_of_a_format_prints_its_schema() {
+        let formats = [
+            (["v1", "v1.0.0", "1", "1.0.0"], SCHEMA_V1),
+            (["v5", "v5.0.0", "5", "5.0.0"], SCHEMA_V5),
+            (["v5.1", "v5.1.0", "5.1", "5.1.0"], SCHEMA_V5_1),
+            (["v5.2", "v5.2.0", "5.2", "5.2.0"], SCHEMA_V5_2),
+            (["v5.3", "v5.3.0", "5.3", "5.3.0"], SCHEMA_V5_3),
+            (["v5.4", "v5.4.0", "5.4", "5.4.0"], SCHEMA_V5_4),
+        ];
+        for (names, expected) in formats {
+            for name in names {
+                let (result, printed) = capture(|c| schema(c, Some(name), false));
+                result.unwrap();
+                assert_eq!(printed.out, format!("{expected}\n"), "{name}");
+            }
         }
+    }
+
+    #[test]
+    fn an_unknown_format_is_refused_with_the_known_ones() {
+        let (result, printed) = capture(|c| schema(c, Some("v9"), false));
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Unknown model format 'v9'"), "{err}");
+        assert!(err.contains("'v5.4'"), "{err}");
+        assert!(err.contains("forge schema --list"), "{err}");
+        assert_eq!(printed.both(), "");
     }
 }

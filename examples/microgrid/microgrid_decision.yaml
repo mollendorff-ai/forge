@@ -1,0 +1,194 @@
+_forge_version: "5.1.0"
+# Ilha Corva: which system, and build now or wait a year? (fictional)
+#
+# Two systems: a smaller one (2.8 MWp of solar, 9 MWh of battery) and the plan
+# (3.4 MWp, 10 MWh), the best pair in a sweep of both sizes. Every number here
+# comes from microgrid.yaml, calculated for that branch: 36 runs in all, and a
+# test recalculates each one, so the tree cannot fall behind the model.
+#
+# A cost is the capex; a value is the present value of the cash the project
+# frees up to 2046; both in today's money at 8%. Waiting a year: demand and
+# diesel grow a year, the battery price is known, everything is discounted one
+# more year, and the project runs 19 years instead of 20 so that it ends in
+# the same year. Diesel and the sun are not known on any branch when the
+# island decides.
+#
+#   forge decision-tree microgrid_decision.yaml
+decision_tree:
+  name: "Ilha Corva system"
+  root:
+    type: decision
+    name: "Which system, now or in a year?"
+    branches:
+      build_small_now:
+        cost: 7100000
+        next: outcome_now_small
+      build_big_now:
+        cost: 8140000
+        next: outcome_now_big
+      wait_a_year:
+        cost: 0
+        next: battery_market
+  nodes:
+    battery_market:
+      type: chance
+      name: "Battery prices after a year"
+      branches:
+        fall_30_percent:
+          probability: 0.5
+          next: choose_after_fall
+        flat:
+          probability: 0.5
+          next: choose_after_flat
+    choose_after_fall:
+      type: decision
+      name: "Which system, battery prices fall"
+      branches:
+        build_small:
+          cost: 5624074
+          next: outcome_fall_small
+        build_big:
+          cost: 6481481
+          next: outcome_fall_big
+    choose_after_flat:
+      type: decision
+      name: "Which system, battery prices flat"
+      branches:
+        build_small:
+          cost: 6574074
+          next: outcome_flat_small
+        build_big:
+          cost: 7537037
+          next: outcome_flat_big
+    outcome_now_small:
+      type: chance
+      name: "Diesel and sun, 2.8 MWp + 9 MWh"
+      branches:
+        cheap_sunny:
+          probability: 0.175
+          value: 12643230
+        cheap_cloudy:
+          probability: 0.075
+          value: 11391035
+        plan_sunny:
+          probability: 0.35
+          value: 19685495
+        plan_cloudy:
+          probability: 0.15
+          value: 17752033
+        shock_sunny:
+          probability: 0.175
+          value: 30113184
+        shock_cloudy:
+          probability: 0.075
+          value: 27159656
+    outcome_now_big:
+      type: chance
+      name: "Diesel and sun, 3.4 MWp + 10 MWh"
+      branches:
+        cheap_sunny:
+          probability: 0.175
+          value: 13542750
+        cheap_cloudy:
+          probability: 0.075
+          value: 12959069
+        plan_sunny:
+          probability: 0.35
+          value: 21301305
+        plan_cloudy:
+          probability: 0.15
+          value: 20327822
+        shock_sunny:
+          probability: 0.175
+          value: 32815151
+        shock_cloudy:
+          probability: 0.075
+          value: 31243883
+    outcome_fall_small:
+      type: chance
+      name: "Diesel and sun, 2.8 MWp + 9 MWh"
+      branches:
+        cheap_sunny:
+          probability: 0.175
+          value: 11886734
+        cheap_cloudy:
+          probability: 0.075
+          value: 10618903
+        plan_sunny:
+          probability: 0.35
+          value: 18615488
+        plan_cloudy:
+          probability: 0.15
+          value: 16660107
+        shock_sunny:
+          probability: 0.175
+          value: 28596728
+        shock_cloudy:
+          probability: 0.075
+          value: 25612492
+    outcome_fall_big:
+      type: chance
+      name: "Diesel and sun, 3.4 MWp + 10 MWh"
+      branches:
+        cheap_sunny:
+          probability: 0.175
+          value: 12792494
+        cheap_cloudy:
+          probability: 0.075
+          value: 12228995
+        plan_sunny:
+          probability: 0.35
+          value: 20226930
+        plan_cloudy:
+          probability: 0.15
+          value: 19277014
+        shock_sunny:
+          probability: 0.175
+          value: 31281948
+        shock_cloudy:
+          probability: 0.075
+          value: 29736586
+    outcome_flat_small:
+      type: chance
+      name: "Diesel and sun, 2.8 MWp + 9 MWh"
+      branches:
+        cheap_sunny:
+          probability: 0.175
+          value: 11662643
+        cheap_cloudy:
+          probability: 0.075
+          value: 10394812
+        plan_sunny:
+          probability: 0.35
+          value: 18391396
+        plan_cloudy:
+          probability: 0.15
+          value: 16436016
+        shock_sunny:
+          probability: 0.175
+          value: 28372637
+        shock_cloudy:
+          probability: 0.075
+          value: 25388401
+    outcome_flat_big:
+      type: chance
+      name: "Diesel and sun, 3.4 MWp + 10 MWh"
+      branches:
+        cheap_sunny:
+          probability: 0.175
+          value: 12543504
+        cheap_cloudy:
+          probability: 0.075
+          value: 11980005
+        plan_sunny:
+          probability: 0.35
+          value: 19977940
+        plan_cloudy:
+          probability: 0.15
+          value: 19028023
+        shock_sunny:
+          probability: 0.175
+          value: 31032957
+        shock_cloudy:
+          probability: 0.075
+          value: 29487595

@@ -51,9 +51,6 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -80,9 +77,9 @@ mod integration_tests {
             .get("positive")
             .unwrap();
         if let ColumnValue::Number(values) = &col.values {
-            assert_eq!(values[0], 1.0);
-            assert_eq!(values[1], 0.0);
-            assert_eq!(values[2], 1.0);
+            assert_exact!(values[0], 1.0);
+            assert_exact!(values[1], 0.0);
+            assert_exact!(values[2], 1.0);
         }
     }
 
@@ -262,9 +259,9 @@ mod integration_tests {
         let table = result.tables.get("data").unwrap();
         let grade_col = table.columns.get("grade").unwrap();
         if let ColumnValue::Number(vals) = &grade_col.values {
-            assert_eq!(vals[0], 3.0);
-            assert_eq!(vals[1], 2.0);
-            assert_eq!(vals[2], 1.0);
+            assert_exact!(vals[0], 3.0);
+            assert_exact!(vals[1], 2.0);
+            assert_exact!(vals[2], 1.0);
         } else {
             panic!("Expected Number column");
         }
@@ -293,9 +290,9 @@ mod integration_tests {
         let table = result.tables.get("data").unwrap();
         let and_col = table.columns.get("and_result").unwrap();
         if let ColumnValue::Number(vals) = &and_col.values {
-            assert_eq!(vals[0], 1.0);
-            assert_eq!(vals[1], 0.0);
-            assert_eq!(vals[2], 0.0);
+            assert_exact!(vals[0], 1.0);
+            assert_exact!(vals[1], 0.0);
+            assert_exact!(vals[2], 0.0);
         } else {
             panic!("Expected Number column");
         }
@@ -320,8 +317,8 @@ mod integration_tests {
         let table = result.tables.get("data").unwrap();
         let inverted_col = table.columns.get("inverted").unwrap();
         if let ColumnValue::Number(vals) = &inverted_col.values {
-            assert_eq!(vals[0], 0.0);
-            assert_eq!(vals[1], 1.0);
+            assert_exact!(vals[0], 0.0);
+            assert_exact!(vals[1], 1.0);
         } else {
             panic!("Expected Number column");
         }
@@ -352,8 +349,8 @@ mod integration_tests {
         let table = result.tables.get("data").unwrap();
         let safe_div_col = table.columns.get("safe_div").unwrap();
         if let ColumnValue::Number(vals) = &safe_div_col.values {
-            assert_eq!(vals[0], 5.0);
-            assert_eq!(vals[1], 0.0);
+            assert_exact!(vals[0], 5.0);
+            assert_exact!(vals[1], 0.0);
         } else {
             panic!("Expected Number column");
         }
@@ -884,9 +881,6 @@ mod integration_tests {
 
 #[cfg(test)]
 mod edge_case_tests {
-    #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
 
@@ -1213,9 +1207,6 @@ mod edge_case_tests {
 
 #[cfg(test)]
 mod comparison_tests {
-    #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
 

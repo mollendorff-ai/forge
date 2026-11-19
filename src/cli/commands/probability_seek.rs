@@ -8,6 +8,8 @@
 //! reaches the target.
 
 use super::simulate::{prepare, run_model, SimulateOptions};
+use crate::cli::console::outln;
+use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use crate::monte_carlo::statistics::{evaluate_threshold, parse_threshold};
 use serde::Serialize;
@@ -148,7 +150,7 @@ pub fn probability_seek_core(
         trial
             .override_scalar(&resolved, Some(value), None)
             .map_err(ForgeError::Validation)?;
-        let result = run_model(&config, &trial, &plan)?;
+        let result = run_model(&config, &trial, &plan, true)?;
         simulations += 1;
         Ok(evaluate_threshold(
             &result.outputs[&goal.output].samples,
@@ -218,6 +220,7 @@ pub fn probability_seek_core(
 ///
 /// Returns an error if the goal cannot be read or [`probability_seek_core`] fails.
 pub fn probability_seek(
+    c: &mut Console<'_>,
     file: &Path,
     options: SimulateOptions<'_>,
     seek: &str,
@@ -227,23 +230,26 @@ pub fn probability_seek(
 ) -> ForgeResult<()> {
     use colored::Colorize;
     let goal = SeekGoal::parse(seek).map_err(ForgeError::Validation)?;
-    println!("{}", "🎯 Forge - Probability Seek".bold().green());
-    println!("   File: {}", file.display());
-    println!(
+    outln!(c, "{}", "🎯 Forge - Probability Seek".bold().green());
+    outln!(c, "   File: {}", file.display());
+    outln!(
+        c,
         "   Goal: P({} {}) = {:.2}%",
         goal.output,
         goal.threshold,
         goal.probability * 100.0
     );
-    println!("   Vary: {vary} from {min} to {max}");
-    println!();
+    outln!(c, "   Vary: {vary} from {min} to {max}");
+    outln!(c);
     let result = probability_seek_core(file, options, &goal, vary, min, max)?;
-    println!(
+    outln!(
+        c,
         "   {} = {}",
         result.input.bright_blue().bold(),
         super::display_number(result.value).bold()
     );
-    println!(
+    outln!(
+        c,
         "   P({} {}) there: {:.2}%  ({:.2}% at {min}, {:.2}% at {max})",
         goal.output,
         goal.threshold,
@@ -251,11 +257,13 @@ pub fn probability_seek(
         result.probability_at_min * 100.0,
         result.probability_at_max * 100.0
     );
-    println!(
+    outln!(
+        c,
         "   {} simulations of {} iterations, the same draws each time",
-        result.simulations, result.iterations
+        result.simulations,
+        result.iterations
     );
-    println!();
+    outln!(c);
     Ok(())
 }
 
@@ -285,6 +293,167 @@ mod tests {
             "P(x > a) = 0.5",
         ] {
             assert!(SeekGoal::parse(bad).is_err(), "{bad}");
+        }
+    }
+
+    mod printed_numbers {
+        //! The solution `forge simulate --seek` prints
+        //! follow `forge report`'s rule (Session Prompt part 1, item 5): two decimals
+        //! and thousands separators, four significant digits under 1, and money with
+        //! the sign before the `$`. JSON and files keep the raw numbers.
+
+        use crate::cli::forge;
+
+        #[test]
+        fn a_probability_seek_prints_the_solution_with_two_decimals() {
+            let text = forge(&[
+                "simulate",
+                "examples/bagel/bagel_simulate.yaml",
+                "--seek",
+                "P(year.profit > 0) = 0.8",
+                "--vary",
+                "price_per_dozen",
+                "--min",
+                "14",
+                "--max",
+                "24",
+            ])
+            .printed();
+            assert!(
+                text.contains("assumptions.price_per_dozen = 18.32\n"),
+                "{text}"
+            );
+            assert!(!text.contains("18.324083"), "{text}");
+        }
+    }
+
+    mod unused_formulas {
+        //! Roadmap T1-SEEK-UNUSED-FORMULA: a seek that moves an input to a value
+        //! where a formula its output does not use fails (`=1 / x` at 0) still
+        //! gives its answer; `forge simulate` itself, which calculates every
+        //! formula, still reports that failure.
+
+        use super::super::{probability_seek_core, SeekGoal};
+        use crate::cli::{simulate_core, SimulateOptions};
+
+        const MODEL: &str = "_forge_version: \"5.4.0\"\ns:\n  x: 1\n  noise: {value: 0, formula: \"=MC.Normal(0, 1)\"}\n  out: {formula: \"=x + noise\"}\n  ratio: {formula: \"=1 / x\"}\nmonte_carlo:\n  iterations: 400\n  seed: 5\n  outputs:\n    - variable: s.out\n      thresholds: [\"> 0\"]\n";
+
+        fn file() -> (tempfile::TempDir, std::path::PathBuf) {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, MODEL).unwrap();
+            (dir, path)
+        }
+
+        #[test]
+        fn the_seek_passes_through_a_value_the_output_does_not_depend_on() {
+            let (_dir, path) = file();
+            // x runs from 0, where 1 / x fails, to 2; out > 0 in 75% of futures
+            // when x is 0.674 (the 75th percentile of a standard normal)
+            let goal = SeekGoal::parse("P(s.out > 0) = 0.75").unwrap();
+            let r =
+                probability_seek_core(&path, SimulateOptions::default(), &goal, "s.x", 0.0, 2.0)
+                    .unwrap();
+            assert!((r.value - 0.674).abs() <= 0.05, "{}", r.value);
+            assert!((r.probability - 0.75).abs() <= 0.02, "{}", r.probability);
+            assert!(r.probability_at_min < 0.55 && r.probability_at_max > 0.95);
+        }
+
+        #[test]
+        fn a_row_of_a_table_column_is_an_output_too() {
+            let (dir, _) = file();
+            let path = dir.path().join("t.yaml");
+            let text = MODEL
+                .replace(
+                    "monte_carlo:",
+                    "t:\n  n: [1, 2]\n  y: \"=n - 1 + x + noise\"\nmonte_carlo:",
+                )
+                .replace("s.out", "t.y");
+            std::fs::write(&path, text).unwrap();
+            // Row 1 is x + noise, the same as s.out: the answer is the same, and
+            // 1 / x at 0 fails there too without stopping it
+            let goal = SeekGoal::parse("P(t.y (row 1) > 0) = 0.75").unwrap();
+            let r =
+                probability_seek_core(&path, SimulateOptions::default(), &goal, "s.x", 0.0, 2.0)
+                    .unwrap();
+            assert!((r.value - 0.674).abs() <= 0.05, "{}", r.value);
+        }
+
+        #[test]
+        fn a_failure_the_output_reads_still_stops_the_seek_and_simulate_reports_any() {
+            let (dir, path) = file();
+            let text = MODEL.replace("=x + noise", "=x + noise + 1 / x");
+            std::fs::write(&path, text).unwrap();
+            let goal = SeekGoal::parse("P(s.out > 0) = 0.75").unwrap();
+            let err =
+                probability_seek_core(&path, SimulateOptions::default(), &goal, "s.x", 0.0, 2.0)
+                    .unwrap_err()
+                    .to_string();
+            assert!(err.contains("Division by zero"), "{err}");
+            // Plain simulate calculates every formula, so a failure anywhere is reported
+            let other = dir.path().join("n.yaml");
+            std::fs::write(&other, MODEL.replace("x: 1", "x: 0")).unwrap();
+            let err = simulate_core(&other, SimulateOptions::default())
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("Division by zero"), "{err}");
+        }
+
+        #[test]
+        fn the_acquisition_seek_starts_at_a_premium_of_zero() {
+            let goal = SeekGoal::parse("P(valuation.value_created > 0) = 0.75").unwrap();
+            let options = SimulateOptions {
+                iterations: Some(200),
+                ..SimulateOptions::default()
+            };
+            let seek = |min: f64| {
+                probability_seek_core(
+                    std::path::Path::new("examples/acquisition/deal_risk.yaml"),
+                    options,
+                    &goal,
+                    "offer.premium",
+                    min,
+                    0.6,
+                )
+                .unwrap()
+            };
+            let from_zero = seek(0.0);
+            let from_a_tenth = seek(0.1);
+            assert!((from_zero.value - from_a_tenth.value).abs() <= 1e-3);
+            assert!((from_zero.probability_at_min - 1.0).abs() <= 0.01);
+        }
+    }
+
+    mod acquisition_example {
+        //! `examples/acquisition/deal_risk.yaml`: the highest premium at which the
+        //! deal creates value in three futures of four. deal.yaml's walk-away
+        //! premium is 0.4834 (`goal_seek.rs`, `acquisition_example`); under
+        //! uncertainty it is lower. The README quotes 10,000 runs (0.3424); this
+        //! runs 1,000 of the same draws, so the answer moves by sampling noise.
+
+        use super::super::{probability_seek_core, SeekGoal};
+        use crate::cli::SimulateOptions;
+        use std::path::Path;
+
+        #[test]
+        fn three_futures_in_four_allow_a_smaller_premium_than_the_plan() {
+            let goal = SeekGoal::parse("P(valuation.value_created > 0) = 0.75").unwrap();
+            let options = SimulateOptions {
+                iterations: Some(1000),
+                ..SimulateOptions::default()
+            };
+            let r = probability_seek_core(
+                Path::new("examples/acquisition/deal_risk.yaml"),
+                options,
+                &goal,
+                "offer.premium",
+                0.1,
+                0.6,
+            )
+            .unwrap();
+            assert!((r.value - 0.342_4).abs() <= 0.02, "{}", r.value);
+            assert!((r.probability - 0.75).abs() <= 0.01, "{}", r.probability);
+            assert!(r.value < 0.483_4);
         }
     }
 }
