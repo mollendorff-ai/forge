@@ -242,6 +242,10 @@ pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
     serve_until(config, shutdown_signal()).await
 }
 
+/// What is logged when `RUST_LOG` says nothing: this crate's messages (its log
+/// target is `mollendorff_forge`, not the binary's name) and each request
+const DEFAULT_LOG_FILTER: &str = "mollendorff_forge=info,tower_http=info";
+
 /// Serve until `shutdown` is ready
 async fn serve_until(
     config: ApiConfig,
@@ -256,7 +260,7 @@ async fn serve_until(
     let _ = tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "forge=info,tower_http=info".into()),
+                .unwrap_or_else(|_| DEFAULT_LOG_FILTER.into()),
         )
         .try_init();
 
@@ -892,5 +896,103 @@ mod tests {
     async fn ctrl_c_and_sigterm_stop_the_server() {
         signal_the_shutdown("-INT").await;
         signal_the_shutdown("-TERM").await;
+    }
+
+    /// A log a test can read back
+    #[derive(Clone, Default)]
+    struct Log(Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Log {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            std::io::Write::write(&mut *self.0.lock().unwrap(), bytes)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// What `serve_until` logs for `config` under the log the server starts
+    /// with when `RUST_LOG` says nothing
+    async fn logged(config: ApiConfig) -> String {
+        let log = Log::default();
+        let writer = log.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::new(DEFAULT_LOG_FILTER))
+            .with_ansi(false)
+            .with_writer(move || writer.clone())
+            .finish();
+        let _installed = tracing::subscriber::set_default(subscriber);
+        let port = config.port;
+        let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+        let server = tokio::spawn(serve_until(config, async {
+            let _ = stopped.await;
+        }));
+        for _ in 0..200 {
+            if tokio::net::TcpStream::connect(("127.0.0.1", port))
+                .await
+                .is_ok()
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        }
+        stop.send(()).unwrap();
+        server.await.unwrap().unwrap();
+        let text = String::from_utf8(log.0.lock().unwrap().clone()).unwrap();
+        text
+    }
+
+    #[tokio::test]
+    async fn the_default_log_says_where_the_server_is_and_that_it_has_no_token() {
+        let port = free_port();
+        let text = logged(ApiConfig {
+            port,
+            ..ApiConfig::default()
+        })
+        .await;
+        assert!(
+            text.contains(&format!(
+                "Forge API Server starting on http://127.0.0.1:{port}"
+            )),
+            "{text}"
+        );
+        assert!(
+            text.contains("Token: none (local use only). Browser origins allowed: none"),
+            "{text}"
+        );
+        assert!(
+            text.contains("Forge API Server shutdown complete"),
+            "{text}"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_log_names_the_root_the_token_and_the_origins() {
+        let root = tempfile::tempdir().unwrap();
+        let text = logged(ApiConfig {
+            port: free_port(),
+            token: Some("s3cret".to_string()),
+            cors_origins: vec![
+                "http://localhost:3000".to_string(),
+                "http://localhost:4000".to_string(),
+            ],
+            root: Some(root.path().to_path_buf()),
+            ..ApiConfig::default()
+        })
+        .await;
+        assert!(
+            text.contains(&format!("Files: only inside {}", root.path().display())),
+            "{text}"
+        );
+        assert!(
+            text.contains(
+                "Token: required on /api/v1/*. Browser origins allowed: http://localhost:3000, http://localhost:4000"
+            ),
+            "{text}"
+        );
+        assert!(
+            !text.contains("s3cret"),
+            "the token is never logged: {text}"
+        );
     }
 }

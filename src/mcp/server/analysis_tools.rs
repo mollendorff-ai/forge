@@ -988,4 +988,47 @@ scalars:
             assert!(close(cash, 51.40, 0.005), "inline {inline}: {cash}");
         }
     }
+
+    /// What every tool that reads a model says when it is given none
+    const ASKS: &str = "Either file_path or content is required";
+
+    fn request<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Parameters<T> {
+        Parameters(serde_json::from_value(value).expect("a request"))
+    }
+
+    #[test]
+    fn each_analysis_tool_asks_for_a_model_when_it_gets_none() {
+        use serde_json::json;
+        let server = ForgeMcpServer::new();
+        assert_eq!(
+            server
+                .sensitivity(request(
+                    json!({"vary": "a", "range": "1,2,1", "output": "b"})
+                ))
+                .unwrap_err(),
+            ASKS
+        );
+        assert_eq!(
+            server
+                .goal_seek(request(
+                    json!({"target": "b", "value": 1.0, "vary": "a", "tolerance": 0.1})
+                ))
+                .unwrap_err(),
+            ASKS
+        );
+        assert_eq!(
+            server
+                .break_even(request(json!({"output": "b", "vary": "a"})))
+                .unwrap_err(),
+            ASKS
+        );
+        assert_eq!(
+            server
+                .compare(request(json!({"scenarios": ["base"]})))
+                .unwrap_err(),
+            ASKS
+        );
+        assert_eq!(server.scenarios(request(json!({}))).unwrap_err(), ASKS);
+        assert_eq!(server.tornado(request(json!({}))).unwrap_err(), ASKS);
+    }
 }

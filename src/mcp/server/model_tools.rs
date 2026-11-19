@@ -795,4 +795,23 @@ scalars:
             );
         }
     }
+
+    /// What every tool that reads a model says when it is given none
+    const ASKS: &str = "Either file_path or content is required";
+
+    fn request<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> Parameters<T> {
+        Parameters(serde_json::from_value(value).expect("a request"))
+    }
+
+    #[test]
+    fn calculate_audit_and_export_ask_for_a_model_when_they_get_none() {
+        use serde_json::json;
+        let server = ForgeMcpServer::new();
+        assert_eq!(server.calculate(request(json!({}))).unwrap_err(), ASKS);
+        assert_eq!(
+            server.audit(request(json!({"variable": "x"}))).unwrap_err(),
+            ASKS
+        );
+        assert_eq!(server.export(request(json!({}))).unwrap_err(), ASKS);
+    }
 }
