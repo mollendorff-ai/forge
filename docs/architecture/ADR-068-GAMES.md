@@ -1,8 +1,8 @@
 # ADR-068: Games: a Payoff Table, Its Equilibria, and Tournaments
 
-**Status:** Proposed. Waiting for the maintainer. Nothing is built.
+**Status:** Accepted (the three recommendations); not yet built
 **Date:** 2026-11-19
-**Decided by:** the maintainer (open: the three questions at the end); the analysis and the recommendation are Claude's
+**Decided by:** the maintainer, who accepted the three recommendations (2026-11-19); the analysis and the recommendations are Claude's
 **For:** roadmap T2-GAME-THEORY. T2-GAME-THEORY-MORE is not part of this.
 
 ---
@@ -21,7 +21,7 @@ None of the three models has an equilibrium in it. Neither does any other model 
 
 ### What the right numbers are, checked before any code
 
-I checked the numbers below by hand and with two outside tools: nashpy 0.0.43 for the equilibria, and the Python `axelrod` library 4.14.0 for the tournament. The scripts are in this session's scratchpad. They become inline tests' comments when this is built.
+I checked the numbers below by hand and with two outside tools: nashpy 0.0.43 for the equilibria, and the Python `axelrod` library 4.14.0 for the tournament. Each number is asserted in an inline test when this is built, with a comment that names the tool, its version and, for `axelrod`, the runs and the seed.
 
 **Stag hunt** (stag/stag 4, stag/hare 0, hare/stag 3, hare/hare 3). nashpy and the hand calculation agree: two pure equilibria, (stag, stag) and (hare, hare), and one mixed equilibrium in which each hunter plays stag with probability 3/4. With the cost `c` taken off each hare payoff, the mixed equilibrium is stag with (3 − c)/4. It is 1/2 at `c` = 1, the stored `crossover_c`. That is no coincidence. kinship-protocol's flag asks which strategy does better against an opponent who plays each half the time. Here that is the same as asking which side of 1/2 the mixed equilibrium is on.
 
@@ -165,9 +165,11 @@ Every equilibrium and ranking asserted in a test has a comment that says where i
 - **Strategies written by the user** in a tournament, and **evolution:** strategy shares that change from generation to generation (replicator dynamics, T2-GAME-THEORY-MORE).
 - **Studio:** no game view in this change.
 
-## The three questions for the maintainer
+## The three questions, and what was decided
 
-**1. Exact expected values or a seeded simulation for tournaments?** The roadmap says "seeded where a strategy is random". I recommend the exact expected value instead, with no seed. Every built-in strategy is a small machine: at most three states, and a chance of cooperating in each. Two of them playing, with noise, form a Markov chain of at most nine states. Forge can compute the expected payoff of 200 rounds, or of a match that goes on with probability `continuation`, exactly, by stepping the chain or solving a nine-by-nine system.
+The maintainer accepted the three recommendations on 2026-11-19: tournaments are exact expected values with no seed; formulas can read a game's results; the names are as written here. The reasoning given for each is kept below.
+
+**1. Exact expected values or a seeded simulation for tournaments? Decided: exact.** The roadmap says "seeded where a strategy is random". The recommendation was the exact expected value instead, with no seed. Every built-in strategy is a small machine: at most three states, and a chance of cooperating in each. Two of them playing, with noise, form a Markov chain of at most nine states. Forge can compute the expected payoff of 200 rounds, or of a match that goes on with probability `continuation`, exactly, by stepping the chain or solving a nine-by-nine system.
 
 | | Exact (recommended) | Seeded simulation |
 | --- | --- | --- |
@@ -179,9 +181,9 @@ Every equilibrium and ranking asserted in a test has a comment that says where i
 
 With the exact method, `random`, `generous_tit_for_tat` and `noise` are probabilities, not draws. A seeded mode can be added later if a user-written strategy ever needs it.
 
-**2. Can other formulas read a game's results?** I recommend yes (section 3): it is what removes kinship-protocol's hand-written flags. It costs one new cell type in the calculator's plan. The other way is that results can be read only by the commands (`forge tornado` and the like) and never by a formula. That is simpler, but the flags stay in kinship-protocol's files as typed values.
+**2. Can other formulas read a game's results? Decided: yes.** The recommendation was yes (section 3): it is what removes kinship-protocol's hand-written flags. It costs one new cell type in the calculator's plan. The other way is that results can be read only by the commands (`forge tornado` and the like) and never by a formula. That is simpler, but the flags stay in kinship-protocol's files as typed values.
 
-**3. The names.** `games:`, `players`, `strategies`, `payoffs`, `symmetric`, `tournament`, `round`, `rounds`, `continuation`, `noise`, `self_play`, and the result names in section 3. These are fixed once released (docs/STABILITY.md). If you would rather have other words, now is the time.
+**3. The names. Decided: as written.** `games:`, `players`, `strategies`, `payoffs`, `symmetric`, `tournament`, `round`, `rounds`, `continuation`, `noise`, `self_play`, and the result names in section 3. These are fixed once released (docs/STABILITY.md).
 
 ## Consequences
 
