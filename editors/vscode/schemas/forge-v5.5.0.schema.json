@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/mollendorff-ai/forge/schema/forge-v5.5.0.json",
   "title": "Forge Model Format v5.5.0",
-  "description": "JSON Schema for Forge model format 5.5.0 (ADR-068). Same as 5.4.0, plus `games:`: named games, each with players, their strategies and a payoff table whose cells are numbers or formulas over the model (`stag: {stag: 4, hare: =3 - c}`). `forge game` reports their dominated strategies and equilibria, and the results are scalars named under the game (`stag_hunt.equilibrium_1.me.stag`). Forge checks each game in full and names what is wrong; this schema checks its shape and helps an editor complete its keys.",
+  "description": "JSON Schema for Forge model format 5.5.0 (ADR-068). Same as 5.4.0, plus `games:`: named games, each with players, their strategies and a payoff table whose cells are numbers or formulas over the model (`stag: {stag: 4, hare: =3 - c}`). or tournaments of built-in strategies playing such a game round after round (`tournament: {round: dilemma, players: {tft: tit_for_tat}, rounds: 200}`). `forge game` reports their dominated strategies and equilibria, or a tournament's ranking, and the results are scalars named under the game (`stag_hunt.equilibrium_1.me.stag`). Forge checks each game in full and names what is wrong; this schema checks its shape and helps an editor complete its keys.",
   "type": "object",
   "required": [
     "_forge_version"
@@ -71,7 +71,7 @@
     },
     "games": {
       "$ref": "#/definitions/Games",
-      "description": "Games (ADR-068): each with players, strategies and payoffs. Checked in full by Forge"
+      "description": "Games (ADR-068): each with players, strategies and payoffs, or a tournament. Checked in full by Forge"
     }
   },
   "additionalProperties": {
@@ -1171,6 +1171,17 @@
       }
     },
     "Game": {
+      "description": "A game played once, or a tournament",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/TableGame"
+        },
+        {
+          "$ref": "#/definitions/Tournament"
+        }
+      ]
+    },
+    "TableGame": {
       "type": "object",
       "description": "A game played once: players, their strategies, and a payoff table nested one level per player",
       "properties": {
@@ -1220,7 +1231,145 @@
         "players",
         "strategies",
         "payoffs"
-      ]
+      ],
+      "additionalProperties": false
+    },
+    "Tournament": {
+      "type": "object",
+      "description": "A tournament (ADR-068): built-in strategies playing a symmetric game of two strategies, round after round, each against every other",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "tournament": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "round": {
+              "type": "string",
+              "description": "A symmetric game of two strategies in the same section, cooperate first"
+            },
+            "players": {
+              "type": "object",
+              "minProperties": 2,
+              "description": "Each player's name, and the built-in strategy it plays",
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "always_cooperate",
+                      "always_defect",
+                      "tit_for_tat",
+                      "suspicious_tit_for_tat",
+                      "tit_for_two_tats",
+                      "grim_trigger",
+                      "win_stay_lose_shift",
+                      "generous_tit_for_tat",
+                      "random"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "plays"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "plays": {
+                        "type": "string",
+                        "enum": [
+                          "always_cooperate",
+                          "always_defect",
+                          "tit_for_tat",
+                          "suspicious_tit_for_tat",
+                          "tit_for_two_tats",
+                          "grim_trigger",
+                          "win_stay_lose_shift",
+                          "generous_tit_for_tat",
+                          "random"
+                        ]
+                      },
+                      "forgive": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^=.+"
+                          }
+                        ],
+                        "description": "generous_tit_for_tat: the chance of answering a defection with cooperation (1/3 if not given)"
+                      },
+                      "cooperate": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^=.+"
+                          }
+                        ],
+                        "description": "random: the chance of cooperating (1/2 if not given)"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "rounds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^=.+"
+                }
+              ],
+              "description": "The rounds of a match, a whole number from 1 to 100000"
+            },
+            "continuation": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^=.+"
+                }
+              ],
+              "description": "Instead of rounds: the chance that a match goes on after each round, from 0 to 0.9999"
+            },
+            "noise": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^=.+"
+                }
+              ],
+              "description": "The chance that each move is flipped (0 if not given)"
+            },
+            "self_play": {
+              "type": "boolean",
+              "description": "Whether each player also plays a copy of itself (true if not given)"
+            }
+          },
+          "required": [
+            "round",
+            "players"
+          ]
+        }
+      },
+      "required": [
+        "tournament"
+      ],
+      "additionalProperties": false
     }
   },
   "examples": [

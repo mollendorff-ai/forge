@@ -54,7 +54,7 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 )
             {
                 for game in crate::games::parse_games(value)? {
-                    model.games.insert(game.name.clone(), game);
+                    model.games.insert(game.name().to_string(), game);
                 }
                 continue;
             }

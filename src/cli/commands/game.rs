@@ -1,5 +1,5 @@
 //! `forge game`: the dominated strategies and the equilibria of the games in
-//! a model (ADR-068).
+//! a model, and the standings of its tournaments (ADR-068).
 
 use super::display_number;
 use super::prediction::serialize_for_file;
@@ -7,7 +7,7 @@ use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use crate::games::report::{Dominated, NamedEquilibrium};
-use crate::games::TableReport;
+use crate::games::{GameReport, TableReport, TournamentReport};
 use crate::parser;
 use colored::Colorize;
 use std::fs;
@@ -25,7 +25,7 @@ pub fn game_core(
     file: &Path,
     game: Option<&str>,
     scenario: Option<&str>,
-) -> ForgeResult<Vec<TableReport>> {
+) -> ForgeResult<Vec<GameReport>> {
     let mut model = parser::parse_model(file)?;
     if model.games.is_empty() {
         return Err(ForgeError::Validation(
@@ -69,7 +69,10 @@ pub fn game(
     outln!(c);
     let reports = game_core(file, name, scenario)?;
     for report in &reports {
-        print_table(c, report);
+        match report {
+            GameReport::Table(r) => print_table(c, r),
+            GameReport::Tournament(r) => print_tournament(c, r),
+        }
     }
     if let Some(path) = output {
         let text = serialize_for_file(&reports, &path).expect("a report serialises");
@@ -149,6 +152,68 @@ fn print_table(c: &mut Console<'_>, r: &TableReport) {
     outln!(c);
 }
 
+fn print_tournament(c: &mut Console<'_>, r: &TournamentReport) {
+    let length = r.rounds.map_or_else(
+        || {
+            format!(
+                "goes on after each round with chance {}",
+                display_number(r.continuation.unwrap_or_default())
+            )
+        },
+        |n| format!("{n} rounds a match"),
+    );
+    outln!(
+        c,
+        "{}",
+        format!("{}: a tournament of {}", r.game, r.round).bold()
+    );
+    let noise = if r.noise > 0.0 {
+        format!(
+            ", each move flipped with chance {}",
+            display_number(r.noise)
+        )
+    } else {
+        String::new()
+    };
+    let self_play = if r.self_play { ", self-play" } else { "" };
+    outln!(c, "   {length}{noise}{self_play}");
+    outln!(
+        c,
+        "   Ranking (payoff per round; share of moves that cooperate):"
+    );
+    let width = r.matches.keys().map(String::len).max().unwrap_or(0);
+    for s in &r.ranking {
+        outln!(
+            c,
+            "      {:>2}. {:<width$}  {:.3}  cooperates {:.3}  ({})",
+            s.rank,
+            s.player,
+            s.score,
+            s.cooperation,
+            s.plays.name()
+        );
+    }
+    outln!(c, "   Each row's payoff per round against each column:");
+    let cell = width.max(6);
+    let header: Vec<String> = r.matches.keys().map(|b| format!("{b:>cell$}")).collect();
+    outln!(c, "      {:<width$} {}", "", header.join(" "));
+    for (a, row) in &r.matches {
+        let line: Vec<String> = row.values().map(|p| format!("{p:>cell$.3}")).collect();
+        outln!(c, "      {a:<width$} {}", line.join(" "));
+    }
+    if r.stable.is_empty() {
+        outln!(c, "   No player is collectively stable.");
+    } else {
+        outln!(
+            c,
+            "   Collectively stable (no player does better against it than it does against \
+             itself): {}",
+            r.stable.join(", ")
+        );
+    }
+    outln!(c);
+}
+
 fn print_dominated(c: &mut Console<'_>, title: &str, list: &[Dominated]) {
     if list.is_empty() {
         return;
@@ -193,8 +258,9 @@ fn print_equilibrium(c: &mut Console<'_>, number: usize, e: &NamedEquilibrium) {
 #[cfg(feature = "cli")]
 #[derive(clap::Args)]
 #[command(
-    about = "Find the equilibria of the games in a model",
-    long_about = "Find the dominated strategies and the equilibria of the games in a model.
+    about = "Find the equilibria of the games in a model, and play its tournaments",
+    long_about = "Find the dominated strategies and the equilibria of the games in a model,
+and play its tournaments.
 
 A game is a payoff table of numbers or formulas in the 'games' section of a
 model (format 5.5.0). Every payoff can read the rest of the model, so a
@@ -209,9 +275,25 @@ REPORTS, PER GAME:
     is named as degenerate
   - Each strategy's payoff against an even mix of the others' strategies
 
+A tournament plays a symmetric game of two strategies (cooperate, defect)
+round after round, between built-in strategies: always_cooperate,
+always_defect, tit_for_tat, suspicious_tit_for_tat, tit_for_two_tats,
+grim_trigger, win_stay_lose_shift, generous_tit_for_tat (forgive) and
+random (cooperate). A match lasts a number of rounds, or goes on after each
+round with a chance (continuation), and noise flips each move with a chance.
+The values are exact expected values, not samples.
+
+REPORTS, PER TOURNAMENT:
+  - Each player's score (payoff per round over its matches), rank and share
+    of moves that cooperate
+  - The match table: each player's payoff per round against each other
+  - The collectively stable players: none does better against one than it
+    does against itself
+
 The same numbers are scalars named under the game, which formulas and the
 other commands can read: stag_hunt.equilibrium_1.me.stag, stag_hunt.equilibria,
-stag_hunt.even_mix.me.hare, and so on.
+stag_hunt.even_mix.me.hare, axelrod.score.tft, axelrod.match.tft.ad,
+axelrod.stable.grim, and so on.
 
 EXAMPLES:
   forge game model.yaml                       # Every game in the model
@@ -442,5 +524,313 @@ games:
         // A game nobody asked for does not fail the answer
         let out = forge(&["game", &broken, "--game", "prisoners"]).printed();
         assert!(out.contains("prisoners: a vs b"), "{out}");
+    }
+
+    const TOURNAMENT: &str = r#"_forge_version: "5.5.0"
+games:
+  dilemma:
+    players: [me, you]
+    strategies: [cooperate, defect]
+    symmetric: true
+    payoffs:
+      cooperate: {cooperate: 3, defect: 0}
+      defect: {cooperate: 5, defect: 1}
+  axelrod:
+    tournament:
+      round: dilemma
+      players:
+        grim: grim_trigger
+        tft: tit_for_tat
+        ad: always_defect
+        ac: always_cooperate
+        rand: random
+      rounds: 200
+"#;
+
+    #[test]
+    fn it_prints_a_tournaments_ranking_match_table_and_stable_players() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write(&dir, TOURNAMENT);
+        let out = forge(&["game", &file, "--game", "axelrod"]).printed();
+        // The exact scores of kinship-protocol's tournament (by hand and
+        // against axelrod 4.14.0, src/games/standings.rs). Grim cooperates
+        // in all of three matches, once in 200 against AD, and (2 - 2^-199)
+        // times in 200 against Random: (3 + 0.005 + 0.01) / 5 = 0.603
+        assert!(out.contains("axelrod: a tournament of dilemma"), "{out}");
+        assert!(out.contains("200 rounds a match, self-play"), "{out}");
+        assert!(
+            out.contains(" 1. grim  2.596  cooperates 0.603  (grim_trigger)"),
+            "{out}"
+        );
+        assert!(
+            out.contains(" 5. rand  1.909  cooperates 0.500  (random)"),
+            "{out}"
+        );
+        assert!(
+            out.contains("Each row's payoff per round against each column"),
+            "{out}"
+        );
+        // TFT's row: 3 against Grim and itself, 199/200 against AD
+        assert!(
+            out.contains("tft   3.000  3.000  0.995  3.000  2.246"),
+            "{out}"
+        );
+        assert!(
+            out.contains("than it does against itself): grim, tft, ad"),
+            "{out}"
+        );
+        assert!(!out.contains("dilemma: me vs you"), "{out}");
+    }
+
+    #[test]
+    fn a_tournament_with_noise_and_continuation_says_so() {
+        let dir = tempfile::tempdir().unwrap();
+        // By hand over 10 rounds: STFT gets (5 + 9 * 3) / 10 = 3.2 against
+        // AC, more than AC's 3 against itself, and AC gets 2.7 against STFT,
+        // more than STFT's 1 against itself: neither is stable
+        let file = write(
+            &dir,
+            &TOURNAMENT.replace(
+                "        grim: grim_trigger\n        tft: tit_for_tat\n        ad: always_defect\n        ac: always_cooperate\n        rand: random\n      rounds: 200",
+                "        ac: always_cooperate\n        stft: suspicious_tit_for_tat\n      rounds: 10",
+            ),
+        );
+        let out = forge(&["game", &file, "-g", "axelrod"]).printed();
+        assert!(out.contains("No player is collectively stable."), "{out}");
+        assert!(out.contains("stft  3.200  1.000"), "{out}");
+        let noisy = write(
+            &dir,
+            &TOURNAMENT.replace(
+                "      rounds: 200",
+                "      continuation: 0.9\n      noise: 0.05\n      self_play: false",
+            ),
+        );
+        let out = forge(&["game", &noisy, "-g", "axelrod"]).printed();
+        assert!(
+            out.contains(
+                "goes on after each round with chance 0.90, each move flipped with chance 0.05"
+            ),
+            "{out}"
+        );
+        assert!(!out.contains("self-play"), "{out}");
+        let json = dir.path().join("t.json");
+        let out = forge(&["game", &noisy, "-o", json.to_str().unwrap()]).printed();
+        assert!(out.contains("Results written to"), "{out}");
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&json).unwrap()).unwrap();
+        assert_eq!(written[0]["kind"], "table");
+        assert_eq!(written[1]["kind"], "tournament");
+        assert_eq!(written[1]["continuation"], 0.9);
+        assert_eq!(written[1]["rounds"], serde_json::Value::Null);
+    }
+
+    /// The examples in examples/games, each number worked out outside
+    /// Forge: nashpy 0.0.43 for the equilibria, the Python axelrod library
+    /// 4.14.0 for the tournaments (src/games/standings.rs), or by hand.
+    mod examples {
+        use crate::cli::forge;
+        use crate::types::ParsedModel;
+        use std::path::Path;
+
+        fn calculated(file: &str, scenario: Option<&str>) -> ParsedModel {
+            let mut model = crate::parser::parse_model(Path::new(file)).unwrap();
+            if let Some(name) = scenario {
+                crate::cli::commands::apply_scenario(&mut model, name).unwrap();
+            }
+            crate::core::ArrayCalculator::new(model)
+                .calculate_all()
+                .unwrap()
+        }
+
+        fn value(model: &ParsedModel, name: &str) -> f64 {
+            model.scalars[name].value.unwrap()
+        }
+
+        fn close(a: f64, b: f64) -> bool {
+            (a - b).abs() < 1e-12
+        }
+
+        #[test]
+        fn kinship_protocols_stag_hunt_and_chicken_give_their_stored_flags() {
+            // kinship-protocol stores coop_wins 0, 0, 0, 1 for each, and
+            // crossover_c 1 and 0.5. nashpy: stag at (3 - c) / 4 (0.75,
+            // 0.625, 0.5, 0.375), swerve at (1 + c) / 3 (1/3, 0.416667,
+            // 0.5, 2/3)
+            let costs = [
+                (None, 0.0, 0.0),
+                (Some("c1"), 0.5, 0.25),
+                (Some("c2"), 1.0, 0.5),
+                (Some("c3"), 1.5, 1.0),
+            ];
+            for (k, (scenario, stag_c, chicken_c)) in costs.into_iter().enumerate() {
+                let wins = if k == 3 { 1.0 } else { 0.0 };
+                let stag = calculated("examples/games/stag-hunt.yaml", scenario);
+                assert!(
+                    close(value(&stag, "kinship.coop_wins"), wins),
+                    "{scenario:?}"
+                );
+                assert!(close(value(&stag, "kinship.crossover_c"), 1.0));
+                assert!(close(
+                    value(&stag, "kinship.stag_share"),
+                    (3.0 - stag_c) / 4.0
+                ));
+                assert!(close(value(&stag, "stag_hunt.equilibria"), 3.0));
+                let chicken = calculated("examples/games/chicken.yaml", scenario);
+                assert!(
+                    close(value(&chicken, "kinship.coop_wins"), wins),
+                    "{scenario:?}"
+                );
+                assert!(close(value(&chicken, "kinship.crossover_c"), 0.5));
+                assert!(close(
+                    value(&chicken, "kinship.swerve_share"),
+                    (1.0 + chicken_c) / 3.0
+                ));
+            }
+        }
+
+        #[test]
+        fn kinship_protocols_tournament_is_played_not_typed_in() {
+            // Exact (by hand for Grim, and within axelrod's sampling
+            // error): 2.596, 2.44825, 2.208, 2.1, 1.90875. kinship stores
+            // coop_wins 0, 0, 1, 1 at c = 0, 0.1, 0.2, 0.3, which this
+            // keeps; its crossover_c 0.1 is 0.108: AD's score falls by c,
+            // AC's not at all
+            let base = calculated("examples/games/axelrod.yaml", None);
+            for (player, score) in [
+                ("grim", 2.596),
+                ("tft", 2.448_25),
+                ("ad", 2.208),
+                ("ac", 2.1),
+                ("rand", 1.908_75),
+            ] {
+                assert!(
+                    close(value(&base, &format!("axelrod.score.{player}")), score),
+                    "{player}"
+                );
+            }
+            // Grim defects against AD in 199 rounds of 200 and against
+            // Random once it has defected: 1 - (3 + 0.005 + 0.01) / 5
+            assert!(close(value(&base, "kinship.grim_defect_rate"), 0.397));
+            for (scenario, c, wins) in [
+                (None, 0.0, 0.0),
+                (Some("c1"), 0.1, 0.0),
+                (Some("c2"), 0.2, 1.0),
+                (Some("c3"), 0.3, 1.0),
+            ] {
+                let model = calculated("examples/games/axelrod.yaml", scenario);
+                assert!(close(value(&model, "kinship.coop_wins"), wins), "c {c}");
+                assert!(close(value(&model, "kinship.crossover_c"), 0.108), "c {c}");
+                assert!(close(value(&model, "axelrod.score.ad"), 2.208 - c), "c {c}");
+            }
+        }
+
+        #[test]
+        fn a_harsher_penalty_lowers_the_audit_rate_and_not_the_cheating() {
+            // nashpy: the human audits 1/2, 1/3 and 1/5 at a penalty of 2,
+            // 4 and 8, gain / (gain + penalty); the AI cheats 1/3 at each,
+            // audit_cost / harm
+            let file = Path::new("examples/games/inspection.yaml");
+            let audit = crate::cli::tornado_core(file, None).unwrap();
+            let penalty = audit
+                .bars
+                .iter()
+                .find(|b| b.input_name == "inputs.penalty")
+                .unwrap();
+            assert!(close(audit.base_value, 1.0 / 3.0));
+            assert!(close(penalty.output_at_low, 0.5) && close(penalty.output_at_high, 0.2));
+            assert_eq!(audit.bars[0].input_name, "inputs.penalty");
+            let cheat =
+                crate::cli::tornado_core(file, Some("inspection.equilibrium_1.ai.cheat")).unwrap();
+            let penalty = cheat
+                .bars
+                .iter()
+                .find(|b| b.input_name == "inputs.penalty")
+                .unwrap();
+            assert!(
+                close(penalty.output_at_low, 1.0 / 3.0) && close(penalty.output_at_high, 1.0 / 3.0)
+            );
+            // An audit that costs 1.5 makes the AI cheat 1/2
+            let cost = cheat
+                .bars
+                .iter()
+                .find(|b| b.input_name == "inputs.audit_cost")
+                .unwrap();
+            assert!(close(cost.output_at_high, 0.5));
+            let model = calculated("examples/games/inspection.yaml", None);
+            assert!(close(value(&model, "inspection.pure_equilibria"), 0.0));
+        }
+
+        #[test]
+        fn noise_drops_tit_for_tat_from_first_to_third() {
+            // Exact, and the same order as axelrod's 2,000 seeded runs
+            let model = calculated("examples/games/noisy-tournament.yaml", None);
+            assert!(close(value(&model, "results.tft_place_without_noise"), 1.0));
+            assert!(close(value(&model, "results.tft_place_with_noise"), 3.0));
+            assert!(close(value(&model, "noisy.rank.tf2t"), 1.0));
+            assert!(close(value(&model, "noisy.rank.gtft"), 2.0));
+            assert!((value(&model, "noisy.score.tf2t") - 2.518_395).abs() < 1e-6);
+            assert!((value(&model, "clean.score.tft") - 2.599).abs() < 1e-12);
+            // Without noise TFT, GTFT, TF2T and AD are stable; with it only
+            // AD and GTFT
+            assert!(close(value(&model, "clean.stable.tf2t"), 1.0));
+            assert!(close(value(&model, "noisy.stable.tf2t"), 0.0));
+            assert!(close(value(&model, "noisy.stable.gtft"), 1.0));
+        }
+
+        #[test]
+        fn the_battle_of_the_sexes_has_two_pure_equilibria_and_a_mix() {
+            // nashpy and by hand: Alex at the opera with 3/5, Sam with 2/5,
+            // each expecting 6/5
+            let model = calculated("examples/games/battle-of-the-sexes.yaml", None);
+            assert!(close(value(&model, "evening.pure_equilibria"), 2.0));
+            assert!(close(
+                value(&model, "evening.equilibrium_3.alex.opera"),
+                0.6
+            ));
+            assert!(close(value(&model, "evening.equilibrium_3.sam.opera"), 0.4));
+            assert!(close(
+                value(&model, "evening.equilibrium_3.alex.payoff"),
+                1.2
+            ));
+            assert!(close(
+                value(&model, "evening.equilibrium_3.sam.payoff"),
+                1.2
+            ));
+        }
+
+        #[test]
+        fn cooperation_holds_from_the_threshold_continuation() {
+            // By hand: AD gets 5 - 4w a round against Grim, which gets 3
+            // against itself, so Grim is stable from w = (5 - 3) / (5 - 1)
+            let file = Path::new("examples/games/continuation.yaml");
+            let model = calculated("examples/games/continuation.yaml", None);
+            assert!(close(value(&model, "kinship.threshold"), 0.5));
+            // 5 - 4 x 0.6 at w = 0.6
+            assert!(close(value(&model, "long_run.match.ad.grim"), 2.6));
+            let sweep = crate::cli::sensitivity_core(
+                file,
+                "w",
+                "0.3,0.7,0.05",
+                None,
+                None,
+                "long_run.stable.grim",
+            )
+            .unwrap();
+            let sweep = serde_json::to_value(&sweep).unwrap();
+            let entries = sweep["data"]["OneVar"]["entries"].as_array().unwrap();
+            assert_eq!(entries.len(), 9);
+            for entry in entries {
+                let w = entry["input"].as_f64().unwrap();
+                let stable = if w >= 0.5 - 1e-9 { 1.0 } else { 0.0 };
+                assert_eq!(entry["output"].as_f64(), Some(stable), "w {w}");
+            }
+        }
+
+        #[test]
+        fn forge_examples_runs_a_game_with_forge_game() {
+            let out = forge(&["examples", "inspection", "--run"]).printed();
+            assert!(out.contains("🎲 Forge - Games"), "{out}");
+            assert!(out.contains("human: audit 0.3333, trust 0.6667"), "{out}");
+        }
     }
 }

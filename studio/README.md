@@ -9,7 +9,7 @@ The first visit opens with a short welcome card: what the page is and three thin
 - **Model:** inputs as sliders and fields, results with their formulas, tables, scenarios to apply. A formula can be changed on its card, with suggestions for names and functions; it is kept only when Forge accepts it, and otherwise Forge's message says why. A group's Add button adds an input, a formula or a table column, and a card's Delete removes it; each change is kept only when Forge reads back exactly that change.
 - **Grid:** the model as a spreadsheet reads it, read-only. A tap shows a cell's formula and leads to its card.
 - **YAML:** the model's text, with Forge's formula colours, and suggestions for the keys of the model format and for names and functions inside a formula. On a phone the edit is applied with a button; above 900 px the editor sits beside the cards and a number typed in one changes the other.
-- **Analyze:** goal seek, break-even, scenarios, a tornado, a simulation and budget against actual. **Tools:** the MCP server's 20 tools, run on the open model.
+- **Analyze:** goal seek, break-even, scenarios, a tornado, a simulation and budget against actual. **Tools:** the MCP server's tools, run on the open model (games are not shown yet).
 - **Files:** the examples, opening and saving. Save opens the share sheet on an iPhone or iPad (Save to Files, iCloud Drive) for the model's YAML or its Excel workbook.
 
 ## Your model stays on your device

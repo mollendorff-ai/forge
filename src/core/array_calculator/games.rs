@@ -7,7 +7,7 @@ use super::names::ScalarName;
 use super::order::{formula_words, Cell};
 use super::{evaluator, ArrayCalculator};
 use crate::error::{ForgeError, ForgeResult};
-use crate::games::TableReport;
+use crate::games::{analyse, standings, Game, GameReport};
 use crate::types::{Table, Variable};
 
 impl ArrayCalculator {
@@ -21,10 +21,14 @@ impl ArrayCalculator {
             .then(|| Cell::Game(game.to_string()))
     }
 
-    /// The cells a game's payoff formulas read.
+    /// The cells a game's formulas read, and a tournament's round.
     pub(super) fn game_dependencies(&self, name: &str) -> Vec<Cell> {
+        let game = &self.model.games[name];
         let mut deps = Vec::new();
-        for formula in self.model.games[name].formulas() {
+        if let Game::Tournament(t) = game {
+            deps.push(Cell::Game(t.round.clone()));
+        }
+        for formula in game.formulas() {
             for word in formula_words(formula) {
                 let dep = self
                     .qualified_column(&word)
@@ -51,7 +55,7 @@ impl ArrayCalculator {
     ///
     /// Returns the calculation's report when a game asked for failed or uses
     /// a failed cell, or when the model cannot be calculated at all.
-    pub fn calculate_games(mut self, only: Option<&str>) -> ForgeResult<Vec<TableReport>> {
+    pub fn calculate_games(mut self, only: Option<&str>) -> ForgeResult<Vec<GameReport>> {
         let outcome = self.calculate_cells()?;
         let asked = |game: &String| only.is_none_or(|name| name == game);
         if self
@@ -83,15 +87,27 @@ impl ArrayCalculator {
             .retain(|name, _| !games.iter().any(|g| name.starts_with(g)));
     }
 
-    /// Calculate game `name`: work out each payoff, find the equilibria, and
-    /// store every result as a scalar.
+    /// Calculate game `name`: work out each payoff, find the equilibria (or
+    /// play the tournament), and store every result as a scalar.
     pub(super) fn calculate_game(&mut self, name: &str) -> ForgeResult<()> {
-        let game = self.model.games[name].clone();
-        let table = game.table(|formula, at| {
-            self.payoff_value(formula)
+        let value = |calc: &mut Self, formula: &str, at: &str| {
+            calc.payoff_value(formula)
                 .map_err(|e| locate_error(e, &format!("game '{name}': {at}"), formula))
-        })?;
-        let report = crate::games::analyse(name, &table);
+        };
+        let report = match self.model.games[name].clone() {
+            Game::Table(game) => {
+                let table = game.table(|formula, at| value(self, formula, at))?;
+                let report = analyse(name, &table);
+                self.game_tables.insert(name.to_string(), table);
+                GameReport::Table(report)
+            },
+            Game::Tournament(tournament) => {
+                let worked = tournament.work_out(|formula, at| value(self, formula, at))?;
+                // The round is a dependency, so it was calculated first
+                let round = &self.game_tables[&tournament.round];
+                GameReport::Tournament(standings(&tournament, round, &worked))
+            },
+        };
         for (result, value) in report.scalars() {
             if let Some(ctx) = self.ctx.as_mut() {
                 ctx.scalars
@@ -486,5 +502,120 @@ out:
             clash.contains("game 'g' has the name of the group of scalar 'g.k'"),
             "{clash}"
         );
+    }
+
+    /// kinship-protocol's tournament: its prisoner's dilemma with a cost
+    /// `c` on each defection, and five strategies over 200 rounds.
+    fn axelrod(c: f64, extra: &str) -> String {
+        format!(
+            "_forge_version: \"5.5.0\"
+c: {c}
+w: 0.5
+games:
+  axelrod:
+    tournament:
+      round: dilemma
+      players:
+        grim: grim_trigger
+        tft: tit_for_tat
+        ad: always_defect
+        ac: always_cooperate
+        rand: {{plays: random, cooperate: =1 - w}}
+      rounds: 200
+{extra}
+  dilemma:
+    players: [me, you]
+    strategies: [cooperate, defect]
+    symmetric: true
+    payoffs:
+      cooperate: {{cooperate: 3, defect: 0}}
+      defect: {{cooperate: =5 - c, defect: =1 - c}}
+flags:
+  coop_wins:
+    formula: \"=IF(axelrod.score.ac > axelrod.score.ad, 1, 0)\"
+"
+        )
+    }
+
+    #[test]
+    fn a_tournaments_results_are_scalars_formulas_read() {
+        // By hand and against axelrod (src/games/standings.rs): AD scores
+        // 2.208 - c and AC 2.1, so AC wins once c passes 0.108; the round
+        // is calculated before the tournament though written after it
+        for (c, wins) in [(0.1, 0.0), (0.12, 1.0)] {
+            let model = calculate(&axelrod(c, "")).unwrap();
+            assert!(
+                (value(&model, "flags.coop_wins") - wins).abs() < 1e-12,
+                "c {c}"
+            );
+            assert!((value(&model, "axelrod.score.ad") - (2.208 - c)).abs() < 1e-12);
+            assert!((value(&model, "axelrod.cooperation.rand") - 0.5).abs() < 1e-12);
+            // TFT gets S = 0 once, then P - c in 199 rounds
+            let tft = value(&model, "axelrod.match.tft.ad");
+            assert!((tft - 199.0 * (1.0 - c) / 200.0).abs() < 1e-12, "{tft}");
+        }
+        let reports = ArrayCalculator::new(parse(&axelrod(0.0, "")).unwrap())
+            .calculate_games(None)
+            .unwrap();
+        let kinds: Vec<&str> = reports
+            .iter()
+            .map(|r| match r {
+                crate::games::GameReport::Table(t) => t.game.as_str(),
+                crate::games::GameReport::Tournament(t) => t.game.as_str(),
+            })
+            .collect();
+        assert_eq!(kinds, ["axelrod", "dilemma"]);
+        let json = serde_json::to_value(&reports).unwrap();
+        assert_eq!(json[0]["kind"], "tournament");
+        assert_eq!(json[0]["ranking"][0]["plays"], "grim_trigger");
+        assert_eq!(json[1]["kind"], "table");
+    }
+
+    #[test]
+    fn a_continuation_from_a_scalar_moves_the_stable_strategies() {
+        // ADR-068's sweep: Grim is stable against AD once w >= (T - c - R)
+        // / (T - P), 0.5 at c = 0; by hand AD gets (1 - w) 5 + w against it
+        for (w, stable) in [(0.45, 0.0), (0.55, 1.0)] {
+            let text = axelrod(0.0, "")
+                .replace("rounds: 200", "continuation: =w")
+                .replace("w: 0.5", &format!("w: {w}"));
+            let got = ArrayCalculator::new(parse(&text).unwrap())
+                .calculate_scalar("axelrod.stable.grim")
+                .unwrap();
+            assert!((got - stable).abs() < 1e-12, "w {w}");
+        }
+    }
+
+    #[test]
+    fn a_tournament_that_fails_names_where() {
+        let err = calculate(&axelrod(0.0, "      noise: =1 / 0")).unwrap_err();
+        assert!(
+            err.contains("game 'axelrod': games.axelrod.tournament.noise: Division by zero"),
+            "{err}"
+        );
+        // What reads a failed tournament is not calculated
+        assert!(err.contains("flags.coop_wins"), "{err}");
+        let err = calculate(&axelrod(0.0, "      noise: =c + 2")).unwrap_err();
+        assert!(
+            err.contains("game 'axelrod': games.axelrod.tournament.noise is 2; it is a chance"),
+            "{err}"
+        );
+        let err = calculate(&axelrod(0.0, "").replace("axelrod.score.ac", "axelrod.score.pavlov"))
+            .unwrap_err();
+        assert!(
+            err.contains("'axelrod.score.pavlov' is not a result of tournament 'axelrod'")
+                && err.contains("its players are grim, tft, ad, ac, rand"),
+            "{err}"
+        );
+        // A round that fails stops the tournament that plays it
+        let err = calculate(&axelrod(0.0, "").replace("=5 - c", "=5 / 0")).unwrap_err();
+        assert!(
+            err.contains("Division by zero") && err.contains("games.axelrod"),
+            "{err}"
+        );
+        // A round that reads the tournament's results is a cycle
+        let err =
+            calculate(&axelrod(0.0, "").replace("=5 - c", "=5 - axelrod.score.ad")).unwrap_err();
+        assert!(err.contains("depend on each other"), "{err}");
     }
 }

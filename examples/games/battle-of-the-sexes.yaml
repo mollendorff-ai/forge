@@ -1,0 +1,19 @@
+# Battle of the Sexes
+# ===================
+# Run in the examples folder: forge game games/battle-of-the-sexes.yaml
+#
+# Alex and Sam want an evening together, Alex at the opera and Sam at the
+# football. Two pure equilibria, one where both go to each place, and a
+# mixed one where Alex goes to the opera with 3/5 and Sam with 2/5, each
+# expecting 6/5: less than either pure one gives the one who likes it less
+# (nashpy agrees, and by hand each mix makes the other indifferent).
+
+_forge_version: "5.5.0"
+
+games:
+  evening:
+    players: [alex, sam]
+    strategies: [opera, football]
+    payoffs:                          # [alex, sam]
+      opera: {opera: [3, 2], football: [0, 0]}
+      football: {opera: [0, 0], football: [2, 3]}

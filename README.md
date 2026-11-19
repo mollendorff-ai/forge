@@ -225,7 +225,7 @@ Any agent that can write a file and run a command can use Forge: Claude Code, Co
 
 Why not let the agent edit a spreadsheet? A `.xlsx` file is zipped XML, and its formulas say `B7:G42` where a YAML model says `months.revenue`. For one five-year DCF, the workbook was about 7 times the size of the YAML (19 times counting the XML inside). Token counts were not measured, and an agent that reads only the cells it needs avoids much of that; the names are the bigger difference. A YAML model also diffs, reviews and merges like code.
 
-For tighter integration, `forge mcp` is an MCP server with 20 tools (validate, calculate, audit, export and import; sensitivity, goal seek, break-even, variance, compare; simulate, scenarios, decision trees, real options, tornado, bootstrap, Bayesian networks; and schema, functions and examples for discovery). Every tool takes the YAML inline, so it works in sandboxed clients with no file system:
+For tighter integration, `forge mcp` is an MCP server with 21 tools (validate, calculate, audit, export and import; sensitivity, goal seek, break-even, variance, compare; simulate, scenarios, decision trees, real options, tornado, bootstrap, Bayesian networks, games; and schema, functions and examples for discovery). Every tool takes the YAML inline, so it works in sandboxed clients with no file system:
 
 ```json
 {
@@ -312,7 +312,7 @@ Forge's results are checked against engines it does not control, and none of the
 
 | Check | What it covers | Latest result |
 | --- | --- | --- |
-| Unit tests (this repo) | over 2,400 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
+| Unit tests (this repo) | over 2,450 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
 | [forge-e2e-gnumeric](validation/gnumeric) | 2,162 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 175 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,137 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); CI runs them on every pull request |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
 
@@ -338,7 +338,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | --- | --- |
 | [Features](docs/FEATURES.md) | The model file, every command, every analysis |
 | [Functions](docs/FUNCTIONS.md) | The 203 functions |
-| [MCP](docs/MCP.md) | The MCP server and its 20 tools |
+| [MCP](docs/MCP.md) | The MCP server and its 21 tools |
 | [Examples](examples/) | Runnable models, each with a README |
 | [Posts](docs/posts/) | One question each, answered with the examples |
 | [Validation](VALIDATION.md) | What is checked against what, and the latest results |

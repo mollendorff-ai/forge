@@ -50,7 +50,10 @@ pub struct ArrayCalculator {
     step: Option<usize>,
     /// What each game calculated so far worked out, for messages about a
     /// result it does not have
-    game_reports: std::collections::BTreeMap<String, crate::games::TableReport>,
+    game_reports: std::collections::BTreeMap<String, crate::games::GameReport>,
+    /// Each game played once calculated so far, with its payoffs worked
+    /// out: the round of a tournament
+    game_tables: std::collections::BTreeMap<String, crate::games::table::Table>,
 }
 
 /// What a calculation of every cell left: the failures, each starting with
@@ -95,6 +98,7 @@ impl ArrayCalculator {
             fingerprint: 0,
             step: None,
             game_reports: std::collections::BTreeMap::new(),
+            game_tables: std::collections::BTreeMap::new(),
         }
     }
 

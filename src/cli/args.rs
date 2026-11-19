@@ -608,7 +608,7 @@ EXAMPLES:
     /// Generate tornado sensitivity diagram
     Tornado(TornadoArgs),
 
-    /// Find the equilibria of the games in a model
+    /// Find the equilibria of the games in a model, and play its tournaments
     Game(crate::cli::commands::GameArgs),
 
     #[command(long_about = "Run bootstrap resampling for confidence intervals.

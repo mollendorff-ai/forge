@@ -3,6 +3,7 @@
 
 use super::mixed::{equilibria, Equilibrium};
 use super::pure::{even_mix, iterated_dominance, weakly_dominated};
+use super::standings::TournamentReport;
 use super::table::Table;
 use indexmap::IndexMap;
 use serde::Serialize;
@@ -51,6 +52,34 @@ pub struct TableReport {
     pub ties: Vec<String>,
     /// Each strategy's payoff when the others mix evenly
     pub even_mix: IndexMap<String, IndexMap<String, f64>>,
+}
+
+/// What was worked out for a game of either kind.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum GameReport {
+    Table(TableReport),
+    Tournament(TournamentReport),
+}
+
+impl GameReport {
+    /// Every result as a scalar named under the game.
+    #[must_use]
+    pub fn scalars(&self) -> Vec<(String, f64)> {
+        match self {
+            Self::Table(report) => report.scalars(),
+            Self::Tournament(report) => report.scalars(),
+        }
+    }
+
+    /// Why `name`, under this game, is not one of its results.
+    #[must_use]
+    pub fn why_not(&self, name: &str) -> String {
+        match self {
+            Self::Table(report) => report.why_not(name),
+            Self::Tournament(report) => report.why_not(name),
+        }
+    }
 }
 
 /// Work out everything for a game played once.

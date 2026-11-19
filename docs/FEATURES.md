@@ -235,7 +235,7 @@ The full list, by category, is in [FUNCTIONS.md](FUNCTIONS.md); `forge functions
 
 ## Games (format 5.5.0, ADR-068)
 
-A `games:` section holds games played once: players, their strategies, and a payoff table whose cells are numbers or formulas over the model. Because the cells are formulas, `scenarios`, `compare`, `tornado`, `sensitivity`, `goal-seek` and `simulate` work on a game as on any model: they move an input, and the payoffs move with it.
+A `games:` section holds games played once: players, their strategies, and a payoff table whose cells are numbers or formulas over the model. It can also hold tournaments of repeated play (below). Because the cells are formulas, `scenarios`, `compare`, `tornado`, `sensitivity`, `goal-seek` and `simulate` work on a game as on any model: they move an input, and the payoffs move with it.
 
 ```yaml
 _forge_version: "5.5.0"
@@ -257,7 +257,39 @@ games:
 - **The results are scalars** named under the game, which any formula and any command can read: `inspection.pure_equilibria`, `inspection.equilibria`, `inspection.degenerate`, `inspection.equilibrium_1.human.audit` (the probability; pure equilibria first, in table order, then mixed ones), `inspection.equilibrium_1.human.payoff`, `inspection.dominated.ai.cheat` (1 or 0) and `inspection.even_mix.ai.cheat`. `forge calculate` prints them and does not write them into the file. A name the game does not have (`equilibrium_2` of a game with one) is an error that says how many it has, so a sweep that crosses a change in the number of equilibria stops there rather than read another one under the same name.
 - **Checked:** every equilibrium in the tests is checked with nashpy 0.0.43 or by hand. In the example above the human audits a third of the time and the AI cheats a third of the time; with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third.
 - **Excel:** `forge export` does not write the payoff formulas, since Excel cannot find an equilibrium. The results are written as numbers as of the export and do not follow the inputs, and the export warns and names the games.
-- **Not in this format:** mixed equilibria for three or more players (their pure equilibria are found), extensive-form games (moves in turn), auctions and continuous strategies, and dominance by a mix of strategies.
+- **Not in this format:** mixed equilibria for three or more players (their pure equilibria are found), extensive-form games (moves in turn), auctions and continuous strategies, dominance by a mix of strategies, strategies written by the user, and strategy shares that change by generation.
+
+### Tournaments
+
+A tournament plays a symmetric game of two strategies (cooperate first, defect second) round after round, between built-in strategies, each against every other:
+
+```yaml
+games:
+  dilemma:
+    players: [me, you]
+    strategies: [cooperate, defect]
+    symmetric: true
+    payoffs:
+      cooperate: {cooperate: 3, defect: 0}
+      defect: {cooperate: =5 - c, defect: =1 - c}
+  axelrod:
+    tournament:
+      round: dilemma
+      players:                     # a name, and the strategy it plays
+        grim: grim_trigger
+        tft: tit_for_tat
+        ad: always_defect
+        ac: always_cooperate
+        rand: {plays: random, cooperate: 0.5}
+      rounds: 200                  # or continuation: 0.99
+      noise: 0                     # the chance that a move is flipped
+      self_play: true
+```
+
+- **Strategies:** `always_cooperate`, `always_defect`, `tit_for_tat`, `suspicious_tit_for_tat` (starts by defecting), `tit_for_two_tats`, `grim_trigger` (defects for good once the other has; its own moves flipped by noise do not set it off), `win_stay_lose_shift`, `generous_tit_for_tat` (`forgive`: the chance of answering a defection with cooperation, 1/3 if not given) and `random` (`cooperate`, 1/2 if not given). They behave as the Python axelrod library's strategies of the same name. `rounds`, `continuation`, `noise` and a parameter can each be a formula.
+- **Exact values:** each match is a Markov chain of at most nine states, stepped for `rounds` (up to 100,000) or solved for `continuation` (up to 0.9999). There is no seed, and a sweep over `noise` or `continuation` is smooth.
+- **Results:** `axelrod.score.tft` (the expected payoff per round over its matches), `axelrod.rank.tft` (players that tie share a rank), `axelrod.cooperation.tft` (its share of moves that cooperate), `axelrod.match.tft.ad` (tft's payoff per round against ad) and `axelrod.stable.tft` (1 when collectively stable: no player does better against it than it does against itself, so (tft, tft) is an equilibrium of the match table). `forge game` prints the ranking, the match table and the stable players.
+- **Checked:** against the axelrod library 4.14.0, every pair of the nine strategies, with noise, over fixed rounds and with a continuation, is within 2.4 standard errors of its average over seeded runs; kinship-protocol's tournament is worked out by hand where it is short (TitForTat against AlwaysDefect over 200 rounds: 199/200). `examples/games` has seven models with their numbers.
 
 ---
 

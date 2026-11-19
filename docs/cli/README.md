@@ -70,7 +70,7 @@ Commands:
   decision-tree  Analyze decision trees with backward induction
   real-options   Value real options (defer/expand/abandon)
   tornado        Generate tornado sensitivity diagram
-  game           Find the equilibria of the games in a model
+  game           Find the equilibria of the games in a model, and play its tournaments
   bootstrap      Bootstrap resampling for confidence intervals
   bayesian       Bayesian network inference
   functions      List all supported Excel-compatible functions
@@ -1241,7 +1241,7 @@ Options:
 ## game
 
 ```
-Find the equilibria of the games in a model
+Find the equilibria of the games in a model, and play its tournaments
 
 Usage: forge game [OPTIONS] <FILE>
 

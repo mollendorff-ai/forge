@@ -1,0 +1,44 @@
+# Chicken
+# =======
+# Run in the examples folder: forge game games/chicken.yaml
+#
+# Two drivers head for each other. Whoever swerves loses face; if neither
+# does, they crash. kinship-protocol's chicken.yaml, with the cost c of a
+# defection taken off each payoff of going straight.
+#
+# Forge finds two pure equilibria, one driver swerving and the other not,
+# and a mixed one in which each swerves with (1 + c) / 3: 1/3 at c = 0
+# (nashpy agrees). Against a driver who swerves half the time, swerving pays
+# 2 and going straight 2.5 - c, so swerving wins once c passes 0.5:
+#   forge game games/chicken.yaml --scenario c3
+
+_forge_version: "5.5.0"
+
+c: 0      # the cost of a defection (going straight)
+
+games:
+  chicken:
+    description: Swerve, or hold the line and hope the other swerves
+    players: [me, you]
+    strategies: [swerve, straight]
+    symmetric: true
+    payoffs:
+      swerve: {swerve: 3, straight: 1}
+      straight: {swerve: =5 - c, straight: =0 - c}
+
+kinship:
+  coop_wins:
+    formula: "=IF(chicken.even_mix.me.swerve > chicken.even_mix.me.straight, 1, 0)"
+  crossover_c:
+    formula: "=c + chicken.even_mix.me.straight - chicken.even_mix.me.swerve"
+  swerve_share:
+    formula: "=chicken.equilibrium_3.me.swerve"
+
+scenarios:
+  c1:
+    scalars: {c: 0.25}
+  c2:
+    description: The crossover
+    scalars: {c: 0.5}
+  c3:
+    scalars: {c: 1}

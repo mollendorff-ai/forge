@@ -203,7 +203,8 @@ impl TornadoEngine {
         let swing = output_at_high - output_at_low;
         let abs_swing = swing.abs();
         let note = output_at_high.total_cmp(&output_at_low).is_eq().then(|| {
-            "Changing this input does not change the output: the output's formula does not use it"
+            "Changing this input does not change the output: the output does not use it, or does \
+             not move over this range"
                 .to_string()
         });
 
