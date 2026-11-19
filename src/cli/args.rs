@@ -24,6 +24,7 @@ COMMANDS:
   decision-tree - Sequential decisions with backward induction
   real-options  - Value defer/expand/abandon flexibility
   tornado       - One-at-a-time sensitivity diagrams
+  game          - Dominated strategies and equilibria of games
   bootstrap     - Non-parametric confidence intervals
   bayesian      - Bayesian network inference
   sensitivity   - One/two-variable data tables
@@ -606,6 +607,9 @@ EXAMPLES:
   forge tornado model.yaml -o results.yaml  # Export results")]
     /// Generate tornado sensitivity diagram
     Tornado(TornadoArgs),
+
+    /// Find the equilibria of the games in a model
+    Game(crate::cli::commands::GameArgs),
 
     #[command(long_about = "Run bootstrap resampling for confidence intervals.
 

@@ -29,7 +29,10 @@ use std::path::Path;
 /// Serialises an analytics result for `--output`: JSON for a `.json` path,
 /// YAML otherwise, with numbers to 15 significant digits (`core::precision`).
 /// (This used to write a Rust debug dump, which no tool can read.)
-fn serialize_for_file<T: serde::Serialize>(value: &T, path: &Path) -> ForgeResult<String> {
+pub(super) fn serialize_for_file<T: serde::Serialize>(
+    value: &T,
+    path: &Path,
+) -> ForgeResult<String> {
     if path.extension().and_then(|e| e.to_str()) == Some("json") {
         serde_json::to_string_pretty(&Rounded(value))
             .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))

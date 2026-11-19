@@ -7,6 +7,7 @@ use super::names::ScalarName;
 use super::order::{formula_words, Cell};
 use super::{evaluator, ArrayCalculator};
 use crate::error::{ForgeError, ForgeResult};
+use crate::games::TableReport;
 use crate::types::{Table, Variable};
 
 impl ArrayCalculator {
@@ -38,6 +39,36 @@ impl ArrayCalculator {
             }
         }
         deps
+    }
+
+    /// Calculate the model and return what was worked out for each game
+    /// (all of them, or only `only`), in the model's order.
+    ///
+    /// As [`Self::calculate_scalar`] does for one scalar, a failed formula
+    /// that no game asked for uses does not fail the answer.
+    ///
+    /// # Errors
+    ///
+    /// Returns the calculation's report when a game asked for failed or uses
+    /// a failed cell, or when the model cannot be calculated at all.
+    pub fn calculate_games(mut self, only: Option<&str>) -> ForgeResult<Vec<TableReport>> {
+        let outcome = self.calculate_cells()?;
+        let asked = |game: &String| only.is_none_or(|name| name == game);
+        if self
+            .model
+            .games
+            .keys()
+            .any(|game| asked(game) && outcome.failed.contains(&Cell::Game(game.clone())))
+        {
+            return Err(outcome.report());
+        }
+        Ok(self
+            .model
+            .games
+            .keys()
+            .filter(|game| asked(game))
+            .map(|game| self.game_reports[game].clone())
+            .collect())
     }
 
     /// Forget the results of an earlier calculation: a game's results are

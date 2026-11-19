@@ -20,6 +20,7 @@ COMMANDS:
   decision-tree - Sequential decisions with backward induction
   real-options  - Value defer/expand/abandon flexibility
   tornado       - One-at-a-time sensitivity diagrams
+  game          - Dominated strategies and equilibria of games
   bootstrap     - Non-parametric confidence intervals
   bayesian      - Bayesian network inference
   sensitivity   - One/two-variable data tables
@@ -69,6 +70,7 @@ Commands:
   decision-tree  Analyze decision trees with backward induction
   real-options   Value real options (defer/expand/abandon)
   tornado        Generate tornado sensitivity diagram
+  game           Find the equilibria of the games in a model
   bootstrap      Bootstrap resampling for confidence intervals
   bayesian       Bayesian network inference
   functions      List all supported Excel-compatible functions
@@ -1234,6 +1236,23 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
+```
+
+## game
+
+```
+Find the equilibria of the games in a model
+
+Usage: forge game [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>  Path to YAML file with a games section
+
+Options:
+  -g, --game <GAME>          Only this game
+  -s, --scenario <SCENARIO>  Scenario name to apply (uses variable overrides from 'scenarios' section)
+  -o, --output <OUTPUT>      Output file (.yaml or .json)
+  -h, --help                 Print help
 ```
 
 ## bootstrap
