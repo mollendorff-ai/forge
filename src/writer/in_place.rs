@@ -7,7 +7,10 @@
 //! changed. If a scalar is written in a layout they do not handle, they return
 //! an error and the caller leaves the file alone.
 
+mod verify;
+
 use num_traits::ToPrimitive;
+use verify::{verify_same_model, verify_values};
 use yaml_serde::Value;
 
 /// A scalar's place in the file: `["year", "profit"]` or `["total"]`.
@@ -333,7 +336,8 @@ fn set_one(lines: &mut Vec<String>, path: &[String], value: &str) -> Result<(), 
     let scalar =
         find_path(lines, path).ok_or_else(|| format!("'{name}' was not found in the file"))?;
     let line = lines[scalar].clone();
-    let (_, rest) = key_of(&line).ok_or_else(|| format!("'{name}' is not a key"))?;
+    // `find_path` returns a line that has a key
+    let (_, rest) = key_of(&line).unwrap_or_default();
     let rest_trim = strip_comment(rest).trim().to_string();
 
     if rest_trim.is_empty() {
@@ -600,7 +604,8 @@ fn replace_after_colon(line: &str, new_value: &str) -> String {
     let t = &body[lead..];
     let colon = if t.starts_with('"') || t.starts_with('\'') {
         let q = t.chars().next().unwrap_or('"');
-        t[1..].find(q).map_or(0, |c| c + 2)
+        // A line `key_of` read has its quote closed
+        t[1..].find(q).unwrap_or_default() + 2
     } else {
         t.find(':').unwrap_or(0)
     };
@@ -675,160 +680,250 @@ pub fn format_number(v: f64) -> String {
     format!("{mantissa}e{exp:+}")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Checks
-// ─────────────────────────────────────────────────────────────────────────────
-
-fn parse(text: &str) -> Result<Value, String> {
-    yaml_serde::from_str(text).map_err(|e| format!("the edited file does not parse: {e}"))
-}
-
-/// The edited text must equal the original with only these values set.
-fn verify_values(
-    original: &str,
-    edited: &str,
-    values: &[(ScalarPath, Written)],
-) -> Result<(), String> {
-    let mut expected = parse(original)?;
-    for (path, value) in values {
-        let mut node = &mut expected;
-        for part in path {
-            node = node
-                .get_mut(part.as_str())
-                .ok_or_else(|| format!("'{}' is not in the file", path.join(".")))?;
-        }
-        let map = node
-            .as_mapping_mut()
-            .ok_or_else(|| format!("'{}' is not a mapping", path.join(".")))?;
-        map.insert(Value::from("value"), value.value());
-    }
-    let actual = parse(edited)?;
-    if same(&expected, &actual) {
-        Ok(())
-    } else {
-        Err("writing the results would have changed more than the values".to_string())
-    }
-}
-
-/// The converted text must be the original document with only scalars
-/// shortened, and must parse to the same model.
-fn verify_same_model(original: &str, converted: &str) -> Result<(), String> {
-    let a = parse(original)?;
-    let b = parse(converted)?;
-    if !same(&long_form(&a), &long_form(&b)) {
-        return Err("the converted file differs from the original outside its scalars".to_string());
-    }
-    let a = crate::parser::parse_v1_model(&a)
-        .map_err(|e| format!("the original does not parse: {e}"))?;
-    let b = crate::parser::parse_v1_model(&b)
-        .map_err(|e| format!("the converted file does not parse: {e}"))?;
-    let scalars =
-        |m: &crate::types::ParsedModel| -> Vec<(String, Option<u64>, Option<String>, String)> {
-            m.scalars
-                .iter()
-                .map(|(k, v)| {
-                    (
-                        k.clone(),
-                        v.value.map(f64::to_bits),
-                        v.formula.clone(),
-                        format!("{:?}", v.metadata),
-                    )
-                })
-                .collect()
-        };
-    let tables = |m: &crate::types::ParsedModel| -> Vec<String> {
-        m.tables
-            .iter()
-            .map(|(k, t)| format!("{k}:{:?}:{:?}", t.columns, t.row_formulas))
-            .collect()
-    };
-    if scalars(&a) != scalars(&b) {
-        return Err("the converted file has different scalars".to_string());
-    }
-    if tables(&a) != tables(&b) {
-        return Err("the converted file has different tables".to_string());
-    }
-    if format!("{:?}", a.scenarios.len()) != format!("{:?}", b.scenarios.len()) {
-        return Err("the converted file has different scenarios".to_string());
-    }
-    Ok(())
-}
-
-/// A document with every scalar in one shape (`{value, formula}`, nulls
-/// removed) and no version, so two spellings of the same model compare equal.
-fn long_form(doc: &Value) -> Value {
-    let Value::Mapping(root) = doc else {
-        return doc.clone();
-    };
-    let scalar = |v: &Value| -> Value {
-        match v {
-            Value::Number(_) => {
-                let mut m = yaml_serde::Mapping::new();
-                m.insert(Value::from("value"), v.clone());
-                Value::Mapping(m)
-            },
-            Value::Mapping(m) => {
-                let mut m = m.clone();
-                for k in ["value", "formula"] {
-                    if m.get(k).is_some_and(Value::is_null) {
-                        m.remove(k);
-                    }
-                }
-                Value::Mapping(m)
-            },
-            other => other.clone(),
-        }
-    };
-    let mut out = yaml_serde::Mapping::new();
-    for (key, value) in root {
-        let name = key.as_str().unwrap_or("");
-        if name == "_forge_version" {
-            continue;
-        }
-        let normalized = if NOT_SCALARS.contains(&name) {
-            value.clone()
-        } else {
-            match value {
-                Value::Number(_) => scalar(value),
-                Value::Mapping(m) if m.contains_key("value") || m.contains_key("formula") => {
-                    if crate::parser::model::is_table(m) {
-                        value.clone()
-                    } else {
-                        scalar(value)
-                    }
-                },
-                Value::Mapping(m) if !crate::parser::model::is_table(m) => {
-                    Value::Mapping(m.iter().map(|(k, v)| (k.clone(), scalar(v))).collect())
-                },
-                other => other.clone(),
-            }
-        };
-        out.insert(key.clone(), normalized);
-    }
-    Value::Mapping(out)
-}
-
-/// YAML values equal, with numbers compared as numbers (`16` equals `16.0`).
-fn same(a: &Value, b: &Value) -> bool {
-    match (a, b) {
-        (Value::Number(x), Value::Number(y)) => {
-            let (x, y) = (x.as_f64(), y.as_f64());
-            x == y || x.zip(y).is_some_and(|(x, y)| x.is_nan() && y.is_nan())
-        },
-        (Value::Mapping(x), Value::Mapping(y)) => {
-            x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w)))
-        },
-        (Value::Sequence(x), Value::Sequence(y)) => {
-            x.len() == y.len() && x.iter().zip(y).all(|(v, w)| same(v, w))
-        },
-        (Value::Tagged(x), Value::Tagged(y)) => x.tag == y.tag && same(&x.value, &y.value),
-        _ => a == b,
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use super::verify::parse;
     use super::*;
+
+    fn number(n: f64) -> Written {
+        Written::Number(n)
+    }
+
+    fn set(text: &str, path: &str, n: f64) -> Result<String, String> {
+        set_values(text, &paths(&[(path, n)]))
+    }
+
+    #[test]
+    fn a_scalar_in_no_document_is_named() {
+        let values = paths(&[("zz", 1.0)]);
+        assert_eq!(
+            set_values_multi(
+                "a:\n  formula: \"=1\"\n---\nb:\n  formula: \"=2\"\n",
+                &values
+            ),
+            Err("'zz' was not found in any document".to_string())
+        );
+    }
+
+    #[test]
+    fn a_block_without_children_has_nowhere_to_put_a_value() {
+        assert_eq!(
+            set("a:\nb:\n  formula: \"=1\"\n", "a", 1.0),
+            Err("'a' has an empty block".to_string())
+        );
+    }
+
+    #[test]
+    fn a_value_goes_after_the_last_line_of_a_formula_written_as_a_block() {
+        let text = "a:\n  formula: |\n    =1+1\n";
+        assert_eq!(
+            set(text, "a", 2.0).unwrap(),
+            "a:\n  formula: |\n    =1+1\n  value: 2\n"
+        );
+    }
+
+    #[test]
+    fn a_value_added_to_a_last_line_without_an_ending_gets_one() {
+        assert_eq!(
+            set("a:\n  formula: \"=1\"", "a", 1.0).unwrap(),
+            "a:\n  formula: \"=1\"\n  value: 1\n"
+        );
+    }
+
+    #[test]
+    fn a_value_added_keeps_the_line_ending_of_the_file() {
+        assert_eq!(
+            set("a:\r\n  formula: \"=1\"\r\n", "a", 1.0).unwrap(),
+            "a:\r\n  formula: \"=1\"\r\n  value: 1\r\n"
+        );
+    }
+
+    #[test]
+    fn a_flow_mapping_that_does_not_close_cannot_be_edited() {
+        assert_eq!(
+            set("a: {formula: 'x}\n", "a", 1.0),
+            Err("'a' uses a flow mapping Forge cannot edit".to_string())
+        );
+    }
+
+    #[test]
+    fn a_flow_mapping_is_split_at_its_top_level_commas() {
+        assert_eq!(
+            split_flow("a: [1, 2], b: {c: 1, d: 2}, e: 'x, y'"),
+            Some(vec![
+                "a: [1, 2]".to_string(),
+                " b: {c: 1, d: 2}".to_string(),
+                " e: 'x, y'".to_string(),
+            ])
+        );
+        assert_eq!(split_flow("a: 1, "), Some(vec!["a: 1".to_string()]));
+        assert_eq!(split_flow("a: [1"), None);
+        assert_eq!(split_flow("a: 'x"), None);
+    }
+
+    #[test]
+    fn a_flow_input_becomes_a_number_only_when_it_is_one() {
+        assert_eq!(flow_input_to_number("{value: 1}"), Some("1".to_string()));
+        assert_eq!(
+            flow_input_to_number("{value: 1, formula: null}"),
+            Some("1".to_string())
+        );
+        assert_eq!(flow_input_to_number("{value: 1, value: 2}"), None);
+        assert_eq!(flow_input_to_number("{value: 1, unit: CAD}"), None);
+        assert_eq!(flow_input_to_number("{value: 1, formula: []"), None);
+        assert_eq!(flow_input_to_number("{value}"), None);
+    }
+
+    #[test]
+    fn a_quoted_key_is_read_with_its_quotes_removed() {
+        assert_eq!(key_of("  \"a b\": 1\n"), Some(("a b".to_string(), " 1")));
+        assert_eq!(key_of("'a b':\n"), Some(("a b".to_string(), "")));
+        assert_eq!(key_of("\"abc"), None);
+        assert_eq!(key_of("\"abc\" x"), None);
+        assert_eq!(key_of("# a: 1"), None);
+        assert_eq!(key_of("just text"), None);
+        assert_eq!(key_of("- a: 1"), None);
+    }
+
+    #[test]
+    fn a_value_replaces_what_follows_a_quoted_key() {
+        assert_eq!(
+            replace_after_colon("  \"a b\": 1  # why\n", "2"),
+            "  \"a b\": 2  # why\n"
+        );
+        assert_eq!(replace_after_colon("'a': 1\r\n", "2"), "'a': 2\r\n");
+    }
+
+    #[test]
+    fn a_nan_and_the_infinities_are_written_as_yaml() {
+        assert_eq!(format_number(f64::NAN), ".nan");
+        assert_eq!(format_number(f64::INFINITY), ".inf");
+        assert_eq!(format_number(f64::NEG_INFINITY), "-.inf");
+        assert_eq!(Written::Number(f64::NAN).yaml(), ".nan");
+        assert_eq!(number(1.5).value(), Value::from(1.5));
+    }
+
+    #[test]
+    fn a_result_that_does_not_read_back_as_written_is_refused() {
+        // The text `true` is a date's text here, but YAML reads it as a boolean
+        let values = vec![(vec!["a".to_string()], Written::Date("true".to_string()))];
+        assert_eq!(
+            set_values("a:\n  formula: \"=1\"\n", &values),
+            Err("writing the results would have changed more than the values".to_string())
+        );
+    }
+
+    #[test]
+    fn a_collapsed_input_keeps_the_comments_and_blank_lines_inside_it() {
+        let text = "_forge_version: \"5.0.0\"\nprice:\n  value: 16\n  # why\n\n  formula: null\n";
+        assert_eq!(
+            to_short_form(text).unwrap(),
+            "_forge_version: \"5.1.0\"\nprice: 16\n  # why\n\n"
+        );
+    }
+
+    #[test]
+    fn a_comment_inside_a_scalar_that_keeps_metadata_is_kept() {
+        let text = "_forge_version: \"5.0.0\"\nprice:\n  value: 16\n  formula: null\n  unit: CAD\n  # why\n";
+        assert_eq!(
+            to_short_form(text).unwrap(),
+            "_forge_version: \"5.1.0\"\nprice:\n  value: 16\n  unit: CAD\n  # why\n"
+        );
+    }
+
+    #[test]
+    fn scalar_sections_are_found_by_where_their_children_start() {
+        let sections = scalar_sections(
+            "a:\n  value: 1\ng:\n  x: 1\nm:\n  x: hi\ng2:\n  b:\n    formula: \"=1\"\nflow: {x: 1}\nt:\n  value: [1, 2]\n  other: [3, 4]\n",
+        );
+        let child_indent = |key: &str| {
+            sections.get(key).map(|section| match section {
+                ScalarSection::Scalar => 0,
+                ScalarSection::Group(indent) => *indent,
+            })
+        };
+        assert_eq!(child_indent("a"), Some(0));
+        assert_eq!(child_indent("g"), Some(2));
+        assert_eq!(child_indent("g2"), Some(2));
+        // A group written in flow has no children on lines of their own, and a
+        // table with a column called value is not a scalar
+        assert_eq!(child_indent("flow"), None);
+        assert_eq!(child_indent("m"), None);
+        assert_eq!(child_indent("t"), None);
+        // A key that is not text, and a document that is not a mapping
+        assert!(scalar_sections("1:\n  value: 1\n").is_empty());
+        assert!(scalar_sections("- 1\n").is_empty());
+        // A document indented as a whole has no top-level keys to find
+        assert!(scalar_sections("  g:\n    x: 1\n").is_empty());
+    }
+
+    #[test]
+    fn a_scalar_that_cannot_take_a_result_in_one_document_fails_the_whole_write() {
+        assert_eq!(
+            set_values_multi("a: 5\n---\nb:\n  formula: \"=1\"\n", &paths(&[("a", 1.0)])),
+            Err(
+                "'a' is not written as a mapping with `formula:`, so its result has nowhere to go"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn a_path_missing_from_the_file_is_named() {
+        let text = "a:\n  formula: \"=1\"\nb:\n";
+        assert_eq!(
+            set(text, "zz", 1.0),
+            Err("'zz' was not found in the file".to_string())
+        );
+        assert_eq!(
+            set(text, "b.q", 1.0),
+            Err("'b.q' was not found in the file".to_string())
+        );
+    }
+
+    #[test]
+    fn a_flow_mapping_keeps_its_value_when_it_is_the_same_number() {
+        let text = "a: {formula: \"=1\", value: 5}\n";
+        assert_eq!(set(text, "a", 5.0).unwrap(), text);
+        assert_eq!(
+            set(text, "a", 6.0).unwrap(),
+            "a: {formula: \"=1\", value: 6}\n"
+        );
+    }
+
+    #[test]
+    fn a_flow_mapping_keeps_the_space_before_its_closing_brace() {
+        assert_eq!(
+            set("a: { formula: \"=1\" }\n", "a", 2.0).unwrap(),
+            "a: { formula: \"=1\" , value: 2 }\n"
+        );
+    }
+
+    #[test]
+    fn a_flow_input_with_metadata_is_kept_as_typed_in_the_short_form() {
+        let text = "_forge_version: \"5.0.0\"\nprice: {value: 1, unit: CAD}\n";
+        assert_eq!(
+            to_short_form(text).unwrap(),
+            "_forge_version: \"5.1.0\"\nprice: {value: 1, unit: CAD}\n"
+        );
+    }
+
+    #[test]
+    fn a_file_that_does_not_parse_is_not_converted() {
+        let reason = to_short_form("_forge_version: \"5.0.0\"\nfoo: [\n").unwrap_err();
+        assert!(
+            reason.starts_with("the edited file does not parse"),
+            "{reason}"
+        );
+    }
+
+    #[test]
+    fn the_numbers_of_two_scalars_are_the_same_by_value() {
+        assert!(same_number("16", "16.0"));
+        assert!(same_number(".nan", ".nan"));
+        assert!(!same_number("16", "17"));
+        assert!(!same_number("16", "x"));
+    }
 
     #[test]
     fn a_whole_number_below_1e15_is_written_without_a_point() {
@@ -933,11 +1028,8 @@ mod tests {
                 "{v} -> {s} -> {back}"
             );
             // As part of a file, read without knowing it is a number
-            let in_file: Value =
-                parse(&format!("x: {s}\n")).unwrap_or_else(|e| panic!("{v} -> {s}: {e}"));
-            let back = in_file["x"]
-                .as_f64()
-                .unwrap_or_else(|| panic!("{v} -> {s} is not a number"));
+            let in_file: Value = parse(&format!("x: {s}\n")).unwrap();
+            let back = in_file["x"].as_f64().unwrap();
             assert!(
                 back.to_bits() == v.to_bits() || crate::core::precision::same(back, v),
                 "{v} -> {s} -> {back} in a file"
@@ -1079,13 +1171,48 @@ mod tests {
             }
         }
 
+        #[test]
+        fn noise_is_found_wherever_a_number_sits_in_a_document() {
+            let text = "a: 0.30000000000000004\nb: [0.5, 0.30000000000000004]\nc: !t 0.30000000000000004\n1: 0.30000000000000004\nd: ok\n";
+            let value: yaml_serde::Value = yaml_serde::from_str(text).unwrap();
+            let mut out = Vec::new();
+            noisy_yaml(&value, "doc", &mut out);
+            assert_eq!(
+                out,
+                [
+                    "doc.a = 0.30000000000000004",
+                    "doc.b[1] = 0.30000000000000004",
+                    "doc.c = 0.30000000000000004",
+                    "doc.Number(1) = 0.30000000000000004",
+                ]
+            );
+        }
+
+        #[test]
+        fn noise_is_found_wherever_a_number_sits_in_a_result() {
+            let json: serde_json::Value = serde_json::from_str(
+                r#"{"a": 0.30000000000000004, "b": [0.5, 0.30000000000000004], "c": "x", "d": 3}"#,
+            )
+            .unwrap();
+            let mut out = Vec::new();
+            noisy_json(&json, "result", &mut out);
+            assert_eq!(
+                out,
+                [
+                    "result.a = 0.30000000000000004",
+                    "result.b[1] = 0.30000000000000004",
+                ]
+            );
+        }
+
         fn noisy_file(path: &Path) -> Vec<String> {
             let text = std::fs::read_to_string(path).unwrap();
             let mut out = Vec::new();
-            for (i, document) in text.split("\n---").enumerate() {
-                if let Ok(value) = yaml_serde::from_str::<yaml_serde::Value>(document) {
-                    noisy_yaml(&value, &format!("{}#{i}", path.display()), &mut out);
-                }
+            let documents = text
+                .split("\n---")
+                .filter_map(|document| yaml_serde::from_str::<yaml_serde::Value>(document).ok());
+            for (i, value) in documents.enumerate() {
+                noisy_yaml(&value, &format!("{}#{i}", path.display()), &mut out);
             }
             out
         }
