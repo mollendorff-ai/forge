@@ -5,8 +5,8 @@
   "injectionSelector": "L:string.unquoted.plain.out.yaml, L:string.unquoted.plain.in.yaml",
   "patterns": [
     {
-      "comment": "An unquoted formula: key: =a + b, or - =a + b",
-      "begin": "(?<=: |- )(=)",
+      "comment": "An unquoted formula: key: =a + b, - =a + b, or the first entry of a flow list, [=a + b, 0]",
+      "begin": "(?<=: |- |\\[)(=)",
       "beginCaptures": {
         "1": {
           "name": "keyword.operator.formula.forge"
