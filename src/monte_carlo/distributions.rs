@@ -102,7 +102,19 @@ impl fmt::Display for DistributionType {
                 values,
                 probabilities,
             } => {
-                write!(f, "MC.Discrete({values:?}, {probabilities:?})")
+                let list = |numbers: &[f64]| {
+                    numbers
+                        .iter()
+                        .map(f64::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
+                write!(
+                    f,
+                    "MC.Discrete({{{}}}, {{{}}})",
+                    list(values),
+                    list(probabilities)
+                )
             },
         }
     }
@@ -582,6 +594,10 @@ pub fn parse_distribution(formula: &str) -> Result<Distribution, String> {
         .strip_suffix(')')
         .ok_or_else(|| format!("Missing closing parenthesis: {formula}"))?;
 
+    if func_name.eq_ignore_ascii_case("Discrete") {
+        return parse_discrete(args_str);
+    }
+
     // Parse arguments
     let args: Vec<f64> = args_str
         .split(',')
@@ -624,11 +640,58 @@ pub fn parse_distribution(formula: &str) -> Result<Distribution, String> {
     }
 }
 
+const DISCRETE_FORM: &str =
+    "MC.Discrete takes two arrays, the values and their probabilities: MC.Discrete({0, 0.3}, {0.9, 0.1})";
+
+/// The arguments of `MC.Discrete({values}, {probabilities})`: two array
+/// constants (ADR-064), each a row `{0, 0.3}` or a column `{0; 0.3}`.
+fn parse_discrete(args: &str) -> Result<Distribution, String> {
+    let (values, rest) = array_constant(args.trim())?;
+    let rest = rest
+        .trim_start()
+        .strip_prefix(',')
+        .ok_or_else(|| DISCRETE_FORM.to_string())?;
+    let (probabilities, rest) = array_constant(rest.trim_start())?;
+    if !rest.trim().is_empty() {
+        return Err(DISCRETE_FORM.to_string());
+    }
+    Distribution::discrete(
+        numbers(values, "value")?,
+        numbers(probabilities, "probability")?,
+    )
+}
+
+/// The inside of the array constant at the start of `text`, and what follows it.
+fn array_constant(text: &str) -> Result<(&str, &str), String> {
+    let inner = text
+        .strip_prefix('{')
+        .ok_or_else(|| DISCRETE_FORM.to_string())?;
+    let end = inner.find('}').ok_or_else(|| DISCRETE_FORM.to_string())?;
+    Ok((&inner[..end], &inner[end + 1..]))
+}
+
+/// The numbers of one array constant: a row or a column, not a table.
+fn numbers(items: &str, what: &str) -> Result<Vec<f64>, String> {
+    if items.contains(',') && items.contains(';') {
+        return Err(format!(
+            "MC.Discrete {what} array must be one row {{0, 0.3}} or one column {{0; 0.3}}, not a table: {{{items}}}"
+        ));
+    }
+    items
+        .split([',', ';'])
+        .map(|item| {
+            let item = item.trim();
+            item.parse::<f64>()
+                .map_err(|_| format!("MC.Discrete {what} '{item}' is not a number"))
+        })
+        .collect()
+}
+
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::precision;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
 
@@ -642,9 +705,9 @@ mod tests {
         let mut rng = seeded_rng();
 
         let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
-        let variance: f64 =
-            samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / samples.len() as f64;
+        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
+        let variance: f64 = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+            / precision::count(samples.len());
 
         // Mean should be within 2% of theoretical
         assert!((mean - 100.0).abs() < 2.0, "Mean {mean} not close to 100");
@@ -661,7 +724,7 @@ mod tests {
         let mut rng = seeded_rng();
 
         let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
+        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
 
         // Theoretical mean = (0 + 5 + 10) / 3 = 5
         assert!((mean - 5.0).abs() < 0.2, "Mean {mean} not close to 5");
@@ -676,7 +739,7 @@ mod tests {
         let mut rng = seeded_rng();
 
         let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
+        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
 
         // Theoretical mean = (10 + 20) / 2 = 15
         assert!((mean - 15.0).abs() < 0.2, "Mean {mean} not close to 15");
@@ -691,7 +754,7 @@ mod tests {
         let mut rng = seeded_rng();
 
         let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
+        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
 
         // Theoretical mean = (0 + 4*3 + 10) / 6 = 22/6 ≈ 3.67
         let theoretical = (4.0f64.mul_add(3.0, 0.0) + 10.0) / 6.0;
@@ -754,6 +817,79 @@ mod tests {
         assert!(parse_distribution("MC.Unknown(1, 2)").is_err()); // Unknown type
     }
 
+    /// T1-DISCRETE: MC.Discrete was documented and gave "Unknown distribution
+    /// type: Discrete". Its two arguments are array constants (ADR-064).
+    #[test]
+    fn discrete_takes_its_values_and_probabilities_as_two_arrays() {
+        let row = parse_distribution("MC.Discrete({0, 0.3}, {0.9, 0.1})").unwrap();
+        let column = parse_distribution("MC.Discrete( {0; 0.3} , {0.9; 0.1} )").unwrap();
+        for dist in [&row, &column] {
+            let DistributionType::Discrete {
+                values,
+                probabilities,
+            } = &dist.dist_type
+            else {
+                panic!("{}", dist.dist_type);
+            };
+            assert_eq!(values, &[0.0, 0.3]);
+            assert_eq!(probabilities, &[0.9, 0.1]);
+        }
+        // The first 90% of the probability is no frost, the last 10% a frost
+        assert_exact!(row.inverse_cdf(0.9), 0.0);
+        assert_exact!(row.inverse_cdf(0.900_001), 0.3);
+        assert_eq!(row.most_likely(), (0.0, "likeliest"));
+        let certain = parse_distribution("MC.discrete({1}, {1})").unwrap();
+        assert_exact!(certain.inverse_cdf(0.5), 1.0);
+    }
+
+    #[test]
+    fn discrete_written_any_other_way_is_refused_with_its_form() {
+        let form = DISCRETE_FORM;
+        for formula in [
+            "MC.Discrete(0, 0.3, 0.9, 0.1)",
+            "MC.Discrete({0, 0.3})",
+            "MC.Discrete({0, 0.3} {0.9, 0.1})",
+            "MC.Discrete({0, 0.3}, 0.9)",
+            "MC.Discrete({0, 0.3}, {0.9, 0.1}, {1})",
+            "MC.Discrete({0, 0.3, {0.9, 0.1})",
+            "MC.Discrete({0, 0.3)",
+        ] {
+            refused_with(parse_distribution(formula), form);
+        }
+        refused_with(
+            parse_distribution("MC.Discrete({0, 1; 2, 3}, {0.25, 0.25, 0.25, 0.25})"),
+            "MC.Discrete value array must be one row {0, 0.3} or one column {0; 0.3}, not a table: {0, 1; 2, 3}",
+        );
+        refused_with(
+            parse_distribution("MC.Discrete({0, 0.3}, {0.9, ten})"),
+            "MC.Discrete probability 'ten' is not a number",
+        );
+        refused_with(
+            parse_distribution("MC.Discrete({0, 0.3}, {0.9, 0.2})"),
+            "probabilities must sum to 1.0",
+        );
+        refused_with(
+            parse_distribution("MC.Discrete({0, 0.3, 1}, {0.9, 0.1})"),
+            "equal number of values and probabilities",
+        );
+    }
+
+    /// Each distribution is shown as the formula that gives it again.
+    #[test]
+    fn each_distribution_is_shown_as_its_formula() {
+        for formula in [
+            "MC.Normal(100, 15)",
+            "MC.Triangular(0, 5, 10)",
+            "MC.Uniform(10, 20)",
+            "MC.PERT(0, 3, 10)",
+            "MC.Lognormal(2000, 500)",
+            "MC.Discrete({0, 0.3}, {0.9, 0.1})",
+        ] {
+            let dist = parse_distribution(formula).unwrap();
+            assert_eq!(dist.dist_type.to_string(), formula);
+        }
+    }
+
     /// T1-SIM-MEAN-VS-PLAN: the value to plan with when the model gives none
     #[test]
     fn most_likely_is_the_value_each_distribution_is_written_around() {
@@ -808,15 +944,15 @@ mod tests {
     #[test]
     fn test_theoretical_values() {
         let normal = Distribution::normal(100.0, 15.0).unwrap();
-        assert_eq!(normal.theoretical_mean(), 100.0);
-        assert_eq!(normal.theoretical_variance(), 225.0);
+        assert_exact!(normal.theoretical_mean(), 100.0);
+        assert_exact!(normal.theoretical_variance(), 225.0);
 
         let uniform = Distribution::uniform(10.0, 20.0).unwrap();
-        assert_eq!(uniform.theoretical_mean(), 15.0);
+        assert_exact!(uniform.theoretical_mean(), 15.0);
         assert!((uniform.theoretical_variance() - 100.0 / 12.0).abs() < 0.001);
 
         let triangular = Distribution::triangular(0.0, 5.0, 10.0).unwrap();
-        assert_eq!(triangular.theoretical_mean(), 5.0);
+        assert_exact!(triangular.theoretical_mean(), 5.0);
     }
     // Non-finite parameters (roadmap T1-NONFINITE)
 
@@ -996,6 +1132,129 @@ mod tests {
                 (got - expected).abs() <= 1e-12 * 1e307,
                 "at {p}: {got:e}, expected {expected:e}"
             );
+        }
+    }
+
+    // The command line and the MCP server, which need `cli`
+    #[cfg(feature = "cli")]
+    mod refused_everywhere {
+        //! A distribution with a parameter that is not a finite number is refused,
+        //! naming the scalar and the argument (roadmap T1-NONFINITE). `1E+400`, `inf`
+        //! and `NaN` are read as numbers: before this, `MC.PERT(0, 1, 1E+400)` ended
+        //! `forge simulate` on a panic (exit 134, as the release build aborts on a
+        //! panic) and a `forge mcp` server on the same call, while
+        //! `MC.Triangular(0, 1, 1E+400)` and `MC.Lognormal(1, 1E+400)` printed NaN
+        //! percentiles with exit 0.
+
+        use crate::cli::forge;
+        use crate::mcp::Session;
+
+        /// Each distribution of the audit, and the start of the message it gives
+        const REFUSED: [(&str, &str); 8] = [
+            (
+                "MC.PERT(0, 1, 1E+400)",
+                "MC.PERT max must be a finite number, not inf",
+            ),
+            (
+                "MC.Normal(0, nan)",
+                "MC.Normal stdev must be a finite number, not NaN",
+            ),
+            (
+                "MC.Triangular(0, 1, 1E+400)",
+                "MC.Triangular max must be a finite number, not inf",
+            ),
+            (
+                "MC.Lognormal(1, 1E+400)",
+                "MC.Lognormal stdev must be a finite number, not inf",
+            ),
+            (
+                "MC.Uniform(0, inf)",
+                "MC.Uniform max must be a finite number, not inf",
+            ),
+            (
+                "MC.PERT(-1E+308, 1E+308, 1E+308)",
+                "MC.PERT max - min is too large to calculate with",
+            ),
+            (
+                "MC.Normal(0, 1E+308)",
+                "MC.Normal: its arguments are too large to calculate with",
+            ),
+            (
+                "MC.Lognormal(1, 1E+200)",
+                "MC.Lognormal: its arguments are too large to calculate with",
+            ),
+        ];
+
+        fn model(distribution: &str) -> String {
+            format!(
+                "_forge_version: \"5.1.0\"\nmonte_carlo:\n  iterations: 200\n  seed: 1\n  outputs:\n    \
+         - variable: m.out\n      percentiles: [50]\nm:\n  x:\n    formula: \"={distribution}\"\n  \
+         out:\n    formula: \"=x * 2\"\n"
+            )
+        }
+
+        #[test]
+        fn forge_simulate_exits_1_naming_the_scalar_and_the_argument() {
+            let dir = tempfile::tempdir().unwrap();
+            for (distribution, message) in REFUSED {
+                let path = dir.path().join("m.yaml");
+                std::fs::write(&path, model(distribution)).unwrap();
+                let ran = forge(&["simulate", path.to_str().unwrap()]);
+                assert_eq!(ran.code, 1, "{distribution}: {}", ran.err);
+                assert!(
+                    ran.err.contains(&format!("m.x: {message}")),
+                    "{distribution}: {}",
+                    ran.err
+                );
+                assert!(!ran.out.contains("NaN"));
+            }
+        }
+
+        #[test]
+        fn a_wide_but_finite_distribution_still_simulates() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, model("MC.Triangular(-1E+307, 0, 1E+307)")).unwrap();
+            let ran = forge(&["simulate", path.to_str().unwrap()]);
+            assert_eq!(ran.code, 0, "{}", ran.err);
+            let stdout = ran.out;
+            // The draws, the mean, the percentiles and the extremes are finite. The
+            // standard deviation of values near 1e307 overflows when squared, as for
+            // any output above about 1e154: roadmap T1-HUGE-STATS, not this item.
+            assert!(!stdout.contains("NaN"), "{stdout}");
+            let infinite: Vec<&str> = stdout.lines().filter(|l| l.contains("inf")).collect();
+            assert_eq!(infinite.len(), 1, "{infinite:?}");
+            assert!(
+                infinite[0].trim_start().starts_with("Std Dev:"),
+                "{infinite:?}"
+            );
+        }
+
+        #[test]
+        fn forge_mcp_answers_each_with_an_error_and_then_simulates() {
+            let mut session = Session::start(None);
+            let mut call = |id: u64, distribution: &str| {
+                session.call(
+                    id,
+                    "forge_simulate",
+                    &serde_json::json!({"content": model(distribution)}),
+                )
+            };
+            for ((distribution, message), id) in REFUSED.into_iter().zip(2..) {
+                let answer = call(id, distribution);
+                assert!(
+                    answer.contains("\"isError\":true"),
+                    "{distribution}: {answer}"
+                );
+                assert!(
+                    answer.contains(&format!("m.x: {message}")),
+                    "{distribution}: {answer}"
+                );
+            }
+            let answer = call(100, "MC.PERT(0, 5, 10)");
+            assert!(answer.contains("\"isError\":false"), "{answer}");
+            assert!(answer.contains("monte_carlo_results"), "{answer}");
+            assert!(session.is_serving(), "the server is alive");
         }
     }
 }

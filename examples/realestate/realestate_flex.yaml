@@ -1,0 +1,135 @@
+_forge_version: "5.4.0"
+# Linden Court with a market that moves year by year, and the flexibility to
+# sell early (after Geltner and de Neufville, Flexibility and Real Estate
+# Valuation under Uncertainty, 2018). The building of realestate.yaml, bought
+# for cash. Each year the market's rents take a shock of their own on top of
+# the 3% trend (one draw per row of years.shock), so a future is a path, not
+# one growth rate; the exit cap rate is uncertain too. Everything else is the plan.
+#
+# Two ways to own it in each future: hold ten years and sell, as the pro forma
+# says; or sell at the end of the first year, from year 3, in which the
+# building would fetch, net of selling costs, at least 135% of its price, and
+# hold to year 10 if that never happens. The flexibility is worth the
+# difference between the two, future by future.
+#
+#   forge simulate realestate_flex.yaml
+#   forge simulate realestate_flex.yaml --scenario sell_above_125
+
+building:
+  units: 24
+  rent_per_unit_month: {value: 1450, format: "$#,##0"}
+  other_income_per_unit_month: 60
+  vacancy: {value: 0.06, format: "0.0%"}
+  credit_loss: {value: 0.01, format: "0.0%"}
+  opex_per_unit_year: 5200
+  management_fee: {value: 0.04, format: "0.0%"}
+  reserves_per_unit_year: 350
+
+market:
+  rent_growth: {value: 0.03, format: "0.0%"}
+  expense_growth: {value: 0.025, format: "0.0%"}
+  # How much of the gap from the trend closes each year; 0 is a random walk
+  reversion: {value: 0.3, format: "0%"}
+  exit_cap_rate: {value: 0.0575, formula: "=MC.Triangular(0.05, 0.0575, 0.07)", format: "0.00%"}
+  selling_costs: {value: 0.02, format: "0.0%"}
+
+deal:
+  price: {value: 4600000, format: "$#,##0"}
+  closing_costs: {value: 0.015, format: "0.0%"}
+  hold_years: 10
+  discount_rate: {value: 0.08, format: "0.0%"}
+  cost:
+    formula: "=price * (1 + closing_costs)"
+    format: "$#,##0"
+
+# The rule: sell at the end of the first year from earliest_sale_year in
+# which the building would fetch, net, sell_above times its price
+flex:
+  earliest_sale_year: 3
+  sell_above: {value: 1.35, format: "0.00"}
+
+# The building, year by year, in one future
+years:
+  year: {start: 2027, count: 11, unit: year}
+  n: "=ROW()"
+  # A shock to the market's rents each year, on top of the trend: 6% of the
+  # rent, drawn for each row on its own. Year 11's is the rent the buyer of
+  # year 10 pays for; year 1's rent is known, so its shock is not used.
+  shock: "=MC.Normal(0, 0.06)"
+  # How far the market's rent is above (or below) its trend: each year it
+  # keeps (1 - reversion) of last year's gap and takes the year's shock, so
+  # the market runs in cycles around the trend
+  gap: "=IF(n = 1, 0, PREV(gap, 0) * (1 - market.reversion) + shock)"
+  # The market's rent, 1 in the first year
+  rent_index: "=(1 + market.rent_growth) ^ (n - 1) * (1 + gap)"
+  potential_rent: "=building.units * building.rent_per_unit_month * 12 * rent_index"
+  other_income: "=building.units * building.other_income_per_unit_month * 12 * rent_index"
+  lost_rent: "=potential_rent * (building.vacancy + building.credit_loss)"
+  income: {formula: "=potential_rent + other_income - lost_rent", format: "#,##0"}
+  operating_costs: "=building.units * building.opex_per_unit_year * (1 + market.expense_growth) ^ (n - 1)"
+  management: "=income * building.management_fee"
+  noi: {formula: "=income - operating_costs - management", format: "#,##0"}
+  reserves: "=building.units * building.reserves_per_unit_year * (1 + market.expense_growth) ^ (n - 1)"
+  cash: {formula: "=noi - reserves", format: "#,##0"}
+  # What the building would fetch at the end of this year, net: next year's
+  # income at the exit cap rate
+  sale_value: {formula: "=INDEX(noi, MIN(n + 1, 11)) / market.exit_cap_rate * (1 - market.selling_costs)", format: "#,##0"}
+  sells_here: "=IF(AND(n >= flex.earliest_sale_year, n < deal.hold_years, sale_value >= flex.sell_above * deal.price), 1, 0)"
+  discount: "=1 / (1 + deal.discount_rate) ^ n"
+
+decision:
+  # The year the flexible owner sells: the first year the rule is met, or
+  # year 10
+  sale_year:
+    formula: "=IF(SUM(years.sells_here) > 0, MINIFS(years.n, years.sells_here, 1), deal.hold_years)"
+  sold_early:
+    formula: "=IF(sale_year < deal.hold_years, 1, 0)"
+
+valuation:
+  # Hold ten years and sell, whatever happens
+  npv_hold:
+    formula: "=SUMPRODUCT(years.cash, years.discount, --(years.n <= deal.hold_years)) + INDEX(years.sale_value, deal.hold_years) * INDEX(years.discount, deal.hold_years) - deal.cost"
+    format: "$#,##0"
+  # Sell when the rule says
+  npv_flex:
+    formula: "=SUMPRODUCT(years.cash, years.discount, --(years.n <= decision.sale_year)) + INDEX(years.sale_value, decision.sale_year) * INDEX(years.discount, decision.sale_year) - deal.cost"
+    format: "$#,##0"
+  # What the right to sell early adds in this future
+  flexibility:
+    formula: "=npv_flex - npv_hold"
+    format: "$#,##0"
+
+monte_carlo:
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 43
+  outputs:
+    - variable: valuation.npv_hold
+      percentiles: [5, 50, 95]
+      thresholds: ["> 0"]
+      expected_shortfall: [5]
+    - variable: valuation.npv_flex
+      percentiles: [5, 50, 95]
+      thresholds: ["> 0"]
+      expected_shortfall: [5]
+    - variable: valuation.flexibility
+      percentiles: [5, 50, 95]
+      thresholds: ["> 0", "< 0"]
+    - variable: decision.sold_early
+    - variable: decision.sale_year
+      percentiles: [10, 50, 90]
+
+# forge simulate realestate_flex.yaml --scenario sell_above_125
+scenarios:
+  sell_above_125:
+    description: Sell once the building fetches 125% of its price
+    scalars:
+      flex.sell_above: 1.25
+  sell_above_150:
+    description: Sell once the building fetches 150% of its price
+    scalars:
+      flex.sell_above: 1.50
+  random_walk:
+    description: No cycles; a gap from the trend never closes
+    scalars:
+      market.reversion: 0

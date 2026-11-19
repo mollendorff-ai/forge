@@ -2,7 +2,7 @@
 
 > **Note (2026-11-08):** 100% is a goal, not a gate: neither the Makefile nor CI fails below 100% (`make coverage` reports, CI reads the function percentage for a badge).
 >
-> **Note (2026-11-16):** the maintainer has made 100% coverage non-negotiable again, as a gate. Until roadmap T1-COVERAGE-GATE is done, the 2026-11-08 note describes what CI does, not what is required.
+> **Note (2026-11-16):** the maintainer has made 100% coverage non-negotiable again, as a gate, with no exceptions and no skipping: lines, functions and regions, no coverage-only code and no ignored test (CLAUDE.md). The Coverage job in ci.yml now fails below a floor that only rises, to 100, and `make coverage` fails below 100; `tests/no_skipping.rs` counts what is still skipped (roadmap T1-COVERAGE-GATE, T1-NO-SKIPPING). The 2026-11-08 note above no longer describes CI.
 
 **Status:** Accepted
 **Date:** 2025-12-04

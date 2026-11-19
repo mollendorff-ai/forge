@@ -139,7 +139,6 @@ impl TornadoConfig {
 
 #[cfg(test)]
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 mod config_tests {
     use super::*;
 
@@ -175,9 +174,9 @@ mod config_tests {
     #[test]
     fn test_base_value() {
         let input = InputRange::new("x", 0.0, 10.0);
-        assert_eq!(input.base_value(), 5.0);
+        assert_exact!(input.base_value(), 5.0);
 
         let input_with_base = InputRange::new("x", 0.0, 10.0).with_base(3.0);
-        assert_eq!(input_with_base.base_value(), 3.0);
+        assert_exact!(input_with_base.base_value(), 3.0);
     }
 }

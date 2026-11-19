@@ -1,16 +1,20 @@
 //! Financial functions: PMT, FV, PV, NPV, IRR, NPER, RATE, SLN, DB, DDB, MIRR, XIRR, XNPV,
 //! PPMT, IPMT, EFFECT, NOMINAL, PRICEDISC, YIELDDISC, ACCRINT
 
+mod dated;
+
 use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::day_count::{self, Basis};
 use crate::core::array_calculator::evaluator::{number_or, parse_date_value};
+use crate::core::precision;
+use num_traits::ToPrimitive;
 
 /// Return an error unless the cash flows contain both signs.
 ///
 /// Without a negative and a positive flow there is no rate where NPV is zero,
 /// which Excel reports as `#NUM!`.
-fn require_sign_change(name: &str, values: &[f64]) -> Result<(), EvalError> {
+pub(super) fn require_sign_change(name: &str, values: &[f64]) -> Result<(), EvalError> {
     let has_positive = values.iter().any(|v| *v > 0.0);
     let has_negative = values.iter().any(|v| *v < 0.0);
     if has_positive && has_negative {
@@ -34,7 +38,7 @@ const RATE_GRID: [f64; 22] = [
 /// looks for a sign change on a fixed grid of rates and bisects the bracket
 /// closest to `guess`. `scale` (the size of the cash flows) sets the
 /// tolerance. Returns an error rather than an unconverged rate.
-fn solve_rate(
+pub(super) fn solve_rate(
     name: &str,
     guess: f64,
     scale: f64,
@@ -203,612 +207,571 @@ fn basis_arg(
     Basis::from_number(optional_number(args, index, ctx, 0.0)?, name)
 }
 
-/// The cash flows and dates of XNPV and XIRR. A pair whose cash flow is an
-/// empty cell is left out with its date, as `LibreOffice` does for both and
-/// Gnumeric for XIRR (ADR-059).
-fn dated_cash_flows(
-    name: &str,
-    values: &Expr,
-    dates: &Expr,
-    ctx: &EvalContext,
-) -> Result<(Vec<f64>, Vec<f64>), EvalError> {
-    let dates = match evaluate(dates, ctx)? {
-        Value::Array(arr) => std::sync::Arc::unwrap_or_clone(arr),
-        Value::Number(n) => vec![Value::Number(n)],
-        _ => return Err(EvalError::new(format!("{name} requires dates"))),
-    };
-    let values = match evaluate(values, ctx)? {
-        Value::Array(arr) => std::sync::Arc::unwrap_or_clone(arr),
-        single => vec![single],
-    };
-    if values.len() == dates.len() {
-        let (kept_values, kept_dates) = values
-            .iter()
-            .zip(&dates)
-            .filter(|(v, _)| !matches!(v, Value::Null))
-            .filter_map(|(v, d)| Some((v.as_number()?, d.as_number()?)))
-            .unzip();
-        return Ok((kept_values, kept_dates));
-    }
-    Ok((
-        values.iter().filter_map(Value::as_number).collect(),
-        dates.iter().filter_map(Value::as_number).collect(),
-    ))
-}
-
 /// Try to evaluate a financial function. Returns None if function not recognized.
-#[allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss,
-    clippy::cast_possible_wrap,
-    clippy::too_many_lines
-)]
-// Financial functions cast f64 period counts/rates to i32 — values are small bounded integers.
-// Array lengths cast to f64 for arithmetic are bounded well within f64 mantissa.
-// Splitting this 600-line match would fragment the function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     let result = match name {
-        "PMT" => {
-            require_args_range(name, args, 3, 5)?;
-            let rate = number_or(&args[0], ctx, 0.0)?;
-            let nper = number_or(&args[1], ctx, 0.0)?;
-            let pv = number_or(&args[2], ctx, 0.0)?;
-            let fv = optional_number(args, 3, ctx, 0.0)?;
-            let due = payment_timing(args, 4, ctx)?;
-            Value::Number(annuity_pmt(rate, nper, pv, fv, due))
-        },
-
-        "FV" => {
-            require_args_range(name, args, 3, 5)?;
-            let rate = number_or(&args[0], ctx, 0.0)?;
-            let nper = number_or(&args[1], ctx, 0.0)?;
-            let pmt = number_or(&args[2], ctx, 0.0)?;
-            let pv = optional_number(args, 3, ctx, 0.0)?;
-            let due = payment_timing(args, 4, ctx)?;
-            Value::Number(annuity_fv(rate, nper, pmt, pv, due))
-        },
-
-        "PV" => {
-            require_args_range(name, args, 3, 5)?;
-            let rate = number_or(&args[0], ctx, 0.0)?;
-            let nper = number_or(&args[1], ctx, 0.0)?;
-            let pmt = number_or(&args[2], ctx, 0.0)?;
-            let fv = optional_number(args, 3, ctx, 0.0)?;
-            let due = payment_timing(args, 4, ctx)?;
-            Value::Number(annuity_pv(rate, nper, pmt, fv, due))
-        },
-
-        "NPV" => {
-            require_args_range(name, args, 2, 255)?;
-            let rate = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("NPV rate must be a number"))?;
-
-            let mut npv = 0.0;
-            let mut period = 1;
-
-            for arg in &args[1..] {
-                let val = evaluate(arg, ctx)?;
-                match val {
-                    Value::Array(arr) => {
-                        for v in arr.iter() {
-                            if let Some(n) = v.as_number() {
-                                npv += n / (1.0 + rate).powi(period);
-                                period += 1;
-                            }
-                        }
-                    },
-                    Value::Number(n) => {
-                        npv += n / (1.0 + rate).powi(period);
-                        period += 1;
-                    },
-                    _ => {},
-                }
-            }
-
-            Value::Number(npv)
-        },
-
-        "IRR" => {
-            // IRR(values, [guess]). Older models pass the flows as separate
-            // arguments, so a second argument is a guess only when the first
-            // is an array of several values.
-            let first = match args.first() {
-                Some(arg) => evaluate(arg, ctx)?,
-                None => return Err(EvalError::new("IRR requires cash flows")),
-            };
-            let has_guess = args.len() == 2 && matches!(&first, Value::Array(a) if a.len() > 1);
-            let (values, guess) = if has_guess {
-                let guess = evaluate(&args[1], ctx)?
-                    .as_cell_number()
-                    .ok_or_else(|| EvalError::new("IRR guess must be a number"))?;
-                (collect_numeric_values(&args[..1], ctx)?, guess)
-            } else {
-                (collect_numeric_values(args, ctx)?, 0.1)
-            };
-            if values.is_empty() {
-                return Err(EvalError::new("IRR requires cash flows"));
-            }
-            require_sign_change("IRR", &values)?;
-            let scale: f64 = values.iter().map(|v| v.abs()).sum();
-            let rate = solve_rate("IRR", guess, scale, |rate| {
-                values
-                    .iter()
-                    .enumerate()
-                    .map(|(i, cf)| cf / (1.0 + rate).powi(i as i32))
-                    .sum()
-            })?;
-            Value::Number(rate)
-        },
-
-        "XIRR" => {
-            require_args_range(name, args, 2, 3)?;
-            let (values, dates) = dated_cash_flows("XIRR", &args[0], &args[1], ctx)?;
-            if values.len() != dates.len() || values.is_empty() {
-                return Err(EvalError::new(
-                    "XIRR: values and dates must have same length",
-                ));
-            }
-            require_sign_change("XIRR", &values)?;
-            let guess = if args.len() > 2 {
-                evaluate(&args[2], ctx)?
-                    .as_cell_number()
-                    .ok_or_else(|| EvalError::new("XIRR guess must be a number"))?
-            } else {
-                0.1
-            };
-            let base_date = dates[0];
-            let year_fracs: Vec<f64> = dates.iter().map(|d| (d - base_date) / 365.0).collect();
-            let scale: f64 = values.iter().map(|v| v.abs()).sum();
-            let rate = solve_rate("XIRR", guess, scale, |rate| {
-                values
-                    .iter()
-                    .zip(&year_fracs)
-                    .map(|(cf, t)| cf / (1.0 + rate).powf(*t))
-                    .sum()
-            })?;
-            Value::Number(rate)
-        },
-
-        "XNPV" => {
-            require_args(name, args, 3)?;
-            let rate = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("XNPV requires rate"))?;
-            let (values, dates) = dated_cash_flows("XNPV", &args[1], &args[2], ctx)?;
-            if values.len() != dates.len() || values.is_empty() {
-                return Err(EvalError::new(
-                    "XNPV: values and dates must have same length",
-                ));
-            }
-            let base_date = dates[0];
-            let mut npv = 0.0;
-            for (i, cf) in values.iter().enumerate() {
-                let t = (dates[i] - base_date) / 365.0;
-                npv += cf / (1.0 + rate).powf(t);
-            }
-            Value::Number(npv)
-        },
-
-        "NPER" => {
-            require_args_range(name, args, 3, 5)?;
-            let rate = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("NPER requires rate"))?;
-            let pmt = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("NPER requires payment"))?;
-            let pv = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("NPER requires present value"))?;
-            let fv = optional_number(args, 3, ctx, 0.0)?;
-            let due = payment_timing(args, 4, ctx)?;
-
-            if rate == 0.0 {
-                Value::Number(-(pv + fv) / pmt)
-            } else {
-                // ln((z - fv) / (z + pv)); when the ratio is near 1 (a rate
-                // near 0, z large) as ln_1p of its distance from 1, which
-                // keeps the digits that subtracting 1 would lose
-                let z = pmt * due.mul_add(rate, 1.0) / rate;
-                let off_one = -(fv + pv) / (z + pv);
-                let log = if off_one.abs() < 0.5 {
-                    off_one.ln_1p()
-                } else {
-                    ((z - fv) / (z + pv)).ln()
-                };
-                Value::Number(log / rate.ln_1p())
-            }
-        },
-
-        "RATE" => {
-            require_args_range(name, args, 3, 6)?;
-            let nper = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("RATE requires nper"))?;
-            let pmt = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("RATE requires payment"))?;
-            let pv = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("RATE requires present value"))?;
-            let fv = if args.len() > 3 {
-                number_or(&args[3], ctx, 0.0)?
-            } else {
-                0.0
-            };
-            let pmt_type = if args.len() > 4 {
-                number_or(&args[4], ctx, 0.0)?
-            } else {
-                0.0
-            };
-            let guess = if args.len() > 5 {
-                number_or(&args[5], ctx, 0.1)?
-            } else {
-                0.1
-            };
-            let due: f64 = if pmt_type == 0.0 { 0.0 } else { 1.0 };
-            let scale = pmt.abs().mul_add(nper.abs(), pv.abs() + fv.abs());
-            let rate = solve_rate("RATE", guess, scale, |rate| {
-                if rate.abs() < 1e-12 {
-                    return pmt.mul_add(nper, pv) + fv;
-                }
-                let (growth, grown) = growth(rate, nper);
-                pv.mul_add(growth, pmt * due.mul_add(rate, 1.0) * grown / rate) + fv
-            })?;
-            Value::Number(rate)
-        },
-
-        "SLN" => {
-            require_args(name, args, 3)?;
-            let cost = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("SLN requires cost"))?;
-            let salvage = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("SLN requires salvage"))?;
-            let life = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("SLN requires life"))?;
-
-            if life == 0.0 {
-                return Err(EvalError::new("SLN: life cannot be zero"));
-            }
-            Value::Number((cost - salvage) / life)
-        },
-
-        "DB" => {
-            require_args_range(name, args, 4, 5)?;
-            let cost = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DB requires cost"))?;
-            let salvage = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DB requires salvage"))?;
-            let life = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DB requires life"))?;
-            let period = evaluate(&args[3], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DB requires period"))?;
-            // Excel drops a fraction of a month: DB(10000, 1000, 5, 1, 6.5) is
-            // 1845, the value for 6 (checked in Excel, 2026-11-14)
-            let month = if args.len() > 4 {
-                number_or(&args[4], ctx, 12.0)?.trunc()
-            } else {
-                12.0
-            };
-
-            // LibreOffice's checks, which Excel's documentation does not
-            // contradict: a period past the life (and the part year after
-            // it) has no depreciation to give (#NUM!)
-            if cost <= 0.0
-                || salvage < 0.0
-                || salvage > cost
-                || life <= 0.0
-                || period <= 0.0
-                || period > life + 1.0
-                || !(1.0..=12.0).contains(&month)
-            {
-                return Err(EvalError::new(
-                    "#NUM!: DB needs 0 <= salvage <= cost, a life and a period above 0, a period at most the life + 1, and a month from 1 to 12",
-                ));
-            }
-
-            let rate = 1.0 - (salvage / cost).powf(1.0 / life);
-            let rate = (rate * 1000.0).round() / 1000.0;
-
-            let mut depreciation = 0.0;
-            let mut remaining = cost;
-
-            for p in 1..=(period as i32) {
-                if p == 1 {
-                    depreciation = cost * rate * month / 12.0;
-                } else if p == (life as i32 + 1) {
-                    depreciation = remaining * rate * (12.0 - month) / 12.0;
-                } else {
-                    depreciation = remaining * rate;
-                }
-                remaining -= depreciation;
-            }
-
-            Value::Number(depreciation)
-        },
-
-        "DDB" => {
-            require_args_range(name, args, 4, 5)?;
-            let cost = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DDB requires cost"))?;
-            let salvage = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DDB requires salvage"))?;
-            let life = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DDB requires life"))?;
-            let period = evaluate(&args[3], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("DDB requires period"))?;
-            let factor = if args.len() > 4 {
-                number_or(&args[4], ctx, 2.0)?
-            } else {
-                2.0
-            };
-
-            if life == 0.0 {
-                return Err(EvalError::new("DDB: life cannot be zero"));
-            }
-            // Excel: a period before the first or after the life is #NUM!
-            if period <= 0.0 || period > life {
-                return Err(EvalError::new(format!(
-                    "#NUM!: DDB period must be from 1 to the life ({life}), got {period}"
-                )));
-            }
-
-            // The closed form VDB uses, as both engines do: a fractional
-            // period is read as it is, and once the value is down to the
-            // salvage there is nothing more to take (the loop over whole
-            // periods gave 1.10 for DDB(202.845, 35.9, 21, 18.7), where both
-            // engines give 0)
-            Value::Number(super::schedule::declining(
-                cost, salvage, life, period, factor,
-            ))
-        },
-
-        "MIRR" => {
-            require_args(name, args, 3)?;
-            let values = collect_numeric_values(&args[..1], ctx)?;
-            let finance_rate = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("MIRR requires finance rate"))?;
-            let reinvest_rate = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("MIRR requires reinvest rate"))?;
-
-            if values.is_empty() {
-                return Err(EvalError::new("MIRR requires cash flows"));
-            }
-
-            let n = values.len() as f64;
-            let mut npv_neg = 0.0;
-            let mut npv_pos = 0.0;
-
-            for (i, &cf) in values.iter().enumerate() {
-                if cf < 0.0 {
-                    npv_neg += cf / (1.0 + finance_rate).powi(i as i32);
-                } else {
-                    npv_pos = cf.mul_add(
-                        (1.0 + reinvest_rate).powi((n - 1.0 - i as f64) as i32),
-                        npv_pos,
-                    );
-                }
-            }
-
-            if npv_neg == 0.0 || npv_pos == 0.0 {
-                return Err(EvalError::new(
-                    "MIRR requires both positive and negative cash flows",
-                ));
-            }
-
-            let mirr = (-npv_pos / npv_neg).powf(1.0 / (n - 1.0)) - 1.0;
-            Value::Number(mirr)
-        },
-
-        "PPMT" => {
-            // Principal payment for a given period
-            // PPMT(rate, per, nper, pv, [fv], [type])
-            require_args_range(name, args, 4, 6)?;
-            let rate = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("PPMT requires rate"))?;
-            let per = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("PPMT requires period"))?;
-            let nper = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("PPMT requires nper"))?;
-            let pv = evaluate(&args[3], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("PPMT requires present value"))?;
-            let fv = optional_number(args, 4, ctx, 0.0)?;
-            let due = payment_timing(args, 5, ctx)?;
-            // Excel: a period outside 1 to nper is #NUM!, whatever the rate
-            if per < 1.0 || per > nper {
-                return Err(EvalError::new(format!(
-                    "#NUM!: PPMT period must be from 1 to nper ({nper}), got {per}"
-                )));
-            }
-            let payment = annuity_pmt(rate, nper, pv, fv, due);
-            Value::Number(payment - annuity_ipmt(rate, per, nper, pv, fv, due))
-        },
-
-        "IPMT" => {
-            // Interest payment for a given period
-            // IPMT(rate, per, nper, pv, [fv], [type])
-            require_args_range(name, args, 4, 6)?;
-            let rate = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("IPMT requires rate"))?;
-            let per = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("IPMT requires period"))?;
-            let nper = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("IPMT requires nper"))?;
-            let pv = evaluate(&args[3], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("IPMT requires present value"))?;
-            let fv = optional_number(args, 4, ctx, 0.0)?;
-            let due = payment_timing(args, 5, ctx)?;
-            // Excel: a period outside 1 to nper is #NUM!, whatever the rate
-            if per < 1.0 || per > nper {
-                return Err(EvalError::new(format!(
-                    "#NUM!: IPMT period must be from 1 to nper ({nper}), got {per}"
-                )));
-            }
-            Value::Number(annuity_ipmt(rate, per, nper, pv, fv, due))
-        },
-
-        "EFFECT" => {
-            // Effective annual interest rate
-            // EFFECT(nominal_rate, npery)
-            require_args(name, args, 2)?;
-            let nominal_rate = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("EFFECT requires nominal rate"))?;
-            let npery = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("EFFECT requires periods per year"))?;
-            // Excel truncates the periods per year to a whole number
-            let npery = npery.trunc();
-
-            if npery < 1.0 {
-                return Err(EvalError::new("EFFECT: periods per year must be >= 1"));
-            }
-            if nominal_rate <= 0.0 {
-                return Err(EvalError::new("EFFECT: nominal rate must be positive"));
-            }
-
-            let effect = (1.0 + nominal_rate / npery).powf(npery) - 1.0;
-            Value::Number(effect)
-        },
-
-        "NOMINAL" => {
-            // Nominal annual interest rate
-            // NOMINAL(effect_rate, npery)
-            require_args(name, args, 2)?;
-            let effect_rate = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("NOMINAL requires effective rate"))?;
-            let npery = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("NOMINAL requires periods per year"))?;
-            // Excel truncates the periods per year to a whole number
-            let npery = npery.trunc();
-
-            if npery < 1.0 {
-                return Err(EvalError::new("NOMINAL: periods per year must be >= 1"));
-            }
-            if effect_rate <= 0.0 {
-                return Err(EvalError::new("NOMINAL: effective rate must be positive"));
-            }
-
-            let nominal = ((1.0 + effect_rate).powf(1.0 / npery) - 1.0) * npery;
-            Value::Number(nominal)
-        },
-
-        "PRICEDISC" => {
-            // PRICEDISC(settlement, maturity, discount, redemption, [basis])
-            require_args_range(name, args, 4, 5)?;
-            let settlement = date_arg(&args[0], ctx, "PRICEDISC settlement")?;
-            let maturity = date_arg(&args[1], ctx, "PRICEDISC maturity")?;
-            let discount = number_or(&args[2], ctx, 0.0)?;
-            let redemption = number_or(&args[3], ctx, 0.0)?;
-            let basis = basis_arg(args, 4, ctx, name)?;
-            if settlement >= maturity {
-                return Err(EvalError::new(
-                    "#NUM!: PRICEDISC settlement must be before maturity",
-                ));
-            }
-            if discount <= 0.0 || redemption <= 0.0 {
-                return Err(EvalError::new(
-                    "#NUM!: PRICEDISC discount and redemption must be positive",
-                ));
-            }
-            // DSM / B, computed as YEARFRAC does (as LibreOffice does too)
-            let fraction = day_count::year_fraction(settlement, maturity, basis);
-            Value::Number((discount * redemption).mul_add(-fraction, redemption))
-        },
-
-        "YIELDDISC" => {
-            // YIELDDISC(settlement, maturity, price, redemption, [basis])
-            require_args_range(name, args, 4, 5)?;
-            let settlement = date_arg(&args[0], ctx, "YIELDDISC settlement")?;
-            let maturity = date_arg(&args[1], ctx, "YIELDDISC maturity")?;
-            let price = number_or(&args[2], ctx, 0.0)?;
-            let redemption = number_or(&args[3], ctx, 0.0)?;
-            let basis = basis_arg(args, 4, ctx, name)?;
-            if settlement >= maturity {
-                return Err(EvalError::new(
-                    "#NUM!: YIELDDISC settlement must be before maturity",
-                ));
-            }
-            if price <= 0.0 || redemption <= 0.0 {
-                return Err(EvalError::new(
-                    "#NUM!: YIELDDISC price and redemption must be positive",
-                ));
-            }
-            // DSM / B, computed as YEARFRAC does (as LibreOffice does too)
-            let fraction = day_count::year_fraction(settlement, maturity, basis);
-            Value::Number((redemption - price) / price / fraction)
-        },
-
-        "ACCRINT" => {
-            // ACCRINT(issue, first_interest, settlement, rate, par, frequency, [basis])
-            require_args_range(name, args, 6, 7)?;
-            let issue = date_arg(&args[0], ctx, "ACCRINT issue")?;
-            let first_interest = date_arg(&args[1], ctx, "ACCRINT first interest")?;
-            let settlement = date_arg(&args[2], ctx, "ACCRINT settlement")?;
-            let rate = number_or(&args[3], ctx, 0.0)?;
-            let par = number_or(&args[4], ctx, 0.0)?;
-            let frequency = number_or(&args[5], ctx, 0.0)?.trunc();
-            let basis = basis_arg(args, 6, ctx, name)?;
-            if issue >= settlement {
-                return Err(EvalError::new(
-                    "#NUM!: ACCRINT issue date must be before settlement",
-                ));
-            }
-            if rate <= 0.0 || par <= 0.0 {
-                return Err(EvalError::new(
-                    "#NUM!: ACCRINT rate and par value must be positive",
-                ));
-            }
-            let frequency = match frequency {
-                1.0 => 1,
-                2.0 => 2,
-                4.0 => 4,
-                _ => return Err(EvalError::new("#NUM!: ACCRINT frequency must be 1, 2 or 4")),
-            };
-            Value::Number(day_count::accrued_interest(
-                issue,
-                first_interest,
-                settlement,
-                rate,
-                par,
-                frequency,
-                basis,
-            )?)
-        },
-
+        "PMT" => eval_pmt(name, args, ctx)?,
+        "FV" => eval_fv(name, args, ctx)?,
+        "PV" => eval_pv(name, args, ctx)?,
+        "NPV" => eval_npv(name, args, ctx)?,
+        "IRR" => eval_irr(args, ctx)?,
+        "XIRR" => dated::eval_xirr(name, args, ctx)?,
+        "XNPV" => dated::eval_xnpv(name, args, ctx)?,
+        "NPER" => eval_nper(name, args, ctx)?,
+        "RATE" => eval_rate(name, args, ctx)?,
+        "SLN" => eval_sln(name, args, ctx)?,
+        "DB" => eval_db(name, args, ctx)?,
+        "DDB" => eval_ddb(name, args, ctx)?,
+        "MIRR" => eval_mirr(name, args, ctx)?,
+        "PPMT" => eval_ppmt(name, args, ctx)?,
+        "IPMT" => eval_ipmt(name, args, ctx)?,
+        "EFFECT" => eval_effect(name, args, ctx)?,
+        "NOMINAL" => eval_nominal(name, args, ctx)?,
+        "PRICEDISC" => eval_pricedisc(name, args, ctx)?,
+        "YIELDDISC" => eval_yielddisc(name, args, ctx)?,
+        "ACCRINT" => eval_accrint(name, args, ctx)?,
         _ => return Ok(None),
     };
 
     Ok(Some(result))
+}
+
+/// Evaluate `PMT`.
+fn eval_pmt(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 3, 5)?;
+    let rate = number_or(&args[0], ctx, 0.0)?;
+    let nper = number_or(&args[1], ctx, 0.0)?;
+    let pv = number_or(&args[2], ctx, 0.0)?;
+    let fv = optional_number(args, 3, ctx, 0.0)?;
+    let due = payment_timing(args, 4, ctx)?;
+    Ok(Value::Number(annuity_pmt(rate, nper, pv, fv, due)))
+}
+
+/// Evaluate `FV`.
+fn eval_fv(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 3, 5)?;
+    let rate = number_or(&args[0], ctx, 0.0)?;
+    let nper = number_or(&args[1], ctx, 0.0)?;
+    let pmt = number_or(&args[2], ctx, 0.0)?;
+    let pv = optional_number(args, 3, ctx, 0.0)?;
+    let due = payment_timing(args, 4, ctx)?;
+    Ok(Value::Number(annuity_fv(rate, nper, pmt, pv, due)))
+}
+
+/// Evaluate `PV`.
+fn eval_pv(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 3, 5)?;
+    let rate = number_or(&args[0], ctx, 0.0)?;
+    let nper = number_or(&args[1], ctx, 0.0)?;
+    let pmt = number_or(&args[2], ctx, 0.0)?;
+    let fv = optional_number(args, 3, ctx, 0.0)?;
+    let due = payment_timing(args, 4, ctx)?;
+    Ok(Value::Number(annuity_pv(rate, nper, pmt, fv, due)))
+}
+
+/// Evaluate `NPV`.
+fn eval_npv(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 2, 255)?;
+    let rate = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("NPV rate must be a number"))?;
+
+    let mut npv = 0.0;
+    let mut period = 1;
+
+    for arg in &args[1..] {
+        let val = evaluate(arg, ctx)?;
+        match val {
+            Value::Array(arr) => {
+                for v in arr.iter() {
+                    if let Some(n) = v.as_number() {
+                        npv += n / (1.0 + rate).powi(period);
+                        period += 1;
+                    }
+                }
+            },
+            Value::Number(n) => {
+                npv += n / (1.0 + rate).powi(period);
+                period += 1;
+            },
+            _ => {},
+        }
+    }
+
+    Ok(Value::Number(npv))
+}
+
+/// Evaluate `IRR`.
+fn eval_irr(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    // IRR(values, [guess]). Older models pass the flows as separate
+    // arguments, so a second argument is a guess only when the first
+    // is an array of several values.
+    let first = match args.first() {
+        Some(arg) => evaluate(arg, ctx)?,
+        None => return Err(EvalError::new("IRR requires cash flows")),
+    };
+    let has_guess = args.len() == 2 && matches!(&first, Value::Array(a) if a.len() > 1);
+    let (values, guess) = if has_guess {
+        let guess = evaluate(&args[1], ctx)?
+            .as_cell_number()
+            .ok_or_else(|| EvalError::new("IRR guess must be a number"))?;
+        (collect_numeric_values(&args[..1], ctx)?, guess)
+    } else {
+        (collect_numeric_values(args, ctx)?, 0.1)
+    };
+    if values.is_empty() {
+        return Err(EvalError::new("IRR requires cash flows"));
+    }
+    require_sign_change("IRR", &values)?;
+    let scale: f64 = values.iter().map(|v| v.abs()).sum();
+    let rate = solve_rate("IRR", guess, scale, |rate| {
+        // Each cash flow's period, counted in an i32 for powi
+        (0..=i32::MAX)
+            .zip(&values)
+            .map(|(i, cf)| cf / (1.0 + rate).powi(i))
+            .sum()
+    })?;
+    Ok(Value::Number(rate))
+}
+
+/// Evaluate `NPER`.
+fn eval_nper(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 3, 5)?;
+    let rate = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("NPER requires rate"))?;
+    let pmt = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("NPER requires payment"))?;
+    let pv = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("NPER requires present value"))?;
+    let fv = optional_number(args, 3, ctx, 0.0)?;
+    let due = payment_timing(args, 4, ctx)?;
+
+    Ok(if rate == 0.0 {
+        Value::Number(-(pv + fv) / pmt)
+    } else {
+        // ln((z - fv) / (z + pv)); when the ratio is near 1 (a rate
+        // near 0, z large) as ln_1p of its distance from 1, which
+        // keeps the digits that subtracting 1 would lose
+        let z = pmt * due.mul_add(rate, 1.0) / rate;
+        let off_one = -(fv + pv) / (z + pv);
+        let log = if off_one.abs() < 0.5 {
+            off_one.ln_1p()
+        } else {
+            ((z - fv) / (z + pv)).ln()
+        };
+        Value::Number(log / rate.ln_1p())
+    })
+}
+
+/// Evaluate `RATE`.
+fn eval_rate(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 3, 6)?;
+    let nper = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("RATE requires nper"))?;
+    let pmt = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("RATE requires payment"))?;
+    let pv = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("RATE requires present value"))?;
+    let fv = if args.len() > 3 {
+        number_or(&args[3], ctx, 0.0)?
+    } else {
+        0.0
+    };
+    let pmt_type = if args.len() > 4 {
+        number_or(&args[4], ctx, 0.0)?
+    } else {
+        0.0
+    };
+    let guess = if args.len() > 5 {
+        number_or(&args[5], ctx, 0.1)?
+    } else {
+        0.1
+    };
+    let due: f64 = if pmt_type == 0.0 { 0.0 } else { 1.0 };
+    let scale = pmt.abs().mul_add(nper.abs(), pv.abs() + fv.abs());
+    let rate = solve_rate("RATE", guess, scale, |rate| {
+        if rate.abs() < 1e-12 {
+            return pmt.mul_add(nper, pv) + fv;
+        }
+        let (growth, grown) = growth(rate, nper);
+        pv.mul_add(growth, pmt * due.mul_add(rate, 1.0) * grown / rate) + fv
+    })?;
+    Ok(Value::Number(rate))
+}
+
+/// Evaluate `SLN`.
+fn eval_sln(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 3)?;
+    let cost = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("SLN requires cost"))?;
+    let salvage = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("SLN requires salvage"))?;
+    let life = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("SLN requires life"))?;
+
+    if life == 0.0 {
+        return Err(EvalError::new("SLN: life cannot be zero"));
+    }
+    Ok(Value::Number((cost - salvage) / life))
+}
+
+/// Evaluate `DB`.
+fn eval_db(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 4, 5)?;
+    let cost = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DB requires cost"))?;
+    let salvage = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DB requires salvage"))?;
+    let life = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DB requires life"))?;
+    let period = evaluate(&args[3], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DB requires period"))?;
+    // Excel drops a fraction of a month: DB(10000, 1000, 5, 1, 6.5) is
+    // 1845, the value for 6 (checked in Excel, 2026-11-14)
+    let month = if args.len() > 4 {
+        number_or(&args[4], ctx, 12.0)?.trunc()
+    } else {
+        12.0
+    };
+
+    // LibreOffice's checks, which Excel's documentation does not
+    // contradict: a period past the life (and the part year after
+    // it) has no depreciation to give (#NUM!)
+    if cost <= 0.0
+        || salvage < 0.0
+        || salvage > cost
+        || life <= 0.0
+        || period <= 0.0
+        || period > life + 1.0
+        || !(1.0..=12.0).contains(&month)
+    {
+        return Err(EvalError::new(
+            "#NUM!: DB needs 0 <= salvage <= cost, a life and a period above 0, a period at most the life + 1, and a month from 1 to 12",
+        ));
+    }
+
+    let rate = 1.0 - (salvage / cost).powf(1.0 / life);
+    let rate = (rate * 1000.0).round() / 1000.0;
+
+    let mut depreciation = 0.0;
+    let mut remaining = cost;
+
+    // Whole periods, as the period is cut; the part year after the
+    // life is the one past its whole years. A period no i32 holds
+    // needs a life of as many years (#NUM!).
+    let Some(periods) = period.to_i32() else {
+        return Err(EvalError::new(format!(
+            "#NUM!: DB: period {period} is more than it counts"
+        )));
+    };
+    let part_year = life.to_i64().map(|years| years + 1);
+    for p in 1..=periods {
+        if p == 1 {
+            depreciation = cost * rate * month / 12.0;
+        } else if Some(i64::from(p)) == part_year {
+            depreciation = remaining * rate * (12.0 - month) / 12.0;
+        } else {
+            depreciation = remaining * rate;
+        }
+        remaining -= depreciation;
+    }
+
+    Ok(Value::Number(depreciation))
+}
+
+/// Evaluate `DDB`.
+fn eval_ddb(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 4, 5)?;
+    let cost = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DDB requires cost"))?;
+    let salvage = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DDB requires salvage"))?;
+    let life = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DDB requires life"))?;
+    let period = evaluate(&args[3], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("DDB requires period"))?;
+    let factor = if args.len() > 4 {
+        number_or(&args[4], ctx, 2.0)?
+    } else {
+        2.0
+    };
+
+    if life == 0.0 {
+        return Err(EvalError::new("DDB: life cannot be zero"));
+    }
+    // Excel: a period before the first or after the life is #NUM!
+    if period <= 0.0 || period > life {
+        return Err(EvalError::new(format!(
+            "#NUM!: DDB period must be from 1 to the life ({life}), got {period}"
+        )));
+    }
+
+    // The closed form VDB uses, as both engines do: a fractional
+    // period is read as it is, and once the value is down to the
+    // salvage there is nothing more to take (the loop over whole
+    // periods gave 1.10 for DDB(202.845, 35.9, 21, 18.7), where both
+    // engines give 0)
+    Ok(Value::Number(super::schedule::declining(
+        cost, salvage, life, period, factor,
+    )))
+}
+
+/// Evaluate `MIRR`.
+fn eval_mirr(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 3)?;
+    let values = collect_numeric_values(&args[..1], ctx)?;
+    let finance_rate = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("MIRR requires finance rate"))?;
+    let reinvest_rate = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("MIRR requires reinvest rate"))?;
+
+    if values.is_empty() {
+        return Err(EvalError::new("MIRR requires cash flows"));
+    }
+
+    let n = precision::count(values.len());
+    let mut npv_neg = 0.0;
+    let mut npv_pos = 0.0;
+
+    // Each cash flow's period and the periods after it to the last,
+    // counted in an i32 for powi
+    let last = i32::try_from(values.len() - 1).unwrap_or(i32::MAX);
+    for (i, &cf) in (0..=last).zip(&values) {
+        if cf < 0.0 {
+            npv_neg += cf / (1.0 + finance_rate).powi(i);
+        } else {
+            npv_pos = cf.mul_add((1.0 + reinvest_rate).powi(last - i), npv_pos);
+        }
+    }
+
+    if npv_neg == 0.0 || npv_pos == 0.0 {
+        return Err(EvalError::new(
+            "MIRR requires both positive and negative cash flows",
+        ));
+    }
+
+    let mirr = (-npv_pos / npv_neg).powf(1.0 / (n - 1.0)) - 1.0;
+    Ok(Value::Number(mirr))
+}
+
+/// Evaluate `PPMT`.
+fn eval_ppmt(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    // Principal payment for a given period
+    // PPMT(rate, per, nper, pv, [fv], [type])
+    require_args_range(name, args, 4, 6)?;
+    let rate = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("PPMT requires rate"))?;
+    let per = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("PPMT requires period"))?;
+    let nper = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("PPMT requires nper"))?;
+    let pv = evaluate(&args[3], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("PPMT requires present value"))?;
+    let fv = optional_number(args, 4, ctx, 0.0)?;
+    let due = payment_timing(args, 5, ctx)?;
+    // Excel: a period outside 1 to nper is #NUM!, whatever the rate
+    if per < 1.0 || per > nper {
+        return Err(EvalError::new(format!(
+            "#NUM!: PPMT period must be from 1 to nper ({nper}), got {per}"
+        )));
+    }
+    let payment = annuity_pmt(rate, nper, pv, fv, due);
+    Ok(Value::Number(
+        payment - annuity_ipmt(rate, per, nper, pv, fv, due),
+    ))
+}
+
+/// Evaluate `IPMT`.
+fn eval_ipmt(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    // Interest payment for a given period
+    // IPMT(rate, per, nper, pv, [fv], [type])
+    require_args_range(name, args, 4, 6)?;
+    let rate = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("IPMT requires rate"))?;
+    let per = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("IPMT requires period"))?;
+    let nper = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("IPMT requires nper"))?;
+    let pv = evaluate(&args[3], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("IPMT requires present value"))?;
+    let fv = optional_number(args, 4, ctx, 0.0)?;
+    let due = payment_timing(args, 5, ctx)?;
+    // Excel: a period outside 1 to nper is #NUM!, whatever the rate
+    if per < 1.0 || per > nper {
+        return Err(EvalError::new(format!(
+            "#NUM!: IPMT period must be from 1 to nper ({nper}), got {per}"
+        )));
+    }
+    Ok(Value::Number(annuity_ipmt(rate, per, nper, pv, fv, due)))
+}
+
+/// Evaluate `EFFECT`.
+fn eval_effect(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    // Effective annual interest rate
+    // EFFECT(nominal_rate, npery)
+    require_args(name, args, 2)?;
+    let nominal_rate = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("EFFECT requires nominal rate"))?;
+    let npery = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("EFFECT requires periods per year"))?;
+    // Excel truncates the periods per year to a whole number
+    let npery = npery.trunc();
+
+    if npery < 1.0 {
+        return Err(EvalError::new("EFFECT: periods per year must be >= 1"));
+    }
+    if nominal_rate <= 0.0 {
+        return Err(EvalError::new("EFFECT: nominal rate must be positive"));
+    }
+
+    let effect = (1.0 + nominal_rate / npery).powf(npery) - 1.0;
+    Ok(Value::Number(effect))
+}
+
+/// Evaluate `NOMINAL`.
+fn eval_nominal(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    // Nominal annual interest rate
+    // NOMINAL(effect_rate, npery)
+    require_args(name, args, 2)?;
+    let effect_rate = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("NOMINAL requires effective rate"))?;
+    let npery = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("NOMINAL requires periods per year"))?;
+    // Excel truncates the periods per year to a whole number
+    let npery = npery.trunc();
+
+    if npery < 1.0 {
+        return Err(EvalError::new("NOMINAL: periods per year must be >= 1"));
+    }
+    if effect_rate <= 0.0 {
+        return Err(EvalError::new("NOMINAL: effective rate must be positive"));
+    }
+
+    let nominal = ((1.0 + effect_rate).powf(1.0 / npery) - 1.0) * npery;
+    Ok(Value::Number(nominal))
+}
+
+/// Evaluate `PRICEDISC`.
+fn eval_pricedisc(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    // PRICEDISC(settlement, maturity, discount, redemption, [basis])
+    require_args_range(name, args, 4, 5)?;
+    let settlement = date_arg(&args[0], ctx, "PRICEDISC settlement")?;
+    let maturity = date_arg(&args[1], ctx, "PRICEDISC maturity")?;
+    let discount = number_or(&args[2], ctx, 0.0)?;
+    let redemption = number_or(&args[3], ctx, 0.0)?;
+    let basis = basis_arg(args, 4, ctx, name)?;
+    if settlement >= maturity {
+        return Err(EvalError::new(
+            "#NUM!: PRICEDISC settlement must be before maturity",
+        ));
+    }
+    if discount <= 0.0 || redemption <= 0.0 {
+        return Err(EvalError::new(
+            "#NUM!: PRICEDISC discount and redemption must be positive",
+        ));
+    }
+    // DSM / B, computed as YEARFRAC does (as LibreOffice does too)
+    let fraction = day_count::year_fraction(settlement, maturity, basis);
+    Ok(Value::Number(
+        (discount * redemption).mul_add(-fraction, redemption),
+    ))
+}
+
+/// Evaluate `YIELDDISC`.
+fn eval_yielddisc(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    // YIELDDISC(settlement, maturity, price, redemption, [basis])
+    require_args_range(name, args, 4, 5)?;
+    let settlement = date_arg(&args[0], ctx, "YIELDDISC settlement")?;
+    let maturity = date_arg(&args[1], ctx, "YIELDDISC maturity")?;
+    let price = number_or(&args[2], ctx, 0.0)?;
+    let redemption = number_or(&args[3], ctx, 0.0)?;
+    let basis = basis_arg(args, 4, ctx, name)?;
+    if settlement >= maturity {
+        return Err(EvalError::new(
+            "#NUM!: YIELDDISC settlement must be before maturity",
+        ));
+    }
+    if price <= 0.0 || redemption <= 0.0 {
+        return Err(EvalError::new(
+            "#NUM!: YIELDDISC price and redemption must be positive",
+        ));
+    }
+    // DSM / B, computed as YEARFRAC does (as LibreOffice does too)
+    let fraction = day_count::year_fraction(settlement, maturity, basis);
+    Ok(Value::Number((redemption - price) / price / fraction))
+}
+
+/// Evaluate `ACCRINT`.
+fn eval_accrint(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    // ACCRINT(issue, first_interest, settlement, rate, par, frequency, [basis])
+    require_args_range(name, args, 6, 7)?;
+    let issue = date_arg(&args[0], ctx, "ACCRINT issue")?;
+    let first_interest = date_arg(&args[1], ctx, "ACCRINT first interest")?;
+    let settlement = date_arg(&args[2], ctx, "ACCRINT settlement")?;
+    let rate = number_or(&args[3], ctx, 0.0)?;
+    let par = number_or(&args[4], ctx, 0.0)?;
+    let frequency = number_or(&args[5], ctx, 0.0)?.trunc();
+    let basis = basis_arg(args, 6, ctx, name)?;
+    if issue >= settlement {
+        return Err(EvalError::new(
+            "#NUM!: ACCRINT issue date must be before settlement",
+        ));
+    }
+    if rate <= 0.0 || par <= 0.0 {
+        return Err(EvalError::new(
+            "#NUM!: ACCRINT rate and par value must be positive",
+        ));
+    }
+    let frequency = match frequency {
+        1.0 => 1,
+        2.0 => 2,
+        4.0 => 4,
+        _ => return Err(EvalError::new("#NUM!: ACCRINT frequency must be 1, 2 or 4")),
+    };
+    Ok(Value::Number(day_count::accrued_interest(
+        issue,
+        first_interest,
+        settlement,
+        rate,
+        par,
+        frequency,
+        basis,
+    )?))
 }
 
 #[cfg(test)]
@@ -882,7 +845,7 @@ mod tests {
         let npv: f64 = [-1000.0, 1.0, 1.0, 1.0, 1.0]
             .iter()
             .enumerate()
-            .map(|(i, cf)| cf / (1.0 + irr).powf(i as f64))
+            .map(|(i, cf)| cf / (1.0 + irr).powf(precision::count(i)))
             .sum();
         assert!(irr > -1.0 && npv.abs() < 1e-5, "irr {irr}, npv {npv}");
     }
@@ -904,17 +867,6 @@ mod tests {
         let with = eval_number("IRR(t.cf, 0.2)", &ctx);
         assert!((without - with).abs() < 1e-9, "{without} vs {with}");
         assert!((without - 0.170_936_863_395).abs() < 1e-9, "{without}");
-    }
-
-    #[test]
-    fn test_xirr_without_sign_change_is_error() {
-        let ctx = EvalContext::new();
-        let err = eval("XIRR(100, 45000)", &ctx).unwrap_err();
-        assert!(
-            err.message.contains("positive and one negative"),
-            "{}",
-            err.message
-        );
     }
 
     #[test]
@@ -1346,5 +1298,77 @@ mod tests {
                 "{formula}: {error}"
             );
         }
+    }
+
+    /// The five answers Excel gave differently from Forge when 40 formulas were
+    /// checked in Excel on 2026-11-14
+    /// (`validation/gnumeric/tests/edge/edge_excel_checks.yaml`), and what
+    /// follows from each rule.
+    mod checked_in_excel {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn db_cuts_a_fraction_of_a_month() {
+            h::is_exactly("DB(10000, 1000, 5, 1, 6.5)", 1845.0); // Excel
+            h::is_exactly("DB(10000, 1000, 5, 1, 6.9)", 1845.0); // LibreOffice
+        }
+    }
+
+    /// Fixes for what the generated cases found (ADR-062) that the engines cannot
+    /// check: answers Forge gives on its own, with the reason, and the exact
+    /// values where every engine loses digits.
+    mod generated_cases {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn annuities_keep_their_digits() {
+            // Exact to 50 digits for the double inputs (2026-11-14)
+            h::exactly(
+                "NPER(1e-09, 3.944973623587, 0, 2.5, 1)",
+                -0.633_717_798_414_327_9,
+            );
+            h::exactly("NPER(0.1, -1e-12, -2.5)", -275.361_213_342_520_2);
+            h::exactly(
+                "NPER(0.1, 0.285, 1E15, -0.559709076024, 1)",
+                -348.670_778_361_094_7,
+            );
+            h::exactly(
+                "CUMPRINC(0.5, 61, 487, 3, 36, 0)",
+                -0.019_286_216_489_415_402,
+            );
+            h::exactly(
+                "CUMPRINC(0.5, 60, 0.663097621158, 43, 52, 1)",
+                -0.016_949_572_163_691_61,
+            );
+            h::exactly("CUMPRINC(0.03, 24, 900, 5, 9, 1)", -151.665_053_343_195_1);
+            h::exactly("CUMPRINC(0.05, 30, 1000, 1, 30, 1)", -1000.0);
+            h::exactly("RATE(276, -100, 1E15)", -0.095_099_553_259_213_3);
+        }
+    }
+
+    /// A life of 3E+9 years made `life + 1` overflow an i32 in DB's loop, a
+    /// crash; its rate rounds to 0.000, so Gnumeric gives 0. A period no i32
+    /// holds is #NUM!.
+    #[test]
+    fn db_counts_its_periods_past_any_i32_life() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("DB(1000, 100, 3E+9, 2)", 0.0);
+        h::is_exactly("DB(1000, 100, 5, 2)", 232.839);
+        h::fails_with("DB(1000, 100, 1E+10, 1E+10)", "#NUM!");
+    }
+
+    /// Negative cash flows are discounted at the finance rate, positive ones
+    /// grown at the reinvestment rate; Gnumeric's MIRR
+    #[test]
+    fn mirr_takes_each_side_at_its_rate() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert!(h::near(
+            h::number("MIRR({-100, 50, 60}, 0.1, 0.12)"),
+            0.077_032_961_426_900_75
+        ));
+        assert!(h::near(
+            h::number("MIRR({-100, -20, 50, 80}, 0.1, 0.12)"),
+            0.047_923_099_669_167_3
+        ));
     }
 }

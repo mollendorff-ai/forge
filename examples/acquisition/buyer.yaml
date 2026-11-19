@@ -1,0 +1,13 @@
+_forge_version: "5.4.0"
+# Valdane Instruments (fictional), the buyer: a listed maker of industrial
+# measuring instruments, as the market sees it before the deal. Millions,
+# except per share. Included by deal.yaml as @buyer.
+company:
+  shares: 200
+  share_price: {value: 40, format: "$#,##0.00"}
+  # Analysts' consensus for next year, and how fast it grows on its own
+  net_income_next_year: 520
+  earnings_growth: {value: 0.05, format: "0.0%"}
+  ebitda: 950
+  net_debt: 1200
+  tax_rate: {value: 0.25, format: "0%"}

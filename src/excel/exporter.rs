@@ -1,13 +1,15 @@
 //! Excel exporter implementation
 
+mod cells;
+mod layout;
+
 use super::text_results::{self, TextCell, TextResult};
-use super::workbook_refs::dates::{excel_serial, Holds};
 use super::workbook_refs::{
     include_sheet, split_scalar_path, Context, WorkbookRefs, UNGROUPED_SHEET,
 };
 use crate::error::{ForgeError, ForgeResult};
-use crate::types::{Column, ColumnValue, Metadata, ParsedModel, Table};
-use rust_xlsxwriter::{Format, Formula, Note, Workbook, Worksheet};
+use crate::types::{ParsedModel, Table};
+use rust_xlsxwriter::{Formula, Note, Workbook};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -19,6 +21,25 @@ pub struct ExcelExporter {
     /// Included files by namespace, in name order: the calculated model and
     /// the layout its own formulas are written with
     includes: Vec<(String, ParsedModel, WorkbookRefs)>,
+}
+
+/// How a scalar formula that Excel cannot express is written, for its warning
+/// and its note: an uncertain input (`MC.*`) as its plan value, the value
+/// `forge simulate` shows the outputs at; any other formula as its calculated
+/// value; and a formula with no value, in a model that does not calculate,
+/// left empty.
+fn written_as(formula: &str, value: Option<f64>, reason: &str) -> String {
+    let uncertain = formula
+        .trim_start_matches('=')
+        .trim_start()
+        .starts_with("MC.");
+    match value {
+        Some(plan) if uncertain => {
+            format!("written as its plan value {plan} ({reason}; forge simulate draws it)")
+        },
+        Some(_) => format!("written as a value ({reason})"),
+        None => format!("left empty ({reason})"),
+    }
 }
 
 impl ExcelExporter {
@@ -94,208 +115,6 @@ impl ExcelExporter {
             refs,
             includes,
         }
-    }
-
-    /// Whether each column of numbers or text holds text (`COUNTUNIQUE` is
-    /// written differently for each).
-    fn column_types(table: &Table) -> impl Iterator<Item = (&str, bool)> {
-        table
-            .columns
-            .iter()
-            .filter_map(|(name, column)| match column.values {
-                super::super::types::ColumnValue::Number(_)
-                | super::super::types::ColumnValue::Blanks(_) => Some((name.as_str(), false)),
-                // Months (`2026-01`) and other dates Excel cannot hold are
-                // text in the workbook; a column of dates is marked after
-                super::super::types::ColumnValue::Text(_)
-                | super::super::types::ColumnValue::Date(_) => Some((name.as_str(), true)),
-                super::super::types::ColumnValue::Boolean(_) => None,
-            })
-    }
-
-    /// Whether a column is written as dates: every value is a date Excel can
-    /// hold (`2026-01-31`, from 1900-03-01 on). A column of months
-    /// (`2026-01`), an earlier date or any other text keeps the column text.
-    fn holds_dates(values: &ColumnValue) -> bool {
-        match values {
-            ColumnValue::Date(v) | ColumnValue::Text(v) => {
-                !v.is_empty() && v.iter().all(|text| excel_serial(text).is_some())
-            },
-            _ => false,
-        }
-    }
-
-    /// The columns of a table written as dates (ADR-054).
-    fn date_columns(table: &Table) -> impl Iterator<Item = &str> {
-        table
-            .columns
-            .iter()
-            .filter(|(_, column)| Self::holds_dates(&column.values))
-            .map(|(name, _)| name.as_str())
-    }
-
-    /// The columns of a table that stay text and have a digit in some row:
-    /// `n/a` among dates, a date before 1900-03-01, a month (`2026-01`), a
-    /// number written as text (`"5"`). Forge reads a number from such text
-    /// its own way, and Excel its own: a formula that reads one is written
-    /// as values (ADR-054). A column of words reads the same in both.
-    fn mixed_columns(table: &Table) -> impl Iterator<Item = &str> {
-        table
-            .columns
-            .iter()
-            .filter(|(_, column)| match &column.values {
-                ColumnValue::Date(v) | ColumnValue::Text(v) => {
-                    !Self::holds_dates(&column.values)
-                        && v.iter()
-                            .any(|text| text.bytes().any(|b| b.is_ascii_digit()))
-                },
-                _ => false,
-            })
-            .map(|(name, _)| name.as_str())
-    }
-
-    /// What a column holds, for a formula that gives it.
-    fn holds(table: &Table, column: &str, dates: &std::collections::HashSet<&str>) -> Holds {
-        if dates.contains(column) {
-            return Holds::Dates;
-        }
-        match table.columns.get(column).map(|c| &c.values) {
-            Some(values) if values.is_empty() => Holds::Unknown,
-            None => Holds::Unknown,
-            Some(ColumnValue::Number(_) | ColumnValue::Blanks(_)) => Holds::Numbers,
-            Some(_) => Holds::Other,
-        }
-    }
-
-    /// The scalars whose value is a date (ADR-060).
-    fn date_scalars(model: &ParsedModel) -> impl Iterator<Item = &str> {
-        model
-            .scalars
-            .iter()
-            .filter(|(_, var)| var.is_date)
-            .map(|(path, _)| path.as_str())
-    }
-
-    /// Write a scalar's value: a date as a date cell (ADR-060).
-    fn write_scalar_value(
-        worksheet: &mut rust_xlsxwriter::Worksheet,
-        row: u32,
-        var: &crate::types::Variable,
-    ) -> ForgeResult<()> {
-        let Some(value) = var.value else {
-            return Ok(());
-        };
-        let written = match Self::scalar_format(var) {
-            Some(format) => worksheet.write_number_with_format(row, 1, value, &format),
-            None => worksheet.write_number(row, 1, value),
-        };
-        written
-            .map(|_| ())
-            .map_err(|e| ForgeError::Export(format!("Failed to write scalar value: {e}")))
-    }
-
-    /// Write a scalar's formula, with its cached value: a date as a date cell.
-    fn write_scalar_formula(
-        worksheet: &mut rust_xlsxwriter::Worksheet,
-        row: u32,
-        var: &crate::types::Variable,
-        translated: &super::workbook_refs::Translated,
-    ) -> ForgeResult<()> {
-        let mut formula = Formula::new(&translated.formula);
-        if let Some(value) = var.value {
-            formula = formula.set_result(value.to_string());
-        }
-        let written = match (Self::scalar_format(var), translated.has_range) {
-            (Some(format), true) => {
-                worksheet.write_dynamic_formula_with_format(row, 1, formula, &format)
-            },
-            (Some(format), false) => worksheet.write_formula_with_format(row, 1, formula, &format),
-            (None, true) => worksheet.write_dynamic_formula(row, 1, formula),
-            (None, false) => worksheet.write_formula(row, 1, formula),
-        };
-        written
-            .map(|_| ())
-            .map_err(|e| ForgeError::Export(format!("Failed to write scalar formula: {e}")))
-    }
-
-    /// The cell format of a scalar: its `format:` (ADR-061), else a date's
-    /// (ADR-060), else none.
-    fn scalar_format(var: &crate::types::Variable) -> Option<Format> {
-        match (&var.metadata.format, var.is_date) {
-            (Some(code), _) => Some(Format::new().set_num_format(code)),
-            (None, true) => Some(Self::date_format()),
-            (None, false) => None,
-        }
-    }
-
-    /// The format of a date cell: the day number shown as Forge writes dates.
-    fn date_format() -> Format {
-        Format::new().set_num_format("yyyy-mm-dd")
-    }
-
-    /// The number of values of each column.
-    fn column_lengths(table: &Table) -> impl Iterator<Item = (&str, usize)> {
-        table
-            .columns
-            .iter()
-            .map(|(name, column)| (name.as_str(), column.len()))
-    }
-
-    /// Number of data rows: the longest column (columns may differ in length).
-    fn row_count(table: &Table) -> usize {
-        table
-            .columns
-            .values()
-            .map(super::super::types::Column::len)
-            .max()
-            .unwrap_or(0)
-    }
-
-    /// Forge's calculated value as a cached formula result; a date of a
-    /// column of dates as its day number, which is what the cell holds.
-    fn cached_result(values: &ColumnValue, index: usize, is_date: bool) -> Option<String> {
-        if is_date {
-            if let ColumnValue::Text(v) | ColumnValue::Date(v) = values {
-                return v
-                    .get(index)
-                    .and_then(|text| excel_serial(text))
-                    .map(|serial| format!("{serial:.0}"));
-            }
-        }
-        match values {
-            ColumnValue::Number(v) => v.get(index).map(ToString::to_string),
-            ColumnValue::Blanks(v) => v.get(index).copied().flatten().map(|n| n.to_string()),
-            ColumnValue::Text(v) | ColumnValue::Date(v) => v.get(index).cloned(),
-            ColumnValue::Boolean(v) => v
-                .get(index)
-                .map(|b| if *b { "TRUE" } else { "FALSE" }.to_string()),
-        }
-    }
-
-    /// The formula with Forge's result cached in it. A text result that the
-    /// writer would read as a number, a boolean or an error (`010`, `TRUE`) is
-    /// noted in `text_results`, to be marked as text after the save.
-    fn with_cached_result(
-        formula: Formula,
-        column: Option<&Column>,
-        (row_idx, is_date): (usize, bool),
-        (cell, text_results): (TextCell, &mut Vec<TextResult>),
-    ) -> Formula {
-        let Some(column) = column else {
-            return formula;
-        };
-        let Some(result) = Self::cached_result(&column.values, row_idx, is_date) else {
-            return formula;
-        };
-        let is_text = matches!(column.values, ColumnValue::Text(_) | ColumnValue::Date(_));
-        if is_text && !is_date && text_results::looks_like_another_type(&result) {
-            text_results.push(TextResult {
-                sheet: cell.sheet,
-                position: cell.position,
-                text: result.clone(),
-            });
-        }
-        formula.set_result(result)
     }
 
     /// Export the model to an Excel .xlsx file
@@ -405,7 +224,6 @@ impl ExcelExporter {
     }
 
     /// Export a single table to a worksheet
-    #[allow(clippy::cast_possible_truncation)] // column count and row count are within u16/u32 Excel limits
     /// Write a table to its sheet. `names` is (the sheet, the table's name in
     /// `refs`); they differ for a table of an included file.
     fn export_table(
@@ -452,12 +270,11 @@ impl ExcelExporter {
             }
         }
 
-        // Write data rows (starting at row 1)
-        for row_idx in 0..row_count {
-            let excel_row = (row_idx + 1) as u32 + 1; // Excel row of this data row (header is row 1)
-
-            for (col_idx, col_name) in column_names.iter().enumerate() {
-                let col = col_idx as u16;
+        // Write data rows (starting at row 1). `excel_row` is the row as Excel
+        // numbers it (the header is row 1); past Excel's limits the writer
+        // refuses the cell, long before the counters end.
+        for (row_idx, excel_row) in (0..row_count).zip(2u32..=u32::MAX) {
+            for (col, col_name) in (0u16..=u16::MAX).zip(&column_names) {
                 let formula = table.row_formulas.get(col_name);
                 if let (Some(formula), None) = (formula, untranslatable.get(col_name.as_str())) {
                     let ctx = Context::Row {
@@ -530,109 +347,6 @@ impl ExcelExporter {
         Ok(())
     }
 
-    /// The header row (row 0), with each column's metadata as a note (v4.0),
-    /// a formula column's too (ADR-061).
-    #[allow(clippy::cast_possible_truncation)] // far fewer columns than u16::MAX
-    fn write_header(
-        worksheet: &mut Worksheet,
-        table: &Table,
-        column_names: &[String],
-    ) -> ForgeResult<()> {
-        for (col_idx, col_name) in column_names.iter().enumerate() {
-            worksheet
-                .write_string(0, col_idx as u16, col_name)
-                .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
-            if let Some(note_text) = table
-                .metadata(col_name)
-                .and_then(Self::format_metadata_note)
-            {
-                let note = Note::new(note_text).set_author("Forge");
-                worksheet
-                    .insert_note(0, col_idx as u16, &note)
-                    .map_err(|e| ForgeError::Export(format!("Failed to add note: {e}")))?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Each column's `format:`, as the cell format its cells are written
-    /// with (ADR-061).
-    fn column_formats<'t>(table: &Table, column_names: &'t [String]) -> HashMap<&'t str, Format> {
-        column_names
-            .iter()
-            .filter_map(|name| {
-                let code = table.format_of(name)?;
-                Some((name.as_str(), Format::new().set_num_format(code)))
-            })
-            .collect()
-    }
-
-    /// Write a single cell value based on column type; `is_date` says the
-    /// column is written as dates, and `format` is its `format:` (ADR-061).
-    fn write_cell_value(
-        worksheet: &mut Worksheet,
-        cell: (u32, u16),
-        values: &ColumnValue,
-        index: usize,
-        (is_date, format): (bool, Option<&Format>),
-    ) -> ForgeResult<()> {
-        let (row, col) = cell;
-        let number = |worksheet: &mut Worksheet, value: f64| {
-            match format {
-                Some(format) => worksheet.write_number_with_format(row, col, value, format),
-                None => worksheet.write_number(row, col, value),
-            }
-            .map(|_| ())
-            .map_err(|e| ForgeError::Export(format!("Failed to write number: {e}")))
-        };
-        match values {
-            ColumnValue::Number(nums) => {
-                if let Some(&value) = nums.get(index) {
-                    number(worksheet, value)?;
-                }
-            },
-            // An empty cell is left empty (ADR-059)
-            ColumnValue::Blanks(nums) => {
-                if let Some(Some(value)) = nums.get(index) {
-                    number(worksheet, *value)?;
-                }
-            },
-            // A column of dates is written as dates: the day number, shown
-            // as Forge writes it (ADR-054). Any other text is text.
-            ColumnValue::Text(texts) | ColumnValue::Date(texts) => {
-                if let Some(value) = texts.get(index) {
-                    if is_date {
-                        if let Some(serial) = excel_serial(value) {
-                            let date_format = Self::date_format();
-                            worksheet
-                                .write_number_with_format(
-                                    row,
-                                    col,
-                                    serial,
-                                    format.unwrap_or(&date_format),
-                                )
-                                .map_err(|e| {
-                                    ForgeError::Export(format!("Failed to write date: {e}"))
-                                })?;
-                        }
-                    } else {
-                        worksheet.write_string(row, col, value).map_err(|e| {
-                            ForgeError::Export(format!("Failed to write text: {e}"))
-                        })?;
-                    }
-                }
-            },
-            ColumnValue::Boolean(bools) => {
-                if let Some(&value) = bools.get(index) {
-                    worksheet
-                        .write_boolean(row, col, value)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write boolean: {e}")))?;
-                }
-            },
-        }
-        Ok(())
-    }
-
     /// Export scalars to grouped worksheets (one per prefix group)
     /// e.g., "utilities.extinction", "utilities.flourishing" -> worksheet "utilities";
     /// scalars without a group go to the "Scalars" worksheet.
@@ -690,10 +404,9 @@ impl ExcelExporter {
             match translated {
                 Some((_, Ok(t))) => Self::write_scalar_formula(worksheet, row, var, &t)?,
                 Some((formula, Err(reason))) => {
-                    warnings.push(format!("{path}: written as a value ({reason}): {formula}"));
-                    notes.push(format!(
-                        "Forge formula: {formula}\nWritten as a value: {reason}"
-                    ));
+                    let written = written_as(formula, var.value, &reason);
+                    warnings.push(format!("{path}: {written}: {formula}"));
+                    notes.push(format!("Forge formula: {formula}\n{written}"));
                     Self::write_scalar_value(worksheet, row, var)?;
                 },
                 None => Self::write_scalar_value(worksheet, row, var)?,
@@ -751,12 +464,9 @@ impl ExcelExporter {
                 Some((_, Ok(t))) => Self::write_scalar_formula(worksheet, row, var, &t)?,
                 other => {
                     if let Some((formula, Err(reason))) = other {
-                        warnings.push(format!(
-                            "@{namespace}.{path}: written as a value ({reason}): {formula}"
-                        ));
-                        notes.push(format!(
-                            "Forge formula: {formula}\nWritten as a value: {reason}"
-                        ));
+                        let written = written_as(formula, var.value, &reason);
+                        warnings.push(format!("@{namespace}.{path}: {written}: {formula}"));
+                        notes.push(format!("Forge formula: {formula}\n{written}"));
                     }
                     Self::write_scalar_value(worksheet, row, var)?;
                 },
@@ -775,40 +485,829 @@ impl ExcelExporter {
 
         Ok(())
     }
-
-    /// Format metadata fields as a note text for Excel cell comments (v4.0)
-    /// Returns None if metadata is empty
-    fn format_metadata_note(metadata: &Metadata) -> Option<String> {
-        if metadata.is_empty() {
-            return None;
-        }
-
-        let mut parts = Vec::new();
-
-        if let Some(unit) = &metadata.unit {
-            parts.push(format!("Unit: {unit}"));
-        }
-        if let Some(notes) = &metadata.notes {
-            parts.push(format!("Notes: {notes}"));
-        }
-        if let Some(source) = &metadata.source {
-            parts.push(format!("Source: {source}"));
-        }
-        if let Some(status) = &metadata.validation_status {
-            parts.push(format!("Status: {status}"));
-        }
-        if let Some(updated) = &metadata.last_updated {
-            parts.push(format!("Updated: {updated}"));
-        }
-
-        if parts.is_empty() {
-            None
-        } else {
-            Some(parts.join("\n"))
-        }
-    }
 }
 
 #[cfg(test)]
-#[path = "exporter_tests.rs"]
-mod tests;
+mod tests {
+    use super::*;
+    use crate::types::{Column, Variable};
+    use crate::types::{ColumnValue, Metadata};
+
+    // =========================================================================
+    // Metadata Note Formatting Tests
+    // =========================================================================
+
+    // =========================================================================
+    // ExcelExporter Construction Tests
+    // =========================================================================
+
+    #[test]
+    fn test_exporter_new_empty_model() {
+        let model = ParsedModel::new();
+        let exporter = ExcelExporter::new(model);
+        assert!(exporter.refs.columns.is_empty());
+        assert!(exporter.refs.rows.is_empty());
+    }
+
+    #[test]
+    fn test_exporter_new_with_table() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("sales".to_string());
+        table.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        assert!(exporter.refs.columns.contains_key("sales"));
+        assert_eq!(exporter.refs.rows.get("sales"), Some(&3));
+    }
+
+    #[test]
+    fn test_exporter_new_with_row_formula() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("calc".to_string());
+        table.add_column(Column::new(
+            "amount".to_string(),
+            ColumnValue::Number(vec![100.0]),
+        ));
+        table.add_row_formula("total".to_string(), "=SUM(amount)".to_string());
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        // Column map should include both data column and formula column
+        let col_map = exporter.refs.columns.get("calc").unwrap();
+        assert!(col_map.contains_key("amount"));
+        assert!(col_map.contains_key("total"));
+    }
+
+    #[test]
+    fn test_exporter_new_multiple_tables() {
+        let mut model = ParsedModel::new();
+
+        let mut table1 = Table::new("sales".to_string());
+        table1.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0]),
+        ));
+        model.add_table(table1);
+
+        let mut table2 = Table::new("costs".to_string());
+        table2.add_column(Column::new(
+            "expense".to_string(),
+            ColumnValue::Number(vec![50.0, 75.0, 100.0]),
+        ));
+        model.add_table(table2);
+
+        let exporter = ExcelExporter::new(model);
+
+        assert!(exporter.refs.columns.contains_key("sales"));
+        assert!(exporter.refs.columns.contains_key("costs"));
+        assert_eq!(exporter.refs.rows.get("sales"), Some(&2));
+        assert_eq!(exporter.refs.rows.get("costs"), Some(&3));
+    }
+
+    #[test]
+    fn test_exporter_column_maps_keep_model_order() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "zebra".to_string(),
+            ColumnValue::Number(vec![1.0]),
+        ));
+        table.add_column(Column::new(
+            "alpha".to_string(),
+            ColumnValue::Number(vec![2.0]),
+        ));
+        table.add_column(Column::new(
+            "beta".to_string(),
+            ColumnValue::Number(vec![3.0]),
+        ));
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+        let col_map = exporter.refs.columns.get("data").unwrap();
+
+        // zebra -> A, alpha -> B, beta -> C (the order the columns were added)
+        assert_eq!(col_map.get("zebra"), Some(&"A".to_string()));
+        assert_eq!(col_map.get("alpha"), Some(&"B".to_string()));
+        assert_eq!(col_map.get("beta"), Some(&"C".to_string()));
+    }
+
+    #[test]
+    fn test_exporter_empty_table() {
+        let mut model = ParsedModel::new();
+        let table = Table::new("empty".to_string());
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+        assert_eq!(exporter.refs.rows.get("empty"), Some(&0));
+    }
+
+    // =========================================================================
+    // Excel Export Tests (File I/O)
+    // =========================================================================
+
+    #[test]
+    fn test_export_empty_model() {
+        use tempfile::TempDir;
+
+        let model = ParsedModel::new();
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("empty.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_single_table() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("sales".to_string());
+        table.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("sales.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+
+        // File should have non-zero size
+        let metadata = std::fs::metadata(&output_path).unwrap();
+        assert!(metadata.len() > 0);
+    }
+
+    #[test]
+    fn test_export_with_text_column() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "names".to_string(),
+            ColumnValue::Text(vec![
+                "Alice".to_string(),
+                "Bob".to_string(),
+                "Charlie".to_string(),
+            ]),
+        ));
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("names.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_with_date_column() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("timeline".to_string());
+        table.add_column(Column::new(
+            "date".to_string(),
+            ColumnValue::Date(vec![
+                "2024-01-01".to_string(),
+                "2024-02-01".to_string(),
+                "2024-03-01".to_string(),
+            ]),
+        ));
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("dates.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_with_boolean_column() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("flags".to_string());
+        table.add_column(Column::new(
+            "active".to_string(),
+            ColumnValue::Boolean(vec![true, false, true]),
+        ));
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("flags.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_with_row_formula() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("calc".to_string());
+        table.add_column(Column::new(
+            "price".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        table.add_column(Column::new(
+            "quantity".to_string(),
+            ColumnValue::Number(vec![2.0, 3.0, 4.0]),
+        ));
+        table.add_row_formula("total".to_string(), "=price * quantity".to_string());
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("calculated.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_with_scalars() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "tax_rate".to_string(),
+            Variable::new("tax_rate".to_string(), Some(0.15), None),
+        );
+        model.add_scalar(
+            "profit".to_string(),
+            Variable::new(
+                "profit".to_string(),
+                Some(50000.0),
+                Some("=revenue - costs".to_string()),
+            ),
+        );
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("scalars.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_multiple_tables() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+
+        let mut revenue_table = Table::new("revenue".to_string());
+        revenue_table.add_column(Column::new(
+            "amount".to_string(),
+            ColumnValue::Number(vec![1000.0, 2000.0, 3000.0]),
+        ));
+        model.add_table(revenue_table);
+
+        let mut costs_table = Table::new("costs".to_string());
+        costs_table.add_column(Column::new(
+            "amount".to_string(),
+            ColumnValue::Number(vec![500.0, 750.0, 1000.0]),
+        ));
+        model.add_table(costs_table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("multi.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_with_metadata() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        let metadata = Metadata {
+            unit: Some("CAD".to_string()),
+            notes: Some("Revenue data".to_string()),
+            source: Some("finance.yaml".to_string()),
+            validation_status: Some("VALIDATED".to_string()),
+            last_updated: Some("2024-01-01".to_string()),
+            better: None,
+            format: None,
+        };
+
+        table.add_column(Column::with_metadata(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0]),
+            metadata,
+        ));
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("metadata.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_mixed_column_types() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("mixed".to_string());
+
+        table.add_column(Column::new(
+            "amount".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0]),
+        ));
+        table.add_column(Column::new(
+            "category".to_string(),
+            ColumnValue::Text(vec!["A".to_string(), "B".to_string()]),
+        ));
+        table.add_column(Column::new(
+            "date".to_string(),
+            ColumnValue::Date(vec!["2024-01-01".to_string(), "2024-02-01".to_string()]),
+        ));
+        table.add_column(Column::new(
+            "active".to_string(),
+            ColumnValue::Boolean(vec![true, false]),
+        ));
+
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("mixed.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_to_nonexistent_directory_fails() {
+        let model = ParsedModel::new();
+        let exporter = ExcelExporter::new(model);
+
+        let output_path = std::path::Path::new("/nonexistent/dir/output.xlsx");
+
+        let result = exporter.export(output_path);
+        assert!(result.is_err());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Additional coverage tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_export_with_row_formulas() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        table.add_column(Column::new(
+            "price".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0]),
+        ));
+        table.add_column(Column::new(
+            "quantity".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0]),
+        ));
+
+        // Add a formula column
+        table
+            .row_formulas
+            .insert("total".to_string(), "=price * quantity".to_string());
+
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("formulas.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_scalars_with_formulas() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+
+        // Add input scalar (no formula)
+        model.scalars.insert(
+            "inputs.rate".to_string(),
+            crate::types::Variable::new("inputs.rate".to_string(), Some(0.05), None),
+        );
+
+        // Add output scalar (with formula)
+        model.scalars.insert(
+            "outputs.result".to_string(),
+            crate::types::Variable::new(
+                "outputs.result".to_string(),
+                Some(500.0),
+                Some("=inputs.rate * 10000".to_string()),
+            ),
+        );
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("scalars.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_aggregations() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+
+        // Add a table
+        let mut table = Table::new("sales".to_string());
+        table.add_column(Column::new(
+            "amount".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(table);
+
+        // Add aggregation
+        model
+            .aggregations
+            .insert("total_sales".to_string(), "=SUM(sales.amount)".to_string());
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("aggregations.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_export_empty_table() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let table = Table::new("empty".to_string());
+        // Don't add any columns
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("empty.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_export_large_table() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("large".to_string());
+
+        // Create 1000 row table
+        let values: Vec<f64> = (0..1000).map(f64::from).collect();
+        table.add_column(Column::new("id".to_string(), ColumnValue::Number(values)));
+
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("large.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_export_cross_table_formula() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+
+        // First table
+        let mut revenue = Table::new("revenue".to_string());
+        revenue.add_column(Column::new(
+            "amount".to_string(),
+            ColumnValue::Number(vec![1000.0, 2000.0]),
+        ));
+        model.add_table(revenue);
+
+        // Second table referencing first
+        let mut profit = Table::new("profit".to_string());
+        profit.add_column(Column::new(
+            "margin".to_string(),
+            ColumnValue::Number(vec![0.2, 0.3]),
+        ));
+        profit
+            .row_formulas
+            .insert("amount".to_string(), "=revenue.amount * margin".to_string());
+        model.add_table(profit);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("cross_table.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_export_all_metadata_fields() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("complete".to_string());
+
+        // Full metadata
+        let metadata = Metadata {
+            unit: Some("USD".to_string()),
+            notes: Some("Complete metadata test".to_string()),
+            source: Some("test.yaml".to_string()),
+            validation_status: Some("PENDING".to_string()),
+            last_updated: Some("2025-12-04".to_string()),
+            better: None,
+            format: None,
+        };
+
+        table.add_column(Column::with_metadata(
+            "value".to_string(),
+            ColumnValue::Number(vec![42.0]),
+            metadata,
+        ));
+        model.add_table(table);
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("full_metadata.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+    }
+
+    // =========================================================================
+    // Grouped Scalar Export Tests (v5.0.0 scalar models)
+    // =========================================================================
+
+    #[test]
+    fn test_export_grouped_scalars() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+
+        // Add scalars in different groups (simulating v5.0.0 scalar model)
+        // Group: utilities
+        model.scalars.insert(
+            "utilities.extinction".to_string(),
+            Variable::new("utilities.extinction".to_string(), Some(0.0), None),
+        );
+        model.scalars.insert(
+            "utilities.flourishing".to_string(),
+            Variable::new("utilities.flourishing".to_string(), Some(100.0), None),
+        );
+
+        // Group: scenario_probs
+        model.scalars.insert(
+            "scenario_probs.p_unaligned".to_string(),
+            Variable::new("scenario_probs.p_unaligned".to_string(), Some(0.35), None),
+        );
+        model.scalars.insert(
+            "scenario_probs.p_aligned".to_string(),
+            Variable::new("scenario_probs.p_aligned".to_string(), Some(0.25), None),
+        );
+
+        // Group: analysis (with formula referencing other groups)
+        model.scalars.insert(
+            "analysis.expected_value".to_string(),
+            Variable::new(
+                "analysis.expected_value".to_string(),
+                Some(25.0),
+                Some("=scenario_probs.p_aligned * utilities.flourishing".to_string()),
+            ),
+        );
+
+        let exporter = ExcelExporter::new(model);
+
+        // Verify scalar locations were built correctly
+        assert!(exporter.refs.scalars.contains_key("utilities.extinction"));
+        assert!(exporter
+            .refs
+            .scalars
+            .contains_key("scenario_probs.p_unaligned"));
+        assert!(exporter
+            .refs
+            .scalars
+            .contains_key("analysis.expected_value"));
+
+        // Verify worksheet assignments
+        let util_loc = exporter.refs.scalars.get("utilities.extinction").unwrap();
+        assert_eq!(util_loc.0, "utilities");
+
+        let prob_loc = exporter
+            .refs
+            .scalars
+            .get("scenario_probs.p_unaligned")
+            .unwrap();
+        assert_eq!(prob_loc.0, "scenario_probs");
+
+        let analysis_loc = exporter
+            .refs
+            .scalars
+            .get("analysis.expected_value")
+            .unwrap();
+        assert_eq!(analysis_loc.0, "analysis");
+
+        // Export and verify file creation
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("grouped_scalars.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+        assert!(output_path.exists());
+    }
+
+    #[test]
+    fn test_export_scalars_without_dots() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+
+        // Scalars without dots should go to "Scalars" worksheet
+        model.scalars.insert(
+            "tax_rate".to_string(),
+            Variable::new("tax_rate".to_string(), Some(0.15), None),
+        );
+        model.scalars.insert(
+            "discount_rate".to_string(),
+            Variable::new("discount_rate".to_string(), Some(0.10), None),
+        );
+
+        let exporter = ExcelExporter::new(model);
+
+        // Verify they go to "Scalars" worksheet
+        let tax_loc = exporter.refs.scalars.get("tax_rate").unwrap();
+        assert_eq!(tax_loc.0, "Scalars");
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("ungrouped_scalars.xlsx");
+
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_export_warns_when_scenarios_are_not_exported() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        model.scalars.insert(
+            "rate".to_string(),
+            Variable::new("rate".to_string(), Some(0.1), None),
+        );
+        for name in ["bull", "base"] {
+            model.scenarios.insert(
+                name.to_string(),
+                crate::types::Scenario {
+                    overrides: std::collections::HashMap::from([("rate".to_string(), 0.2)]),
+                    description: None,
+                    dates: std::collections::BTreeSet::new(),
+                },
+            );
+        }
+
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("with_scenarios.xlsx");
+        let warnings = ExcelExporter::new(model)
+            .export_with_warnings(&path)
+            .unwrap();
+
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].starts_with("scenarios: not exported (base, bull)"),
+            "{}",
+            warnings[0]
+        );
+    }
+
+    #[test]
+    fn test_export_without_scenarios_has_no_scenario_warning() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        model.scalars.insert(
+            "rate".to_string(),
+            Variable::new("rate".to_string(), Some(0.1), None),
+        );
+
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("no_scenarios.xlsx");
+        let warnings = ExcelExporter::new(model)
+            .export_with_warnings(&path)
+            .unwrap();
+
+        assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn test_translate_grouped_scalar_formula() {
+        use super::super::workbook_refs::Context;
+        let mut model = ParsedModel::new();
+        model.scalars.insert(
+            "utilities.flourishing".to_string(),
+            Variable::new("utilities.flourishing".to_string(), Some(100.0), None),
+        );
+        model.scalars.insert(
+            "scenario_probs.p_aligned".to_string(),
+            Variable::new("scenario_probs.p_aligned".to_string(), Some(0.25), None),
+        );
+        let exporter = ExcelExporter::new(model);
+        let t = exporter
+            .refs
+            .to_excel(
+                "=scenario_probs.p_aligned * utilities.flourishing",
+                Context::Scalar {
+                    group: Some("analysis"),
+                },
+            )
+            .unwrap();
+        assert_eq!(t.formula, "='scenario_probs'!$B$2 * 'utilities'!$B$2");
+    }
+
+    #[test]
+    fn test_export_scalar_with_mc_formula() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+
+        // Scalar with Monte Carlo formula (not supported in Excel)
+        model.scalars.insert(
+            "inputs.probability".to_string(),
+            Variable::new(
+                "inputs.probability".to_string(),
+                Some(0.35), // Calculated value
+                Some("=MC.Triangular(0.25, 0.35, 0.45)".to_string()),
+            ),
+        );
+
+        let exporter = ExcelExporter::new(model);
+
+        let dir = TempDir::new().unwrap();
+        let output_path = dir.path().join("mc_scalar.xlsx");
+
+        // Should succeed - MC formulas are written as values with formula in comment
+        let result = exporter.export(&output_path);
+        assert!(result.is_ok());
+    }
+}

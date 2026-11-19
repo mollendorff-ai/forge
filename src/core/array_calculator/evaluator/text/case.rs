@@ -28,7 +28,6 @@ pub fn eval_trim(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -558,9 +557,9 @@ mod tests {
         let rounded = result_table.columns.get("rounded").unwrap();
         match &rounded.values {
             ColumnValue::Number(nums) => {
-                assert_eq!(nums[0], 1.2);
-                assert_eq!(nums[1], 5.7);
-                assert_eq!(nums[2], 9.0);
+                assert_exact!(nums[0], 1.2);
+                assert_exact!(nums[1], 5.7);
+                assert_exact!(nums[2], 9.0);
             },
             _ => panic!("Expected Number array"),
         }

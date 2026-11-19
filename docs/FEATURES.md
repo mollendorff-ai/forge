@@ -179,7 +179,7 @@ month        opening   interest   paid        closing
 - `NPV`, `IRR` and `MIRR` skip it, so the cash flows after it are discounted a period earlier, as in Excel; `forge audit` warns when one reads a column with an empty cell. `XNPV` and `XIRR` leave out the cash flow with its date.
 - `forge calculate` keeps the nulls, JSON shows `null`, `forge export` writes an empty cell, and `forge import` reads one back as `null` (beside formulas that run further down, the last cells of a column of numbers are empty cells too). A column of text, dates or booleans cannot have an empty cell.
 
-`examples/mortgage` (a 300-month schedule with extra payments), `examples/periods/monthly_plan.yaml` (growth, seasons and running cash) and `examples/periods/dcf.yaml` (a five-year valuation) use them; their numbers are checked against Python in `tests/demo_examples.rs`.
+`examples/mortgage` (a 300-month schedule with extra payments), `examples/periods/monthly_plan.yaml` (growth, seasons and running cash) and `examples/periods/dcf.yaml` (a five-year valuation) use them; their numbers are checked against Python in `src/cli/commands/examples.rs` (its `demo_examples` tests).
 
 ### Values from Other Files (`_includes`)
 
@@ -213,6 +213,7 @@ summary:
 - A column of a table of the included file is `@namespace.table.column` (`@prices.list.per_kg`), its formula columns calculated. In a row formula it pairs row by row with the formula's own table, so both must have as many rows; otherwise the error names both files and their lengths. A lookup or an aggregate reads the whole column whatever the lengths: `INDEX(@prices.list.per_kg, 2)` in a row formula, `SUM(@prices.list.per_kg)` in a scalar or a row formula (ADR-058).
 - A name that the included file does not have is an error that names the `_includes` entry it needs.
 - A group in the model can have the same name as a namespace; `@` keeps them apart.
+- `forge tornado`, `goal-seek`, `break-even` and `sensitivity` vary a scalar of the included file named as a scenario names it, `@rates.fx.usd_eur` (or `@rates.usd_eur` when only one of its scalars has that name), and the included file is calculated with each value. An `_includes` entry that is not there is an error that lists the model's entries.
 - `forge export` writes the included file's scalars to a sheet of their own (`rates.Scalars`, names `rates.fx.eur_usd`), and a formula that reads one (`@rates.fx.eur_usd`) as a reference to its cell, so changing the rate in Excel changes every result that uses it. The included file's own formulas are formulas on that sheet. Its tables are written to their own sheets (`rates.prices`), with their formulas, and a formula that reads one of their columns (`@rates.prices.eur`) as a reference to that sheet: the same row in a row formula, the whole column in an aggregate. An include of the included file is not followed: a formula that reads one is written as its value and listed.
 - `forge import` turns such sheets back into the included file (`rates.yaml`, beside the imported model, with its scalars and its tables) and their references into `@rates.fx.eur_usd` and `@rates.prices.eur`, with an `_includes` entry. If a file of that name is already there and calculates to the sheets' values (usually the original), it is kept as it is; if it holds other values, the import stops before writing anything.
 - With the MCP server and inline `content`, pass the included files in the `includes` map (see [MCP.md](MCP.md)).
@@ -275,19 +276,75 @@ curl -X POST http://localhost:8080/api/v1/calculate \
 
 Give `file_path` or `content`, not both. Include paths in inline content must be relative and cannot use `..`.
 
-**Response:**
+**Response:** every answer is `{"success": true, "request_id": "...", "data": {...}}` with HTTP 200, also when the model could not be read or calculated: `success` says the request was handled, and the `data` says whether the operation worked (`valid`, `calculated`, `audited`, `exported`, `imported`) with the reason in `message`. Numbers have 15 significant digits.
+
+**Each endpoint**, on a model `model.yaml` with `sales.price: 40`, `sales.units: 120` and `sales.revenue: {formula: "=sales.price * sales.units"}`:
+
+`POST /api/v1/validate`: the formulas, the cycles and any value that differs from its formula.
 
 ```json
-{
-  "success": true,
-  "request_id": "550e8400-e29b-41d4-a716-446655440000",
-  "data": {
-    "valid": true,
-    "file_path": "model.yaml",
-    "message": "Validation successful"
-  }
-}
+{"file_path": "model.yaml"}
 ```
+
+```json
+{"success": true, "request_id": "c93c5b29-4564-4836-919d-ab5fd463a53b",
+ "data": {"valid": true, "file_path": "model.yaml", "message": "Validation successful",
+          "result": {"tables_valid": true, "scalars_valid": true, "table_count": 0,
+                     "scalar_count": 3, "mismatches": []}}}
+```
+
+`POST /api/v1/calculate`: every formula; without `"dry_run": true` the values are written into the file (for `content`, returned as `calculated_content`). `"scenario": "name"` applies a scenario's overrides first, including one for a value in an included file.
+
+```json
+{"file_path": "model.yaml", "dry_run": true}
+```
+
+```json
+{"success": true, "request_id": "deae6616-ca91-4ee9-9dd8-f487f8826b4c",
+ "data": {"calculated": true, "file_path": "model.yaml", "dry_run": true, "message": "Dry run completed",
+          "result": {"tables": {}, "scalars": {"sales.price": 40.0, "sales.revenue": 4800.0, "sales.units": 120.0},
+                     "unit_warnings": [], "file_updated": false, "dry_run": true}}}
+```
+
+`POST /api/v1/audit`: where one variable's value comes from, down to the inputs (and the included files).
+
+```json
+{"file_path": "model.yaml", "variable": "sales.revenue"}
+```
+
+```json
+{"success": true, "request_id": "f2ce4d6f-b7e5-4b34-8e29-39278e7c6011",
+ "data": {"audited": true, "file_path": "model.yaml", "variable": "sales.revenue", "message": "Audit completed",
+          "result": {"variable": "sales.revenue", "var_type": "Scalar", "current_value": null,
+                     "calculated_value": 4800.0, "formula": "=sales.price * sales.units",
+                     "dependencies": [{"name": "sales.price", "dep_type": "Scalar", "formula": null, "value": 40.0, "children": []},
+                                      {"name": "sales.units", "dep_type": "Scalar", "formula": null, "value": 120.0, "children": []}],
+                     "is_valid": true}}}
+```
+
+`POST /api/v1/export`: a model to an Excel workbook. It names files, on the machine that runs Forge; the other endpoints that take a model also take its text.
+
+```json
+{"yaml_path": "model.yaml", "excel_path": "model.xlsx"}
+```
+
+```json
+{"success": true, "request_id": "c00d5d55-7cdb-4203-95bc-0d635a3f7c23",
+ "data": {"exported": true, "yaml_path": "model.yaml", "excel_path": "model.xlsx", "message": "Export completed"}}
+```
+
+`POST /api/v1/import`: a workbook to a model, with the included files its sheets came from written beside it.
+
+```json
+{"excel_path": "model.xlsx", "yaml_path": "back.yaml"}
+```
+
+```json
+{"success": true, "request_id": "15c17987-ab60-4b0f-9afc-1d45ef0c4c0e",
+ "data": {"imported": true, "excel_path": "model.xlsx", "yaml_path": "back.yaml", "message": "Import completed"}}
+```
+
+A model that cannot be read answers in the same shape with the operation's flag false, for example `{"valid": false, "file_path": "missing.yaml", "message": "IO error: No such file or directory (os error 2)"}`. The tests in `src/api/server.rs` (`bagel_over_http`) run each endpoint on `examples/bagel` and assert the numbers the command-line tests assert.
 
 ---
 
@@ -358,21 +415,21 @@ The price barely drives profit: a higher price brings fewer units (the correlati
 | `MC.Uniform(min, max)` | minimum, maximum | Anything in a range, equally likely |
 | `MC.PERT(min, mode, max)` | minimum, most likely, maximum | Three-point estimates, smoother than triangular |
 | `MC.Lognormal(mean, std_dev)` | mean, standard deviation | Prices and values that cannot go negative |
-| `MC.Discrete(values, probabilities)` | two arrays | A few specific outcomes |
+| `MC.Discrete({values}, {probabilities})` | two array constants, a row `{0, 0.3}` or a column `{0; 0.3}` | A few specific outcomes: `MC.Discrete({0, 0.3}, {0.9, 0.1})` is 0 nine times in ten and 0.3 the tenth |
 
 Every argument is a finite number: `inf`, `NaN` and a literal too large for a number (`1E+400`) are refused with the scalar and the argument named, and so is a distribution whose `max - min` or whose draws would overflow (`MC.Normal(0, 1E+308)`).
 
-An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}`); a bare string is an error in a scalar group. It can also be in an included file: the input is then named `@costs.ingredients.flour_per_kg`, and `examples/bagel/costs_risk.yaml` shows the pattern (it reads the certain prices from `costs.yaml` and makes two uncertain). `forge calculate` cannot evaluate `MC.*` and says to run `forge simulate`.
+An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}`); a bare string is an error in a scalar group. It can also be in an included file: the input is then named `@costs.ingredients.flour_per_kg`, and `examples/bagel/costs_risk.yaml` shows the pattern (it reads the certain prices from `costs.yaml` and makes two uncertain). A table column can be one too (`shock: "=MC.Normal(0, 0.06)"`): each row is then drawn on its own, as an input named `years.shock (row 2)`, so a column of yearly shocks is a path rather than one draw repeated, and the rows are independent; `examples/realestate/realestate_flex.yaml` shows it. The plan value of each row is the distribution's mode, mean or midpoint. `forge calculate` cannot evaluate `MC.*` and says to run `forge simulate`, naming each scalar and column.
 
 ### Settings (`monte_carlo:`)
 
 - `iterations` (100 to 1,000,000 in the file, default 10,000; `-n` accepts any count from 1), `sampling` (`latin_hypercube`, the default, spreads each input's samples evenly and gives steadier results for the same count; or `monte_carlo`), and `seed` for the same samples on every run.
 - `outputs`: for each output, `variable` (a scalar, or a table column such as `months.profit`, which gives one result per row, printed as a table); `percentiles` (added to P5, P10, P25, P50, P75, P90 and P95, each 0 to 100); `threshold` or `thresholds` (`"> 0"`, `"<= 100000"`; operators `>`, `>=`, `<`, `<=`, `=`); `expected_shortfall` (`[5, 10]`: the mean of the worst 5% and 10% of runs, the lowest results, or the highest when the variable has `better: lower`; the worst ceil(n × p / 100) runs are averaged). An unknown key is an error.
-- `correlations`: pairs of inputs and a coefficient between -1 and 1, applied as a Gaussian copula, so each input keeps its own distribution (the rank correlation that results is a little lower: 0.58 for 0.6). A name can be the full name or its last part when that is unique, and an input of an included file can be paired with one of the model.
+- `correlations`: pairs of inputs and a coefficient between -1 and 1, applied as a Gaussian copula, so each input keeps its own distribution (the rank correlation that results is a little lower, (6/π) asin(ρ/2): 0.58 for 0.6). Coefficients that no set of inputs can have together, such as a with b 0.9, b with c 0.9 and a with c -0.9, or a coefficient of exactly 1 or -1, are refused before anything is drawn, naming the inputs. `examples/vineyard` shows what a correlation changes: the crop and the price at -0.7 cut the chance of a losing season from 33% to 26%, and the mean with it. A name can be the full name or its last part when that is unique, and an input of an included file can be paired with one of the model.
 
 ### Seeking a probability
 
-`forge simulate model.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24` finds the value of one input at which an output meets a threshold with the probability asked for (`= 80%` works too). Every simulation uses the same seed, so the uncertain inputs are drawn the same way for every value tried; the probability then changes in steps, and bisection finds, to a millionth of the range, the value where it first reaches the goal. If the goal is not crossed between `--min` and `--max`, it says what the probability is at each end. On the bagel model (1,000 runs) the answer is a price of 18.354: just above the 800th lowest of the runs' break-even prices, which numpy computes from the same samples (`tests/bagel_example.rs`). The MCP `forge_simulate` tool takes `seek`, `vary`, `min` and `max`.
+`forge simulate model.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24` finds the value of one input at which an output meets a threshold with the probability asked for (`= 80%` works too). Every simulation uses the same seed, so the uncertain inputs are drawn the same way for every value tried; the probability then changes in steps, and bisection finds, to a millionth of the range, the value where it first reaches the goal. If the goal is not crossed between `--min` and `--max`, it says what the probability is at each end. On the bagel model (1,000 runs) the answer is a price of 18.354: just above the 800th lowest of the runs' break-even prices, which numpy computes from the same samples (`src/cli/commands/examples.rs` (its `bagel_example` tests)). The MCP `forge_simulate` tool takes `seek`, `vary`, `min` and `max`.
 
 ### Results
 
@@ -381,7 +438,7 @@ An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}
 - `-o results.json`, `.yaml` or `.xlsx`; the workbook also holds histograms and the first 1,000 samples of every input and output. The MCP `forge_simulate` tool returns the JSON, and takes `scenario` too.
 - A failed iteration stops the simulation with its number and the error; it is never counted as 0.
 
-Checked on `examples/bagel/bagel_simulate.yaml`: the outputs Forge calculates for its own input samples match a numpy re-implementation of the model to 1e-10, and the threshold probabilities and drivers match numpy and `scipy.stats.spearmanr` on those samples (`tests/bagel_example.rs`).
+Checked on `examples/bagel/bagel_simulate.yaml`: the outputs Forge calculates for its own input samples match a numpy re-implementation of the model to 1e-10, and the threshold probabilities and drivers match numpy and `scipy.stats.spearmanr` on those samples (`src/cli/commands/examples.rs` (its `bagel_example` tests)).
 
 Each iteration recalculates the model with the sampled values, including its included files; the formulas are parsed and ordered once for the whole simulation. The 12-month bagel model takes about 0.11 ms an iteration: 5,000 runs in about half a second, 100,000 in about 12 seconds.
 
@@ -404,6 +461,7 @@ Scenario Analysis models strategic decision-making through distinct future state
 
 **Key Features:**
 - Define 2-10 scenarios with probability weights (must sum to 1.0)
+- Keep choices beside them: a scenario without a probability is left out of the weighting, named in the output, and compared with `forge compare`
 - Override any scalar variable per scenario
 - Calculate expected values across all scenarios
 - Full integration with existing Forge models
@@ -1171,7 +1229,7 @@ forge export model.yaml output.xlsx
 - Table sheets come first, in file order, then the scalar sheets in the order their groups first appear. `forge import` reads the sheets in workbook order, so a model keeps its column and scalar order through export and import; only the tables move ahead of the scalar groups.
 - Row formulas become cell formulas row by row. A scalar is an absolute cell (`'assumptions'!$B$3`). In a scalar formula a column is its full range (`'projections'!$D$2:$D$4`), which ends at the column's own last value when it is shorter than its table. Names resolve the way `forge calculate` resolves them.
 - The model is calculated first, and each formula cell carries Forge's result, so viewers that do not recalculate show the right numbers.
-- A formula Excel cannot express with the same meaning is written as its calculated value, with the Forge formula in a cell note, and listed as a warning. This covers functions Excel lacks or evaluates differently (`MC.*`, `VLOOKUP` in Forge's one-column form, `NOW`), a `LAMBDA` that is not called where it is written, `COUNTUNIQUE` of anything but one column in a scalar, a date read in a way that has no rule (below), array indexing `[ ]`, and `IRR(-cost, flows)` (Excel reads the second argument as a guess).
+- A formula Excel cannot express with the same meaning is written as its calculated value, with the Forge formula in a cell note, and listed as a warning. This covers functions Excel lacks or evaluates differently (`MC.*`, `NOW`), a `VLOOKUP` or `HLOOKUP` whose table Excel would not read as one column or one row (Forge reads it so: `VLOOKUP` is written as a formula over a table column or a column constant `{1;2;3}`, `HLOOKUP` over a row constant `{1,2,3}` only, since a table column is a column of the sheet), a lookup that touches a date, a `LAMBDA` that is not called where it is written, `COUNTUNIQUE` of anything but one column in a scalar, a date read in a way that has no rule (below), array indexing `[ ]`, and `IRR(-cost, flows)` (Excel reads the second argument as a guess). An uncertain input (`MC.*`) is written as its plan value (an uncertain column, as its plan values, with its formula in a note), the one `forge simulate` shows the outputs at (the `value:` beside it, or its distribution's mode, mean or midpoint), so the workbook calculates the plan; `forge import` brings it back as that value, without the distribution.
 - **Dates are dates** (ADR-054). A column in which every value is a date from 1900-03-01 on, typed in or calculated (`EDATE(d, 1)`, `DATE(y, m, d)`, a period column, `TODAY()`), is written as date cells, and so is a scalar that is a date (ADR-060), with the format set by Forge, not guessed by the spreadsheet: Excel's day number, shown as `2026-01-31`. Months (`2026-01`), earlier dates and a column that mixes dates with other text (`n/a` in some rows) stay text. A formula reads each date the way Forge reads it there: the cell where a number is read (`=YEAR(A2)`, `=B2 - A2`, `=IF(B2 > A2, 1, 0)`); the date's text where text is read, written so that it does not depend on Excel's language (`=LEFT(TEXT(YEAR(A2) * 10000 + MONTH(A2) * 100 + DAY(A2), "0000-00-00"), 4)` for `=LEFT(d, 4)`); `DATE(2026, 6, 1)` for a date written in the formula where a number is read (`d > "2026-06-01"`), and in a criterion (`">" & DATE(2026, 2, 1)` for `">2026-02-01"`). A formula column of dates must give dates: `=UPPER(d)`, whose dates are text made by a text function, is written as values, and so is any formula that reads a date in a way with no rule (`SUMPRODUCT(t.d, t.v)`, a date inside a `LAMBDA`). A column that holds dates as text (`n/a` among them, or a date before 1900-03-01) is read as text by Excel: a formula that reads a number from it (`YEAR(maturity)`, `maturity > DATE(2026, 6, 1)`, `MAX(loans.maturity)`) is written as values, and one that reads its text (`maturity = "n/a"`, `LEFT(maturity, 4)`, `COUNTIF(loans.maturity, "n/a")`) stays a formula. The same holds for any text column with a digit in it (`"5"`, `2026-01`), which Excel turns into numbers its own way; a comparison with `<` or `>` on text, which Excel orders above every number, is written as values too. `forge import` reads date cells as dates and these formulas back as they were written; a workbook's own formula that reads a date cell as text (`=LEFT(A2, 4)` is `4605` in Excel), or a number from a date held as text (`=A2 > DATE(2026, 6, 1)` is TRUE for any text), is imported as its values, with a warning.
 - `LET` is written as Excel's `LET`, with its names stored as Excel stores them (`_xlpm.x`). A `LAMBDA` called where it is written, `LAMBDA(p, r, p * (1 + r))(1000, 0.05)`, is written as the `LET` that computes the same, `LET(p, 1000, r_, 0.05, p * (1 + r_))`: the values are worked out first, then the body, in both. Excel 2021 has `LET`; only Excel 365 has `LAMBDA`. A name Excel refuses (`r`, `c`, `x1`), one used twice in the formula, or one that is also a value the formula reads, gets `_` added in Excel; a `LET` that is the whole value or calculation of another is merged into it. `forge import` reads them back as a `LET`.
 - `COUNTUNIQUE(t.c)` in a scalar is written as `ROWS(UNIQUE(range))` for a column of numbers, and as `SUMPRODUCT(1 / MMULT(--EXACT(range, TRANSPOSE(range)), ROW(range)^0))` for a column of text, because Forge counts `a` and `A` as two values and Excel's `UNIQUE` as one. `forge import` reads both back as `COUNTUNIQUE`. A column of dates is counted as the numbers its cells hold.
@@ -1190,7 +1248,7 @@ forge import spreadsheet.xlsx output.yaml
 - A sheet whose header is `Name`, `Value` becomes a scalar group; any other sheet becomes a table.
 - References are translated with every sheet's layout, so `'assumptions'!$B$3` comes back as `assumptions.base_revenue` and a column range as `table.column`.
 - A table column is a row formula only if every row holds the same formula, or its first rows differ from the rest in the way `forge export` writes a `PREV`: those first rows hold the first value and the others read a row above. Such a column comes back as the `PREV` that was written, `PREV(closing, loan.principal) + x` or `PREV(x, 0, 2)`, checked against every first row before it is kept. A running balance built by hand (`=A2`, then `=B2+A3`) is not one `PREV`, because its first row is `amount` and not `0 + amount`, so it comes in as `=IF(ROW() = 1, amount, PREV(balance, 0) + amount)`, the same calculation. Any other column of differing formulas is imported as its values, with a warning.
-- A formula Forge cannot express (a reference two or more rows up, a single cell of a table in a scalar formula, named ranges) is imported as its value, with a warning. So is a formula that uses a function Forge defines differently from Excel (`COLUMN`, `VLOOKUP`, `HLOOKUP`, `OFFSET`, `INDIRECT`, `NOW`, `UNIQUE`, `SORT`, `FILTER`, `SEQUENCE`). Excel's `ROW()` in a table is read as `(ROW() + 1)`, since a table's first row is the sheet's second.
+- A formula Forge cannot express (a reference two or more rows up, a single cell of a table in a scalar formula, named ranges) is imported as its value, with a warning. So is a formula that uses a function Forge defines differently from Excel (`COLUMN`, `VLOOKUP` and `HLOOKUP`, whose table in a workbook may be wider than one column or row, `OFFSET`, `INDIRECT`, `NOW`, `UNIQUE`, `SORT`, `FILTER`, `SEQUENCE`). Excel's `ROW()` in a table is read as `(ROW() + 1)`, since a table's first row is the sheet's second.
 - The YAML is model format 5.1.0: an input is a plain number (`price: 16`), a formula keeps its last result (`{formula: "=...", value: 600000}`), and whole numbers stay whole.
 - A model exported with `forge export` and imported again calculates to the same numbers (tested on the examples and the forge-e2e-gnumeric models). The YAML keeps the model's order but is not identical: comments are not in the workbook, and formulas are respaced.
 - `--multi-doc` writes one file with a document per sheet; it calculates exactly like the single file (ADR-052). `--split-files` writes a file per sheet, and refuses, writing nothing, when a formula in one part uses another part's table or scalars, since separate files cannot refer to each other's tables.

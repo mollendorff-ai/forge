@@ -1,0 +1,65 @@
+_forge_version: "5.1.0"
+# Project Kittiwake (fictional): Thornvale Capital, a private-equity fund,
+# is circling Quillon too. Open at 30% and risk a counter-bid, or go in at
+# 40% to knock Thornvale out?
+#
+# Each value is the value the deal creates for Valdane at that price,
+# valuation.value_created in deal.yaml with offer.premium set to the
+# branch's premium, rounded to the cent; a test calculates each one again.
+# Losing to Thornvale is not nothing: Quillon pays Valdane a 30 break fee
+# when it accepts a better offer, less the 12 Valdane has spent, so 18.
+# How likely Thornvale is to counter is a judgement typed in, not worked
+# out from Thornvale's own numbers.
+#
+#   forge decision-tree deal_bid.yaml
+decision_tree:
+  name: "Kittiwake: the opening bid"
+  root:
+    type: decision
+    name: "What does Valdane offer?"
+    branches:
+      offer_30_percent:
+        next: thornvale_after_30
+      knockout_40_percent:
+        next: thornvale_after_40
+      walk_away:
+        value: 0
+  nodes:
+    thornvale_after_30:
+      type: chance
+      name: "Thornvale, after 31.20 a share"
+      branches:
+        counters:
+          probability: 0.6
+          next: valdane_after_counter
+        stays_out:
+          probability: 0.4
+          value: 224.51
+    thornvale_after_40:
+      type: chance
+      name: "Thornvale, after 33.60 a share"
+      branches:
+        counters:
+          probability: 0.15
+          next: valdane_after_counter
+        stays_out:
+          probability: 0.85
+          value: 102.11
+    valdane_after_counter:
+      type: decision
+      name: "Thornvale has countered: raise to 34.80, or take the break fee?"
+      branches:
+        raise_to_45_percent:
+          next: thornvale_after_45
+        take_the_break_fee:
+          value: 18
+    thornvale_after_45:
+      type: chance
+      name: "Thornvale, after 34.80 a share"
+      branches:
+        tops_it:
+          probability: 0.35
+          value: 18
+        gives_up:
+          probability: 0.65
+          value: 40.91

@@ -21,7 +21,7 @@ forge sensitivity examples/rolling-forecast/forecast.yaml --vary inputs.premium_
 forge export examples/rolling-forecast/forecast.yaml forecast.xlsx
 ```
 
-`tests/demo_examples.rs` checks these numbers against the same calculation written in Python. In the exported workbook every result is a formula, and Gnumeric recalculates it to the same numbers.
+`src/cli/commands/examples.rs` (its `demo_examples` tests) checks these numbers against the same calculation written in Python. In the exported workbook every result is a formula, and Gnumeric recalculates it to the same numbers.
 
 ## What Forge cannot do here yet
 

@@ -108,6 +108,7 @@ pub fn eval_ifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 mod tests {
     use super::super::super::tests::eval;
     use super::*;
+    use crate::core::array_calculator::evaluator::tests::array_ctx;
 
     #[test]
     fn test_if() {
@@ -289,5 +290,23 @@ mod tests {
         ctx.scalars.insert("valid".to_string(), Value::Number(10.0));
         // Non-null value returns the value
         assert_eq!(eval("IFNA(valid, 0)", &ctx).unwrap(), Value::Number(10.0));
+    }
+
+    #[test]
+    fn test_if_with_array_condition() {
+        let ctx = array_ctx();
+        assert_eq!(
+            eval("SUM(IF(p.a > 1, p.b, 0))", &ctx).unwrap(),
+            Value::Number(50.0)
+        );
+        assert_eq!(
+            eval("SUM(IF(p.a > 1, 1, p.b))", &ctx).unwrap(),
+            Value::Number(12.0)
+        );
+        // No else branch: false elements are skipped, not counted as zero
+        assert_eq!(
+            eval("AVERAGE(IF(p.a > 1, p.b))", &ctx).unwrap(),
+            Value::Number(25.0)
+        );
     }
 }

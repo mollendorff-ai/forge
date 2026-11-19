@@ -29,6 +29,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+
+      # The cargo-audit binary is built once and restored: `cargo install`
+      # then finds it and does nothing, until a newer cargo-audit is released.
+      # Only main saves; its advisory database is fetched on every run.
+      - name: Cache cargo-audit
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
       # Fails on any vulnerability. Ignored advisories are listed, with reasons,
@@ -52,16 +61,16 @@ jobs:
           components: clippy
       - name: Run tests
         run: cargo test --release
-      # Property tests (tests/properties.rs) with many more cases than a pull
+      # Property tests (src/lib.rs, its properties tests) with many more cases than a pull
       # request runs, from a new seed each week, printed so a failure can be
-      # replayed: PROPTEST_RNG_SEED=<seed> cargo test --test properties
+      # replayed: PROPTEST_RNG_SEED=<seed> cargo test --lib -- tests::properties::
       - name: Property tests, more cases from this week's seed
         if: matrix.rust == 'stable'
         shell: bash
         run: |
           seed=$(date -u +%G%V)
           echo "PROPTEST_RNG_SEED=$seed" | tee -a "$GITHUB_STEP_SUMMARY"
-          PROPTEST_RNG_SEED=$seed PROPTEST_CASES=1000 cargo test --release --test properties
+          PROPTEST_RNG_SEED=$seed PROPTEST_CASES=1000 cargo test --release --lib -- tests::properties::
       # Strict clippy on stable only: a new beta lint should not fail the week.
       - name: Clippy
         if: matrix.rust == 'stable'

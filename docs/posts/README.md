@@ -1,6 +1,6 @@
 # Eight questions, answered with Forge
 
-Each post asks one question about a made-up household or business, runs the command that answers it on a file in [`examples/`](../../examples/), shows what Forge printed, and says what to take from it. All figures are invented. The numbers were printed by Forge 10.0.0-rc.15, and `tests/posts.rs` runs the commands and fails if a post stops matching the output.
+Each post asks one question about a made-up household or business, runs the command that answers it on a file in [`examples/`](../../examples/), shows what Forge printed, and says what to take from it. All figures are invented. The numbers were printed by Forge 10.0.0-rc.15, and `validation/repo/src/posts.rs` runs the commands and fails if a post stops matching the output.
 
 **Bagel Lune** is a bagel shop in Mile End, Montreal ([`examples/bagel`](../../examples/bagel/README.md)):
 

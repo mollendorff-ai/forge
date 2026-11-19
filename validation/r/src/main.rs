@@ -208,12 +208,32 @@ fn run_all_mode(
     Ok(())
 }
 
+/// The model that `forge simulate` runs: one scalar of `formula`, drawn
+/// `iterations` times from `seed`.
+fn monte_carlo_model(iterations: usize, seed: u64, formula: &str) -> String {
+    format!(
+        r#"_forge_version: "5.0.0"
+monte_carlo:
+  enabled: true
+  iterations: {iterations}
+  sampling: monte_carlo
+  seed: {seed}
+  outputs:
+    - variable: test_output
+      percentiles: [5, 10, 25, 50, 75, 90, 95]
+scalars:
+  test_output:
+    value: null
+    formula: "{formula}"
+"#
+    )
+}
+
 /// Runs a single Monte Carlo test by:
 /// 1. Creating a temporary YAML fixture for forge
 /// 2. Running forge simulate
 /// 3. Running the R validator
 /// 4. Comparing results
-#[allow(clippy::too_many_lines)]
 fn run_monte_carlo_test(
     test: &AnalyticsTestSpec,
     forge_binary: &PathBuf,
@@ -239,25 +259,7 @@ fn run_monte_carlo_test(
     };
 
     // Create temporary YAML file for forge
-    let yaml_content = format!(
-        r#"_forge_version: "5.0.0"
-monte_carlo:
-  enabled: true
-  iterations: {iterations}
-  sampling: monte_carlo
-  seed: {seed}
-  outputs:
-    - variable: test_output
-      percentiles: [5, 10, 25, 50, 75, 90, 95]
-scalars:
-  test_output:
-    value: null
-    formula: "{formula}"
-"#,
-        iterations = test.iterations,
-        seed = test.seed,
-        formula = mc_formula,
-    );
+    let yaml_content = monte_carlo_model(test.iterations, test.seed, &mc_formula);
 
     // Write to temp file
     let temp_file = match NamedTempFile::new() {
@@ -596,5 +598,18 @@ fn print_result(result: &TestResult) {
         TestResult::Skip { name, reason } => {
             println!("  {} {} ({})", "○".yellow(), name.dimmed(), reason.dimmed());
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_monte_carlo_model_names_its_draws_seed_and_formula() {
+        let model = monte_carlo_model(2000, 7, "=MC.Normal(10, 2)");
+        assert!(model.starts_with("_forge_version: \"5.0.0\"\nmonte_carlo:\n  enabled: true\n"));
+        assert!(model.contains("  iterations: 2000\n  sampling: monte_carlo\n  seed: 7\n"));
+        assert!(model.ends_with("    formula: \"=MC.Normal(10, 2)\"\n"));
     }
 }

@@ -5,6 +5,8 @@
 //! and never writes the file: the YAML stays the source of truth. A formula
 //! without a value is shown as `—` and named in a note.
 
+use crate::cli::console::{errln, out};
+use crate::cli::Console;
 use crate::core::array_calculator::evaluator::text::number_format::rounded_digits;
 use crate::core::precision::to_15_digits;
 use crate::error::{ForgeError, ForgeResult};
@@ -645,15 +647,785 @@ pub fn report_core(file: &Path, options: &ReportOptions) -> ForgeResult<Report> 
 ///
 /// Returns an error if the file cannot be read or parsed, or a chosen group or
 /// key is not in it.
-pub fn report(file: &Path, options: &ReportOptions, format: ReportFormat) -> ForgeResult<()> {
+pub fn report(
+    c: &mut Console<'_>,
+    file: &Path,
+    options: &ReportOptions,
+    format: ReportFormat,
+) -> ForgeResult<()> {
     let report = report_core(file, options)?;
-    print!("{}", render(&report, format));
+    out!(c, "{}", render(&report, format));
     for note in notes(&report, file) {
-        eprintln!("{note}");
+        errln!(c, "{note}");
     }
     Ok(())
 }
 
 #[cfg(test)]
-#[path = "report_tests.rs"]
-mod tests;
+mod tests {
+    use super::*;
+
+    mod report {
+        use super::*;
+        use std::io::Write as _;
+
+        fn model_of(yaml: &str) -> ParsedModel {
+            let mut file = tempfile::NamedTempFile::new().expect("temp file");
+            file.write_all(yaml.as_bytes()).expect("write");
+            parser::parse_model(file.path()).expect("parse")
+        }
+
+        fn report_of(yaml: &str, options: &ReportOptions) -> Report {
+            build_report(&model_of(yaml), options).expect("report")
+        }
+
+        const OPTIONS: &str = r#"_forge_version: "5.1.0"
+oak_suite:
+  rent: 1450
+  utilities: 60
+  year1_monthly: {formula: "=oak_suite.rent + oak_suite.utilities", value: 1510}
+elm_loft:
+  utilities: 90
+  rent: 1390
+  year1_monthly: {formula: "=elm_loft.rent + elm_loft.utilities", value: 1480}
+assumptions:
+  rate: 0.0479
+"#;
+
+        #[test]
+        fn numbers_have_two_decimals_and_thousands_separators() {
+            assert_eq!(display_number(1450.0), "1,450.00");
+            assert_eq!(display_number(1_234_567.891), "1,234,567.89");
+            assert_eq!(display_number(-1234.5), "-1,234.50");
+            assert_eq!(display_number(999.995), "1,000.00");
+            assert_eq!(display_number(100.0), "100.00");
+            assert_eq!(display_number(0.0), "0.00");
+        }
+
+        #[test]
+        fn numbers_under_one_keep_four_significant_digits() {
+            assert_eq!(display_number(0.0479), "0.0479");
+            assert_eq!(display_number(0.5), "0.50");
+            assert_eq!(display_number(0.25), "0.25");
+            assert_eq!(display_number(0.123_456), "0.1235");
+            assert_eq!(display_number(-0.0479), "-0.0479");
+            assert_eq!(display_number(0.99996), "1.00");
+            assert_eq!(display_number(0.000_123_4), "0.000123");
+        }
+
+        #[test]
+        fn rounding_is_half_away_from_zero_on_the_shown_digits() {
+            // The nearest doubles to these are a little under the tie.
+            assert_eq!(display_number(2.675), "2.68");
+            assert_eq!(display_number(1.005), "1.01");
+            assert_eq!(display_number(-2.675), "-2.68");
+            assert_eq!(display_number(1_234.565), "1,234.57");
+        }
+
+        #[test]
+        fn a_residue_near_zero_is_zero_without_a_sign() {
+            assert_eq!(display_number(-1.2e-10), "0.00");
+            assert_eq!(display_number(4e-9), "0.00");
+            assert_eq!(display_number(-0.0), "0.00");
+        }
+
+        #[test]
+        fn numbers_that_are_not_finite_say_so() {
+            assert_eq!(display_number(f64::NAN), "NaN");
+            assert_eq!(display_number(f64::INFINITY), "inf");
+        }
+
+        #[test]
+        fn groups_with_the_same_keys_share_a_table_aligned_by_key() {
+            let report = report_of(OPTIONS, &ReportOptions::default());
+            assert_eq!(report.sections.len(), 2);
+            let first = &report.sections[0];
+            assert_eq!(first.keys, ["rent", "utilities", "year1_monthly"]);
+            assert_eq!(first.rows[0].group, "oak_suite");
+            // elm_loft lists utilities before rent; its cells follow the section's keys.
+            assert_eq!(
+                first.rows[1].cells,
+                [Cell::Value(1390.0), Cell::Value(90.0), Cell::Value(1480.0)]
+            );
+            assert_eq!(report.sections[1].keys, ["rate"]);
+            assert_eq!(report.sections[1].rows[0].group, "assumptions");
+        }
+
+        #[test]
+        fn groups_with_other_keys_get_their_own_table_in_file_order() {
+            let yaml = r#"_forge_version: "5.1.0"
+a:
+  x: 1
+  y: 2
+b:
+  z: 3
+c:
+  y: 4
+  x: 5
+d:
+  x: 6
+"#;
+            let report = report_of(yaml, &ReportOptions::default());
+            let shape: Vec<(Vec<String>, Vec<String>)> = report
+                .sections
+                .iter()
+                .map(|s| {
+                    (
+                        s.keys.clone(),
+                        s.rows.iter().map(|r| r.group.clone()).collect(),
+                    )
+                })
+                .collect();
+            assert_eq!(
+                shape,
+                [
+                    (vec!["x".into(), "y".into()], vec!["a".into(), "c".into()]),
+                    (vec!["z".into()], vec!["b".into()]),
+                    (vec!["x".into()], vec!["d".into()]),
+                ]
+            );
+        }
+
+        #[test]
+        fn inputs_come_before_formulas() {
+            let yaml = r#"_forge_version: "5.1.0"
+a:
+  total: {formula: "=a.x + a.y", value: 3}
+  x: 1
+  y: 2
+"#;
+            let report = report_of(yaml, &ReportOptions::default());
+            assert_eq!(report.sections[0].keys, ["x", "y", "total"]);
+        }
+
+        #[test]
+        fn no_inputs_leaves_only_formulas() {
+            let report = report_of(
+                OPTIONS,
+                &ReportOptions {
+                    no_inputs: true,
+                    ..ReportOptions::default()
+                },
+            );
+            // assumptions has only an input, so it has no row left.
+            assert_eq!(report.sections.len(), 1);
+            assert_eq!(report.sections[0].keys, ["year1_monthly"]);
+            assert_eq!(report.sections[0].rows.len(), 2);
+        }
+
+        #[test]
+        fn chosen_groups_are_shown_in_file_order() {
+            let report = report_of(
+                OPTIONS,
+                &ReportOptions {
+                    groups: vec!["elm_loft".into(), "oak_suite".into()],
+                    ..ReportOptions::default()
+                },
+            );
+            let groups: Vec<&str> = report.sections[0]
+                .rows
+                .iter()
+                .map(|r| r.group.as_str())
+                .collect();
+            assert_eq!(groups, ["oak_suite", "elm_loft"]);
+            assert_eq!(report.tables_not_shown, Vec::<String>::new());
+        }
+
+        #[test]
+        fn an_unknown_group_is_an_error_that_lists_the_groups() {
+            let err = build_report(
+                &model_of(OPTIONS),
+                &ReportOptions {
+                    groups: vec!["unit_807".into()],
+                    ..ReportOptions::default()
+                },
+            )
+            .unwrap_err()
+            .to_string();
+            assert!(err.contains("'unit_807' is not a group"), "{err}");
+            assert!(err.contains("oak_suite, elm_loft, assumptions"), "{err}");
+        }
+
+        #[test]
+        fn chosen_keys_make_one_table_in_their_order() {
+            let report = report_of(
+                OPTIONS,
+                &ReportOptions {
+                    keys: vec!["year1_monthly".into(), "rent".into(), "rate".into()],
+                    ..ReportOptions::default()
+                },
+            );
+            assert_eq!(report.sections.len(), 1);
+            let section = &report.sections[0];
+            assert_eq!(section.keys, ["year1_monthly", "rent", "rate"]);
+            assert_eq!(
+                section.rows[0].cells,
+                [Cell::Value(1510.0), Cell::Value(1450.0), Cell::Absent]
+            );
+            assert_eq!(
+                section.rows[2].cells,
+                [Cell::Absent, Cell::Absent, Cell::Value(0.0479)]
+            );
+        }
+
+        #[test]
+        fn an_unknown_key_is_an_error_that_lists_the_keys() {
+            let err = build_report(
+                &model_of(OPTIONS),
+                &ReportOptions {
+                    keys: vec!["deposit".into()],
+                    ..ReportOptions::default()
+                },
+            )
+            .unwrap_err()
+            .to_string();
+            assert!(err.contains("'deposit' is not a key"), "{err}");
+            assert!(
+                err.contains("rent, utilities, year1_monthly, rate"),
+                "{err}"
+            );
+        }
+
+        const UNCALCULATED: &str = r#"_forge_version: "5.1.0"
+a:
+  x: 1
+  total: {formula: "=a.x * 2"}
+summary:
+  rate: 0.05
+  t: {formula: "=summary.rate * 2"}
+items:
+  amount: [1, 2]
+"#;
+
+        #[test]
+        fn formulas_without_a_value_are_named() {
+            let report = report_of(UNCALCULATED, &ReportOptions::default());
+            assert_eq!(report.sections[0].rows[0].cells[1], Cell::Uncalculated);
+            assert_eq!(report.uncalculated, ["a.total", "summary.t"]);
+            assert_eq!(report.tables_not_shown, ["items"]);
+            let notes = notes(&report, Path::new("m.yaml"));
+            assert_eq!(
+                notes,
+                [
+                    "Note: 2 formulas have no value yet and are shown as —; run `forge calculate m.yaml` first (a.total, summary.t)",
+                    "Note: tables are not shown (items); `forge export` writes them to Excel",
+                ]
+            );
+        }
+
+        #[test]
+        fn top_level_scalars_are_one_row() {
+            let yaml = r#"_forge_version: "5.1.0"
+price: 16
+quantity: 3
+"#;
+            let report = report_of(yaml, &ReportOptions::default());
+            assert_eq!(report.sections[0].rows[0].group, "");
+            assert!(render(&report, ReportFormat::Table)
+                .starts_with("group        price  quantity\n(top level)"));
+        }
+
+        #[test]
+        fn a_file_with_no_scalars_says_so() {
+            let yaml = r#"_forge_version: "5.1.0"
+items:
+  amount: [1, 2]
+"#;
+            let report = report_of(yaml, &ReportOptions::default());
+            assert_eq!(report.sections, Vec::<ReportSection>::new());
+            assert_eq!(render(&report, ReportFormat::Table), "");
+            assert_eq!(
+                notes(&report, Path::new("m.yaml"))[0],
+                "No groups of scalars to report in m.yaml"
+            );
+        }
+
+        #[test]
+        fn table_format() {
+            let report = report_of(OPTIONS, &ReportOptions::default());
+            assert_eq!(
+                render(&report, ReportFormat::Table),
+                "\
+group       rent  utilities  year1_monthly
+oak_suite  1,450         60          1,510
+elm_loft   1,390         90          1,480
+
+group          rate
+assumptions  0.0479
+"
+            );
+        }
+
+        #[test]
+        fn markdown_format() {
+            let report = report_of(OPTIONS, &ReportOptions::default());
+            assert_eq!(
+                render(&report, ReportFormat::Markdown),
+                "\
+| group | rent | utilities | year1_monthly |
+| --- | ---: | ---: | ---: |
+| oak_suite | 1,450 | 60 | 1,510 |
+| elm_loft | 1,390 | 90 | 1,480 |
+
+| group | rate |
+| --- | ---: |
+| assumptions | 0.0479 |
+"
+            );
+        }
+
+        #[test]
+        fn markdown_is_one_pipe_table_per_key_set() {
+            let text = render(
+                &report_of(UNCALCULATED, &ReportOptions::default()),
+                ReportFormat::Markdown,
+            );
+            let tables: Vec<&str> = text.trim_end().split("\n\n").collect();
+            assert_eq!(tables.len(), 2);
+            for table in tables {
+                let lines: Vec<&str> = table.lines().collect();
+                let cells = |line: &str| line.matches(" | ").count();
+                assert!(lines.len() >= 3, "{table}");
+                assert!(lines[1].starts_with("| --- |"), "{table}");
+                for line in &lines {
+                    assert!(line.starts_with("| ") && line.ends_with(" |"), "{line}");
+                    assert_eq!(cells(line), cells(lines[0]), "{table}");
+                }
+            }
+            assert!(text.contains("| a | 1 | — |"), "{text}");
+        }
+
+        #[test]
+        fn csv_format_has_every_digit_and_no_separators() {
+            let yaml = r#"_forge_version: "5.1.0"
+"a,b":
+  big: 1234567.891
+  rate: 0.0479
+  total: {formula: "=1"}
+"#;
+            let report = report_of(yaml, &ReportOptions::default());
+            assert_eq!(
+                render(&report, ReportFormat::Csv),
+                "group,big,rate,total\n\"a,b\",1234567.891,0.0479,\n"
+            );
+        }
+
+        #[test]
+        fn csv_sections_are_separated_by_a_blank_line() {
+            let report = report_of(OPTIONS, &ReportOptions::default());
+            assert_eq!(
+                render(&report, ReportFormat::Csv),
+                "\
+group,rent,utilities,year1_monthly
+oak_suite,1450,60,1510
+elm_loft,1390,90,1480
+
+group,rate
+assumptions,0.0479
+"
+            );
+        }
+
+        #[test]
+        fn json_format() {
+            let report = report_of(UNCALCULATED, &ReportOptions::default());
+            let value: serde_json::Value =
+                serde_json::from_str(&render(&report, ReportFormat::Json)).expect("json");
+            assert_eq!(
+                value,
+                serde_json::json!({
+                    "sections": [
+                        {"keys": ["x", "total"], "rows": [{"group": "a", "values": {"x": 1.0, "total": null}}]},
+                        {"keys": ["rate", "t"], "rows": [{"group": "summary", "values": {"rate": 0.05, "t": null}}]},
+                    ],
+                    "uncalculated": ["a.total", "summary.t"],
+                    "tables_not_shown": ["items"],
+                })
+            );
+        }
+
+        #[test]
+        fn json_leaves_out_keys_a_group_does_not_have() {
+            let report = report_of(
+                OPTIONS,
+                &ReportOptions {
+                    keys: vec!["rent".into(), "rate".into()],
+                    ..ReportOptions::default()
+                },
+            );
+            let value: serde_json::Value =
+                serde_json::from_str(&render(&report, ReportFormat::Json)).expect("json");
+            assert_eq!(
+                value["sections"][0]["rows"][2],
+                serde_json::json!({"group": "assumptions", "values": {"rate": 0.0479}})
+            );
+        }
+
+        #[test]
+        fn formats_are_read_by_name() {
+            assert_eq!(
+                "markdown".parse::<ReportFormat>().unwrap(),
+                ReportFormat::Markdown
+            );
+            assert!("html".parse::<ReportFormat>().is_err());
+        }
+
+        const MIXED: &str = r#"_forge_version: "5.1.0"
+unit_a:
+  list_rent: 1700
+  free_months: 3
+  spread: 0
+  fee: 12.5
+  rate: 0.14975
+unit_b:
+  list_rent: 1250
+  free_months: 0
+  spread: 0
+  fee: 8
+  rate: 0.2
+"#;
+
+        #[test]
+        fn a_column_of_whole_numbers_has_no_decimals() {
+            let report = report_of(MIXED, &ReportOptions::default());
+            assert_eq!(
+                render(&report, ReportFormat::Table),
+                "\
+group   list_rent  free_months  spread    fee     rate
+unit_a      1,700            3       0  12.50  0.14975
+unit_b      1,250            0       0   8.00     0.20
+"
+            );
+        }
+
+        #[test]
+        fn the_rule_is_per_column_so_a_column_never_mixes_3_and_3_50() {
+            let report = report_of(MIXED, &ReportOptions::default());
+            let markdown = render(&report, ReportFormat::Markdown);
+            // fee: 12.5 and 8 keep two decimals in both rows
+            assert!(markdown.contains("| 12.50 |") && markdown.contains("| 8.00 |"));
+            // free_months: 3 and 0 are whole
+            assert!(markdown.contains("| 3 |") && markdown.contains("| 0 |"));
+        }
+
+        #[test]
+        fn an_input_is_shown_as_written_where_rounding_would_change_it() {
+            let report = report_of(MIXED, &ReportOptions::default());
+            let table = render(&report, ReportFormat::Table);
+            // 0.14975 would be 0.1498 under the four-digit rule
+            assert!(table.contains("0.14975"), "{table}");
+            assert!(!table.contains("0.1498"), "{table}");
+        }
+
+        #[test]
+        fn a_calculated_value_is_never_shown_as_an_input_is() {
+            let yaml = r#"_forge_version: "5.1.0"
+a:
+  x: {formula: "=1 / 3", value: 0.333333333333}
+"#;
+            let report = report_of(yaml, &ReportOptions::default());
+            assert!(render(&report, ReportFormat::Table).contains("0.3333"));
+        }
+
+        #[test]
+        fn whole_columns_leave_csv_and_json_alone() {
+            let report = report_of(MIXED, &ReportOptions::default());
+            assert!(render(&report, ReportFormat::Csv).contains("unit_a,1700,3,0,12.5,0.14975"));
+            assert!(render(&report, ReportFormat::Json).contains("\"free_months\": 3.0"));
+        }
+
+        #[test]
+        fn an_uncalculated_cell_does_not_stop_a_column_being_whole() {
+            let yaml = r#"_forge_version: "5.1.0"
+a:
+  n: 3
+  total: {formula: "=a.n * 2"}
+b:
+  n: 4
+  total: {formula: "=b.n * 2", value: 8}
+"#;
+            let report = report_of(yaml, &ReportOptions::default());
+            assert_eq!(
+                render(&report, ReportFormat::Table),
+                "group  n  total\na      3      —\nb      4      8\n"
+            );
+        }
+    }
+
+    mod command_line {
+        //! `forge report` on the command line: what it prints, what it leaves alone.
+
+        use crate::cli::forge;
+        use std::path::Path;
+
+        const CALCULATED: &str = r#"_forge_version: "5.1.0"
+oak_suite:
+  rent: 1450
+  utilities: 60
+  year1_monthly: {formula: "=oak_suite.rent + oak_suite.utilities", value: 1510}
+elm_loft:
+  rent: 1390
+  utilities: 90
+  year1_monthly: {formula: "=elm_loft.rent + elm_loft.utilities", value: 1480}
+"#;
+
+        fn write(dir: &Path, name: &str, text: &str) -> String {
+            let path = dir.join(name);
+            std::fs::write(&path, text).expect("write");
+            path.to_string_lossy().into_owned()
+        }
+
+        #[test]
+        fn report_prints_markdown_and_leaves_the_file_as_it_was() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let out = forge(&["report", &file, "--format", "markdown"]);
+            assert!(out.success(), "{out:?}");
+            assert_eq!(
+                out.out,
+                "\
+| group | rent | utilities | year1_monthly |
+| --- | ---: | ---: | ---: |
+| oak_suite | 1,450 | 60 | 1,510 |
+| elm_loft | 1,390 | 90 | 1,480 |
+"
+            );
+            assert_eq!(out.err, "");
+            assert_eq!(std::fs::read_to_string(&file).expect("read"), CALCULATED);
+        }
+
+        #[test]
+        fn report_of_an_uncalculated_file_says_so_and_succeeds() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let text = CALCULATED
+                .replace(", value: 1510", "")
+                .replace(", value: 1480", "");
+            let file = write(dir.path(), "options.yaml", &text);
+            let out = forge(&["report", &file]);
+            assert!(out.success(), "{out:?}");
+            let stdout = out.out;
+            assert!(
+                stdout.contains("oak_suite  1,450         60              —"),
+                "{stdout}"
+            );
+            let stderr = out.err;
+            assert_eq!(stderr.lines().count(), 1, "{stderr}");
+            assert!(
+                stderr.starts_with("Note: 2 formulas have no value yet"),
+                "{stderr}"
+            );
+            // report does not calculate: the file still has no values.
+            assert_eq!(std::fs::read_to_string(&file).expect("read"), text);
+        }
+
+        #[test]
+        fn report_csv_has_full_precision() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(
+                dir.path(),
+                "rate.yaml",
+                "_forge_version: \"5.1.0\"\nloan:\n  rate: 0.047912345\n  principal: 450000\n",
+            );
+            let out = forge(&["report", &file, "--format", "csv"]);
+            assert!(out.success(), "{out:?}");
+            assert_eq!(out.out, "group,rate,principal\nloan,0.047912345,450000\n");
+        }
+
+        #[test]
+        fn report_rejects_an_unknown_group_and_an_unknown_format() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let out = forge(&["report", &file, "--group", "unit_807"]);
+            assert_eq!(out.code, 1, "{out:?}");
+            assert!(out.err.contains(
+                "'unit_807' is not a group of scalars in the file. Groups: oak_suite, elm_loft"
+            ));
+
+            let out = forge(&["report", &file, "--format", "html"]);
+            assert_eq!(out.code, 2, "{out:?}");
+        }
+
+        #[test]
+        fn keys_and_no_inputs_are_one_or_the_other() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let out = forge(&["report", &file, "--keys", "rent", "--no-inputs"]);
+            assert_eq!(out.code, 2, "{out:?}");
+        }
+
+        #[test]
+        fn the_conflict_of_no_inputs_and_keys_is_explained_in_the_help_of_both() {
+            let out = forge(&["report", "--help"]);
+            let help = out.out.replace('\n', " ");
+            let squeezed: String = help.split_whitespace().collect::<Vec<_>>().join(" ");
+            assert!(
+                squeezed.contains("Not with --keys, which already chooses the columns"),
+                "{help}"
+            );
+            assert!(
+                squeezed.contains("Not with --no-inputs: --keys already chooses the columns"),
+                "{help}"
+            );
+            // and the combination is still refused
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let refused = forge(&["report", &file, "--keys", "rent", "--no-inputs"]);
+            assert!(!refused.success());
+        }
+
+        #[test]
+        fn the_help_says_keys_narrows_a_wide_table() {
+            let out = forge(&["report", "--help"]);
+            let help = out.out;
+            assert!(help.contains("WIDE TABLES"), "{help}");
+            assert!(
+                help.contains("forge report options.yaml --keys rent,year1_monthly"),
+                "{help}"
+            );
+        }
+
+        #[test]
+        fn whole_number_columns_print_without_decimals() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "options.yaml", CALCULATED);
+            let out = forge(&["report", &file]);
+            let text = out.out;
+            assert!(text.contains("1,450"), "{text}");
+            assert!(!text.contains("1,450.00"), "{text}");
+        }
+    }
+
+    mod formats {
+        //! A scalar or column with a `format:` (ADR-061, T2-CLI-FORMAT) is printed as
+        //! the format shows it, in `forge calculate`, `forge scenarios` and `forge
+        //! compare` as in `forge report` and Studio. Only the text changes: the values
+        //! are the same, and CSV and JSON keep them whole.
+
+        use crate::cli::forge_at_width;
+
+        const PLAN: &str = "examples/bagel/bagel.yaml";
+
+        /// The lines `forge` prints on a wide terminal, words separated by single
+        /// spaces, so column widths do not matter
+        fn lines(args: &[&str]) -> Vec<String> {
+            let ran = forge_at_width(Some(200), args);
+            assert!(ran.success(), "{}", ran.err);
+            ran.out
+                .lines()
+                .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+                .collect()
+        }
+
+        fn has(lines: &[String], wanted: &str) -> bool {
+            lines.iter().any(|l| l == wanted)
+        }
+
+        /// The text `forge report` shows for `name`, on a calculated copy of the
+        /// plan (report reads the stored results).
+        fn report_text(name: &str) -> String {
+            let dir = tempfile::tempdir().unwrap();
+            for file in ["bagel.yaml", "costs.yaml"] {
+                std::fs::copy(
+                    std::path::Path::new("examples/bagel").join(file),
+                    dir.path().join(file),
+                )
+                .unwrap();
+            }
+            let model = dir.path().join("bagel.yaml");
+            let model = model.to_str().unwrap();
+            lines(&["calculate", model]);
+            let out = lines(&["report", model, "--format", "markdown"]);
+            let (group, key) = name.split_once('.').unwrap();
+            let cells = |l: &str| -> Vec<String> {
+                l.trim_matches('|')
+                    .split('|')
+                    .map(|c| c.trim().to_string())
+                    .collect()
+            };
+            let at = out
+                .iter()
+                .position(|l| cells(l).iter().any(|c| c == key) && l.starts_with("| group"))
+                .expect("a header with the key");
+            let column = cells(&out[at]).iter().position(|c| c == key).unwrap();
+            let row = out[at + 2..]
+                .iter()
+                .find(|l| cells(l).first().map(String::as_str) == Some(group))
+                .expect("the group's row");
+            cells(row)[column].clone()
+        }
+
+        #[test]
+        fn calculate_prints_the_format_and_the_full_value() {
+            let out = lines(&["calculate", PLAN, "--dry-run"]);
+            assert!(
+                has(&out, "year.margin = 0.2% (0.00203274189215848)"),
+                "{out:#?}"
+            );
+            assert!(
+                has(&out, "assumptions.price_per_dozen = $16.00 (16)"),
+                "{out:#?}"
+            );
+            // A scalar with no format prints as before
+            assert!(has(&out, "year.profit = 786.320361712362"), "{out:#?}");
+            // A column with a format, then its full values
+            assert!(
+                has(
+                    &out,
+                    "season = [85%; 125%; 80%; 80%; 90%; 95%; 105%; 115%; 125%; 125%; 105%; 100%]"
+                ),
+                "{out:#?}"
+            );
+            assert!(
+                has(
+                    &out,
+                    "[0.85, 1.25, 0.8, 0.8, 0.9, 0.95, 1.05, 1.15, 1.25, 1.25, 1.05, 1]"
+                ),
+                "{out:#?}"
+            );
+        }
+
+        #[test]
+        fn scenarios_and_compare_print_what_report_prints() {
+            let margin = report_text("year.margin");
+            let price = report_text("assumptions.price_per_dozen");
+            assert_eq!((margin.as_str(), price.as_str()), ("0.2%", "$16.00"));
+
+            let scenarios = lines(&["scenarios", PLAN]);
+            assert!(
+                has(&scenarios, &format!("year.margin: {margin}")),
+                "{scenarios:#?}"
+            );
+
+            let compare = lines(&["compare", PLAN, "--scenarios", "base,flour_shock"]);
+            assert!(
+                has(&compare, &format!("year.margin {margin} -4.4%")),
+                "{compare:#?}"
+            );
+            assert!(
+                has(
+                    &compare,
+                    &format!("assumptions.price_per_dozen {price} {price}")
+                ),
+                "{compare:#?}"
+            );
+        }
+
+        /// CSV and JSON are for scripts: full values, no format
+        #[test]
+        fn compare_csv_keeps_the_full_numbers() {
+            let out = lines(&[
+                "compare",
+                PLAN,
+                "--scenarios",
+                "base,flour_shock",
+                "--format",
+                "csv",
+            ]);
+            assert!(
+                out.iter()
+                    .any(|l| l.starts_with("year.margin,0.00203274189215848,")),
+                "{out:#?}"
+            );
+        }
+    }
+}

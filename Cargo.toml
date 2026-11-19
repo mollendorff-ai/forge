@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-rc.27"
+version = "10.0.0-rc.29"
 edition = "2021"
 # The oldest Rust that builds Forge; CI builds on it (the MSRV job) and
 # clippy.toml has the same version. Raise both together, on purpose.
@@ -59,6 +59,7 @@ default = ["cli"]
 cli = [
     "excel",
     "dep:clap",
+    "dep:anstream",
     "dep:notify",
     "dep:notify-debouncer-mini",
     "dep:tokio",
@@ -78,7 +79,7 @@ excel = ["dep:rust_xlsxwriter", "dep:calamine", "dep:regex", "dep:zip"]
 # forge-wasm runs the same core functions in a browser (ADR-055); it is not
 # published and not part of this crate's package
 [workspace]
-members = ["forge-wasm", "validation/gnumeric", "validation/r"]
+members = ["forge-wasm", "validation/gnumeric", "validation/r", "validation/repo"]
 
 [[bin]]
 name = "forge"
@@ -87,6 +88,9 @@ required-features = ["cli"]
 
 
 [dependencies]
+# Checked conversions from a float to an integer (`ToPrimitive`), which `as`
+# would saturate: already in the tree through statrs
+num-traits = "0.2.19"
 # YAML parsing
 serde = { version = "1.0", features = ["derive"] }
 yaml_serde = "0.10"
@@ -97,6 +101,8 @@ jsonschema = { version = "0.60", default-features = false, features = ["idna"] }
 
 # CLI
 clap = { version = "4.5.53", features = ["derive", "env"], optional = true }
+# Whether help and usage errors are in colour, decided as clap decides it
+anstream = { version = "1.0.0", optional = true }
 
 # Error handling
 anyhow = "1.0"
@@ -131,7 +137,7 @@ notify = { version = "8.2", optional = true }
 notify-debouncer-mini = { version = "0.7", optional = true }
 
 # Async runtime (API server, MCP server)
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "io-util", "signal", "net"], optional = true }
 
 # MCP server (Model Context Protocol via rmcp SDK)
 rmcp = { version = "3.8", features = ["server", "transport-io"], optional = true }
@@ -185,9 +191,11 @@ rust_xlsxwriter = { version = "0.102", optional = true, features = ["wasm"] }
 # Testing
 pretty_assertions = "1.4"
 tempfile = "3.8"
+# A test's MCP client waits for each answer with a timeout (src/mcp/mod.rs)
+tokio = { version = "1", features = ["time"] }
 assert_cmd = "2.0"  # CLI integration testing
 predicates = "3.1"  # CLI output assertions
-# Property tests: rules that must hold for any model (tests/properties.rs)
+# Property tests: rules that must hold for any model (src/lib.rs (its properties tests))
 proptest = { version = "1", default-features = false, features = ["std"] }
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
@@ -204,9 +212,6 @@ nursery = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
 # Transitive deps pull different versions of the same crate; unfixable without swapping dependencies
 multiple_crate_versions = "allow"
-# Rust has no f64::from(usize) or f64::from(i64) — these casts are unavoidable in numeric code.
-# Precision loss only matters for values > 2^52 (~4.5e15), which never occur in financial math.
-cast_precision_loss = "allow"
 
 [profile.release]
 # Optimize for size and performance

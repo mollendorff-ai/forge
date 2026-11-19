@@ -11,11 +11,11 @@ mod replace;
 mod search;
 
 use super::{number_or, EvalContext, EvalError, Expr, Value};
+use num_traits::ToPrimitive;
 
 /// A number of characters or a position given to a text function, made a
 /// whole number toward zero as Excel does. Below `least` (0 for a count, 1 for
 /// a position) it is #VALUE!, as in Excel.
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub(super) fn whole_arg(
     name: &str,
     what: &str,
@@ -30,7 +30,8 @@ pub(super) fn whole_arg(
             "#VALUE!: {name}: {what} {n} is below {least}"
         )));
     }
-    Ok(n.min(1e9) as usize)
+    // At most 1e9: past what any text holds, and what a usize holds
+    Ok(n.min(1e9).to_usize().unwrap_or(0))
 }
 
 /// Try to evaluate a text function. Returns None if function not recognized.
@@ -434,5 +435,34 @@ mod tests {
             eval("LEN(RIGHT(\"Hello\", 3))", &ctx).unwrap(),
             Value::Number(3.0)
         );
+    }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn text_arguments_out_of_range_are_value_errors() {
+            h::sweep_fails("LEFT(\"hello\", -1)", "#VALUE!");
+            h::sweep_fails("RIGHT(\"hello\", -1)", "#VALUE!");
+            h::sweep_fails("MID(\"hello\", 0, 2)", "#VALUE!");
+            h::sweep_fails("MID(\"hello\", 1, -1)", "#VALUE!");
+            h::sweep_fails("REPT(\"ab\", -1)", "#VALUE!");
+            h::sweep_fails("REPLACE(\"hello\", 0, 1, \"Z\")", "#VALUE!");
+            h::sweep_fails("SUBSTITUTE(\"hello\", \"l\", \"L\", 0)", "#VALUE!");
+            assert_eq!(h::sweep_text("REPLACE(\"hello\", 20, 2, \"Q\")"), "helloQ"); // panicked before
+            assert_eq!(h::sweep_text("MID(\"hello\", 2.9, 2.5)"), "el");
+        }
+    }
+
+    /// A count of characters is cut to a whole number and held to 1e9
+    #[test]
+    fn a_count_of_characters_is_whole_and_held() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert_eq!(h::text("LEFT(\"abc\", 1E+20)"), "abc");
+        assert_eq!(h::text("LEFT(\"abc\", 1.9)"), "a");
+        assert_eq!(h::text("MID(\"abc\", 2.9, 1E+20)"), "bc");
     }
 }

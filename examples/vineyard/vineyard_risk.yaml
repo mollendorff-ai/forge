@@ -1,0 +1,60 @@
+_forge_version: "5.4.0"
+# Les Trois Pentes under uncertainty: vineyard.yaml with the harvest, the
+# price and a spring frost uncertain, and value: beside each MC.* formula is
+# vineyard.yaml's figure. Run it with forge simulate:
+#
+#   forge simulate vineyard_risk.yaml
+#
+# A big harvest across the region lowers the price the wineries pay, so the
+# crop and the price are correlated (monte_carlo: correlations, below). The
+# frost is this vineyard's alone and moves neither.
+_includes:
+  - file: costs.yaml
+    as: costs
+
+harvest:
+  # Most likely a normal year; a bad one halves the crop, a great one adds 30%
+  yield_factor: {value: 1.0, formula: "=MC.PERT(0.5, 1.0, 1.3)", format: "0%"}
+  # 2,000 a tonne on average, give or take 500; never below zero
+  price_per_tonne: {value: 2000, formula: "=MC.Lognormal(2000, 500)", format: "$#,##0"}
+  # One spring in ten a frost kills 30% of the crop
+  frost_loss: {value: 0, formula: "=MC.Discrete({0, 0.3}, {0.9, 0.1})", format: "0%"}
+
+blocks:
+  variety: [chardonnay, pinot_noir, riesling]
+  hectares: [10, 8, 6]
+  # Tonnes a hectare in a normal year
+  tonnes_per_hectare: [7.5, 5.5, 8.0]
+  # Each variety's price against the region's price
+  price_factor: {value: [1.00, 1.35, 0.90], format: "0%"}
+  tonnes:
+    formula: "=hectares * tonnes_per_hectare * harvest.yield_factor * (1 - harvest.frost_loss)"
+    format: "#,##0.0"
+  revenue:
+    formula: "=tonnes * harvest.price_per_tonne * price_factor"
+    format: "$#,##0"
+
+season:
+  tonnes: {formula: "=SUM(blocks.tonnes)", format: "#,##0.0"}
+  revenue: {formula: "=SUM(blocks.revenue)", format: "$#,##0"}
+  growing: {formula: "=SUM(blocks.hectares) * @costs.vineyard.per_hectare", format: "$#,##0"}
+  picking: {formula: "=tonnes * @costs.harvest.picking_per_tonne", format: "$#,##0"}
+  fixed: {formula: "=@costs.fixed.overhead + @costs.fixed.loan_payment", format: "$#,##0"}
+  profit: {formula: "=revenue - growing - picking - fixed", format: "$#,##0"}
+  margin: {formula: "=profit / revenue", format: "0.0%"}
+
+monte_carlo:
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 7
+  correlations:
+    # A big regional harvest sells cheap, a short one dear
+    - variables: [yield_factor, price_per_tonne]
+      coefficient: -0.7
+  outputs:
+    - variable: season.profit
+      percentiles: [5, 50, 95]
+      thresholds: ["< 0"]
+      expected_shortfall: [5]
+    - variable: season.revenue
+      percentiles: [5, 50, 95]

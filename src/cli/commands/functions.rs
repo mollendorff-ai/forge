@@ -3,6 +3,8 @@
 //! Uses the function registry as the single source of truth.
 //! See src/functions/registry.rs for the authoritative list.
 
+use crate::cli::console::outln;
+use crate::cli::Console;
 use crate::error::ForgeResult;
 use crate::functions::registry::{self, Category, FunctionDef};
 use colored::Colorize;
@@ -54,7 +56,7 @@ pub fn functions_core() -> ForgeResult<serde_json::Value> {
 ///
 /// Panics if JSON serialization of the function registry fails, which should
 /// never happen with static data.
-pub fn functions(json_output: bool) -> ForgeResult<()> {
+pub fn functions(c: &mut Console<'_>, json_output: bool) -> ForgeResult<()> {
     // Get all functions from registry
     let all_functions: Vec<&FunctionDef> = registry::all_functions().collect();
 
@@ -88,17 +90,18 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
                 })
             }).collect::<Vec<_>>()
         });
-        println!("{}", serde_json::to_string_pretty(&json).unwrap());
+        outln!(c, "{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         // Human-readable output
-        println!("{}", "🔥 Forge - Supported Functions".bold().green());
-        println!();
-        println!(
+        outln!(c, "{}", "🔥 Forge - Supported Functions".bold().green());
+        outln!(c);
+        outln!(
+            c,
             "{}",
             format!("   {total} Excel-compatible functions for financial modeling").bright_white()
         );
-        println!();
-        println!("{}", "═".repeat(70));
+        outln!(c);
+        outln!(c, "{}", "═".repeat(70));
 
         // Display order for categories
         let category_order = [
@@ -125,12 +128,13 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
                 if funcs.is_empty() {
                     continue;
                 }
-                println!();
-                println!("{} ({})", cat_name.bold().cyan(), funcs.len());
-                println!("{}", "─".repeat(70));
+                outln!(c);
+                outln!(c, "{} ({})", cat_name.bold().cyan(), funcs.len());
+                outln!(c, "{}", "─".repeat(70));
 
                 for func in funcs {
-                    println!(
+                    outln!(
+                        c,
                         "  {:12} {}",
                         func.name.bold().yellow(),
                         format!("{} - {}", func.description, func.syntax).bright_white()
@@ -139,16 +143,18 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
             }
         }
 
-        println!();
-        println!("{}", "═".repeat(70));
-        println!();
-        println!(
+        outln!(c);
+        outln!(c, "{}", "═".repeat(70));
+        outln!(c);
+        outln!(
+            c,
             "{}",
             "Use these functions in your YAML formulas: formula: \"=NPV(0.1, cashflows)\""
                 .bright_black()
         );
-        println!();
-        println!(
+        outln!(c);
+        outln!(
+            c,
             "{}",
             "In a table column, an aggregate's range is the whole column and its criterion the\n\
              row's value: quarters.revenue: \"=SUMIFS(months.revenue, months.quarter, quarter)\".\n\
@@ -156,7 +162,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
              with several (=MAX(0, ebit))."
                 .bright_black()
         );
-        println!();
+        outln!(c);
     }
 
     Ok(())

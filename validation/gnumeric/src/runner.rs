@@ -573,12 +573,12 @@ fn cell_number(text: &str) -> Option<f64> {
     if parts.next().is_some() || y.len() != 4 || m.len() != 2 || d.len() != 2 {
         return None;
     }
-    let (y, m, d): (i64, i64, i64) = (y.parse().ok()?, m.parse().ok()?, d.parse().ok()?);
+    let (y, m, d): (i32, i32, i32) = (y.parse().ok()?, m.parse().ok()?, d.parse().ok()?);
     if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
         return None;
     }
     // Days from 1970-01-01 of a civil date (H. Hinnant's algorithm)
-    let days_from_epoch = |y: i64, m: i64, d: i64| {
+    let days_from_epoch = |y: i32, m: i32, d: i32| {
         let y = if m <= 2 { y - 1 } else { y };
         let era = y.div_euclid(400);
         let yoe = y - era * 400;
@@ -586,8 +586,9 @@ fn cell_number(text: &str) -> Option<f64> {
         let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
         era * 146_097 + doe - 719_468
     };
-    #[allow(clippy::cast_precision_loss)] // a day count, far below 2^52
-    Some((days_from_epoch(y, m, d) - days_from_epoch(1899, 12, 30)) as f64)
+    Some(f64::from(
+        days_from_epoch(y, m, d) - days_from_epoch(1899, 12, 30),
+    ))
 }
 
 /// The spec's `_includes`, resolved: (file beside the spec, namespace).
@@ -787,5 +788,94 @@ assumptions:
         assert!(result.is_ok());
         let (cases, _) = result.unwrap();
         assert_eq!(cases.len(), 1);
+    }
+
+    mod doc_counts {
+        //! The counts of cases, `LibreOffice` cases and files written in the
+        //! docs are what the suite loads (roadmap T1-CLAIMS). A count that differs
+        //! fails here, with the text to write.
+
+        use crate::runner::TestRunner;
+        use std::path::Path;
+
+        fn group(n: usize) -> String {
+            if n >= 1000 {
+                format!("{},{:03}", n / 1000, n % 1000)
+            } else {
+                n.to_string()
+            }
+        }
+
+        fn files(dir: &Path) -> usize {
+            std::fs::read_dir(dir).map_or(0, |entries| {
+                entries
+                    .flatten()
+                    .map(|e| {
+                        let path = e.path();
+                        if path.is_dir() {
+                            files(&path)
+                        } else {
+                            usize::from(path.extension().is_some_and(|x| x == "yaml"))
+                        }
+                    })
+                    .sum()
+            })
+        }
+
+        #[test]
+        fn the_docs_count_the_cases_the_suite_loads() {
+            let here = Path::new(env!("CARGO_MANIFEST_DIR"));
+            let (cases, skips) = TestRunner::load_test_cases(&here.join("tests")).unwrap();
+            let total = cases.len() + skips.len();
+            let libreoffice = cases.iter().filter(|c| c.libreoffice.is_some()).count();
+            let forge_only = cases.iter().filter(|c| c.gnumeric_skip.is_some()).count();
+            let spec_files = files(&here.join("tests"));
+            assert!(
+                total > 1900 && libreoffice > 100,
+                "{total} cases, {libreoffice} for LibreOffice"
+            );
+
+            let root = here.join("../..");
+            let read = |p: &str| std::fs::read_to_string(root.join(p)).unwrap();
+            let wanted = [
+                (
+                    "README.md",
+                    format!("{} formula tests compare Forge with Gnumeric", group(total)),
+                ),
+                ("VALIDATION.md", format!("{} formula cases", group(total))),
+                (
+                    "VALIDATION.md",
+                    format!("LibreOffice for {libreoffice} cases"),
+                ),
+                (
+                    "VALIDATION.md",
+                    format!("of which {libreoffice} are recalculated by LibreOffice"),
+                ),
+                (
+                    "VALIDATION.md",
+                    format!("{forge_only} cases are checked against Forge only"),
+                ),
+                (
+                    "validation/gnumeric/README.md",
+                    format!(
+                        "**{} formula tests** across {spec_files} YAML files",
+                        group(total)
+                    ),
+                ),
+                (
+                    "validation/gnumeric/README.md",
+                    format!("for the {libreoffice} cases Gnumeric 1.12 cannot judge"),
+                ),
+            ];
+            let missing: Vec<String> = wanted
+                .iter()
+                .filter(|(path, text)| !read(path).contains(text.as_str()))
+                .map(|(path, text)| format!("{path} must say: {text}"))
+                .collect();
+            assert!(
+                missing.is_empty(),
+                "{total} cases, {libreoffice} for LibreOffice, {spec_files} files: {missing:#?}"
+            );
+        }
     }
 }

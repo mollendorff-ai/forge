@@ -2,10 +2,25 @@
 //!
 //! Functions: SUM, AVERAGE, MIN, MAX, COUNT, PRODUCT, COUNTA, MEDIAN
 
-// Aggregation casts: array lengths (usize) to f64 for AVERAGE/COUNT (bounded by worksheet size).
-#![allow(clippy::cast_precision_loss)]
+use super::{
+    collect_numbers_and_dates, collect_numeric_values, evaluate, number_or_date, EvalContext,
+    EvalError, Expr, Value,
+};
+use crate::core::precision;
 
-use super::{collect_numeric_values, evaluate, EvalContext, EvalError, Expr, Value};
+/// `SUM`: left to right, as Excel adds. Its last addition is 0 when it
+/// nearly cancels, as the last `+` of a formula is (ADR-066).
+fn sum(values: &[f64]) -> f64 {
+    let total = match values.split_last() {
+        Some((last, rest)) if !rest.is_empty() => {
+            let before = rest.iter().sum::<f64>();
+            precision::final_sum(before, *last, before + last)
+        },
+        _ => values.iter().sum::<f64>(),
+    };
+    // + 0.0: the sum of nothing is 0, not -0
+    total + 0.0
+}
 
 /// Try to evaluate an aggregation function. Returns None if function not recognized.
 pub fn try_evaluate(
@@ -16,36 +31,32 @@ pub fn try_evaluate(
     // ═══════════════════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
-        "SUM" => {
-            let values = collect_numeric_values(args, ctx)?;
-            // + 0.0: the sum of nothing is 0, not -0
-            Value::Number(values.iter().sum::<f64>() + 0.0)
-        },
+        "SUM" => Value::Number(sum(&collect_numeric_values(args, ctx)?)),
 
         "AVERAGE" => {
             let values = collect_numeric_values(args, ctx)?;
             if values.is_empty() {
                 return Err(EvalError::new("AVERAGE of empty set"));
             }
-            Value::Number(values.iter().sum::<f64>() / values.len() as f64)
+            Value::Number(values.iter().sum::<f64>() / precision::count(values.len()))
         },
 
         "MIN" => {
-            let values = collect_numeric_values(args, ctx)?;
+            let (values, dates) = collect_numbers_and_dates(args, ctx)?;
             values
                 .into_iter()
                 .min_by(f64::total_cmp)
                 // No numbers (only empty cells or text): 0, as in Excel
-                .map_or(Value::Number(0.0), Value::Number)
+                .map_or(Value::Number(0.0), |n| number_or_date(n, dates))
         },
 
         "MAX" => {
-            let values = collect_numeric_values(args, ctx)?;
+            let (values, dates) = collect_numbers_and_dates(args, ctx)?;
             values
                 .into_iter()
                 .max_by(f64::total_cmp)
                 // No numbers (only empty cells or text): 0, as in Excel
-                .map_or(Value::Number(0.0), Value::Number)
+                .map_or(Value::Number(0.0), |n| number_or_date(n, dates))
         },
 
         "COUNT" => {
@@ -62,7 +73,7 @@ pub fn try_evaluate(
                     _ => {},
                 }
             }
-            Value::Number(count as f64)
+            Value::Number(precision::count(count))
         },
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -73,7 +84,7 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new("AVG of empty set"));
             }
-            Value::Number(values.iter().sum::<f64>() / values.len() as f64)
+            Value::Number(values.iter().sum::<f64>() / precision::count(values.len()))
         },
 
         "PRODUCT" => {
@@ -97,7 +108,7 @@ pub fn try_evaluate(
                 Value::Array(arr) => arr.iter().filter(|v| blank(v)).count(),
                 single => usize::from(blank(&single)),
             };
-            Value::Number(count as f64)
+            Value::Number(precision::count(count))
         },
 
         "COUNTA" => {
@@ -112,7 +123,7 @@ pub fn try_evaluate(
                     _ => count += 1,
                 }
             }
-            Value::Number(count as f64)
+            Value::Number(precision::count(count))
         },
 
         "MEDIAN" => {
@@ -239,10 +250,51 @@ mod sumproduct_tests {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::tests::eval;
     use super::*;
     use std::collections::HashMap;
+
+    // ADR-060 addendum: the largest or smallest of dates is a date, so a date
+    // format on it is read as one (roadmap T1-DATE-OF-MAX)
+    #[test]
+    fn max_and_min_of_dates_are_dates() {
+        let ctx = EvalContext::new();
+        let date = |text: &str| Value::Text(text.to_string());
+        assert_eq!(
+            eval(
+                "MAX(DATE(2026,1,5), DATE(2026,3,1), DATE(2025,12,31))",
+                &ctx
+            )
+            .unwrap(),
+            date("2026-03-01")
+        );
+        assert_eq!(
+            eval(
+                "MIN(DATE(2026,1,5), DATE(2026,3,1), DATE(2025,12,31))",
+                &ctx
+            )
+            .unwrap(),
+            date("2025-12-31")
+        );
+        assert_eq!(
+            eval("MAX({\"2026-01-05\", \"2029-09-08\"})", &ctx).unwrap(),
+            date("2029-09-08")
+        );
+    }
+
+    #[test]
+    fn max_and_min_with_a_number_among_the_dates_stay_numbers() {
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("MAX(DATE(2026,1,5), 5)", &ctx).unwrap(),
+            Value::Number(46027.0)
+        );
+        assert_eq!(
+            eval("MIN(DATE(2026,1,5), 5)", &ctx).unwrap(),
+            Value::Number(5.0)
+        );
+        assert_eq!(eval("MAX(1, 2)", &ctx).unwrap(), Value::Number(2.0));
+    }
 
     #[test]
     fn test_aggregation_with_scalars() {
@@ -376,9 +428,6 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -490,7 +539,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let median = result.scalars.get("median_val").unwrap().value.unwrap();
-        assert_eq!(median, 30.0);
+        assert_exact!(median, 30.0);
     }
 
     #[test]
@@ -517,7 +566,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let median = result.scalars.get("median_val").unwrap().value.unwrap();
-        assert_eq!(median, 25.0);
+        assert_exact!(median, 25.0);
     }
 
     #[test]
@@ -571,7 +620,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let count = result.scalars.get("cnt").unwrap().value.unwrap();
-        assert_eq!(count, 3.0);
+        assert_exact!(count, 3.0);
     }
 
     #[test]
@@ -598,7 +647,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let product = result.scalars.get("prod").unwrap().value.unwrap();
-        assert_eq!(product, 24.0);
+        assert_exact!(product, 24.0);
     }
 
     #[test]
@@ -632,8 +681,8 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
 
-        assert_eq!(result.scalars.get("largest").unwrap().value.unwrap(), 90.0);
-        assert_eq!(
+        assert_exact!(result.scalars.get("largest").unwrap().value.unwrap(), 90.0);
+        assert_exact!(
             result.scalars.get("second_largest").unwrap().value.unwrap(),
             70.0
         );
@@ -670,8 +719,8 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
 
-        assert_eq!(result.scalars.get("smallest").unwrap().value.unwrap(), 10.0);
-        assert_eq!(
+        assert_exact!(result.scalars.get("smallest").unwrap().value.unwrap(), 10.0);
+        assert_exact!(
             result
                 .scalars
                 .get("second_smallest")
@@ -706,7 +755,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let total = result.scalars.get("total").unwrap().value.unwrap();
-        assert_eq!(total, 60.0);
+        assert_exact!(total, 60.0);
     }
 
     #[test]
@@ -755,7 +804,7 @@ mod integration_tests {
         assert!(result.is_ok());
         let model = result.unwrap();
         if let Some(scalar) = model.scalars.get("med") {
-            assert_eq!(scalar.value.unwrap(), 5.0);
+            assert_exact!(scalar.value.unwrap(), 5.0);
         }
     }
 
@@ -784,7 +833,7 @@ mod integration_tests {
         assert!(result.is_ok());
         let model = result.unwrap();
         if let Some(scalar) = model.scalars.get("med") {
-            assert_eq!(scalar.value.unwrap(), 2.5); // (2+3)/2
+            assert_exact!(scalar.value.unwrap(), 2.5); // (2+3)/2
         }
     }
 
@@ -813,7 +862,7 @@ mod integration_tests {
 
         // Values: [10, 20, 30, 40] - average = 25.0
         let avg = result.scalars.get("avg_val").unwrap().value.unwrap();
-        assert_eq!(avg, 25.0);
+        assert_exact!(avg, 25.0);
     }
 
     #[test]
@@ -1008,7 +1057,7 @@ mod integration_tests {
         // COUNTA: ["a", "", "b"] - counts all values (including empty strings)
         // Standard Excel behavior: COUNTA counts all non-blank cells, treating "" as having data
         let count = result.scalars.get("count").unwrap().value.unwrap();
-        assert_eq!(count, 3.0);
+        assert_exact!(count, 3.0);
     }
 
     #[test]
@@ -1064,7 +1113,7 @@ mod integration_tests {
 
         // Values: [10, 20, 10, 30, 20, 40] - unique count = 4 (10, 20, 30, 40)
         let count = result.scalars.get("unique_count").unwrap().value.unwrap();
-        assert_eq!(count, 4.0);
+        assert_exact!(count, 4.0);
     }
 
     #[test]
@@ -1110,17 +1159,17 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         // Descending: [92, 90, 88, 85, 78] - ranks: 1, 2, 3, 4, 5
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("rank_92_desc").unwrap().value.unwrap(),
             1.0
         );
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("rank_90_desc").unwrap().value.unwrap(),
             2.0
         );
 
         // Ascending: [78, 85, 88, 90, 92] - 78 is rank 1
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("rank_78_asc").unwrap().value.unwrap(),
             1.0
         );
@@ -1175,13 +1224,13 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         // East amounts: [100, 150, 250] - max = 250
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("max_east").unwrap().value.unwrap(),
             250.0
         );
 
         // East + Q2 amounts: [150, 250] - max = 250
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("max_east_q2").unwrap().value.unwrap(),
             250.0
         );
@@ -1236,13 +1285,13 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         // West amounts: [200, 300] - min = 200
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("min_west").unwrap().value.unwrap(),
             200.0
         );
 
         // East + Q2 amounts: [150, 250] - min = 150
-        assert_eq!(
+        assert_exact!(
             result.scalars.get("min_east_q2").unwrap().value.unwrap(),
             150.0
         );

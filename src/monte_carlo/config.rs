@@ -214,7 +214,6 @@ fn default_percentiles() -> Vec<u8> {
 }
 
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -292,6 +291,6 @@ correlations:
         assert_eq!(config.outputs[0].variable, "valuation.npv");
         assert_eq!(config.outputs[0].percentiles, vec![5, 50, 95]);
         assert_eq!(config.correlations.len(), 1);
-        assert_eq!(config.correlations[0].coefficient, -0.3);
+        assert_exact!(config.correlations[0].coefficient, -0.3);
     }
 }

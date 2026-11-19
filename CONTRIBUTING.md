@@ -21,11 +21,12 @@ make lint           # Clippy with pedantic lints
 
 - **An entry in CHANGELOG.md**, under `[Unreleased]`, saying in plain words what a user saw and what changed.
 - **A test that fails without the change** for every bug fix: a wrong answer, an error, a crash or a wrong message. The test reproduces the bug, fails on the commit before the fix and passes after it.
-- **An example with outside numbers** for a new or changed command: a model in `examples/` whose results come from a calculation made outside Forge (by hand, a spreadsheet, R, Python), asserted in a test. `tests/bagel_example.rs` shows how. Using the bagel models found more bugs in one evening than the unit tests had.
+- **An example with outside numbers** for a new or changed command: a model in `examples/` whose results come from a calculation made outside Forge (by hand, a spreadsheet, R, Python), asserted in a test. `src/cli/commands/examples.rs` (its `bagel_example` tests) shows how. Using the bagel models found more bugs in one evening than the unit tests had.
 - **Green CI**, including the Validation workflow, which runs the two suites in `validation/` (forge-e2e-gnumeric and forge-e2e-r, ADR-057) against the build of the same commit. New cases go in the same pull request. A pull request that changes or removes an existing expected value there says `changes expected values` in its title and, in its description, where each new value comes from (Excel, Gnumeric, R; the version and the date); the Expected values check fails it otherwise.
 - **Docs that stay true**: update what the change makes wrong; a page about a design that no longer exists gets a dated note at the top.
+- **No skipping the rules** in CLAUDE.md: 100% coverage, pedantic lints and formatting, with no `allow`, no coverage-only code, no ignored test and no formatting skip; tests inline, in the file they test; no file over 1,500 lines. `validation/repo/src/no_skipping.rs` counts what is still left from before the rules, and fails if a change adds to it.
 
-The pull request template has these as a checklist. `.asimov/project.yaml` lists the conventions; `tests/conventions.rs` checks the ones a test can.
+The pull request template has these as a checklist. `.asimov/project.yaml` lists the conventions; `validation/repo/src/conventions.rs` checks the ones a test can.
 
 ## License
 

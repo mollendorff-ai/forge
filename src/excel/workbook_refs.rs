@@ -19,14 +19,18 @@ mod constants;
 pub mod dates;
 mod local_names;
 mod previous_row;
+mod reverse;
 use local_names::Locals;
+pub use reverse::{ReverseRefs, SheetKind};
 use std::fmt::Write as _;
 
 /// Sheet that holds scalars without a group.
 pub const UNGROUPED_SHEET: &str = "Scalars";
 
-/// Functions Excel evaluates differently from Forge: Forge's `VLOOKUP` takes
-/// one column and ignores the column index, `ROW`/`COLUMN`/`OFFSET`/`INDIRECT`
+/// Functions Excel evaluates differently from Forge: Forge's `VLOOKUP` and
+/// `HLOOKUP` read a table of one column or one row, which a workbook's range
+/// need not be (the export writes them where Excel's table is that too:
+/// [`WorkbookRefs::one_line_lookup`]), `ROW`/`COLUMN`/`OFFSET`/`INDIRECT`
 /// work on Forge names rather than sheet cells (`ROW()` alone is the table's
 /// row and is translated: `previous_row`), `NOW` returns text instead of a
 /// date serial, and `UNIQUE`/`SORT`/`FILTER`/`SEQUENCE` spill in Excel.
@@ -126,8 +130,7 @@ pub struct WorkbookRefs {
 pub fn column_letter(mut index: usize) -> String {
     let mut letters = Vec::new();
     loop {
-        #[allow(clippy::cast_possible_truncation)] // index % 26 < 26
-        letters.push((b'A' + (index % 26) as u8) as char);
+        letters.push(char::from(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"[index % 26]));
         if index < 26 {
             break;
         }
@@ -186,9 +189,7 @@ impl WorkbookRefs {
             groups.entry(sheet.to_string()).or_default().push(path);
         }
         for (sheet, paths) in groups {
-            for (i, path) in paths.into_iter().enumerate() {
-                #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
-                let row = (i + 2) as u32;
+            for (row, path) in (2u32..=u32::MAX).zip(paths) {
                 refs.scalars.insert(path.to_string(), (sheet.clone(), row));
             }
         }
@@ -201,9 +202,7 @@ impl WorkbookRefs {
     /// order given, the layout `ExcelExporter` writes for an include.
     pub fn add_include<'a>(&mut self, namespace: &str, paths: impl IntoIterator<Item = &'a str>) {
         let sheet = include_sheet(namespace);
-        for (i, path) in paths.into_iter().enumerate() {
-            #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
-            let row = (i + 2) as u32;
+        for (row, path) in (2u32..=u32::MAX).zip(paths) {
             self.scalars
                 .insert(format!("@{namespace}.{path}"), (sheet.clone(), row));
         }
@@ -324,9 +323,7 @@ impl WorkbookRefs {
             refs.sheets
                 .insert(table.clone(), format!("{namespace}.{table}"));
         }
-        for (i, path) in paths.into_iter().enumerate() {
-            #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
-            let row = (i + 2) as u32;
+        for (row, path) in (2u32..=u32::MAX).zip(paths) {
             refs.scalars.insert(path.to_string(), (sheet.clone(), row));
         }
         refs
@@ -468,6 +465,53 @@ impl WorkbookRefs {
         Err(format!("unknown name '{word}'"))
     }
 
+    /// `VLOOKUP` or `HLOOKUP` called at `tokens[at]` means in Excel what it
+    /// means in Forge only where Excel's table is one column (`VLOOKUP`) or
+    /// one row (`HLOOKUP`) too, since Forge reads every table that way
+    /// (ADR-064): a table column, a range of one column in the workbook, or a
+    /// column constant `{1;2;3}` for `VLOOKUP`; a row constant `{1,2,3}` for
+    /// `HLOOKUP`. The index and both searches are then Excel's. Anything else
+    /// (an `HLOOKUP` over a column, which Excel reads as a table of one column
+    /// and many rows; a computed table) is an error, and the formula's values
+    /// are written.
+    fn one_line_lookup(
+        &self,
+        upper: &str,
+        tokens: &[Token],
+        at: usize,
+        ctx: Context<'_>,
+    ) -> Result<(), String> {
+        let vertical = upper == "VLOOKUP";
+        let table = matching_paren(tokens, at + 1)
+            .map(|close| split_arguments(&tokens[at + 2..close]))
+            .and_then(|args| args.get(1).copied());
+        let across = if vertical {
+            Token::Comma
+        } else {
+            Token::Semicolon
+        };
+        let one_line = match table {
+            Some([Token::Identifier(word)]) if vertical => {
+                let mut range = false;
+                self.reference(word, ctx, true, &mut range).is_ok() && range
+            },
+            Some([Token::OpenBrace, items @ .., Token::CloseBrace]) => !items.contains(&across),
+            _ => false,
+        };
+        if one_line {
+            return Ok(());
+        }
+        Err(if vertical {
+            "VLOOKUP's table in Excel is one column only when it is a table column or a \
+             column constant {1;2;3}"
+                .to_string()
+        } else {
+            "HLOOKUP's table in Excel is one row only when it is a row constant {1,2,3}: \
+             a table column is a column of the sheet"
+                .to_string()
+        })
+    }
+
     /// Translate a Forge formula to Excel.
     ///
     /// # Errors
@@ -526,7 +570,6 @@ impl WorkbookRefs {
     }
 
     /// Translate a run of tokens; `outer` are the calls it sits inside.
-    #[allow(clippy::too_many_lines)] // one match over the token kinds
     fn translate(
         &self,
         tokens: &[Token],
@@ -544,6 +587,14 @@ impl WorkbookRefs {
         while i < tokens.len() {
             let token = &tokens[i];
             let next_is_paren = matches!(tokens.get(i + 1), Some(Token::OpenParen));
+            if let Some((text, end)) =
+                self.translate_whole(tokens, i, ctx, &calls, locals, has_range)?
+            {
+                out.push_str(&text);
+                after_value = true;
+                i = end;
+                continue;
+            }
             match token {
                 // An array constant (ADR-064), written as Excel writes it
                 Token::OpenBrace => {
@@ -561,59 +612,6 @@ impl WorkbookRefs {
                     let _ = write!(out, "\"{}\"", t.replace('"', "\"\""));
                 },
                 Token::Boolean(b) => out.push_str(if *b { "TRUE" } else { "FALSE" }),
-                // Forge's own functions, written out as the Excel expression
-                // that computes the same thing
-                Token::Identifier(word)
-                    if next_is_paren && FORGE_FUNCTIONS.contains(&word.to_uppercase().as_str()) =>
-                {
-                    let close = matching_paren(tokens, i + 1)
-                        .ok_or_else(|| format!("{word}: missing )"))?;
-                    let args = split_arguments(&tokens[i + 2..close])
-                        .into_iter()
-                        .map(|arg| {
-                            if arg.is_empty() {
-                                return Err(format!("{word}: an argument is empty"));
-                            }
-                            self.translate(arg, ctx, &calls, locals, has_range)
-                        })
-                        .collect::<Result<Vec<String>, String>>()?;
-                    let third = split_arguments(&tokens[i + 2..close])
-                        .get(2)
-                        .map(|t| t.to_vec());
-                    out.push_str(&forge_function(word, &args, third.as_deref())?);
-                    after_value = true;
-                    i = close + 1;
-                    continue;
-                },
-                // LET, LAMBDA called at once and COUNTUNIQUE: written as the
-                // Excel expression that means the same (`local_names`)
-                Token::Identifier(word)
-                    if next_is_paren
-                        && local_names::HANDLED.contains(&word.to_uppercase().as_str()) =>
-                {
-                    let (text, end) =
-                        self.translate_special(tokens, i, ctx, &calls, locals, has_range)?;
-                    out.push_str(&text);
-                    after_value = true;
-                    i = end;
-                    continue;
-                },
-                // PREV and ROW(): the row above, and the table's row number
-                Token::Identifier(word)
-                    if next_is_paren
-                        && (word.eq_ignore_ascii_case("PREV")
-                            || word.eq_ignore_ascii_case("ROW")) =>
-                {
-                    let (text, end) = if word.eq_ignore_ascii_case("PREV") {
-                        self.translate_prev(tokens, i, ctx, &calls, locals, has_range)?
-                    } else {
-                        Self::translate_row(tokens, i, ctx, locals)?
-                    };
-                    out.push_str(&text);
-                    after_value = true;
-                    i = end;
-                    continue;
-                },
                 Token::Identifier(word) if next_is_paren && locals.get(word).is_some() => {
                     return Err(format!(
                         "{word} is a name of a LET or LAMBDA, not a function"
@@ -624,15 +622,7 @@ impl WorkbookRefs {
                     let _ = write!(out, "_xlpm.{}", locals.get(word).unwrap_or(word));
                 },
                 Token::Identifier(word) if next_is_paren => {
-                    let upper = word.to_uppercase();
-                    if !super::FormulaTranslator::is_excel_function(word)
-                        || DIFFERENT_IN_EXCEL.contains(&upper.as_str())
-                    {
-                        return Err(format!("function {word} has no Excel equivalent"));
-                    }
-                    if upper == "E" && !matches!(tokens.get(i + 2), Some(Token::CloseParen)) {
-                        return Err("E takes no arguments".to_string());
-                    }
+                    let upper = self.call_head(word, tokens, i, ctx)?;
                     out.push_str(excel_name(&upper));
                     pending_function = Some(upper);
                 },
@@ -645,14 +635,7 @@ impl WorkbookRefs {
                     out.push_str(&self.table_range(word));
                 },
                 Token::Identifier(word) => {
-                    // A range argument (ADR-058), or inside one
-                    let whole_column = calls.iter().any(|(name, arg, count)| {
-                        name.as_deref().is_some_and(|n| {
-                            crate::core::array_calculator::whole_column::is_whole_column(
-                                n, *count, *arg,
-                            )
-                        })
-                    });
+                    let whole_column = Self::in_whole_column_call(&calls);
                     out.push_str(&self.reference(word, ctx, whole_column, has_range)?);
                 },
                 Token::Operator(op) => {
@@ -698,6 +681,103 @@ impl WorkbookRefs {
         }
         Ok(out)
     }
+
+    /// A construct that is written out as a whole: one of Forge's own
+    /// functions, `LET` and `LAMBDA` called at once, `COUNTUNIQUE`, `PREV` or
+    /// `ROW()`. Its Excel text, and the index of the token after it; `None`
+    /// when the token starts none of them.
+    fn translate_whole(
+        &self,
+        tokens: &[Token],
+        i: usize,
+        ctx: Context<'_>,
+        calls: &[Call],
+        locals: &Locals,
+        has_range: &mut bool,
+    ) -> Result<Option<(String, usize)>, String> {
+        let next_is_paren = matches!(tokens.get(i + 1), Some(Token::OpenParen));
+        match &tokens[i] {
+            // Forge's own functions, written out as the Excel expression
+            // that computes the same thing
+            Token::Identifier(word)
+                if next_is_paren && FORGE_FUNCTIONS.contains(&word.to_uppercase().as_str()) =>
+            {
+                let close =
+                    matching_paren(tokens, i + 1).ok_or_else(|| format!("{word}: missing )"))?;
+                let args = split_arguments(&tokens[i + 2..close])
+                    .into_iter()
+                    .map(|arg| {
+                        if arg.is_empty() {
+                            return Err(format!("{word}: an argument is empty"));
+                        }
+                        self.translate(arg, ctx, calls, locals, has_range)
+                    })
+                    .collect::<Result<Vec<String>, String>>()?;
+                let third = split_arguments(&tokens[i + 2..close])
+                    .get(2)
+                    .map(|t| t.to_vec());
+                Ok(Some((
+                    forge_function(word, &args, third.as_deref())?,
+                    close + 1,
+                )))
+            },
+            // LET, LAMBDA called at once and COUNTUNIQUE: written as the
+            // Excel expression that means the same (`local_names`)
+            Token::Identifier(word)
+                if next_is_paren
+                    && local_names::HANDLED.contains(&word.to_uppercase().as_str()) =>
+            {
+                let (text, end) =
+                    self.translate_special(tokens, i, ctx, calls, locals, has_range)?;
+                Ok(Some((text, end)))
+            },
+            // PREV and ROW(): the row above, and the table's row number
+            Token::Identifier(word)
+                if next_is_paren
+                    && (word.eq_ignore_ascii_case("PREV") || word.eq_ignore_ascii_case("ROW")) =>
+            {
+                let (text, end) = if word.eq_ignore_ascii_case("PREV") {
+                    self.translate_prev(tokens, i, ctx, calls, locals, has_range)?
+                } else {
+                    Self::translate_row(tokens, i, ctx, locals)?
+                };
+                Ok(Some((text, end)))
+            },
+            _ => Ok(None),
+        }
+    }
+
+    /// The name of a function being called, upper case, once it is known to
+    /// have an Excel equivalent.
+    fn call_head(
+        &self,
+        word: &str,
+        tokens: &[Token],
+        i: usize,
+        ctx: Context<'_>,
+    ) -> Result<String, String> {
+        let upper = word.to_uppercase();
+        if upper == "VLOOKUP" || upper == "HLOOKUP" {
+            self.one_line_lookup(&upper, tokens, i, ctx)?;
+        } else if !super::FormulaTranslator::is_excel_function(word)
+            || DIFFERENT_IN_EXCEL.contains(&upper.as_str())
+        {
+            return Err(format!("function {word} has no Excel equivalent"));
+        }
+        if upper == "E" && !matches!(tokens.get(i + 2), Some(Token::CloseParen)) {
+            return Err("E takes no arguments".to_string());
+        }
+        Ok(upper)
+    }
+
+    /// Whether a name here is a range argument (ADR-058), or inside one.
+    fn in_whole_column_call(calls: &[Call]) -> bool {
+        calls.iter().any(|(name, arg, count)| {
+            name.as_deref().is_some_and(|n| {
+                crate::core::array_calculator::whole_column::is_whole_column(n, *count, *arg)
+            })
+        })
+    }
 }
 
 /// Whether a formula calls `function` (upper case).
@@ -719,54 +799,6 @@ const FORGE_FUNCTIONS: [&str; 5] = [
     "BREAKEVEN_UNITS",
     "BREAKEVEN_REVENUE",
 ];
-
-/// Keep `calls` up to date at token `i` of an Excel formula: a `(` opens a
-/// call (with its function and number of arguments), a `)` closes one, a `,`
-/// moves to the next argument.
-fn track_call(tokens: &[XlToken], i: usize, calls: &mut Vec<Call>) {
-    match &tokens[i] {
-        XlToken::Open => {
-            let function = match i.checked_sub(1).and_then(|p| tokens.get(p)) {
-                Some(XlToken::Function(name)) => Some(
-                    name.trim_start_matches("_xlfn.")
-                        .trim_start_matches("_xlws.")
-                        .to_uppercase(),
-                ),
-                _ => None,
-            };
-            calls.push((function, 0, excel_argument_count(tokens, i)));
-        },
-        XlToken::Close => {
-            calls.pop();
-        },
-        XlToken::Comma => {
-            if let Some(call) = calls.last_mut() {
-                call.1 += 1;
-            }
-        },
-        _ => {},
-    }
-}
-
-/// The number of arguments of the Excel call whose `(` is at `open`.
-fn excel_argument_count(tokens: &[XlToken], open: usize) -> usize {
-    // Depth inside the call's own parentheses
-    let mut depth = 0usize;
-    let mut count = 0;
-    for token in tokens.iter().skip(open + 1) {
-        match token {
-            XlToken::Close if depth == 0 => return count,
-            XlToken::Close => depth -= 1,
-            XlToken::Comma if depth == 0 => count = count.max(1) + 1,
-            XlToken::Open => {
-                count = count.max(1);
-                depth += 1;
-            },
-            _ => count = count.max(1),
-        }
-    }
-    count
-}
 
 /// Index of the `)` that closes the `(` at `open`.
 fn matching_paren(tokens: &[Token], open: usize) -> Option<usize> {
@@ -912,497 +944,298 @@ fn check_irr_arguments(
 }
 
 #[cfg(test)]
-#[path = "workbook_refs/forward_tests.rs"]
-mod tests;
+mod tests {
+    use super::*;
 
-/// What a sheet holds, read back from a workbook.
-#[derive(Debug, Clone)]
-pub enum SheetKind {
-    /// A table: column letter -> column name. `include` is the namespace when
-    /// the sheet holds a table of an included file (`{namespace}.{table}`):
-    /// `name` is then the file's own name for it, and the main model reads
-    /// its columns as `@{namespace}.{name}.{column}`.
-    Table {
-        name: String,
-        columns: HashMap<String, String>,
-        include: Option<String>,
-    },
-    /// A scalar sheet (`Name` / `Value`): Excel row -> scalar path.
-    ///
-    /// `include` is the namespace when the sheet holds an included file's
-    /// scalars (`{namespace}.Scalars`): its paths are the file's own, and the
-    /// main model reads them as `@{namespace}.{path}`.
-    Scalars {
-        rows: HashMap<u32, String>,
-        include: Option<String>,
-    },
-}
+    /// Columns and scalars are listed in the order the layout uses:
+    /// revenue (A), `total_profit` (B), year (C); valuation.net (row 2), npv (row 3).
+    fn refs() -> WorkbookRefs {
+        WorkbookRefs::new(
+            [
+                (
+                    "projections",
+                    vec![
+                        "revenue".to_string(),
+                        "total_profit".to_string(),
+                        "year".to_string(),
+                    ],
+                    3,
+                ),
+                ("other", vec!["x".to_string()], 3),
+            ],
+            [
+                "assumptions.base_revenue",
+                "assumptions.growth",
+                "valuation.net",
+                "valuation.npv",
+                "tax",
+            ],
+        )
+    }
 
-impl SheetKind {
-    /// The namespace of an included file's sheet.
-    pub(crate) fn include(&self) -> Option<&str> {
-        match self {
-            Self::Scalars { include, .. } | Self::Table { include, .. } => include.as_deref(),
+    #[test]
+    fn layout_keeps_the_order_given() {
+        // Model order, not alphabetical: year (A), revenue (B), year again ignored;
+        // b.second before b.first gives rows 2 and 3.
+        let refs = WorkbookRefs::new(
+            [(
+                "t",
+                vec![
+                    "year".to_string(),
+                    "revenue".to_string(),
+                    "year".to_string(),
+                ],
+                3,
+            )],
+            ["b.second", "b.first"],
+        );
+        let columns = &refs.columns["t"];
+        assert_eq!(columns["year"], "A");
+        assert_eq!(columns["revenue"], "B");
+        assert_eq!(columns.len(), 2);
+        assert_eq!(refs.scalars["b.second"], ("b".to_string(), 2));
+        assert_eq!(refs.scalars["b.first"], ("b".to_string(), 3));
+    }
+
+    fn row(f: &str) -> Result<String, String> {
+        refs()
+            .to_excel(
+                f,
+                Context::Row {
+                    table: "projections",
+                    row: 3,
+                },
+            )
+            .map(|t| t.formula)
+    }
+
+    fn scalar(f: &str, group: Option<&str>) -> Result<Translated, String> {
+        refs().to_excel(f, Context::Scalar { group })
+    }
+
+    #[test]
+    fn column_letters() {
+        assert_eq!(column_letter(0), "A");
+        assert_eq!(column_letter(25), "Z");
+        assert_eq!(column_letter(26), "AA");
+        assert_eq!(column_letter(701), "ZZ");
+        assert_eq!(column_letter(702), "AAA");
+    }
+
+    #[test]
+    fn row_formula_columns_named_like_functions() {
+        // `year` is a column here, not YEAR(); the fixture lists
+        // revenue (A), total_profit (B), year (C).
+        assert_eq!(
+            row("=assumptions.base_revenue * (1 + assumptions.growth) ^ year").unwrap(),
+            "='assumptions'!$B$2 * (1 + 'assumptions'!$B$3)^C3"
+        );
+    }
+
+    #[test]
+    fn row_formula_other_table_is_same_row() {
+        assert_eq!(row("=revenue - other.x").unwrap(), "=A3 - 'other'!A3");
+    }
+
+    #[test]
+    fn row_formula_bare_scalar_name() {
+        assert_eq!(row("=revenue * tax").unwrap(), "=A3 * 'Scalars'!$B$2");
+        assert_eq!(
+            row("=revenue * growth").unwrap(),
+            "=A3 * 'assumptions'!$B$3"
+        );
+    }
+
+    #[test]
+    fn unary_minus_and_literals() {
+        assert_eq!(row("=-revenue + 1.5").unwrap(), "=-A3 + 1.5");
+        assert_eq!(
+            row("=IF(revenue > 0, \"up\", FALSE)").unwrap(),
+            "=IF(A3 > 0, \"up\", FALSE)"
+        );
+    }
+
+    #[test]
+    fn scalar_formula_ranges_and_own_group() {
+        let t = scalar(
+            "=NPV(assumptions.growth, projections.total_profit)",
+            Some("valuation"),
+        )
+        .unwrap();
+        assert_eq!(
+            t.formula,
+            "=NPV('assumptions'!$B$3, 'projections'!$B$2:$B$4)"
+        );
+        assert!(t.has_range);
+
+        // `npv` is in the formula's own group: same sheet, no prefix.
+        let t = scalar("=npv - assumptions.base_revenue", Some("valuation")).unwrap();
+        assert_eq!(t.formula, "=$B$3 - 'assumptions'!$B$2");
+        assert!(!t.has_range);
+    }
+
+    #[test]
+    fn irr_only_when_excel_means_the_same() {
+        assert_eq!(
+            scalar("=IRR(projections.total_profit)", Some("valuation"))
+                .unwrap()
+                .formula,
+            "=IRR('projections'!$B$2:$B$4)"
+        );
+        assert!(scalar("=IRR(projections.total_profit, 0.1)", Some("valuation")).is_ok());
+        let err = scalar(
+            "=IRR(-assumptions.base_revenue, projections.total_profit)",
+            Some("valuation"),
+        )
+        .unwrap_err();
+        assert!(err.contains("guess"), "{err}");
+    }
+
+    #[test]
+    fn untranslatable_formulas_say_why() {
+        assert!(row("=MC.Normal(1, 2)")
+            .unwrap_err()
+            .contains("no Excel equivalent"));
+        assert!(row("=revenue[0]").unwrap_err().contains("indexing"));
+        assert!(row("=missing * 2").unwrap_err().contains("unknown name"));
+    }
+
+    #[test]
+    fn lookup_arguments_are_whole_columns_in_row_formulas() {
+        // MATCH reads its second argument as the whole column; the first is per row.
+        assert_eq!(
+            row("=MATCH(revenue, other.x, 0)").unwrap(),
+            "=MATCH(A3, 'other'!$A$2:$A$4, 0)"
+        );
+        assert_eq!(
+            row("=INDEX(total_profit, 2) + year").unwrap(),
+            "=INDEX($B$2:$B$4, 2) + C3"
+        );
+    }
+
+    /// VLOOKUP and HLOOKUP are written where Excel's table is one column or
+    /// one row too, and only there
+    #[test]
+    fn lookups_on_one_column_or_row_are_written() {
+        assert_eq!(
+            row("=VLOOKUP(revenue, other.x, 1, FALSE)").unwrap(),
+            "=VLOOKUP(A3, 'other'!$A$2:$A$4, 1, FALSE)"
+        );
+        assert_eq!(
+            row("=VLOOKUP(year, revenue, 1)").unwrap(),
+            "=VLOOKUP(C3, $A$2:$A$4, 1)"
+        );
+        assert_eq!(
+            scalar("=VLOOKUP(2, other.x, 1, TRUE)", Some("valuation"))
+                .unwrap()
+                .formula,
+            "=VLOOKUP(2, 'other'!$A$2:$A$4, 1, TRUE)"
+        );
+        assert_eq!(
+            row("=VLOOKUP(year, {1;2;3}, 1)").unwrap(),
+            "=VLOOKUP(C3, {1;2;3}, 1)"
+        );
+        assert_eq!(
+            row("=HLOOKUP(year, {1,2,3}, 1, FALSE)").unwrap(),
+            "=HLOOKUP(C3, {1,2,3}, 1, FALSE)"
+        );
+        // A one-item constant is one row and one column
+        assert_eq!(row("=HLOOKUP(1, {7}, 1)").unwrap(), "=HLOOKUP(1, {7}, 1)");
+        for (f, why) in [
+            // A table column is a column of the sheet: Excel's HLOOKUP would
+            // search its first cell only
+            ("=HLOOKUP(1, revenue, 1)", "HLOOKUP's table"),
+            ("=HLOOKUP(1, other.x, 1)", "HLOOKUP's table"),
+            ("=HLOOKUP(1, {1;2;3}, 1)", "HLOOKUP's table"),
+            // A row constant is one row of three columns in Excel
+            ("=VLOOKUP(1, {1,2,3}, 1)", "VLOOKUP's table"),
+            // A scalar is one cell, and a computed table no range
+            ("=VLOOKUP(1, tax, 1)", "VLOOKUP's table"),
+            ("=VLOOKUP(1, other.x * 2, 1)", "VLOOKUP's table"),
+            ("=VLOOKUP(1)", "VLOOKUP's table"),
+        ] {
+            assert!(row(f).unwrap_err().contains(why), "{f}");
         }
     }
-}
 
-/// Workbook layout for translating Excel formulas back to Forge.
-#[derive(Debug, Clone, Default)]
-pub struct ReverseRefs {
-    /// Sheet name -> what it holds
-    pub sheets: HashMap<String, SheetKind>,
-}
-
-/// One piece of an Excel formula.
-#[derive(Debug, Clone, PartialEq)]
-enum XlToken {
-    Number(String),
-    Text(String),
-    Bool(bool),
-    Function(String),
-    /// A name of a LET (`_xlpm.x`, read as `x`)
-    Local(String),
-    /// Sheet (if given), first cell, last cell (for a range)
-    Reference(Option<String>, Cell, Option<Cell>),
-    Operator(String),
-    Open,
-    Close,
-    Comma,
-    /// An array constant (ADR-064), already as Forge text
-    Constant(String),
-}
-
-/// A cell address: column letters and 1-based row.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Cell {
-    column: String,
-    row: u32,
-}
-
-fn parse_cell(text: &str) -> Option<Cell> {
-    let t = text.replace('$', "");
-    let split = t.find(|c: char| c.is_ascii_digit())?;
-    let (column, row) = t.split_at(split);
-    if column.is_empty() || column.len() > 3 || !column.chars().all(|c| c.is_ascii_uppercase()) {
-        return None;
-    }
-    Some(Cell {
-        column: column.to_string(),
-        row: row.parse().ok()?,
-    })
-}
-
-/// Read a name, sheet prefix (`name!`), function (`NAME(`), cell or range.
-fn read_word(
-    chars: &[char],
-    i: &mut usize,
-    sheet: &mut Option<String>,
-    tokens: &mut Vec<XlToken>,
-) -> Result<(), String> {
-    let start = *i;
-    while *i < chars.len() && (chars[*i].is_alphanumeric() || matches!(chars[*i], '_' | '.' | '$'))
-    {
-        *i += 1;
-    }
-    let word: String = chars[start..*i].iter().collect();
-    if chars.get(*i) == Some(&'!') {
-        *i += 1;
-        *sheet = Some(word);
-        return Ok(());
-    }
-    if chars.get(*i) == Some(&'(') {
-        let name = word
-            .trim_start_matches("_xlfn.")
-            .trim_start_matches("_xlws.")
-            .to_string();
-        tokens.push(XlToken::Function(name));
-        return Ok(());
-    }
-    if let Some(name) = word.strip_prefix("_xlpm.") {
-        tokens.push(XlToken::Local(name.to_string()));
-        return Ok(());
-    }
-    if let Some(first) = parse_cell(&word) {
-        let mut last = None;
-        if chars.get(*i) == Some(&':') {
-            let s = *i + 1;
-            let mut e = s;
-            while e < chars.len() && (chars[e].is_ascii_alphanumeric() || chars[e] == '$') {
-                e += 1;
-            }
-            let second: String = chars[s..e].iter().collect();
-            last = Some(parse_cell(&second).ok_or("unsupported range")?);
-            *i = e;
+    #[test]
+    fn functions_that_differ_in_excel_are_not_translated() {
+        for f in ["=NOW()", "=ROW(revenue)", "=COLUMN()"] {
+            assert!(row(f).unwrap_err().contains("no Excel equivalent"), "{f}");
         }
-        tokens.push(XlToken::Reference(sheet.take(), first, last));
-        return Ok(());
+        // COUNTUNIQUE has an Excel form only in a scalar (local_names)
+        assert!(row("=COUNTUNIQUE(revenue)")
+            .unwrap_err()
+            .contains("row formula"));
     }
-    match word.to_uppercase().as_str() {
-        "TRUE" => tokens.push(XlToken::Bool(true)),
-        "FALSE" => tokens.push(XlToken::Bool(false)),
-        _ => return Err(format!("unsupported name '{word}'")),
-    }
-    Ok(())
-}
 
-/// Read text up to the closing `quote` (doubled quotes stand for one) starting
-/// after the opening quote at `chars[*i]`. Leaves `*i` after the closing quote.
-fn read_quoted(chars: &[char], i: &mut usize, quote: char) -> Result<String, String> {
-    let mut text = String::new();
-    *i += 1;
-    loop {
-        match chars.get(*i) {
-            Some(&c) if c == quote && chars.get(*i + 1) == Some(&quote) => {
-                text.push(quote);
-                *i += 2;
-            },
-            Some(&c) if c == quote => {
-                *i += 1;
-                return Ok(text);
-            },
-            Some(&c) => {
-                text.push(c);
-                *i += 1;
-            },
-            None => return Err(format!("missing closing {quote}")),
+    /// Forge names Excel spells otherwise, functions Excel stores with a
+    /// prefix, and `COLUMNS(table)`.
+    #[test]
+    fn functions_with_other_names_in_excel() {
+        for (forge, excel) in [
+            ("=POW(revenue, 2)", "=POWER(A3, 2)"),
+            ("=AVG(revenue, 1)", "=AVERAGE(A3, 1)"),
+            ("=ROUND(E() * revenue, 2)", "=ROUND(EXP(1) * A3, 2)"),
+            ("=LN(E())", "=LN(EXP(1))"),
+        ] {
+            assert_eq!(row(forge).unwrap(), excel, "{forge}");
         }
-    }
-}
-
-/// Split an Excel formula into tokens. Fails on anything this translator does
-/// not handle (named ranges, structured references, `%`, R1C1).
-fn excel_tokens(formula: &str) -> Result<Vec<XlToken>, String> {
-    let chars: Vec<char> = formula.trim().trim_start_matches('=').chars().collect();
-    let mut tokens = Vec::new();
-    let mut i = 0;
-    let mut sheet: Option<String> = None;
-    while i < chars.len() {
-        let c = chars[i];
-        let before = tokens.len();
-        match c {
-            ' ' | '\t' | '\n' => i += 1,
-            '"' => tokens.push(XlToken::Text(read_quoted(&chars, &mut i, '"')?)),
-            '\'' => {
-                let name = read_quoted(&chars, &mut i, '\'')?;
-                if chars.get(i) != Some(&'!') {
-                    return Err("quoted name without '!'".to_string());
-                }
-                i += 1;
-                sheet = Some(name);
-            },
-            '0'..='9' | '.' => {
-                let start = i;
-                while i < chars.len()
-                    && (chars[i].is_ascii_digit()
-                        || chars[i] == '.'
-                        || ((chars[i] == 'e' || chars[i] == 'E') && i + 1 < chars.len())
-                        || ((chars[i] == '+' || chars[i] == '-')
-                            && matches!(chars[i - 1], 'e' | 'E')))
-                {
-                    i += 1;
-                }
-                tokens.push(XlToken::Number(chars[start..i].iter().collect()));
-            },
-            c if c.is_alphabetic() || c == '_' || c == '$' => {
-                read_word(&chars, &mut i, &mut sheet, &mut tokens)?;
-            },
-            '<' | '>' => {
-                let two: String = chars[i..(i + 2).min(chars.len())].iter().collect();
-                if matches!(two.as_str(), "<=" | ">=" | "<>") {
-                    tokens.push(XlToken::Operator(two));
-                    i += 2;
-                } else {
-                    tokens.push(XlToken::Operator(c.to_string()));
-                    i += 1;
-                }
-            },
-            '+' | '-' | '*' | '/' | '^' | '&' | '=' => {
-                tokens.push(XlToken::Operator(c.to_string()));
-                i += 1;
-            },
-            '(' => {
-                tokens.push(XlToken::Open);
-                i += 1;
-            },
-            ')' => {
-                tokens.push(XlToken::Close);
-                i += 1;
-            },
-            ',' => {
-                tokens.push(XlToken::Comma);
-                i += 1;
-            },
-            '{' => tokens.push(XlToken::Constant(constants::from_excel(&chars, &mut i)?)),
-            other => return Err(format!("unsupported character '{other}'")),
-        }
-        // A sheet name is consumed by the cell reference right after it.
-        if sheet.is_some() && tokens.len() > before {
-            return Err("sheet name not followed by a cell".to_string());
-        }
-    }
-    if sheet.is_some() {
-        return Err("sheet name not followed by a cell".to_string());
-    }
-    Ok(tokens)
-}
-
-impl ReverseRefs {
-    /// Translate an Excel formula written in `sheet` back to Forge.
-    ///
-    /// `row` is the Excel row of a table formula (references to other rows
-    /// cannot be expressed in a Forge row formula); it is ignored for scalars.
-    ///
-    /// # Errors
-    ///
-    /// Returns the reason when the formula cannot be expressed in Forge.
-    pub fn to_forge(&self, formula: &str, sheet: &str, row: u32) -> Result<String, String> {
-        self.translate_back(formula, sheet, row, false)
-    }
-
-    /// [`ReverseRefs::to_forge`] for a table formula that may read the rows
-    /// above: a cell of the row above is `PREV(column, 0)`, one `n` rows up
-    /// `PREV(column, 0, n)`. The 0 stands for the first rows' value, which
-    /// `forge import` reads from those rows (`previous_rows`).
-    ///
-    /// # Errors
-    ///
-    /// Returns the reason when the formula cannot be expressed in Forge.
-    pub fn to_forge_reading_above(
-        &self,
-        formula: &str,
-        sheet: &str,
-        row: u32,
-    ) -> Result<String, String> {
-        self.translate_back(formula, sheet, row, true)
-    }
-
-    fn translate_back(
-        &self,
-        formula: &str,
-        sheet: &str,
-        row: u32,
-        above: bool,
-    ) -> Result<String, String> {
-        let current = self
-            .sheets
-            .get(sheet)
-            .ok_or_else(|| format!("unknown sheet '{sheet}'"))?;
-        let mut out = String::from("=");
-        let mut after_value = false;
-        let tokens = excel_tokens(formula)?;
-        let mut skip = 0;
-        let mut only_in_count_unique = false;
-        // Open parentheses, as in `translate` (ADR-058)
-        let mut calls: Vec<Call> = Vec::new();
-        for (i, token) in tokens.iter().enumerate() {
-            if skip > 0 {
-                skip -= 1;
-                continue;
-            }
-            track_call(&tokens, i, &mut calls);
-            match token {
-                XlToken::Number(n) => out.push_str(n),
-                XlToken::Text(t) => {
-                    if t.contains('"') {
-                        return Err("text with a double quote".to_string());
-                    }
-                    let _ = write!(out, "\"{t}\"");
-                },
-                XlToken::Bool(b) => out.push_str(if *b { "TRUE" } else { "FALSE" }),
-                // Excel's ROW() is the sheet's row; a table starts in row 2
-                XlToken::Function(name)
-                    if name.eq_ignore_ascii_case("ROW")
-                        && matches!(current, SheetKind::Table { .. })
-                        && tokens.get(i + 1..i + 3) == Some(&[XlToken::Open, XlToken::Close]) =>
-                {
-                    out.push_str("(ROW() + 1)");
-                    skip = 2;
-                    after_value = true;
-                    continue;
-                },
-                // ROW(range) and UNIQUE are read only as part of what `forge
-                // export` writes for COUNTUNIQUE (checked below)
-                XlToken::Function(name)
-                    if name.eq_ignore_ascii_case("ROW") || name.eq_ignore_ascii_case("UNIQUE") =>
-                {
-                    only_in_count_unique = true;
-                    out.push_str(&name.to_uppercase());
-                },
-                XlToken::Function(name)
-                    if DIFFERENT_IN_EXCEL.contains(&name.to_uppercase().as_str()) =>
-                {
-                    return Err(format!(
-                        "function {name} works differently in Forge than in Excel"
-                    ));
-                },
-                XlToken::Function(name) | XlToken::Local(name) => out.push_str(name),
-                XlToken::Reference(target, first, last) => {
-                    let target_name = target.as_deref().unwrap_or(sheet);
-                    let kind = self
-                        .sheets
-                        .get(target_name)
-                        .ok_or_else(|| format!("unknown sheet '{target_name}'"))?;
-                    let name = Self::name_for(current, kind, first, last.as_ref(), (row, above))?;
-                    Self::check_whole_column(current, kind, last.is_some(), &calls)?;
-                    out.push_str(&name);
-                },
-                XlToken::Operator(op) => {
-                    if after_value {
-                        let _ = write!(out, " {op} ");
-                    } else {
-                        out.push_str(op);
-                    }
-                },
-                XlToken::Open => out.push('('),
-                XlToken::Close => out.push(')'),
-                XlToken::Comma => out.push_str(", "),
-                XlToken::Constant(text) => out.push_str(text),
-            }
-            after_value = matches!(
-                token,
-                XlToken::Number(_)
-                    | XlToken::Constant(_)
-                    | XlToken::Text(_)
-                    | XlToken::Bool(_)
-                    | XlToken::Local(_)
-                    | XlToken::Reference(..)
-                    | XlToken::Close
+        assert!(row("=E(1)").unwrap_err().contains("no arguments"));
+        for (forge, excel) in [
+            (
+                "=STDEV.S(projections.revenue)",
+                "=STDEV.S('projections'!$A$2:$A$4)",
+            ),
+            (
+                "=RANK.EQ(assumptions.growth, projections.revenue, 1)",
+                "=RANK.EQ('assumptions'!$B$3, 'projections'!$A$2:$A$4, 1)",
+            ),
+            ("=COLUMNS(projections)", "=COLUMNS('projections'!$A$2:$C$4)"),
+            ("=RANDBETWEEN(1, 6)", "=RANDBETWEEN(1, 6)"),
+        ] {
+            assert_eq!(
+                scalar(forge, Some("valuation")).unwrap().formula,
+                excel,
+                "{forge}"
             );
         }
-        // What `forge export` writes for Forge's ROW()
-        let out = out.replace("((ROW() + 1) - 1)", "ROW()");
-        let out = local_names::restore_count_unique(&out);
-        if only_in_count_unique {
-            let rest = out.replace("ROW()", "").replace("COUNTUNIQUE(", "");
-            if let Some(name) = ["ROW(", "UNIQUE("].iter().find(|f| rest.contains(**f)) {
-                return Err(format!(
-                    "function {} works differently in Forge than in Excel",
-                    name.trim_end_matches('(')
-                ));
-            }
-        }
-        Ok(out)
     }
 
-    /// A reference of a row formula read as Forge would read its name (ADR-058):
-    /// a range only where Forge reads the whole column, one cell only where it
-    /// reads the row's value. UNIQUE and ROW(range) are checked as COUNTUNIQUE.
-    fn check_whole_column(
-        current: &SheetKind,
-        kind: &SheetKind,
-        is_range: bool,
-        calls: &[Call],
-    ) -> Result<(), String> {
-        if !matches!(current, SheetKind::Table { .. }) || !matches!(kind, SheetKind::Table { .. }) {
-            return Ok(());
+    /// Forge's own functions become the Excel expression that computes the
+    /// same (forge-e2e-gnumeric recalculates each one in Gnumeric).
+    #[test]
+    fn forge_functions_as_excel_expressions() {
+        for (forge, excel) in [
+            ("=VARIANCE(revenue, 100)", "=((A3) - (100))"),
+            ("=VARIANCE_PCT(revenue, year)", "=(((A3) - (C3)) / ABS(C3))"),
+            (
+                "=BREAKEVEN_UNITS(1000, revenue, 20)",
+                "=IF(((A3) - (20)) <= 0, NA(), (1000) / ((A3) - (20)))",
+            ),
+            (
+                "=BREAKEVEN_REVENUE(1000, 0.4)",
+                "=IF(OR((0.4) <= 0, (0.4) > 1), NA(), (1000) / (0.4))",
+            ),
+            (
+                "=VARIANCE_STATUS(revenue, 100, \"cost\")",
+                "=IF((100) = 0, SIGN(A3), IF(ABS((((A3) - (100)) / ABS(100))) <= 0.01, 0, IF((((A3) - (100)) / ABS(100)) > 0, -1, 1)))",
+            ),
+            (
+                "=ROUND(VARIANCE(MAX(revenue, 1), 2) * 3, 0)",
+                "=ROUND(((MAX(A3, 1)) - (2)) * 3, 0)",
+            ),
+        ] {
+            assert_eq!(row(forge).unwrap(), excel, "{forge}");
         }
-        if calls
-            .iter()
-            .any(|(name, _, _)| matches!(name.as_deref(), Some("UNIQUE" | "ROW")))
-        {
-            return Ok(());
-        }
-        let whole = calls.iter().any(|(name, arg, count)| {
-            name.as_deref().is_some_and(|n| {
-                crate::core::array_calculator::whole_column::is_whole_column(n, *count, *arg)
-            })
-        });
-        if is_range && !whole {
-            return Err(
-                "a range where Forge reads the row's value (a row formula reads a \
-                        whole column only as an aggregate's range, ADR-058)"
-                    .to_string(),
-            );
-        }
-        if !is_range && whole {
-            return Err("one cell where Forge reads the whole column (ADR-058)".to_string());
-        }
-        Ok(())
+        assert!(row("=VARIANCE(revenue)").unwrap_err().contains("takes 2"));
+        assert!(row("=VARIANCE_STATUS(revenue, 100, year)")
+            .unwrap_err()
+            .contains("number or"));
     }
 
-    /// Forge name for a cell or range on `kind`, seen from `current`.
-    fn name_for(
-        current: &SheetKind,
-        kind: &SheetKind,
-        first: &Cell,
-        last: Option<&Cell>,
-        (row, above): (u32, bool),
-    ) -> Result<String, String> {
-        match kind {
-            SheetKind::Scalars { rows, include } => {
-                if last.is_some() || first.column != "B" {
-                    return Err("reference to a scalar sheet outside the Value column".to_string());
-                }
-                let path = rows
-                    .get(&first.row)
-                    .cloned()
-                    .ok_or_else(|| format!("no scalar in row {}", first.row))?;
-                // An included file sees only its own names; the main model
-                // reads an included file's names as `@namespace.path`.
-                match (include.as_deref(), current.include()) {
-                    (None, None) => Ok(path),
-                    (Some(ns), Some(here)) if ns == here => Ok(path),
-                    (Some(ns), None) => Ok(format!("@{ns}.{path}")),
-                    (_, Some(here)) => Err(format!(
-                        "the included file '{here}' reads a value outside itself"
-                    )),
-                }
-            },
-            SheetKind::Table { include, .. }
-                if current.include().is_some() && include.as_deref() != current.include() =>
-            {
-                Err("an included file reads a table outside itself".to_string())
-            },
-            SheetKind::Table {
-                name,
-                columns,
-                include,
-            } => {
-                if let Some(last) = last {
-                    if last.column != first.column {
-                        return Err("range over several columns".to_string());
-                    }
-                }
-                let column = columns
-                    .get(&first.column)
-                    .ok_or_else(|| format!("no column {} in '{name}'", first.column))?;
-                let in_current_table = matches!(current, SheetKind::Table { name: n, include: i, .. } if n == name && i == include);
-                // The main model reads a table of an included file by namespace
-                let qualified = match (include.as_deref(), current.include()) {
-                    (Some(ns), None) => format!("@{ns}.{name}"),
-                    _ => name.clone(),
-                };
-                let name = if in_current_table {
-                    column.clone()
-                } else {
-                    format!("{qualified}.{column}")
-                };
-                match (current, last) {
-                    // A single cell in a row formula is in the same row, or
-                    // (where the caller reads it so) in a data row above
-                    (SheetKind::Table { .. }, None) if above && (2..row).contains(&first.row) => {
-                        Ok(match row - first.row {
-                            1 => format!("PREV({name}, 0)"),
-                            back => format!("PREV({name}, 0, {back})"),
-                        })
-                    },
-                    (SheetKind::Table { .. }, None) if first.row != row => {
-                        Err("reference to another row".to_string())
-                    },
-                    // A single table cell in a scalar formula would be indexing.
-                    (SheetKind::Scalars { .. }, None) => {
-                        Err("reference to a single table cell".to_string())
-                    },
-                    _ => Ok(name),
-                }
-            },
-        }
+    #[test]
+    fn sheet_names_with_quotes() {
+        assert_eq!(sheet_prefix("Bob's"), "'Bob''s'!");
     }
 }
-
-#[cfg(test)]
-#[path = "workbook_refs/dates_tests.rs"]
-mod dates_tests;
-#[cfg(test)]
-mod reverse_tests;

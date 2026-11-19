@@ -83,7 +83,9 @@ A model can read scalars from other YAML files: list them in `_includes` and wri
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_calculate","arguments":{"content":"_forge_version: \"5.1.0\"\n_includes:\n  - file: rates.yaml\n    as: rates\nsales:\n  amount: 1000\n  amount_eur:\n    formula: \"=sales.amount * @rates.fx.usd_eur\"\n","includes":{"rates":"_forge_version: \"5.1.0\"\nfx:\n  usd_eur: 0.92\n"},"dry_run":true}}}
 ```
 
-If the model YAML contains `_includes` entries but no `includes` map is provided, the server returns a clear error listing the missing namespaces.
+An included file can include others: `examples/bagel/bagel_simulate.yaml` includes `costs_risk.yaml` (as `costs`), which includes `costs.yaml` (as `base`). Pass the content of every file in the chain in the same `includes` map, each under its own `as` name (`{"costs": "<costs_risk.yaml>", "base": "<costs.yaml>"}`); a nested file's `file` is relative to the file that names it, as on disk. A namespace is one file: the same name for two different files is refused, and the same file named twice is written once. The tools then give the numbers they give for the files (the tests in `src/mcp/server/` run `examples/bagel` both ways and assert the same results).
+
+If the model YAML contains `_includes` entries but no `includes` map is provided, the server returns a clear error listing the missing namespaces; so does an included file whose own includes have no content in the map.
 
 ### Write-Back with Inline Content
 
@@ -318,7 +320,7 @@ Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular,
 
 #### `forge_scenarios`
 
-Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results.
+Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results. A scenario without a probability is left out of the weighting and named in `unweighted`; forge_compare puts it beside the others.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|

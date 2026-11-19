@@ -3,66 +3,14 @@
 //! Provides the MCP server that AI agents use to interact with Forge.
 //! Uses the rmcp SDK for Model Context Protocol over stdin/stdout.
 
-use std::path::Path;
-
-use crate::inline_model::resolve_model_input;
 use rmcp::handler::server::router::tool::ToolRouter;
-use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{ServerCapabilities, ServerConfig};
-use rmcp::{tool, tool_handler, tool_router, ServerHandler};
+use rmcp::{tool_handler, ServerHandler};
 
-use crate::cli::calculate_core;
-use crate::cli::{
-    audit_core, bayesian_core, bootstrap_core, compare_core, comparison_json, decision_tree_core,
-    examples_core, export_buffer_core, export_core, functions_core, goal_seek_core, import_core,
-    real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
-    validate_core, variance_core,
-};
-
-use super::types::{
-    AuditRequest, BayesianRequest, BootstrapRequest, BreakEvenRequest, CalculateRequest,
-    CompareRequest, DecisionTreeRequest, ExamplesRequest, ExportRequest, FunctionsRequest,
-    GoalSeekRequest, ImportRequest, RealOptionsRequest, ScenariosRequest, SchemaRequest,
-    SensitivityRequest, SimulateRequest, TornadoRequest, ValidateRequest, VarianceRequest,
-};
-
-/// The bootstrap result without the full list of resampled statistics.
-///
-/// The list has one number per iteration (10,000 by default, about 37,000
-/// tokens), which fills an agent's context for no gain. Nine percentiles of the
-/// same sorted list describe its shape; `forge bootstrap --output` still writes
-/// every value.
-fn compact_bootstrap(result: &crate::bootstrap::BootstrapResult) -> serde_json::Value {
-    let mut value = serde_json::to_value(result).unwrap_or_default();
-    let sorted = &result.distribution;
-    if let Some(map) = value.as_object_mut() {
-        map.remove("distribution");
-        if !sorted.is_empty() {
-            let at = |p: f64| {
-                #[allow(
-                    clippy::cast_possible_truncation,
-                    clippy::cast_sign_loss,
-                    clippy::cast_precision_loss
-                )]
-                let i = ((p * (sorted.len() - 1) as f64).round() as usize).min(sorted.len() - 1);
-                sorted[i]
-            };
-            let percentiles: Vec<serde_json::Value> = [1, 5, 10, 25, 50, 75, 90, 95, 99]
-                .iter()
-                .map(|p| serde_json::json!({"percentile": p, "value": at(f64::from(*p) / 100.0)}))
-                .collect();
-            map.insert(
-                "distribution_percentiles".to_string(),
-                serde_json::Value::Array(percentiles),
-            );
-            map.insert(
-                "distribution_size".to_string(),
-                serde_json::json!(sorted.len()),
-            );
-        }
-    }
-    value
-}
+mod analysis_tools;
+mod model_tools;
+mod reference_tools;
+mod uncertainty_tools;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SERVER
@@ -80,7 +28,10 @@ impl ForgeMcpServer {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            tool_router: Self::tool_router(),
+            tool_router: Self::model_tools()
+                + Self::analysis_tools()
+                + Self::uncertainty_tools()
+                + Self::reference_tools(),
             root: None,
         }
     }
@@ -108,476 +59,12 @@ impl Default for ForgeMcpServer {
 
 /// Serialize a successful result to JSON string, numbers to 15 significant
 /// digits (`core::precision`).
-fn to_json<T: serde::Serialize>(result: &T) -> String {
+pub(super) fn to_json<T: serde::Serialize>(result: &T) -> String {
     serde_json::to_string(&crate::core::precision::Rounded(result)).unwrap_or_default()
-}
-
-/// Scenario results as JSON, a date's value as its text, as in `forge calculate`
-/// (ADR-060): the engine holds a date as a day number.
-fn scenarios_json(path: &Path, results: &crate::scenarios::ScenarioResults) -> String {
-    let mut json =
-        serde_json::to_value(crate::core::precision::Rounded(results)).unwrap_or_default();
-    let dates: Vec<String> = crate::parser::parse_model(path).map_or_else(
-        |_| Vec::new(),
-        |m| {
-            m.scalars
-                .iter()
-                .filter(|(_, v)| v.is_date)
-                .map(|(k, _)| k.clone())
-                .collect()
-        },
-    );
-    let text = |v: &serde_json::Value| {
-        v.as_f64().map_or_else(
-            || v.clone(),
-            |n| {
-                serde_json::Value::String(
-                    crate::core::array_calculator::evaluator::serial_date_text(n),
-                )
-            },
-        )
-    };
-    for name in &dates {
-        if let Some(scenarios) = json["scenarios"].as_array_mut() {
-            for scenario in scenarios {
-                if let Some(v) = scenario["scalars"].get_mut(name) {
-                    *v = text(v);
-                }
-            }
-        }
-        if let Some(v) = json["expected_values"].get_mut(name) {
-            *v = text(v);
-        }
-        if let Some(range) = json["ranges"].get_mut(name).and_then(|r| r.as_array_mut()) {
-            for end in range {
-                *end = text(end);
-            }
-        }
-    }
-    json.to_string()
 }
 
 /// What the server tells the agent it serves.
 const INSTRUCTIONS: &str = "Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 203 Excel-compatible functions. All tools return structured JSON. A new model: start from forge_examples name=starter; _forge_version is the model format version (5.1.0), not the Forge version; in a group of scalars a formula is {formula: \"=...\"}, in a table a column formula is a bare \"=...\".";
-
-#[tool_router]
-#[allow(clippy::unused_self)] // rmcp #[tool] macro requires &self on all tool methods
-impl ForgeMcpServer {
-    // ═══════════════════════════════════════════════════════════════════════
-    // CORE TOOLS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    #[tool(
-        name = "forge_validate",
-        description = "Validate a Forge YAML model file for formula errors, circular dependencies, and type mismatches."
-    )]
-    fn validate(&self, Parameters(req): Parameters<ValidateRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        validate_core(&path)
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Validation failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_calculate",
-        description = "Calculate all formulas in a Forge YAML model. Unless dry_run, writes each formula's result next to it in the file, changing nothing else (comments kept)."
-    )]
-    fn calculate(&self, Parameters(req): Parameters<CalculateRequest>) -> Result<String, String> {
-        let is_inline = req.content.is_some();
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        let result = calculate_core(path.as_path(), req.dry_run, req.scenario.as_deref())
-            .map_err(|e| format!("Calculation failed: {e}"))?;
-
-        let mut json_val: serde_json::Value =
-            serde_json::to_value(&result).map_err(|e| format!("Serialization failed: {e}"))?;
-
-        // When using inline content with dry_run=false, read back the calculated file
-        if is_inline && !req.dry_run {
-            if let Ok(calculated) = std::fs::read_to_string(&path) {
-                json_val["calculated_content"] = serde_json::Value::String(calculated);
-            }
-        }
-
-        serde_json::to_string(&crate::core::precision::Rounded(&json_val))
-            .map_err(|e| format!("Serialization failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_audit",
-        description = "Audit a specific variable to see its dependency tree and calculated value."
-    )]
-    fn audit(&self, Parameters(req): Parameters<AuditRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        audit_core(&path, &req.variable)
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Audit failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_export",
-        description = "Export a Forge YAML model to an Excel workbook. \
-            If `excel_path` is provided, writes the .xlsx file to disk. \
-            If omitted, returns the workbook inline as base64 in the \
-            `excel_base64` response field (for sandboxed clients)."
-    )]
-    fn export(&self, Parameters(req): Parameters<ExportRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.yaml_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        req.excel_path.as_ref().map_or_else(
-            || {
-                export_buffer_core(&path)
-                    .map(|r| to_json(&r))
-                    .map_err(|e| format!("Export failed: {e}"))
-            },
-            |excel_path| {
-                export_core(&path, &self.file(excel_path)?)
-                    .map(|r| to_json(&r))
-                    .map_err(|e| format!("Export failed: {e}"))
-            },
-        )
-    }
-
-    #[tool(
-        name = "forge_import",
-        description = "Import an Excel workbook into a Forge YAML model."
-    )]
-    fn import(&self, Parameters(req): Parameters<ImportRequest>) -> Result<String, String> {
-        import_core(
-            &self.file(&req.excel_path)?,
-            &self.file(&req.yaml_path)?,
-            false,
-            false,
-        )
-        .map(|r| to_json(&r))
-        .map_err(|e| format!("Import failed: {e}"))
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // FINANCIAL ANALYSIS TOOLS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    #[tool(
-        name = "forge_sensitivity",
-        description = "Run sensitivity analysis by varying one or two input variables and observing output changes. Essential for what-if modeling and risk assessment."
-    )]
-    fn sensitivity(
-        &self,
-        Parameters(req): Parameters<SensitivityRequest>,
-    ) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        sensitivity_core(
-            &path,
-            &req.vary,
-            &req.range,
-            req.vary2.as_deref(),
-            req.range2.as_deref(),
-            &req.output,
-        )
-        .map(|r| to_json(&r))
-        .map_err(|e| format!("Sensitivity analysis failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_goal_seek",
-        description = "Find the input value needed to achieve a target output. Uses bisection solver. Example: 'What price do I need for $100K profit?'"
-    )]
-    fn goal_seek(&self, Parameters(req): Parameters<GoalSeekRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        goal_seek_core(
-            &path,
-            &req.target,
-            req.value,
-            &req.vary,
-            (req.min, req.max),
-            req.tolerance,
-        )
-        .map(|r| to_json(&r))
-        .map_err(|e| format!("Goal seek failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_break_even",
-        description = "Find the break-even point where an output equals zero. Example: 'At what units does profit = 0?'"
-    )]
-    fn break_even(&self, Parameters(req): Parameters<BreakEvenRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        goal_seek_core(
-            &path,
-            &req.output,
-            0.0,
-            &req.vary,
-            (req.min, req.max),
-            0.0001,
-        )
-        .map(|r| to_json(&r))
-        .map_err(|e| format!("Break-even analysis failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_variance",
-        description = "Compare budget vs actual with variance analysis. Shows absolute and percentage variances with favorable/unfavorable indicators."
-    )]
-    fn variance(&self, Parameters(req): Parameters<VarianceRequest>) -> Result<String, String> {
-        let (budget_path, _tmpdir_b) = resolve_model_input(
-            self.root.as_ref(),
-            req.budget_path.as_deref(),
-            req.budget_content.as_deref(),
-            req.includes.as_ref(),
-        )
-        .map_err(|e| e.replace("file_path or content", "budget_path or budget_content"))?;
-        let (actual_path, _tmpdir_a) = resolve_model_input(
-            self.root.as_ref(),
-            req.actual_path.as_deref(),
-            req.actual_content.as_deref(),
-            req.includes.as_ref(),
-        )
-        .map_err(|e| e.replace("file_path or content", "actual_path or actual_content"))?;
-        let threshold = req.threshold.unwrap_or(10.0);
-        variance_core(&budget_path, &actual_path, threshold)
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Variance analysis failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_compare",
-        description = "Compare calculation results across multiple scenarios side-by-side. Useful for what-if analysis."
-    )]
-    fn compare(&self, Parameters(req): Parameters<CompareRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        compare_core(&path, &req.scenarios)
-            .map(|r| comparison_json(&r).to_string())
-            .map_err(|e| format!("Scenario comparison failed: {e}"))
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // ANALYSIS ENGINE TOOLS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    #[tool(
-        name = "forge_simulate",
-        description = "Run Monte Carlo simulation with probabilistic distributions (MC.Normal, MC.Triangular, MC.Uniform, MC.PERT, MC.Lognormal). Returns statistics, percentiles, threshold probabilities, and drivers (each MC.* input's rank correlation with each output). An MC.* input may be in an included file. `scenario` applies a scenario's overrides first. An output may be a table column (one result per row). With `seek` (\"P(year.profit > 0) = 0.8\"), `vary`, `min` and `max`, returns the value of that input at which the probability is first met."
-    )]
-    fn simulate(&self, Parameters(req): Parameters<SimulateRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        // MCP iteration counts are always small, saturating cast is safe
-        #[allow(clippy::cast_possible_truncation)]
-        let iterations = req.iterations.map(|n| n as usize);
-
-        let outputs = req.outputs.unwrap_or_default();
-        if req.seek.is_some() && !outputs.is_empty() {
-            return Err(
-                "outputs cannot be used with seek, which reports its own output".to_string(),
-            );
-        }
-        let options = crate::cli::SimulateOptions {
-            iterations,
-            seed: req.seed,
-            sampling: req.sampling.as_deref(),
-            scenario: req.scenario.as_deref(),
-            outputs: &outputs,
-        };
-        if let Some(seek) = req.seek.as_deref() {
-            let (Some(vary), Some(min), Some(max)) = (req.vary.as_deref(), req.min, req.max) else {
-                return Err("seek needs vary, min and max".to_string());
-            };
-            let goal = crate::cli::SeekGoal::parse(seek)?;
-            return crate::cli::probability_seek_core(&path, options, &goal, vary, min, max)
-                .map_err(|e| format!("Seek failed: {e}"))
-                .and_then(|r| {
-                    serde_json::to_string_pretty(&crate::core::precision::Rounded(&r))
-                        .map_err(|e| format!("Serialization failed: {e}"))
-                });
-        }
-        simulate_core(&path, options)
-            .map_err(|e| format!("Simulation failed: {e}"))
-            .and_then(|r| {
-                r.to_json()
-                    .map_err(|e| format!("Serialization failed: {e}"))
-            })
-    }
-
-    #[tool(
-        name = "forge_scenarios",
-        description = "Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results."
-    )]
-    fn scenarios(&self, Parameters(req): Parameters<ScenariosRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        scenarios_core(&path, req.scenario_filter.as_deref())
-            .map(|r| scenarios_json(&path, &r))
-            .map_err(|e| format!("Scenario analysis failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_decision_tree",
-        description = "Analyze decision trees using backward induction. Returns optimal path, expected value, decision policy, and risk profile."
-    )]
-    fn decision_tree(
-        &self,
-        Parameters(req): Parameters<DecisionTreeRequest>,
-    ) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        decision_tree_core(&path)
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Decision tree analysis failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_real_options",
-        description = "Value managerial flexibility (defer/expand/abandon) using real options pricing. Returns option values, exercise probabilities, and project value with options."
-    )]
-    fn real_options(
-        &self,
-        Parameters(req): Parameters<RealOptionsRequest>,
-    ) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        real_options_core(&path)
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Real options analysis failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_tornado",
-        description = "Generate tornado sensitivity diagram. Varies each input one-at-a-time to show which inputs have the greatest impact on the output."
-    )]
-    fn tornado(&self, Parameters(req): Parameters<TornadoRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        tornado_core(&path, req.output_var.as_deref())
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Tornado analysis failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_bootstrap",
-        description = "Non-parametric bootstrap resampling for confidence intervals. Returns original estimate, bootstrap mean, std error, bias, confidence intervals and nine percentiles of the bootstrap distribution (not every resample)."
-    )]
-    fn bootstrap(&self, Parameters(req): Parameters<BootstrapRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        #[allow(clippy::cast_possible_truncation)]
-        let iterations = req.iterations.map(|n| n as usize);
-
-        let result = bootstrap_core(&path, iterations, req.seed, req.confidence_levels)
-            .map_err(|e| format!("Bootstrap analysis failed: {e}"))?;
-        Ok(to_json(&compact_bootstrap(&result)))
-    }
-
-    #[tool(
-        name = "forge_bayesian",
-        description = "Bayesian network inference. Query posterior probabilities with optional evidence. Returns probability distributions for each variable state."
-    )]
-    fn bayesian(&self, Parameters(req): Parameters<BayesianRequest>) -> Result<String, String> {
-        let (path, _tmpdir) = resolve_model_input(
-            self.root.as_ref(),
-            req.file_path.as_deref(),
-            req.content.as_deref(),
-            req.includes.as_ref(),
-        )?;
-        let evidence = req.evidence.unwrap_or_default();
-        bayesian_core(&path, req.query_var.as_deref(), &evidence)
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Bayesian inference failed: {e}"))
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // DISCOVERY TOOLS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    #[tool(
-        name = "forge_schema",
-        description = "Get JSON Schema for Forge YAML model formats. Write new models as _forge_version \"5.1.0\": inputs as plain numbers (price: 16), formula scalars as {formula: \"=...\"}, tables as lists and row-formula strings. For a table over time use \"5.2.0\": a period column (month: {start: 2026-12, count: 12, unit: month}) gives the rows, and PREV(value, first_row_value) reads the row above. \"5.3.0\" allows an empty cell (null) in a column of numbers. \"5.4.0\" allows a date as a scalar (last_actual: 2026-10-31) and format: beside unit:, an Excel number format that changes how a number is shown, never its value (price: {value: 16, format: \"$#,##0.00\"}); results then carry a formatted map."
-    )]
-    fn schema(&self, Parameters(req): Parameters<SchemaRequest>) -> Result<String, String> {
-        schema_core(req.version.as_deref()).map_err(|e| format!("Schema error: {e}"))
-    }
-
-    #[tool(
-        name = "forge_functions",
-        description = "List all 203 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
-    )]
-    fn functions(&self, Parameters(_req): Parameters<FunctionsRequest>) -> Result<String, String> {
-        functions_core()
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Functions list failed: {e}"))
-    }
-
-    #[tool(
-        name = "forge_examples",
-        description = "Get runnable YAML examples for all Forge capabilities. Use without a name to list available examples, or specify a name to get the full YAML content. `starter` is a first model to start from."
-    )]
-    fn examples(&self, Parameters(req): Parameters<ExamplesRequest>) -> Result<String, String> {
-        examples_core(req.name.as_deref())
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Examples error: {e}"))
-    }
-}
 
 #[allow(unknown_lints, clippy::unused_async_trait_impl)]
 #[tool_handler(router = self.tool_router)]
@@ -601,9 +88,388 @@ impl ServerHandler for ForgeMcpServer {
 }
 
 #[cfg(test)]
-#[path = "server_tests.rs"]
-mod tests;
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_default_server_is_the_new_one_without_a_root() {
+        assert!(ForgeMcpServer::default().root.is_none());
+    }
+
+    /// Helper: get Ok text or panic with the error string
+    pub fn ok_text(result: Result<String, String>) -> String {
+        result.expect("expected Ok result")
+    }
+
+    /// Helper: get Err text or panic
+    pub fn err_text(result: Result<String, String>) -> String {
+        result.expect_err("expected Err result")
+    }
+
+    /// Minimal valid YAML model for inline content tests
+    pub const INLINE_YAML: &str = r#"
+_forge_version: "5.0.0"
+scalars:
+  revenue:
+    value: 100000
+  costs:
+    value: 60000
+  profit:
+    value: 0
+    formula: "=revenue - costs"
+"#;
+
+    /// A file of an example (`dir`/`file` under examples/), as the text a client
+    /// sends as inline content.
+    pub fn example(dir: &str, file: &str) -> String {
+        std::fs::read_to_string(format!("examples/{dir}/{file}")).expect("an example file")
+    }
+
+    /// How a request names a model of an example: its `file_path`, or its
+    /// `content` and the `includes` map with the text of each file it includes,
+    /// directly or through another included file (`namespace`, `file`).
+    pub type Source = (
+        Option<String>,
+        Option<String>,
+        Option<std::collections::HashMap<String, String>>,
+    );
+
+    /// The model `dir`/`file` named by its path, or sent as text.
+    pub fn example_source(
+        inline: bool,
+        dir: &str,
+        file: &str,
+        includes: &[(&str, &str)],
+    ) -> Source {
+        if inline {
+            (
+                None,
+                Some(example(dir, file)),
+                Some(
+                    includes
+                        .iter()
+                        .map(|(namespace, included)| {
+                            (namespace.to_string(), example(dir, included))
+                        })
+                        .collect(),
+                ),
+            )
+        } else {
+            (Some(format!("examples/{dir}/{file}")), None, None)
+        }
+    }
+
+    /// The bagel model `file`, by path or as text.
+    pub fn bagel_source(inline: bool, file: &str, includes: &[(&str, &str)]) -> Source {
+        example_source(inline, "bagel", file, includes)
+    }
+
+    /// A tool's answer as JSON.
+    pub fn json(text: &str) -> serde_json::Value {
+        serde_json::from_str(text).expect("JSON")
+    }
+
+    /// Whether two numbers differ by at most `tolerance`.
+    pub fn close(a: f64, b: f64, tolerance: f64) -> bool {
+        (a - b).abs() <= tolerance
+    }
+
+    #[test]
+    fn test_server_get_info() {
+        let server = ForgeMcpServer::new();
+        let info = server.get_info();
+        assert_eq!(info.server_info.name, "forge");
+        assert!(info.instructions.is_some());
+        assert!(info.capabilities.tools.is_some());
+    }
+
+    #[test]
+    fn test_tool_count() {
+        let server = ForgeMcpServer::new();
+        let tools = server.tool_router.list_all();
+        assert_eq!(tools.len(), 20, "Expected 20 tools, got {}", tools.len());
+    }
+
+    #[test]
+    fn test_tool_names() {
+        let server = ForgeMcpServer::new();
+        let tools = server.tool_router.list_all();
+        let names: Vec<&str> = tools.iter().map(|t| t.name.as_ref()).collect();
+
+        // Core tools
+        assert!(names.contains(&"forge_validate"));
+        assert!(names.contains(&"forge_calculate"));
+        assert!(names.contains(&"forge_audit"));
+        assert!(names.contains(&"forge_export"));
+        assert!(names.contains(&"forge_import"));
+        // Financial analysis tools
+        assert!(names.contains(&"forge_sensitivity"));
+        assert!(names.contains(&"forge_goal_seek"));
+        assert!(names.contains(&"forge_break_even"));
+        assert!(names.contains(&"forge_variance"));
+        assert!(names.contains(&"forge_compare"));
+        // Analysis engine tools
+        assert!(names.contains(&"forge_simulate"));
+        assert!(names.contains(&"forge_scenarios"));
+        assert!(names.contains(&"forge_decision_tree"));
+        assert!(names.contains(&"forge_real_options"));
+        assert!(names.contains(&"forge_tornado"));
+        assert!(names.contains(&"forge_bootstrap"));
+        assert!(names.contains(&"forge_bayesian"));
+        // Discovery tools
+        assert!(names.contains(&"forge_schema"));
+        assert!(names.contains(&"forge_functions"));
+        assert!(names.contains(&"forge_examples"));
+    }
+
+    #[test]
+    fn test_tool_schemas_are_objects() {
+        let server = ForgeMcpServer::new();
+        let tools = server.tool_router.list_all();
+
+        for tool in &tools {
+            assert_eq!(
+                tool.input_schema.get("type").and_then(|v| v.as_str()),
+                Some("object"),
+                "Tool {} schema missing type: object",
+                tool.name
+            );
+        }
+    }
+}
 
 #[cfg(all(test, unix))] // the tests use symbolic links
-#[path = "root_tests.rs"]
-mod root_tests;
+mod root_tests {
+    //! `forge mcp --root DIR` (T1-MCP-ROOT): a path outside DIR is refused, for
+    //! reading and for writing, through `..`, a symbolic link or an included file.
+    //! Without a root nothing changes.
+    use crate::mcp::types::{ExportRequest, ImportRequest, ValidateRequest, VarianceRequest};
+
+    use super::*;
+    use crate::path_root::Root;
+    use rmcp::handler::server::wrapper::Parameters;
+    use std::fs;
+    use std::os::unix::fs::symlink;
+    use std::path::{Path, PathBuf};
+    use tempfile::TempDir;
+
+    const MODEL: &str = "_forge_version: \"5.1.0\"\na:\n  x: 2\n  y: {formula: \"=a.x * 3\"}\n";
+
+    /// `models/` is the root; `secret/` is beside it, outside.
+    struct Folders {
+        _base: TempDir,
+        root: PathBuf,
+        secret: PathBuf,
+    }
+
+    fn folders() -> Folders {
+        let base = TempDir::new().unwrap();
+        let root = base.path().join("models");
+        let secret = base.path().join("secret");
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(&secret).unwrap();
+        fs::write(root.join("m.yaml"), MODEL).unwrap();
+        fs::write(secret.join("s.yaml"), MODEL).unwrap();
+        // A link to a file outside, and a link to the folder outside
+        symlink(secret.join("s.yaml"), root.join("link.yaml")).unwrap();
+        symlink(&secret, root.join("out")).unwrap();
+        // A model inside that includes a file outside
+        fs::write(
+            root.join("inc.yaml"),
+            format!("{MODEL}_includes:\n  - file: ../secret/s.yaml\n    as: s\n"),
+        )
+        .unwrap();
+        Folders {
+            root,
+            secret,
+            _base: base,
+        }
+    }
+
+    fn server(f: &Folders) -> ForgeMcpServer {
+        ForgeMcpServer::new().with_root(Root::new(&f.root).unwrap())
+    }
+
+    fn s(path: &Path) -> String {
+        path.to_str().unwrap().to_string()
+    }
+
+    fn validate(server: &ForgeMcpServer, path: &str) -> Result<String, String> {
+        server.validate(Parameters(ValidateRequest {
+            file_path: Some(path.to_string()),
+            content: None,
+            includes: None,
+            verbose: false,
+        }))
+    }
+
+    fn export(server: &ForgeMcpServer, yaml: &str, excel: &str) -> Result<String, String> {
+        server.export(Parameters(ExportRequest {
+            yaml_path: Some(yaml.to_string()),
+            content: None,
+            includes: None,
+            excel_path: Some(excel.to_string()),
+        }))
+    }
+
+    fn refused(result: Result<String, String>) -> String {
+        let err = result.expect_err("a path outside the root must be refused");
+        assert!(err.contains("outside"), "says why: {err}");
+        err
+    }
+
+    #[test]
+    fn a_model_inside_the_root_is_read_by_full_or_relative_path() {
+        let f = folders();
+        let server = server(&f);
+        validate(&server, &s(&f.root.join("m.yaml"))).unwrap();
+        validate(&server, "m.yaml").unwrap();
+    }
+
+    #[test]
+    fn a_model_outside_the_root_is_refused() {
+        let f = folders();
+        let err = refused(validate(&server(&f), &s(&f.secret.join("s.yaml"))));
+        assert!(err.contains("--root"), "names the setting: {err}");
+    }
+
+    #[test]
+    fn dot_dot_cannot_leave_the_root() {
+        let f = folders();
+        let server = server(&f);
+        refused(validate(&server, "../secret/s.yaml"));
+        refused(validate(&server, &s(&f.root.join("../secret/s.yaml"))));
+        // Through a folder that does not exist, too
+        refused(validate(&server, "missing/../../secret/s.yaml"));
+    }
+
+    #[test]
+    fn a_symbolic_link_cannot_leave_the_root() {
+        let f = folders();
+        let server = server(&f);
+        refused(validate(&server, "link.yaml"));
+        refused(validate(&server, "out/s.yaml"));
+    }
+
+    #[test]
+    fn an_included_file_outside_the_root_is_refused() {
+        let f = folders();
+        let err = refused(validate(&server(&f), "inc.yaml"));
+        assert!(err.contains("s.yaml"), "names the included file: {err}");
+    }
+
+    #[test]
+    fn export_cannot_write_outside_the_root() {
+        let f = folders();
+        let server = server(&f);
+        refused(export(&server, "m.yaml", &s(&f.secret.join("x.xlsx"))));
+        refused(export(&server, "m.yaml", "../secret/x.xlsx"));
+        refused(export(&server, "m.yaml", "out/x.xlsx"));
+        assert!(!f.secret.join("x.xlsx").exists(), "nothing written outside");
+        export(&server, "m.yaml", "m.xlsx").unwrap();
+        assert!(f.root.join("m.xlsx").exists(), "relative to the root");
+    }
+
+    #[test]
+    fn a_link_where_the_file_will_be_written_cannot_leave_the_root() {
+        let f = folders();
+        // A link that points outside to a file that does not exist yet
+        symlink(f.secret.join("new.xlsx"), f.root.join("dangling.xlsx")).unwrap();
+        refused(export(&server(&f), "m.yaml", "dangling.xlsx"));
+        assert!(!f.secret.join("new.xlsx").exists());
+    }
+
+    #[test]
+    fn import_cannot_read_or_write_outside_the_root() {
+        let f = folders();
+        let server = server(&f);
+        export(&server, "m.yaml", "m.xlsx").unwrap();
+        fs::copy(f.root.join("m.xlsx"), f.secret.join("m.xlsx")).unwrap();
+        let import = |excel: &str, yaml: &str| {
+            server.import(Parameters(ImportRequest {
+                excel_path: excel.to_string(),
+                yaml_path: yaml.to_string(),
+            }))
+        };
+        refused(import(&s(&f.secret.join("m.xlsx")), "back.yaml"));
+        refused(import("m.xlsx", &s(&f.secret.join("back.yaml"))));
+        assert!(
+            !f.secret.join("back.yaml").exists(),
+            "nothing written outside"
+        );
+        import("m.xlsx", "back.yaml").unwrap();
+        assert!(f.root.join("back.yaml").exists());
+    }
+
+    #[test]
+    fn both_files_of_a_variance_are_checked() {
+        let f = folders();
+        let result = server(&f).variance(Parameters(VarianceRequest {
+            budget_path: Some("m.yaml".into()),
+            budget_content: None,
+            actual_path: Some(s(&f.secret.join("s.yaml"))),
+            actual_content: None,
+            includes: None,
+            threshold: None,
+        }));
+        refused(result);
+    }
+
+    #[test]
+    fn inline_content_still_works_with_a_root() {
+        let f = folders();
+        server(&f)
+            .validate(Parameters(ValidateRequest {
+                file_path: None,
+                content: Some(MODEL.into()),
+                includes: None,
+                verbose: false,
+            }))
+            .unwrap();
+    }
+
+    #[test]
+    fn without_a_root_nothing_changes() {
+        let f = folders();
+        validate(&ForgeMcpServer::new(), &s(&f.secret.join("s.yaml"))).unwrap();
+    }
+
+    #[test]
+    fn the_server_tells_the_agent_where_files_must_be() {
+        let f = folders();
+        let info = server(&f).get_info();
+        let text = info.instructions.unwrap_or_default();
+        let root = f.root.canonicalize().unwrap();
+        assert!(text.contains(&s(&root)), "{text}");
+    }
+
+    #[test]
+    fn a_root_that_is_not_a_folder_is_refused_at_start() {
+        let f = folders();
+        assert!(Root::new(&f.root.join("m.yaml")).is_err());
+        assert!(Root::new(&f.root.join("missing")).is_err());
+    }
+
+    #[test]
+    fn an_include_of_an_include_outside_the_root_is_refused() {
+        let f = folders();
+        fs::write(
+            f.root.join("outer.yaml"),
+            format!("{MODEL}_includes:\n  - file: inc.yaml\n    as: inner\n"),
+        )
+        .unwrap();
+        refused(validate(&server(&f), "outer.yaml"));
+    }
+
+    #[test]
+    fn a_document_of_a_multi_document_model_cannot_include_outside() {
+        let f = folders();
+        let second = "_forge_version: \"5.1.0\"\n_includes:\n  - file: ../secret/s.yaml\n    as: s\nb:\n  z: 1\n";
+        fs::write(
+            f.root.join("multi.yaml"),
+            format!("---\n{MODEL}---\n{second}"),
+        )
+        .unwrap();
+        refused(validate(&server(&f), "multi.yaml"));
+    }
+}
