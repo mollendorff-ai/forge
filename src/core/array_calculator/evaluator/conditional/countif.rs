@@ -7,12 +7,10 @@
 //! - COUNTIF(range, criteria)
 //! - `COUNTIFS(criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
 
-// COUNTIF casts: matching count (usize) to f64 for result.
-#![allow(clippy::cast_precision_loss)]
-
 use super::super::{
     collect_values_as_vec, evaluate, require_args, Criterion, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::precision;
 
 /// Evaluate COUNTIF function
 pub fn eval_countif(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -20,7 +18,7 @@ pub fn eval_countif(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     let range_vals = collect_values_as_vec(&args[0], ctx)?;
     let criteria = Criterion::new(&evaluate(&args[1], ctx)?);
     let count = range_vals.iter().filter(|v| criteria.matches(v)).count();
-    Ok(Value::Number(count as f64))
+    Ok(Value::Number(precision::count(count)))
 }
 
 /// Evaluate COUNTIFS function
@@ -42,7 +40,7 @@ pub fn eval_countifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
         }
     }
     let count = matches.iter().filter(|&&m| m).count();
-    Ok(Value::Number(count as f64))
+    Ok(Value::Number(precision::count(count)))
 }
 
 #[cfg(test)]

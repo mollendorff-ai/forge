@@ -127,8 +127,8 @@ LAYOUT:
 
 Row formulas and scalar formulas become live Excel formulas. A formula Excel
 cannot express with the same meaning (MC.*, LET, COUNTUNIQUE, ...) is written
-as its value, with the Forge formula in a cell note, and listed. Scenarios
-are not exported (Excel has no equivalent).
+as its value (an MC.* input as its plan value), with the Forge formula in a
+cell note, and listed. Scenarios are not exported (Excel has no equivalent).
 
 EXAMPLE:
   forge export examples/bagel/bagel.yaml bagel.xlsx"
@@ -222,7 +222,8 @@ SCENARIOS IN YAML:
         assumptions.churn_rate: 0.05
 
   compare does not weigh the scenarios, so it needs no probability. forge
-  scenarios does: the probabilities must sum to 1.
+  scenarios weighs those that have one, whose probabilities must sum to 1,
+  and names the rest.
 
 EXAMPLE:
   forge compare model.yaml --scenarios optimistic,pessimistic
@@ -400,7 +401,7 @@ DISTRIBUTIONS:
   MC.Uniform(min, max)          - Equal probability in range
   MC.PERT(min, mode, max)       - Smooth project estimates
   MC.Lognormal(mean, stdev)     - Non-negative values (prices, revenue)
-  MC.Discrete(vals, probs)      - Custom scenarios with probabilities
+  MC.Discrete({0, 0.3}, {0.9, 0.1}) - A few outcomes, each with its probability
 
 YAML CONFIGURATION:
   monte_carlo:
@@ -461,11 +462,20 @@ YAML CONFIGURATION:
       probability: 0.20
       scalars:
         revenue_growth: -0.10
+    all_cash:
+      description: \"A choice, not a chance: no probability\"
+      scalars:
+        cash_share: 1
+
+  A scenario without a probability is a choice to compare, not a chance to
+  weigh: forge scenarios leaves it out and names it, and forge compare puts
+  it beside the others. The probabilities of the rest must sum to 1.
 
 OUTPUT:
   - Per-scenario results with all calculated outputs
   - Expected value (probability-weighted) for each output
   - Risk profile showing best/worst case outcomes
+  - The scenarios left out because they have no probability
 
 EXAMPLES:
   forge scenarios model.yaml                    # Run all scenarios

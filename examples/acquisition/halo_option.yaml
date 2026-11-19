@@ -1,0 +1,28 @@
+_forge_version: "5.1.0"
+# Project Kittiwake (fictional): Halo, Quillon's next sensor platform, is in
+# the lab. Launching it would cost 260 and bring cash worth 220 today, so a
+# DCF says it is worth nothing and the 1,313 Valdane puts on Quillon leaves
+# it out. But Valdane need not launch it now: it can wait up to two years to
+# see whether the grid market takes off, and if Halo flops, sell its patents.
+# What are those rights worth? Millions.
+#
+#   forge real-options halo_option.yaml
+real_options:
+  name: "Halo platform"
+  method: binomial
+  underlying:
+    current_value: 220        # PV of Halo's cash if launched today
+    volatility: 0.45          # how much that estimate moves in a year
+    risk_free_rate: 0.04
+    time_horizon: 2           # the patents' lead lasts two years
+    dividend_yield: 0.05      # cash given up each year Halo is not on sale
+  binomial_steps: 200
+  traditional_npv: -40        # 220 - 260
+  options:
+    - type: defer
+      name: "Launch Halo within two years, or never"
+      max_deferral: 2
+      exercise_cost: 260
+    - type: abandon
+      name: "Sell Halo's patents if it flops"
+      salvage_value: 90

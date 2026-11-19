@@ -10,9 +10,10 @@ use crate::monte_carlo::{MonteCarloConfig, MonteCarloEngine};
 use crate::parser;
 use colored::Colorize;
 use std::collections::HashMap;
-use std::fmt::Write as _;
-use std::fs;
 use std::path::{Path, PathBuf};
+
+mod print;
+use print::{print_simulation_results, write_simulation_output};
 
 /// Calculate the model once with the sampled `inputs` and read the outputs.
 ///
@@ -27,17 +28,43 @@ fn evaluate_iteration(
     plan: &std::rc::Rc<crate::core::array_calculator::CalcPlan>,
     output_vars: &[(String, Option<(String, usize)>)],
     inputs: &HashMap<String, f64>,
+    only_outputs: bool,
 ) -> Result<HashMap<String, f64>, String> {
     let mut iter_model = model.clone();
-    // Replace MC.* distribution formulas with the sampled values
+    // Replace MC.* distribution formulas with the sampled values: a scalar's,
+    // or one row of an uncertain column's
     for (var_name, &value) in inputs {
-        iter_model.override_scalar(var_name, Some(value), None)?;
+        iter_model.set_input(var_name, value)?;
     }
 
     // Every iteration has the same formulas, so they are parsed and ordered once
-    let calculated = ArrayCalculator::with_plan(iter_model, std::rc::Rc::clone(plan))
-        .calculate_all()
-        .map_err(|e| e.to_string())?;
+    let calculator = ArrayCalculator::with_plan(iter_model, std::rc::Rc::clone(plan));
+    let calculated = if only_outputs {
+        // A search over many simulations: a formula no output uses may fail
+        // at an input's end of the range without failing the answer
+        let (columns, scalars): (Vec<_>, Vec<_>) =
+            output_vars.iter().partition(|(_, row)| row.is_some());
+        let scalars: Vec<String> = scalars
+            .iter()
+            .flat_map(|(name, _)| {
+                [
+                    name.clone(),
+                    format!("outputs.{name}"),
+                    format!("scalars.{name}"),
+                ]
+            })
+            .collect();
+        let columns: Vec<(String, String)> = columns
+            .iter()
+            .filter_map(|(_, row)| row.as_ref())
+            .filter_map(|(column, _)| column.split_once('.'))
+            .map(|(table, column)| (table.to_string(), column.to_string()))
+            .collect();
+        calculator.calculate_outputs(&scalars, &columns)
+    } else {
+        calculator.calculate_all()
+    }
+    .map_err(|e| e.to_string())?;
 
     output_vars
         .iter()
@@ -208,6 +235,7 @@ pub fn simulate_core(
         &config,
         &model,
         &crate::core::array_calculator::CalcPlan::new(),
+        false,
     )
 }
 
@@ -255,6 +283,7 @@ pub(super) fn run_model(
     config: &MonteCarloConfig,
     model: &crate::types::ParsedModel,
     plan: &std::rc::Rc<crate::core::array_calculator::CalcPlan>,
+    only_outputs: bool,
 ) -> ForgeResult<crate::monte_carlo::SimulationResult> {
     let mut engine = MonteCarloEngine::new(config.clone()).map_err(ForgeError::Validation)?;
     engine
@@ -269,7 +298,7 @@ pub(super) fn run_model(
 
     engine
         .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-            evaluate_iteration(model, plan, &output_vars, inputs)
+            evaluate_iteration(model, plan, &output_vars, inputs, only_outputs)
         })
         .map_err(ForgeError::Eval)
 }
@@ -322,268 +351,6 @@ pub fn simulate(
     Ok(())
 }
 
-/// Entries of a map in name order, so the printed results do not change between runs
-fn sorted_by_name<V>(map: &std::collections::HashMap<String, V>) -> Vec<(&String, &V)> {
-    let mut entries: Vec<_> = map.iter().collect();
-    entries.sort_by(|a, b| a.0.cmp(b.0));
-    entries
-}
-
-/// Write the simulation results, as `forge simulate` prints them
-fn print_simulation_results(c: &mut Console<'_>, result: &crate::monte_carlo::SimulationResult) {
-    outln!(c, "{}", "📊 Simulation Results:".bold().green());
-    outln!(c, "   Iterations:     {}", result.iterations_completed);
-    outln!(c, "   Execution time: {} ms", result.execution_time_ms);
-    outln!(c);
-
-    print_input_distributions(c, result);
-
-    // Show output results
-    if !result.outputs.is_empty() {
-        outln!(c, "   {}", "Output Statistics:".bold());
-        let rows_of = |name: &str| {
-            result
-                .config
-                .outputs
-                .iter()
-                .find(|o| o.variable == name)
-                .and_then(|o| o.row.clone())
-        };
-        let mut printed_columns: Vec<String> = Vec::new();
-        for (var_name, output) in &result.outputs {
-            if let Some((column, _)) = rows_of(var_name) {
-                if !printed_columns.contains(&column) {
-                    print_column_rows(c, result, &column);
-                    printed_columns.push(column);
-                }
-                continue;
-            }
-            print_output(c, var_name, output);
-        }
-    }
-}
-
-/// The sampled inputs: each one's mean, plan value, min and max
-fn print_input_distributions(c: &mut Console<'_>, result: &crate::monte_carlo::SimulationResult) {
-    outln!(c, "   {}", "Input Distributions:".bold());
-    for (var_name, samples) in sorted_by_name(&result.input_samples) {
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
-        let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
-        let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        let plan = result
-            .plan_inputs
-            .get(var_name)
-            .map_or_else(String::new, |p| {
-                format!(" plan={} ({})", super::display_number(p.value), p.from)
-            });
-        outln!(
-            c,
-            "      {} mean={}{plan} min={} max={}",
-            var_name.bright_blue(),
-            super::display_number(mean),
-            super::display_number(min),
-            super::display_number(max)
-        );
-    }
-    outln!(c);
-}
-
-/// One output's statistics, thresholds, expected shortfall and drivers
-fn print_output(c: &mut Console<'_>, var_name: &str, output: &crate::monte_carlo::OutputResult) {
-    let stats = &output.statistics;
-    outln!(c, "      {}:", var_name.bright_blue().bold());
-    outln!(
-        c,
-        "         Mean:      {}",
-        super::display_number(stats.mean)
-    );
-    if let Some(at_plan) = output.at_plan {
-        outln!(
-            c,
-            "         At plan:   {}  (each uncertain input at its plan value)",
-            super::display_number(at_plan)
-        );
-        if let Some(note) = mean_versus_plan(stats.mean, at_plan, stats.std_dev) {
-            outln!(c, "         {note}");
-        }
-    }
-    outln!(
-        c,
-        "         Median:    {}",
-        super::display_number(stats.median)
-    );
-    outln!(
-        c,
-        "         Std Dev:   {}",
-        super::display_number(stats.std_dev)
-    );
-    outln!(
-        c,
-        "         Min:       {}",
-        super::display_number(stats.min)
-    );
-    outln!(
-        c,
-        "         Max:       {}",
-        super::display_number(stats.max)
-    );
-
-    // Percentiles
-    outln!(c, "         Percentiles:");
-    for (p, v) in &stats.percentiles {
-        outln!(c, "            P{p}: {}", super::display_number(*v));
-    }
-
-    // Thresholds, in the order configured
-    for (threshold, prob) in &output.threshold_probabilities {
-        outln!(
-            c,
-            "         P({} {}) = {:.2}%",
-            var_name,
-            threshold,
-            prob * 100.0
-        );
-    }
-
-    for (p, mean) in &output.expected_shortfall {
-        outln!(
-            c,
-            "         Mean of the worst {p}% (expected shortfall): {}",
-            super::display_number(*mean)
-        );
-    }
-
-    // Which sampled inputs move it most
-    if !output.drivers.is_empty() {
-        outln!(c, "         Drivers (rank correlation with the output):");
-        for driver in &output.drivers {
-            outln!(
-                c,
-                "            {:+.3}  {}",
-                driver.rank_correlation,
-                driver.input
-            );
-        }
-    }
-    outln!(c);
-}
-
-/// A note when an output's mean is far from its value at plan (more than a
-/// tenth of a standard deviation), which a reader would otherwise take for a
-/// contradiction between `forge calculate` and `forge simulate`.
-fn mean_versus_plan(mean: f64, at_plan: f64, std_dev: f64) -> Option<String> {
-    let gap = mean - at_plan;
-    // Not past a tenth of a standard deviation, or not comparable (NaN)
-    if gap.abs().partial_cmp(&(0.1 * std_dev)) != Some(std::cmp::Ordering::Greater) {
-        return None;
-    }
-    Some(format!(
-        "The mean is {} {} the value at plan: the uncertain inputs' means are not their plan \
-         values (see Input Distributions), or the model is not linear in them.",
-        super::display_number(gap.abs()),
-        if gap < 0.0 { "below" } else { "above" }
-    ))
-}
-
-/// A table column output, one line per row: mean, P10, P50, P90, and each
-/// threshold's probability.
-fn print_column_rows(
-    c: &mut Console<'_>,
-    result: &crate::monte_carlo::SimulationResult,
-    column: &str,
-) {
-    let rows: Vec<&crate::monte_carlo::OutputResult> = result
-        .config
-        .outputs
-        .iter()
-        .filter(|o| o.row.as_ref().is_some_and(|(c, _)| c == column))
-        .filter_map(|o| result.outputs.get(&o.variable))
-        .collect();
-    let Some(first) = rows.first() else {
-        return;
-    };
-    outln!(
-        c,
-        "      {} {}:",
-        column.bright_blue().bold(),
-        "by row".bold()
-    );
-    let mut header = format!(
-        "         {:>4} {:>14} {:>14} {:>14} {:>14} {:>14}",
-        "row", "mean", "at plan", "P10", "P50", "P90"
-    );
-    for threshold in first.threshold_probabilities.keys() {
-        let _ = write!(header, " {:>10}", format!("P({threshold})"));
-    }
-    outln!(c, "{header}");
-    for (row, output) in rows.iter().enumerate() {
-        let p = |q: u8| {
-            output
-                .statistics
-                .percentiles
-                .get(&q)
-                .copied()
-                .unwrap_or(f64::NAN)
-        };
-        let mut line = format!(
-            "         {:>4} {:>14} {:>14} {:>14} {:>14} {:>14}",
-            row + 1,
-            super::display_number(output.statistics.mean),
-            output
-                .at_plan
-                .map_or_else(|| "-".to_string(), super::display_number),
-            super::display_number(p(10)),
-            super::display_number(p(50)),
-            super::display_number(p(90))
-        );
-        for prob in output.threshold_probabilities.values() {
-            let _ = write!(line, " {:>9.2}%", prob * 100.0);
-        }
-        outln!(c, "{line}");
-    }
-    outln!(c);
-}
-
-/// Write simulation output to a file (YAML, JSON, or Excel)
-fn write_simulation_output(
-    c: &mut Console<'_>,
-    result: &crate::monte_carlo::SimulationResult,
-    output_path: &Path,
-) -> ForgeResult<()> {
-    let ext = output_path.extension().and_then(|e| e.to_str());
-    match ext {
-        Some("xlsx") => {
-            #[cfg(feature = "excel")]
-            crate::monte_carlo::excel_export::export_results(result, output_path)
-                .map_err(ForgeError::Validation)?;
-            #[cfg(not(feature = "excel"))]
-            return Err(ForgeError::Validation(
-                "Writing Excel needs Forge's `excel` feature, which this build does not have"
-                    .to_string(),
-            ));
-        },
-        Some("json") => {
-            let output_str = result
-                .to_json()
-                .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))?;
-            fs::write(output_path, output_str).map_err(ForgeError::Io)?;
-        },
-        _ => {
-            let output_str = result.to_yaml();
-            fs::write(output_path, output_str).map_err(ForgeError::Io)?;
-        },
-    }
-
-    outln!(
-        c,
-        "{}",
-        format!("💾 Results written to {}", output_path.display())
-            .bold()
-            .green()
-    );
-    Ok(())
-}
-
 /// Parse `monte_carlo` config from YAML content
 fn parse_monte_carlo_config(yaml_content: &str) -> ForgeResult<MonteCarloConfig> {
     // Try to parse the monte_carlo section from the YAML
@@ -604,27 +371,9 @@ fn parse_monte_carlo_config(yaml_content: &str) -> ForgeResult<MonteCarloConfig>
 mod tests {
     use super::*;
     use crate::cli::console::capture;
+    use crate::core::precision;
     use std::io::Write;
     use tempfile::NamedTempFile;
-
-    /// T1-SIM-MEAN-VS-PLAN: the note appears past a tenth of a standard
-    /// deviation, and says which way the mean lies.
-    #[test]
-    fn the_mean_versus_plan_note() {
-        assert_eq!(mean_versus_plan(100.0, 100.5, 10.0), None);
-        assert_eq!(mean_versus_plan(5.0, 5.0, 0.0), None);
-        assert_eq!(mean_versus_plan(f64::NAN, 5.0, 1.0), None);
-        let below = mean_versus_plan(-15_925.94, 786.32, 38_058.05).unwrap();
-        assert!(
-            below.starts_with("The mean is 16,712.26 below the value at plan"),
-            "{below}"
-        );
-        let above = mean_versus_plan(12.0, 10.0, 1.0).unwrap();
-        assert!(
-            above.starts_with("The mean is 2.00 above the value at plan"),
-            "{above}"
-        );
-    }
 
     #[test]
     fn test_parse_monte_carlo_config() {
@@ -745,7 +494,7 @@ scalars:
         // Run with formula evaluation (the fix)
         let result = engine
             .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-                evaluate_iteration(&model, &plan, &output_vars, inputs)
+                evaluate_iteration(&model, &plan, &output_vars, inputs, false)
             })
             .unwrap();
 
@@ -1124,7 +873,7 @@ scenarios:
         let result = bagel_with(&["year.profit".to_string()], None);
         let mean = |name: &str| {
             let s = &result.input_samples[name];
-            let n = s.len() as f64;
+            let n = precision::count(s.len());
             s.iter().sum::<f64>() / n
         };
         let cases = [
@@ -1271,6 +1020,424 @@ revenue:
             ] {
                 assert!(text.contains(line), "{line}\n{text}");
             }
+        }
+    }
+
+    mod microgrid_example {
+        //! `examples/microgrid/microgrid_risk.yaml`: futures for Ilha Corva. The
+        //! README quotes the file's 10,000 runs; this runs 1,000 of them, which
+        //! keep the README's claims: the project is worth more than nothing in
+        //! every future, the loan's cover never falls below 1.2, and the diesel
+        //! price drives the value most. Three of the futures are calculated
+        //! again by the plain model with that future's inputs, so the simulation
+        //! is shown to run the model and nothing else.
+
+        use crate::cli::{simulate_core, SimulateOptions};
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/microgrid/microgrid_risk.yaml";
+
+        #[test]
+        fn the_microgrid_pays_in_every_future_and_the_loan_is_always_covered() {
+            let options = SimulateOptions {
+                iterations: Some(1000),
+                ..SimulateOptions::default()
+            };
+            let result = simulate_core(Path::new(MODEL), options).unwrap();
+            assert_eq!(result.iterations_completed, 1000);
+            let npv = &result.outputs["verdict.project_npv"];
+            let p = &npv.threshold_probabilities;
+            assert!((p["> 0"] - 1.0).abs() <= 0.0, "{p:?}");
+            assert!(npv.statistics.min > 0.0, "{}", npv.statistics.min);
+            let dscr = &result.outputs["verdict.min_dscr"].threshold_probabilities;
+            assert!(dscr["< 1.2"].abs() <= 0.0, "{dscr:?}");
+            assert!(dscr["< 1.0"].abs() <= 0.0, "{dscr:?}");
+            // The diesel price drives the value most
+            assert_eq!(npv.drivers[0].input, "fuel.diesel_price");
+
+            for run in [0, 499, 999] {
+                let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+                for (input, samples) in &result.input_samples {
+                    model
+                        .override_scalar(input, Some(samples[run]), None)
+                        .unwrap();
+                }
+                let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
+                let value = calculated.scalars["verdict.project_npv"].value.unwrap();
+                assert!(
+                    (value - npv.samples[run]).abs() <= 1e-6,
+                    "run {run}: {value}"
+                );
+            }
+        }
+    }
+
+    mod realestate_example {
+        //! `examples/realestate/realestate_risk.yaml`: futures for Linden Court.
+        //! The README quotes the file's 10,000 runs; this runs 1,000. Three of the
+        //! uncertain inputs lean against the buyer (vacancy, the exit cap rate and
+        //! the running costs have their mean on the bad side of the plan), so the
+        //! mean value falls below the value at plan, which is realestate.yaml's
+        //! (prediction/scenarios.rs, `realestate_example`). Rent growth drives the
+        //! value most, as in the tornado. Three of the futures are calculated again
+        //! by the plain model with that future's inputs.
+
+        use crate::cli::{simulate_core, SimulateOptions};
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/realestate/realestate_risk.yaml";
+
+        #[test]
+        fn the_futures_lean_below_the_plan_and_rent_growth_drives_them() {
+            let options = SimulateOptions {
+                iterations: Some(1000),
+                ..SimulateOptions::default()
+            };
+            let result = simulate_core(Path::new(MODEL), options).unwrap();
+            assert_eq!(result.iterations_completed, 1000);
+            let npv = &result.outputs["valuation.npv"];
+            let at_plan = npv.at_plan.unwrap();
+            assert!(
+                (at_plan - 155_715.314_059_857_28).abs() <= 1e-6,
+                "{at_plan}"
+            );
+            assert!(npv.statistics.mean < at_plan, "{}", npv.statistics.mean);
+            assert_eq!(npv.drivers[0].input, "market.rent_growth");
+            // The lender's cover depends on this year's rent and costs, not on growth
+            let dscr = &result.outputs["returns.min_dscr"];
+            let mut first_two = [
+                dscr.drivers[0].input.as_str(),
+                dscr.drivers[1].input.as_str(),
+            ];
+            first_two.sort_unstable();
+            assert_eq!(
+                first_two,
+                ["building.opex_per_unit_year", "building.vacancy"]
+            );
+
+            for run in [0, 499, 999] {
+                let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+                for (input, samples) in &result.input_samples {
+                    model
+                        .override_scalar(input, Some(samples[run]), None)
+                        .unwrap();
+                }
+                let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
+                let value = calculated.scalars["valuation.npv"].value.unwrap();
+                assert!(
+                    (value - npv.samples[run]).abs() <= 1e-6,
+                    "run {run}: {value}"
+                );
+            }
+        }
+    }
+
+    mod realestate_flexibility {
+        //! `examples/realestate/realestate_flex.yaml`: Linden Court bought for cash,
+        //! in a market that moves year by year, with the right to sell early.
+        //!
+        //! One market path, written from the model's description and not from its
+        //! formulas:
+        //! ```python
+        //! def run(shocks, cap=0.0575, reversion=0.3, sell_above=1.35, price=4.6e6):
+        //!     gaps, g = [], 0.0
+        //!     for y in range(1, 12):  # the gap from the trend keeps 1 - reversion
+        //!         g = g * (1 - reversion) + (shocks.get(y, 0.0) if y > 1 else 0.0)
+        //!         gaps.append(g)
+        //!     def noi(y):
+        //!         idx = 1.03 ** (y - 1) * (1 + gaps[y - 1])
+        //!         income = 24 * 12 * 1510 * idx - 24 * 12 * 1450 * idx * 0.07
+        //!         return income * 0.96 - 24 * 5200 * 1.025 ** (y - 1)
+        //!     cash = lambda y: noi(y) - 24 * 350 * 1.025 ** (y - 1)
+        //!     sale = lambda y: noi(y + 1) / cap * 0.98
+        //!     npv = lambda t: sum(cash(y) / 1.08 ** y for y in range(1, t + 1)) \
+        //!         + sale(t) / 1.08 ** t - price * 1.015
+        //!     t = next((y for y in range(3, 10) if sale(y) >= sell_above * price), 10)
+        //!     return npv(10), npv(t), t
+        //! run({})  # the plan: 155715.31405985728 both ways, sold in year 10
+        //! run({2: -0.10, 3: -0.05, 6: 0.15, 7: 0.10})
+        //!          # a bust, then a boom: 359141.3958009919 held, 840042.2399097551
+        //!          # sold in year 6
+        //! run({2: 0.12, 3: 0.10}, reversion=0.0)
+        //!          # an early boom that lasts: 1597783.8654967323 held,
+        //!          # 1330940.9913548753 sold in year 3
+        //! ```
+        //! The shocks are one column, `years.shock`, drawn for each row on its own.
+        //! The simulation is this function over 10,000 paths. With cycles the
+        //! right to sell early is worth more than nothing on average; in a random
+        //! walk it is worth less, since selling gives up growth as likely to last
+        //! as to reverse.
+
+        use crate::cli::{simulate_core, SimulateOptions};
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/realestate/realestate_flex.yaml";
+
+        fn path(shocks: &[(usize, f64)], reversion: f64) -> (f64, f64, f64) {
+            let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+            // Year 1's shock is drawn but not used, so it is set to 0 here
+            for year in 1..=11 {
+                let shock = shocks
+                    .iter()
+                    .find(|(y, _)| *y == year)
+                    .map_or(0.0, |(_, s)| *s);
+                model
+                    .set_input(&format!("years.shock (row {year})"), shock)
+                    .unwrap();
+            }
+            model
+                .override_scalar("market.exit_cap_rate", Some(0.0575), None)
+                .unwrap();
+            model
+                .override_scalar("market.reversion", Some(reversion), None)
+                .unwrap();
+            let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
+            let get = |name: &str| calculated.scalars[name].value.unwrap();
+            (
+                get("valuation.npv_hold"),
+                get("valuation.npv_flex"),
+                get("decision.sale_year"),
+            )
+        }
+
+        fn close(a: f64, b: f64) -> bool {
+            (a - b).abs() <= 1e-6
+        }
+
+        #[test]
+        fn each_path_matches_the_independent_calculation() {
+            let cases = [
+                (
+                    vec![],
+                    0.3,
+                    155_715.314_059_857_28,
+                    155_715.314_059_857_28,
+                    10.0,
+                ),
+                (
+                    vec![(2, -0.10), (3, -0.05), (6, 0.15), (7, 0.10)],
+                    0.3,
+                    359_141.395_800_991_9,
+                    840_042.239_909_755_1,
+                    6.0,
+                ),
+                (
+                    vec![(2, 0.12), (3, 0.10)],
+                    0.0,
+                    1_597_783.865_496_732_3,
+                    1_330_940.991_354_875_3,
+                    3.0,
+                ),
+            ];
+            for (shocks, reversion, hold, flex, year) in cases {
+                let (got_hold, got_flex, got_year) = path(&shocks, reversion);
+                assert!(close(got_hold, hold), "{shocks:?}: hold {got_hold}");
+                assert!(close(got_flex, flex), "{shocks:?}: flex {got_flex}");
+                assert!(close(got_year, year), "{shocks:?}: year {got_year}");
+            }
+        }
+
+        fn mean_flexibility(scenario: Option<&str>) -> f64 {
+            let options = SimulateOptions {
+                iterations: Some(1000),
+                scenario,
+                ..SimulateOptions::default()
+            };
+            let result = simulate_core(Path::new(MODEL), options).unwrap();
+            let flexibility = &result.outputs["valuation.flexibility"];
+            // At plan the market follows its trend, the rule never fires, and
+            // the right to sell early is worth nothing
+            assert!(flexibility.at_plan.unwrap().abs() <= 1e-6);
+            // Three futures, calculated again by the plain model
+            let npv = &result.outputs["valuation.npv_flex"];
+            for run in [0, 499, 999] {
+                let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+                if scenario == Some("random_walk") {
+                    model
+                        .override_scalar("market.reversion", Some(0.0), None)
+                        .unwrap();
+                }
+                for (input, samples) in &result.input_samples {
+                    model.set_input(input, samples[run]).unwrap();
+                }
+                let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
+                let value = calculated.scalars["valuation.npv_flex"].value.unwrap();
+                assert!(close(value, npv.samples[run]), "run {run}: {value}");
+            }
+            flexibility.statistics.mean
+        }
+
+        #[test]
+        fn selling_early_pays_in_a_market_with_cycles_and_not_in_a_random_walk() {
+            let cycles = mean_flexibility(None);
+            assert!(cycles > 50_000.0, "{cycles}");
+            let random_walk = mean_flexibility(Some("random_walk"));
+            assert!(random_walk < -20_000.0, "{random_walk}");
+        }
+    }
+
+    mod uncertain_rows {
+        //! A table column whose formula is a distribution draws each row on its
+        //! own. Three rows of MC.Normal(0, 0.1): their sum has a standard
+        //! deviation of sqrt(3) * 0.1 = 0.1732, where one draw for the whole
+        //! column would give 3 * 0.1 = 0.3, and two rows are not correlated.
+
+        use super::super::{simulate_core, SimulateOptions};
+        use super::write;
+
+        const MODEL: &str = r#"_forge_version: "5.2.0"
+t:
+  n: [1, 2, 3]
+  shock: "=MC.Normal(0, 0.1)"
+  level: "=10 + shock"
+s:
+  total: {formula: "=SUM(t.shock)"}
+monte_carlo:
+  iterations: 2000
+  seed: 5
+  outputs:
+    - variable: s.total
+    - variable: t.level
+"#;
+
+        #[test]
+        fn each_row_is_drawn_on_its_own() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = write(dir.path(), "m.yaml", MODEL);
+            let result = simulate_core(&path, SimulateOptions::default()).unwrap();
+            let mut names: Vec<&String> = result.input_samples.keys().collect();
+            names.sort();
+            assert_eq!(
+                names,
+                ["t.shock (row 1)", "t.shock (row 2)", "t.shock (row 3)"]
+            );
+
+            let total = &result.outputs["s.total"];
+            let sd = total.statistics.std_dev;
+            assert!((sd - 0.173_205).abs() < 0.01, "{sd}");
+            assert!(total.at_plan.unwrap().abs() <= 1e-12);
+            // Each future's total is the sum of its three draws
+            let rows: Vec<&Vec<f64>> = (1..=3)
+                .map(|r| &result.input_samples[&format!("t.shock (row {r})")])
+                .collect();
+            for (i, total) in total.samples.iter().enumerate() {
+                let sum: f64 = rows.iter().map(|r| r[i]).sum();
+                assert!((total - sum).abs() <= 1e-12, "run {i}");
+            }
+            // A column that reads the draws gets that row's draw
+            let level = &result.outputs["t.level (row 2)"].samples;
+            for (l, s) in level.iter().zip(rows[1]) {
+                assert!((l - 10.0 - s).abs() <= 1e-12);
+            }
+            // Rows 1 and 2 are independent
+            let mean = |v: &[f64]| v.iter().sum::<f64>() / 2000.0;
+            let (a, b) = (rows[0], rows[1]);
+            let (ma, mb) = (mean(a), mean(b));
+            let cov: f64 = a
+                .iter()
+                .zip(b)
+                .map(|(x, y)| (x - ma) * (y - mb))
+                .sum::<f64>()
+                / 2000.0;
+            let corr = cov / (0.1 * 0.1);
+            assert!(corr.abs() < 0.1, "{corr}");
+        }
+
+        #[test]
+        fn calculate_names_the_column_it_cannot_draw() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = write(dir.path(), "m.yaml", MODEL);
+            let err = crate::cli::calculate_core(&path, true, None)
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("t.shock use MC.* distributions"), "{err}");
+        }
+    }
+
+    mod acquisition_example {
+        //! `examples/acquisition/deal_risk.yaml`: futures for Project Kittiwake.
+        //! The README quotes the file's 10,000 runs; this runs 1,000. Every
+        //! uncertain synergy leans against Valdane (PERT(20, 40, 50) has mean
+        //! 38.33, triangular(0, 60, 80) 46.67 and triangular(90, 100, 170) 120),
+        //! so the mean value falls below the value at plan, which is deal.yaml's
+        //! (prediction/scenarios.rs, `acquisition_example`). Quillon's own growth
+        //! drives the value most. The earn-out pays when Quillon grows at least
+        //! 9% a year, so in 1 - Phi((0.09 - 0.07) / 0.025) = 0.2119 of futures,
+        //! and it takes the worst of them away. Three of the futures are
+        //! calculated again by the plain model with that future's inputs.
+
+        use crate::cli::{simulate_core, SimulateOptions};
+        use crate::core::ArrayCalculator;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/acquisition/deal_risk.yaml";
+
+        fn run(scenario: Option<&str>) -> crate::monte_carlo::SimulationResult {
+            let options = SimulateOptions {
+                iterations: Some(1000),
+                scenario,
+                ..SimulateOptions::default()
+            };
+            simulate_core(Path::new(MODEL), options).unwrap()
+        }
+
+        #[test]
+        fn the_synergies_lean_short_and_quillons_growth_drives_the_value() {
+            let result = run(None);
+            assert_eq!(result.iterations_completed, 1000);
+            let value = &result.outputs["valuation.value_created"];
+            let at_plan = value.at_plan.unwrap();
+            assert!(
+                (at_plan - 224.507_933_418_290_12).abs() <= 1e-9,
+                "{at_plan}"
+            );
+            assert!(
+                value.statistics.mean < at_plan - 50.0,
+                "{}",
+                value.statistics.mean
+            );
+            assert_eq!(value.drivers[0].input, "case.quillon_growth");
+            let synergies = &result.outputs["valuation.synergies"];
+            assert!(synergies.statistics.mean < synergies.at_plan.unwrap() - 50.0);
+            // Switched off, the earn-out is never paid
+            let paid = &result.outputs["earnout.paid"];
+            assert!(paid.statistics.max.abs() <= 0.0, "{}", paid.statistics.max);
+
+            for future in [0, 499, 999] {
+                let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+                for (input, samples) in &result.input_samples {
+                    model
+                        .override_scalar(input, Some(samples[future]), None)
+                        .unwrap();
+                }
+                let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
+                let got = calculated.scalars["valuation.value_created"].value.unwrap();
+                assert!(
+                    (got - value.samples[future]).abs() <= 1e-9,
+                    "future {future}: {got}"
+                );
+            }
+        }
+
+        #[test]
+        fn the_earnout_is_paid_a_fifth_of_the_time_and_cuts_the_losses() {
+            let plain = run(None);
+            let earnout = run(Some("earnout"));
+            let paid = &earnout.outputs["earnout.paid"];
+            let share = paid.threshold_probabilities["> 0"];
+            assert!((share - 0.2119).abs() <= 0.02, "{share}");
+            assert!((paid.statistics.max - 240.0).abs() <= 0.0);
+            let shortfall = |r: &crate::monte_carlo::SimulationResult| {
+                r.outputs["valuation.value_created"].expected_shortfall[0].1
+            };
+            assert!(shortfall(&earnout) > shortfall(&plain) + 50.0);
+            let positive = |r: &crate::monte_carlo::SimulationResult| {
+                r.outputs["valuation.value_created"].threshold_probabilities["> 0"]
+            };
+            assert!(positive(&earnout) > positive(&plain));
         }
     }
 }

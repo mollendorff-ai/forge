@@ -5,14 +5,6 @@
 //!
 //! Function implementations are organized into submodules by category.
 
-// Evaluator casts: array lengths and indices between f64, usize, and integer types.
-// Values are bounded by practical worksheet sizes (well within f64 mantissa).
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
-
 mod aggregation;
 mod criterion;
 mod dates;
@@ -39,7 +31,7 @@ pub(crate) use values::{is_na_error, paired_numbers};
 
 mod operators;
 mod value;
-use operators::{evaluate_binary_op, evaluate_unary_op};
+use operators::{evaluate_binary_op, evaluate_final_op, evaluate_unary_op};
 pub(crate) use operators::{power, values_equal};
 pub use value::Value;
 
@@ -51,6 +43,7 @@ mod forge;
 mod info;
 
 use super::parser::{Expr, Reference};
+use num_traits::ToPrimitive;
 use std::collections::HashMap;
 
 /// A map by name with fast, fixed hashing: formulas look names up many
@@ -169,6 +162,56 @@ impl std::fmt::Display for EvalError {
 
 impl std::error::Error for EvalError {}
 
+/// Evaluate a cell's formula: a scalar's, or one row of a row formula.
+///
+/// When its last operation is a `+` or `-` that `body` (the formula's text
+/// after `=`) does not wrap in parentheses, a result that nearly cancels is
+/// 0, as in Excel (ADR-066); anything else is [`evaluate`].
+///
+/// # Errors
+///
+/// Returns `EvalError` as [`evaluate`] does.
+pub fn evaluate_cell(expr: &Expr, body: &str, ctx: &EvalContext) -> Result<Value, EvalError> {
+    match expr {
+        Expr::BinaryOp { op, left, right }
+            if (op == "+" || op == "-") && !wrapped_in_parentheses(body) =>
+        {
+            let left_val = evaluate(left, ctx)?;
+            let right_val = evaluate(right, ctx)?;
+            evaluate_final_op(op, &left_val, &right_val)
+        },
+        _ => evaluate(expr, ctx),
+    }
+}
+
+/// Whether a formula's text is wrapped in one pair of parentheses: `(a+b-c)`,
+/// not `(a+b)-c`. Parentheses inside a text in quotes do not count.
+#[must_use]
+pub fn wrapped_in_parentheses(body: &str) -> bool {
+    let body = body.trim().trim_start_matches('=').trim();
+    if !body.starts_with('(') {
+        return false;
+    }
+    let mut depth = 0_usize;
+    let mut in_text = false;
+    for (at, c) in body.char_indices() {
+        match c {
+            '"' => in_text = !in_text,
+            '(' if !in_text => depth += 1,
+            ')' if !in_text => {
+                depth = depth.saturating_sub(1);
+                // The first parenthesis closes: the formula is wrapped only if
+                // nothing follows
+                if depth == 0 {
+                    return body[at + 1..].trim().is_empty();
+                }
+            },
+            _ => {},
+        }
+    }
+    false
+}
+
 /// Evaluate an expression in the given context
 ///
 /// # Errors
@@ -236,12 +279,13 @@ fn evaluate_expr(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
 
             let idx = idx_val
                 .as_number()
-                .ok_or_else(|| EvalError::new("Array index must be a number"))?
-                as usize;
+                .ok_or_else(|| EvalError::new("Array index must be a number"))?;
 
+            // A place from 0, cut to a whole number; a negative one is none
             match arr_val {
-                Value::Array(arr) => arr
-                    .get(idx)
+                Value::Array(arr) => idx
+                    .to_usize()
+                    .and_then(|at| arr.get(at))
                     .cloned()
                     .ok_or_else(|| EvalError::new(format!("Array index {idx} out of bounds"))),
                 _ => Err(EvalError::new("Cannot index non-array value")),
@@ -552,7 +596,23 @@ pub(crate) fn collect_numeric_values(
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Vec<f64>, EvalError> {
+    Ok(collect_numbers_and_dates(args, ctx)?.0)
+}
+
+/// Whether a value is a date Excel holds: date text from 1900-03-01 on.
+pub(crate) fn is_a_date(value: &Value) -> bool {
+    matches!(value, Value::Text(text) if excel_date_serial(text).is_some())
+}
+
+/// The numbers of `args` as `collect_numeric_values` reads them, and whether
+/// they are all dates: at least one, and none a plain number (ADR-060
+/// addendum). `MAX`, `MIN`, `LARGE` and `SMALL` of dates give a date.
+pub(crate) fn collect_numbers_and_dates(
+    args: &[Expr],
+    ctx: &EvalContext,
+) -> Result<(Vec<f64>, bool), EvalError> {
     let mut values = Vec::new();
+    let (mut dates, mut plain) = (false, false);
 
     for arg in args {
         let val = evaluate(arg, ctx)?;
@@ -561,18 +621,44 @@ pub(crate) fn collect_numeric_values(
                 for v in arr.iter() {
                     if let Some(n) = v.as_number() {
                         values.push(n);
+                        if is_a_date(v) {
+                            dates = true;
+                        } else {
+                            plain = true;
+                        }
                     }
                 }
             },
-            Value::Number(n) => values.push(n),
+            Value::Number(n) => {
+                values.push(n);
+                plain = true;
+            },
             // A date is a number wherever one is read, from a column (above)
             // or as a single value: `MAX(due, DATE(2026, 6, 1))` (ADR-054)
-            Value::Text(text) => values.extend(date_serial(&text)),
+            Value::Text(ref text) => {
+                if let Some(n) = date_serial(text) {
+                    values.push(n);
+                    if is_a_date(&val) {
+                        dates = true;
+                    } else {
+                        plain = true;
+                    }
+                }
+            },
             _ => {},
         }
     }
 
-    Ok(values)
+    Ok((values, dates && !plain))
+}
+
+/// `number`, shown as the date it is when `is_date` says it came from dates.
+pub(crate) fn number_or_date(number: f64, is_date: bool) -> Value {
+    if is_date {
+        Value::Text(serial_date_text(number))
+    } else {
+        Value::Number(number)
+    }
 }
 
 /// The number a criterion such as `>=2026-02-01` or `>50` compares with: a
@@ -611,9 +697,10 @@ pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalErr
         Value::Number(n) => {
             // Excel serial number (days since 1899-12-30)
             // Note: Excel incorrectly treats 1900 as a leap year, we handle this
+            // Whole days on from it: a negative serial is no date
             let base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
-            let days = *n as i64;
-            base.checked_add_days(chrono::Days::new(days as u64))
+            n.to_u64()
+                .and_then(|days| base.checked_add_days(chrono::Days::new(days)))
                 .ok_or_else(|| EvalError::new(format!("Invalid Excel date serial: {n}")))
         },
         _ => Err(EvalError::new("Expected date string or serial number")),
@@ -622,6 +709,32 @@ pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalErr
 
 #[cfg(test)]
 mod tests {
+
+    mod wrapped {
+        //! A formula wrapped in one pair of parentheses has no last `+` or
+        //! `-` of its own, as Excel reads it (ADR-066)
+
+        use super::super::wrapped_in_parentheses;
+
+        #[test]
+        fn only_one_pair_around_the_whole_formula_wraps_it() {
+            for wrapped in ["=(a+b-c)", "((a+b-c))", " = ( a - b ) ", "(\"(\" & a)"] {
+                assert!(wrapped_in_parentheses(wrapped), "{wrapped}");
+            }
+            for not in [
+                "=a+b-c",
+                "=(a+b)-c",
+                "=(a)+(b)",
+                "=a-(b+c)",
+                "=(\")\" & a)-b",
+                "=(a+b",
+                "=)a(",
+                "",
+            ] {
+                assert!(!wrapped_in_parentheses(not), "{not}");
+            }
+        }
+    }
     use super::*;
     use crate::core::array_calculator::parser::parse;
     use crate::core::array_calculator::tokenizer::tokenize;
@@ -914,8 +1027,25 @@ mod tests {
         /// `COUNT(d, e, n)` counted only the number.
         #[test]
         fn a_single_date_counts_as_a_number_in_aggregates() {
-            assert!((h::number("MAX(\"2026-12-01\", DATE(2026, 6, 1))") - 46357.0).abs() < 1e-12);
-            assert!((h::number("MIN(\"2026-01-31\", \"2026-02-01\")") - 46053.0).abs() < 1e-12);
+            // MAX and MIN of dates give a date (ADR-060 addendum)
+            assert_eq!(
+                h::eval(
+                    "MAX(\"2026-12-01\", DATE(2026, 6, 1))",
+                    &crate::core::array_calculator::evaluator::EvalContext::new()
+                ),
+                Ok(crate::core::array_calculator::evaluator::Value::Text(
+                    "2026-12-01".to_string()
+                ))
+            );
+            assert_eq!(
+                h::eval(
+                    "MIN(\"2026-01-31\", \"2026-02-01\")",
+                    &crate::core::array_calculator::evaluator::EvalContext::new()
+                ),
+                Ok(crate::core::array_calculator::evaluator::Value::Text(
+                    "2026-01-31".to_string()
+                ))
+            );
             assert!((h::number("SUM(\"2026-01-31\", 1)") - 46054.0).abs() < 1e-12);
             assert!((h::number("AVERAGE(\"2026-01-31\", \"2026-02-02\")") - 46054.0).abs() < 1e-12);
             assert!((h::number("COUNT(\"2026-01-31\", 1, \"x\")") - 2.0).abs() < 1e-12);
@@ -989,5 +1119,27 @@ mod tests {
                 Value::Number(5.0)
             );
         }
+    }
+
+    /// An index from 0 is cut to a whole number; a negative one is no place,
+    /// where the cast made it 0. A negative day number is no date.
+    #[test]
+    fn an_index_and_a_serial_are_whole_and_not_negative() {
+        let ctx = table(&[("col", numbers(&[10.0, 20.0, 30.0]))]);
+        is_exactly_in("t.col[1.9]", &ctx, 20.0);
+        is_exactly_in("t.col[-0.5]", &ctx, 10.0);
+        assert!(error_in("t.col[-1]", &ctx).contains("out of bounds"));
+        assert!(error_in("t.col[1E+20]", &ctx).contains("out of bounds"));
+        is_exactly("YEAR(0.5)", 1899.0);
+        is_exactly("YEAR(45000.9)", 2023.0);
+        fails_with("YEAR(-1)", "Invalid Excel date serial");
+        fails_with("YEAR(1E+20)", "Invalid Excel date serial");
+    }
+
+    /// Text is no index
+    #[test]
+    fn an_index_that_is_no_number_fails() {
+        let ctx = table(&[("col", numbers(&[10.0]))]);
+        assert!(error_in("t.col[\"x\"]", &ctx).contains("must be a number"));
     }
 }

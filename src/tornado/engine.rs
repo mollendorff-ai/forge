@@ -3,8 +3,9 @@
 //! Performs one-at-a-time sensitivity analysis.
 
 use super::config::{InputRange, TornadoConfig};
+use crate::core::precision;
 use crate::core::ArrayCalculator;
-use crate::types::{ParsedModel, Variable};
+use crate::types::ParsedModel;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
@@ -33,12 +34,13 @@ pub struct SensitivityBar {
 impl SensitivityBar {
     /// Generate ASCII bar representation
     // Truncation is mathematically impossible: ratio is 0..=1, bar_width is small
-    #[allow(clippy::cast_precision_loss)]
     #[must_use]
     pub fn to_ascii(&self, max_swing: f64, bar_width: usize) -> String {
         let ratio = self.abs_swing / max_swing;
         // A swing is at most the largest, so at most the whole bar; NaN fills none
-        let filled = (ratio * bar_width as f64).to_usize().unwrap_or(0);
+        let filled = (ratio * precision::count(bar_width))
+            .to_usize()
+            .unwrap_or(0);
         let bar: String = "█".repeat(filled);
         format!(
             "{:<20} |{:<width$}| swing {:.0}",
@@ -220,37 +222,18 @@ impl TornadoEngine {
     /// Calculate output with a specific input override
     fn calculate_with_override(&self, input_name: &str, input_value: f64) -> Result<f64, String> {
         let mut model = self.base_model.clone();
-
-        // Override the input value
-        if let Some(scalar) = model.scalars.get_mut(input_name) {
-            scalar.value = Some(input_value);
-            scalar.formula = None; // Clear formula to use override value
-        } else {
-            // Create new scalar
-            model.scalars.insert(
-                input_name.to_string(),
-                Variable::new(input_name.to_string(), Some(input_value), None),
-            );
-        }
-
+        // The input is the model's or an included file's (`@costs.flour`); `new`
+        // found it
+        model.set_input(input_name, input_value)?;
         self.calculate_output(&model)
     }
 
-    /// Calculate the output variable value
+    /// Calculate the output variable value. A formula the output does not use
+    /// may fail at an input's end of the range without failing the bar.
     fn calculate_output(&self, model: &ParsedModel) -> Result<f64, String> {
-        let calculator = ArrayCalculator::new(model.clone());
-        let result = calculator.calculate_all().map_err(|e| e.to_string())?;
-
-        result
-            .scalars
-            .get(&self.config.output)
-            .and_then(|v| v.value)
-            .ok_or_else(|| {
-                format!(
-                    "Output variable '{}' not found or has no value",
-                    self.config.output
-                )
-            })
+        ArrayCalculator::new(model.clone())
+            .calculate_scalar(&self.config.output)
+            .map_err(|e| e.to_string())
     }
 
     /// Get the configuration
@@ -269,6 +252,9 @@ impl TornadoEngine {
 /// original grouped scalar. Its effect depended on formula name resolution.
 /// Reject ambiguous/missing names rather than inventing variables.
 fn resolve_scalar_name(model: &ParsedModel, name: &str) -> Result<String, String> {
+    if name.starts_with('@') {
+        return crate::cli::commands::input_name(model, name);
+    }
     if model.scalars.contains_key(name) {
         return Ok(name.to_string());
     }
@@ -296,6 +282,7 @@ fn resolve_scalar_name(model: &ParsedModel, name: &str) -> Result<String, String
 #[cfg(test)]
 mod engine_tests {
     use super::*;
+    use crate::types::Variable;
 
     fn create_test_model() -> ParsedModel {
         let mut model = ParsedModel::new();
@@ -325,6 +312,41 @@ mod engine_tests {
         );
 
         model
+    }
+
+    /// A formula the output does not use may fail at an input's end of the
+    /// range: `=1 / (cost_rate - 0.5)` divides by zero at 0.50. The profit
+    /// does not use it, so its bar is the profit's, 1,000,000 x (1 - 0.50) x
+    /// 0.75 = 375,000 and 1,000,000 x 0.30 x 0.75 = 225,000. The tornado
+    /// failed with the division's error.
+    #[test]
+    fn a_formula_the_output_does_not_use_does_not_stop_the_tornado() {
+        let mut model = create_test_model();
+        model.scalars.insert(
+            "per_point".to_string(),
+            Variable::new(
+                "per_point".to_string(),
+                None,
+                Some("=1 / (cost_rate - 0.5)".to_string()),
+            ),
+        );
+        let config =
+            TornadoConfig::new("profit").with_input(InputRange::new("cost_rate", 0.50, 0.70));
+        let result = TornadoEngine::new(config, model)
+            .unwrap()
+            .analyze()
+            .unwrap();
+        let bar = &result.bars[0];
+        assert!(
+            (bar.output_at_low - 375_000.0).abs() <= 1e-6,
+            "{}",
+            bar.output_at_low
+        );
+        assert!(
+            (bar.output_at_high - 225_000.0).abs() <= 1e-6,
+            "{}",
+            bar.output_at_high
+        );
     }
 
     #[test]
@@ -425,5 +447,39 @@ mod engine_tests {
 
         assert!(json.contains("\"output\""));
         assert!(json.contains("\"bars\""));
+    }
+
+    /// Roadmap T1-VARY-INCLUDED: a tornado input of a file the model includes,
+    /// written as a scenario override writes it, moves that file's value; each
+    /// end of its bar is the plain model with that value. An include that is
+    /// not there is refused with the model's includes.
+    #[test]
+    fn an_input_of_an_included_file_has_its_bar() {
+        let file = std::path::Path::new("examples/acquisition/deal.yaml");
+        let model = crate::parser::parse_model(file).unwrap();
+        let cash = "@target.company.free_cash_flow_next_year";
+        let config = |name: &str| {
+            let mut config = TornadoConfig::new("valuation.value_created");
+            config.inputs.push(InputRange::new(name, 50.0, 70.0));
+            config
+        };
+        let engine = TornadoEngine::new(config(cash), model.clone()).unwrap();
+        let bar = &engine.analyze().unwrap().bars[0];
+        assert_eq!(bar.input_name, cash);
+        for (value, got) in [(50.0, bar.output_at_low), (70.0, bar.output_at_high)] {
+            let mut plain = model.clone();
+            plain.override_scalar(cash, Some(value), None).unwrap();
+            let result = ArrayCalculator::new(plain).calculate_all().unwrap();
+            let want = result.scalars["valuation.value_created"].value.unwrap();
+            assert!((got - want).abs() <= 1e-9, "{value}: {got}, not {want}");
+        }
+        let Err(err) = TornadoEngine::new(config("@seller.company.cash"), model) else {
+            panic!("an include that is not there")
+        };
+        assert!(
+            err.starts_with("Tornado input '@seller.company.cash'"),
+            "{err}"
+        );
+        assert!(err.contains("buyer, target"), "{err}");
     }
 }

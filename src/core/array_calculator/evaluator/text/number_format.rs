@@ -22,6 +22,7 @@
 
 use super::super::{date_serial, EvalError, Value};
 use chrono::{Datelike, NaiveDate};
+use num_traits::ToPrimitive;
 use std::fmt::Write as _;
 
 /// One part of a format code.
@@ -331,14 +332,15 @@ const DAYS: [&str; 7] = [
 
 fn write_date(serial: f64, pieces: &[Piece], format: &str) -> Result<String, EvalError> {
     let days = serial.floor();
-    let date = if (0.0..=2_958_465.0).contains(&days) {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // checked range
-        NaiveDate::from_ymd_opt(1899, 12, 30)
-            .and_then(|base| base.checked_add_days(chrono::Days::new(days as u64)))
-    } else {
-        None
-    }
-    .ok_or_else(|| EvalError::new(format!("#VALUE!: TEXT: {serial} is not a date")))?;
+    // A day from 0 to 9999-12-31's, the days Excel holds
+    let date = days
+        .to_u64()
+        .filter(|&days| days <= 2_958_465)
+        .and_then(|days| {
+            NaiveDate::from_ymd_opt(1899, 12, 30)
+                .and_then(|base| base.checked_add_days(chrono::Days::new(days)))
+        })
+        .ok_or_else(|| EvalError::new(format!("#VALUE!: TEXT: {serial} is not a date")))?;
 
     let month = MONTHS[date.month0() as usize];
     let weekday = DAYS[date.weekday().num_days_from_monday() as usize];
@@ -440,13 +442,10 @@ fn with_thousands(digits: &str) -> String {
     out
 }
 
-#[allow(clippy::too_many_lines)] // one pass over the pieces of the code
-fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, EvalError> {
-    if !value.is_finite() {
-        return Err(EvalError::new("#NUM!: TEXT of a number that is not finite"));
-    }
-    // A run of commas right after the last digit divides by 1,000 each
-    // (`#,##0,"k"`, `0.0,,"M"`), and so does one right before the point
+/// The commas of a code that scale the number instead of grouping it: a run
+/// right after the last digit divides by 1,000 each (`#,##0,"k"`,
+/// `0.0,,"M"`), and so does one right before the point.
+fn scaling_commas(pieces: &[Piece]) -> Vec<usize> {
     let is_digit_piece = |p: &Piece| matches!(p, Piece::Digit(_));
     let mut scaling: Vec<usize> = Vec::new();
     if let Some(last) = pieces.iter().rposition(is_digit_piece) {
@@ -461,6 +460,215 @@ fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, Ev
             scaling.extend(before);
         }
     }
+    scaling
+}
+
+/// The first and the last digit slot among `pieces`.
+fn digit_bounds(pieces: &[Piece]) -> (Option<usize>, Option<usize>) {
+    let is_digit = |p: &Piece| matches!(p, Piece::Digit(_));
+    (
+        pieces.iter().position(is_digit),
+        pieces.iter().rposition(is_digit),
+    )
+}
+
+/// The digits of a run of pieces, one per slot.
+fn digit_slots(pieces: &[Piece]) -> Vec<char> {
+    pieces
+        .iter()
+        .filter_map(|p| match p {
+            Piece::Digit(c) => Some(*c),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Whether the code groups thousands. A comma does so only between two
+/// digits; anywhere else it would scale the number or be a literal Excel
+/// treats in its own way.
+fn groups_thousands(
+    pieces: &[Piece],
+    first_digit: Option<usize>,
+    last_digit: Option<usize>,
+    format: &str,
+) -> Result<bool, EvalError> {
+    let mut thousands = false;
+    for (i, piece) in pieces.iter().enumerate() {
+        if *piece == Piece::Comma {
+            let between = matches!((first_digit, last_digit), (Some(a), Some(b)) if a < i && i < b);
+            if !between {
+                return Err(unsupported(format, "a comma that is not between digits"));
+            }
+            thousands = true;
+        }
+    }
+    Ok(thousands)
+}
+
+/// The exponent of a scientific format, and the mantissa left of `magnitude`.
+fn scientific_exponent(
+    plus: bool,
+    digits: usize,
+    whole_slots: usize,
+    thousands: bool,
+    decimals: usize,
+    magnitude: f64,
+    format: &str,
+) -> Result<(String, f64), EvalError> {
+    if whole_slots != 1 || thousands {
+        return Err(unsupported(
+            format,
+            "scientific formats are read with one digit before the point",
+        ));
+    }
+    let mut magnitude = magnitude;
+    let mut power = 0i32;
+    if magnitude != 0.0 {
+        let scientific = format!("{magnitude:.14e}");
+        let (mantissa, exp) = scientific.split_once('e').unwrap_or(("0", "0"));
+        power = exp.parse().unwrap_or(0);
+        magnitude = mantissa.parse().unwrap_or(0.0);
+        // A mantissa that rounds up to 10 is 1 with the next power
+        if rounded_digits(magnitude, decimals).0.len() > 1 {
+            magnitude /= 10.0;
+            power += 1;
+        }
+    }
+    let sign = if power < 0 {
+        "-"
+    } else if plus {
+        "+"
+    } else {
+        ""
+    };
+    Ok((
+        format!("E{sign}{:0width$}", power.abs(), width = digits),
+        magnitude,
+    ))
+}
+
+/// The whole part with its digits grouped by thousands.
+fn write_grouped(
+    out: &mut String,
+    whole_pieces: &[Piece],
+    whole_slots: &[char],
+    mut digits: Vec<char>,
+    format: &str,
+) -> Result<(), EvalError> {
+    let (first_digit, last_digit) = digit_bounds(whole_pieces);
+    let between_literal = match (first_digit, last_digit) {
+        (Some(a), Some(b)) => whole_pieces[a..b]
+            .iter()
+            .any(|p| matches!(p, Piece::Literal(_))),
+        _ => false,
+    };
+    if between_literal {
+        return Err(unsupported(format, "text between digits that are grouped"));
+    }
+    // Zeros down to the leftmost `0` of the code
+    let minimum = whole_slots
+        .iter()
+        .position(|c| *c == '0')
+        .map_or(0, |first| whole_slots.len() - first);
+    while digits.len() < minimum {
+        digits.insert(0, '0');
+    }
+    let grouped = with_thousands(&digits.iter().collect::<String>());
+    let mut written = false;
+    for piece in whole_pieces {
+        match piece {
+            Piece::Literal(text) => out.push_str(text),
+            Piece::Percent => out.push('%'),
+            Piece::Digit(_) if !written => {
+                out.push_str(&grouped);
+                written = true;
+            },
+            _ => {},
+        }
+    }
+    Ok(())
+}
+
+/// The whole part, its digits filling the slots of the code from the right.
+fn write_slots(out: &mut String, whole_pieces: &[Piece], whole_slots: &[char], digits: &[char]) {
+    // Digits fill the slots from the right; those left over go in front
+    // of the first slot. A `0` slot without a digit is 0, a `#` nothing.
+    let slots = whole_slots.len();
+    let mut filled: Vec<String> = Vec::with_capacity(slots);
+    for (index, slot) in whole_slots.iter().enumerate() {
+        let from_right = slots - index;
+        let digit = digits
+            .len()
+            .checked_sub(from_right)
+            .map(|at| digits[at].to_string());
+        let mut text = digit.unwrap_or_else(|| {
+            if *slot == '0' {
+                "0".to_string()
+            } else {
+                String::new()
+            }
+        });
+        if index == 0 && digits.len() > slots {
+            let extra: String = digits[..digits.len() - slots].iter().collect();
+            text.insert_str(0, &extra);
+        }
+        filled.push(text);
+    }
+    let mut slot = 0;
+    for piece in whole_pieces {
+        match piece {
+            Piece::Literal(text) => out.push_str(text),
+            Piece::Percent => out.push('%'),
+            Piece::Digit(_) => {
+                out.push_str(&filled[slot]);
+                slot += 1;
+            },
+            _ => {},
+        }
+    }
+    if slots == 0 {
+        // No digit before the point in the code (`.00`): the whole part
+        // is written all the same
+        out.push_str(&digits.iter().collect::<String>());
+    }
+}
+
+/// The point and the digits after it.
+fn write_fraction(
+    out: &mut String,
+    fraction_pieces: &[Piece],
+    fraction_slots: &[char],
+    fraction: &str,
+    decimals: usize,
+) {
+    out.push('.');
+    // Trailing zeros leave where their slot is `#`
+    let mut shown = decimals;
+    let fraction: Vec<char> = fraction.chars().collect();
+    while shown > 0 && fraction_slots[shown - 1] == '#' && fraction[shown - 1] == '0' {
+        shown -= 1;
+    }
+    let mut slot = 0;
+    for piece in fraction_pieces {
+        match piece {
+            Piece::Digit(_) => {
+                if slot < shown {
+                    out.push(fraction[slot]);
+                }
+                slot += 1;
+            },
+            Piece::Literal(text) => out.push_str(text),
+            Piece::Percent => out.push('%'),
+            _ => {},
+        }
+    }
+}
+
+fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, EvalError> {
+    if !value.is_finite() {
+        return Err(EvalError::new("#NUM!: TEXT of a number that is not finite"));
+    }
+    let scaling = scaling_commas(pieces);
     let kept: Vec<Piece>;
     let pieces: &[Piece] = if scaling.is_empty() {
         pieces
@@ -500,72 +708,32 @@ fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, Ev
     };
     let after: &[Piece] = exponent_at.map_or(&[], |e| &pieces[e..]);
 
-    let is_digit = |p: &Piece| matches!(p, Piece::Digit(_));
-    let first_digit = whole_pieces.iter().position(is_digit);
-    let last_digit = whole_pieces.iter().rposition(is_digit);
-    // A comma groups thousands only between two digits; anywhere else it
-    // would scale the number or be a literal Excel treats in its own way.
-    let mut thousands = false;
-    for (i, piece) in pieces.iter().enumerate() {
-        if *piece == Piece::Comma {
-            let between = matches!((first_digit, last_digit), (Some(a), Some(b)) if a < i && i < b);
-            if !between {
-                return Err(unsupported(format, "a comma that is not between digits"));
-            }
-            thousands = true;
-        }
-    }
-    let whole_slots: Vec<char> = whole_pieces
-        .iter()
-        .filter_map(|p| match p {
-            Piece::Digit(c) => Some(*c),
-            _ => None,
-        })
-        .collect();
-    let fraction_slots: Vec<char> = fraction_pieces
-        .iter()
-        .filter_map(|p| match p {
-            Piece::Digit(c) => Some(*c),
-            _ => None,
-        })
-        .collect();
+    let (first_digit, last_digit) = digit_bounds(whole_pieces);
+    let thousands = groups_thousands(pieces, first_digit, last_digit, format)?;
+    let whole_slots = digit_slots(whole_pieces);
+    let fraction_slots = digit_slots(fraction_pieces);
     let decimals = fraction_slots.len();
 
     let exponent_text =
         if let Some(Piece::Exponent { plus, digits }) = exponent_at.map(|e| &pieces[e]) {
-            if whole_slots.len() != 1 || thousands {
-                return Err(unsupported(
-                    format,
-                    "scientific formats are read with one digit before the point",
-                ));
-            }
-            let mut power = 0i32;
-            if magnitude != 0.0 {
-                let scientific = format!("{magnitude:.14e}");
-                let (mantissa, exp) = scientific.split_once('e').unwrap_or(("0", "0"));
-                power = exp.parse().unwrap_or(0);
-                magnitude = mantissa.parse().unwrap_or(0.0);
-                // A mantissa that rounds up to 10 is 1 with the next power
-                if rounded_digits(magnitude, decimals).0.len() > 1 {
-                    magnitude /= 10.0;
-                    power += 1;
-                }
-            }
-            let sign = if power < 0 {
-                "-"
-            } else if *plus {
-                "+"
-            } else {
-                ""
-            };
-            format!("E{sign}{:0width$}", power.abs(), width = *digits)
+            let (text, mantissa) = scientific_exponent(
+                *plus,
+                *digits,
+                whole_slots.len(),
+                thousands,
+                decimals,
+                magnitude,
+                format,
+            )?;
+            magnitude = mantissa;
+            text
         } else {
             String::new()
         };
 
     let (whole, fraction) = rounded_digits(magnitude, decimals);
     // A whole part of zero has no digit of its own: `#.00` writes .50
-    let mut digits: Vec<char> = if whole == "0" {
+    let digits: Vec<char> = if whole == "0" {
         Vec::new()
     } else {
         whole.chars().collect()
@@ -579,101 +747,19 @@ fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, Ev
         out.push('-');
     }
     if thousands {
-        let between_literal = match (first_digit, last_digit) {
-            (Some(a), Some(b)) => whole_pieces[a..b]
-                .iter()
-                .any(|p| matches!(p, Piece::Literal(_))),
-            _ => false,
-        };
-        if between_literal {
-            return Err(unsupported(format, "text between digits that are grouped"));
-        }
-        // Zeros down to the leftmost `0` of the code
-        let minimum = whole_slots
-            .iter()
-            .position(|c| *c == '0')
-            .map_or(0, |first| whole_slots.len() - first);
-        while digits.len() < minimum {
-            digits.insert(0, '0');
-        }
-        let grouped = with_thousands(&digits.iter().collect::<String>());
-        let mut written = false;
-        for piece in whole_pieces {
-            match piece {
-                Piece::Literal(text) => out.push_str(text),
-                Piece::Percent => out.push('%'),
-                Piece::Digit(_) if !written => {
-                    out.push_str(&grouped);
-                    written = true;
-                },
-                _ => {},
-            }
-        }
+        write_grouped(&mut out, whole_pieces, &whole_slots, digits, format)?;
     } else {
-        // Digits fill the slots from the right; those left over go in front
-        // of the first slot. A `0` slot without a digit is 0, a `#` nothing.
-        let slots = whole_slots.len();
-        let mut filled: Vec<String> = Vec::with_capacity(slots);
-        for (index, slot) in whole_slots.iter().enumerate() {
-            let from_right = slots - index;
-            let digit = digits
-                .len()
-                .checked_sub(from_right)
-                .map(|at| digits[at].to_string());
-            let mut text = digit.unwrap_or_else(|| {
-                if *slot == '0' {
-                    "0".to_string()
-                } else {
-                    String::new()
-                }
-            });
-            if index == 0 && digits.len() > slots {
-                let extra: String = digits[..digits.len() - slots].iter().collect();
-                text.insert_str(0, &extra);
-            }
-            filled.push(text);
-        }
-        let mut slot = 0;
-        for piece in whole_pieces {
-            match piece {
-                Piece::Literal(text) => out.push_str(text),
-                Piece::Percent => out.push('%'),
-                Piece::Digit(_) => {
-                    out.push_str(&filled[slot]);
-                    slot += 1;
-                },
-                _ => {},
-            }
-        }
-        if slots == 0 {
-            // No digit before the point in the code (`.00`): the whole part
-            // is written all the same
-            out.push_str(&digits.iter().collect::<String>());
-        }
+        write_slots(&mut out, whole_pieces, &whole_slots, &digits);
     }
 
     if point.is_some() {
-        out.push('.');
-        // Trailing zeros leave where their slot is `#`
-        let mut shown = decimals;
-        let fraction: Vec<char> = fraction.chars().collect();
-        while shown > 0 && fraction_slots[shown - 1] == '#' && fraction[shown - 1] == '0' {
-            shown -= 1;
-        }
-        let mut slot = 0;
-        for piece in fraction_pieces {
-            match piece {
-                Piece::Digit(_) => {
-                    if slot < shown {
-                        out.push(fraction[slot]);
-                    }
-                    slot += 1;
-                },
-                Piece::Literal(text) => out.push_str(text),
-                Piece::Percent => out.push('%'),
-                _ => {},
-            }
-        }
+        write_fraction(
+            &mut out,
+            fraction_pieces,
+            &fraction_slots,
+            &fraction,
+            decimals,
+        );
     }
     if exponent_at.is_some() {
         out.push_str(&exponent_text);
@@ -875,5 +961,17 @@ mod tests {
         assert_eq!(text(1234.5, "0.00 \"units\""), "1234.50 units");
         assert_eq!(text(5.0, "\\x0"), "x5");
         assert_eq!(text(46053.0, "\"due \"d mmm"), "due 31 Jan");
+    }
+
+    /// A date is a day from 0 to 9999-12-31's (2958465), the fraction of a
+    /// day cut
+    #[test]
+    fn a_date_is_a_day_excel_holds() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert_eq!(h::text("TEXT(2958465.5, \"yyyy-mm-dd\")"), "9999-12-31");
+        assert_eq!(h::text("TEXT(45000.9, \"yyyy-mm-dd\")"), "2023-03-15");
+        h::fails_with("TEXT(2958466, \"yyyy\")", "is not a date");
+        h::fails_with("TEXT(-0.5, \"yyyy\")", "is not a date");
+        h::fails_with("TEXT(1E+20, \"yyyy\")", "is not a date");
     }
 }

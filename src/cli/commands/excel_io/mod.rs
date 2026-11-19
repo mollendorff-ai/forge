@@ -630,36 +630,75 @@ g:
         }
     }
 
-    /// `FORGE_ROUNDTRIP_DIR=<dir> cargo test round_trip_corpus -- --ignored --nocapture`
-    /// round-trips every YAML model in a directory and prints a summary.
+    /// Every YAML model under `examples/` goes through Excel and comes back
+    /// with the same numbers, except the ones that do not calculate on their
+    /// own: each of those draws from an `MC.` distribution, which only
+    /// `forge simulate` evaluates (directly, or in an included file), so there
+    /// is no number to carry through the workbook.
     #[test]
-    #[ignore = "needs FORGE_ROUNDTRIP_DIR"]
     fn round_trip_corpus() {
-        let dir = std::env::var("FORGE_ROUNDTRIP_DIR").expect("set FORGE_ROUNDTRIP_DIR");
-        let mut files: Vec<_> = fs::read_dir(dir)
-            .unwrap()
-            .filter_map(Result::ok)
-            .map(|e| e.path())
-            .filter(|p| p.extension().is_some_and(|x| x == "yaml"))
-            .collect();
-        files.sort();
-        let (mut same, mut different, mut skipped) = (0, 0, 0);
-        for file in &files {
-            match round_trip(file) {
-                Ok(d) if d.is_empty() => same += 1,
-                Ok(d) => {
-                    different += 1;
-                    println!("DIFF {}: {} values, e.g. {}", file.display(), d.len(), d[0]);
-                },
-                Err(e) => {
-                    skipped += 1;
-                    println!("SKIP {}: {e}", file.display());
-                },
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples");
+        let mut files = Vec::new();
+        let mut stack = vec![root.clone()];
+        while let Some(dir) = stack.pop() {
+            for path in fs::read_dir(dir)
+                .unwrap()
+                .filter_map(Result::ok)
+                .map(|e| e.path())
+            {
+                if path.is_dir() {
+                    stack.push(path);
+                } else if path.extension().is_some_and(|x| x == "yaml") {
+                    files.push(path);
+                }
             }
         }
-        println!(
-            "models {}: same {same}, different {different}, not round-tripped {skipped}",
-            files.len()
+        files.sort();
+        let results: Vec<(String, Result<Vec<String>, String>)> = files
+            .iter()
+            .map(|f| {
+                let name = f.strip_prefix(&root).unwrap().display().to_string();
+                (name, round_trip(f))
+            })
+            .collect();
+
+        let different: Vec<_> = results
+            .iter()
+            .filter(|(_, r)| r.as_ref().is_ok_and(|d| !d.is_empty()))
+            .collect();
+        assert_eq!(
+            different,
+            Vec::<&(String, Result<Vec<String>, String>)>::new()
         );
+
+        let skipped: Vec<(&str, &str)> = results
+            .iter()
+            .filter_map(|(n, r)| r.as_ref().err().map(|e| (n.as_str(), e.as_str())))
+            .collect();
+        let names: Vec<&str> = skipped.iter().map(|(n, _)| *n).collect();
+        assert_eq!(
+            names,
+            [
+                "acquisition/deal_risk.yaml",
+                "bagel/bagel_simulate.yaml",
+                "bagel/costs_risk.yaml",
+                "microgrid/microgrid_risk.yaml",
+                "monte-carlo.yaml",
+                "realestate/realestate_flex.yaml",
+                "realestate/realestate_risk.yaml",
+                "vineyard/vineyard_independent.yaml",
+                "vineyard/vineyard_risk.yaml",
+            ]
+        );
+        for (name, error) in &skipped {
+            assert!(
+                error.starts_with("original does not calculate"),
+                "{name}: {error}"
+            );
+            let text = fs::read_to_string(root.join(name)).unwrap();
+            assert!(text.contains("MC."), "{name} has no MC. distribution");
+        }
+        // The rest, 39 models, all round-trip with no difference
+        assert_eq!(results.len() - skipped.len(), 39);
     }
 }

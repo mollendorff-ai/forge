@@ -8,7 +8,9 @@
 //!
 //! Forge does the same at its edges: a number written to a file or printed is
 //! rounded to 15 significant digits, so `418.3299999999999` is stored as
-//! `418.33`. The calculation itself is not rounded.
+//! `418.33`. The calculation itself is not rounded, except where Excel rounds
+//! it: a formula's last `+` or `-`, and the last addition of `SUM`, are 0 when
+//! they nearly cancel ([`final_sum`], ADR-066).
 
 use crate::core::array_calculator::evaluator::text::number_format::rounded_digits;
 use serde::ser::{
@@ -29,6 +31,110 @@ pub const SIGNIFICANT_DIGITS: usize = 15;
 pub fn same(a: f64, b: f64) -> bool {
     a.partial_cmp(&b) == Some(std::cmp::Ordering::Equal)
 }
+
+/// 2^32, the weight of the high half of a 64-bit whole number
+const HALF: f64 = 4_294_967_296.0;
+
+/// A whole number of 64 bits as a number: each 32-bit half is exact, and the
+/// one rounding is the sum, to nearest with ties to even, as `n as f64`.
+fn from_u64(n: u64) -> f64 {
+    let [b0, b1, b2, b3, b4, b5, b6, b7] = n.to_le_bytes();
+    f64::from(u32::from_le_bytes([b4, b5, b6, b7]))
+        .mul_add(HALF, f64::from(u32::from_le_bytes([b0, b1, b2, b3])))
+}
+
+/// A count (a length, a place in an array, a number of draws) as a number.
+///
+/// Exact up to 2^53, about 9e15, which no array in memory reaches; above that
+/// the nearest number, ties to even, as IEEE 754 rounds. It is the same number
+/// `count as f64` gives, built from conversions that cannot lose anything, so
+/// that the one place where a count becomes a number is named and tested.
+#[must_use]
+pub fn count(n: usize) -> f64 {
+    let bytes = n.to_le_bytes();
+    let mut wide = [0_u8; 8];
+    wide[..bytes.len()].copy_from_slice(&bytes);
+    from_u64(u64::from_le_bytes(wide))
+}
+
+/// A whole number of 64 bits (a day count, a random integer) as a number:
+/// exact up to 2^53, the nearest number above it, as [`count`] does.
+#[must_use]
+pub fn whole(n: i64) -> f64 {
+    let magnitude = from_u64(n.unsigned_abs());
+    if n < 0 {
+        -magnitude
+    } else {
+        magnitude
+    }
+}
+
+/// An unsigned whole number of 64 bits as a number, as [`whole`] does.
+#[must_use]
+pub fn unsigned(n: u64) -> f64 {
+    from_u64(n)
+}
+
+/// How Excel's comparison operators order two numbers: each rounded to 15
+/// significant digits first (ADR-065).
+///
+/// So `0.1 + 0.2 = 0.3` and `100 * 1.1 <= 110` hold, while `1 + 1E-14 > 1`
+/// and `-1E-12 < 0` do too. The rounding is of each number, relative to its
+/// own size: there is no tolerance near zero. `None` when either is a NaN.
+///
+/// For `=`, `<>`, `<`, `<=`, `>`, `>=`, `SWITCH` and the criteria of
+/// `COUNTIF` and its family. An exact lookup (`MATCH` 0, `XLOOKUP`) compares
+/// exactly instead, with [`same`].
+#[must_use]
+pub fn excel_order(a: f64, b: f64) -> Option<std::cmp::Ordering> {
+    let exact = a.partial_cmp(&b);
+    // Rounding moves a number by at most half a unit in its 15th digit, under
+    // 5E-15 of it, and never past another, so two numbers further apart than
+    // 1E-13 of the larger keep their order; only nearer ones are rounded
+    if exact == Some(std::cmp::Ordering::Equal) || (a - b).abs() > 1e-13 * a.abs().max(b.abs()) {
+        return exact;
+    }
+    to_15_digits(a).partial_cmp(&to_15_digits(b))
+}
+
+/// Whether `a` and `b` are equal as Excel's `=` finds them: [`excel_order`].
+#[must_use]
+pub fn excel_equal(a: f64, b: f64) -> bool {
+    excel_order(a, b) == Some(std::cmp::Ordering::Equal)
+}
+
+/// The result of a formula's last `+` or `-`, as Excel gives it (ADR-066).
+///
+/// It is 0 when `result` is less than 8 units in the last place of the larger
+/// of the two operands `a` and `b`, which can only happen when they nearly
+/// cancel. `0.1 + 0.2 - 0.3` is 5.55E-17, a unit in the last place of
+/// 0.30000000000000004, and so 0; `1E15 + 1 - 1E15` is 1, 8 units of
+/// 1000000000000001, and stays 1. Excel for iPhone draws the line there on
+/// every case checked, near 1E-10, 1, 512 and 1E15 (2026-11-18).
+///
+/// The unit is the larger operand's: 2^e for the power of two at or below
+/// it, times 2^-52. Adding 0, or numbers of one sign, never falls below 8 of
+/// them; a subnormal operand has no such unit, and nothing is changed.
+#[must_use]
+pub fn final_sum(a: f64, b: f64, result: f64) -> f64 {
+    // The power of two at or below the larger operand: its exponent bits alone
+    let larger = a.abs().max(b.abs());
+    let power = f64::from_bits(larger.to_bits() & 0x7ff0_0000_0000_0000);
+    // 8 units in the last place of `power` is power * 2^-49
+    let line = if larger.is_normal() {
+        power * EIGHT_UNITS
+    } else {
+        0.0
+    };
+    if result.abs() < line {
+        0.0
+    } else {
+        result
+    }
+}
+
+/// 2^-49: 8 units in the last place of 1
+const EIGHT_UNITS: f64 = 1.0 / 562_949_953_421_312.0;
 
 /// `value` rounded to 15 significant digits: the number Forge writes and
 /// prints. Zero, infinities and NaN are returned as they are.
@@ -362,6 +468,130 @@ impl<C: SerializeStructVariant> SerializeStructVariant for Compound<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cmp::Ordering::{Equal, Greater, Less};
+
+    /// Excel's last addition (ADR-066): 0 under 8 units in the last place of
+    /// the larger operand, the result itself from 8 on
+    #[test]
+    fn a_last_sum_under_eight_units_is_zero() {
+        let unit = 2f64.powi(-52);
+        let (two, seven, eight) = (2.0 * unit, 7.0 * unit, 8.0 * unit);
+        assert_exact!(final_sum(1.0 + seven, -1.0, seven), 0.0);
+        assert_exact!(final_sum(1.0 + eight, -1.0, eight), eight);
+        // Below zero alike
+        assert_exact!(final_sum(-1.0 - two, 1.0, -two), 0.0);
+        // The larger operand's unit: 1E15 + 1 is 8 units of 1000000000000001
+        assert_exact!(final_sum(1e15 + 1.0, -1e15, 1.0), 1.0);
+        assert_exact!(final_sum(1e15 + 0.5, -1e15, 0.5), 0.0);
+        // Nothing cancels: adding 0, or numbers of one sign
+        assert_exact!(final_sum(5e-17, 0.0, 5e-17), 5e-17);
+        assert_exact!(final_sum(1.0, unit, 1.0 + unit), 1.0 + unit);
+        assert_exact!(final_sum(0.0, 0.0, 0.0), 0.0);
+        // A subnormal operand has no such unit, and an infinity is kept
+        let tiny = f64::MIN_POSITIVE / 4.0;
+        assert_exact!(final_sum(tiny, -tiny / 2.0, tiny / 2.0), tiny / 2.0);
+        assert!(final_sum(f64::INFINITY, 1.0, f64::INFINITY).is_infinite());
+    }
+
+    /// A count becomes the number IEEE 754 gives it, at every edge
+    #[test]
+    fn a_whole_number_becomes_a_number_as_ieee_rounds_it() {
+        assert_exact!(count(0), 0.0);
+        assert_exact!(count(1), 1.0);
+        assert_exact!(count(4_294_967_295), 4_294_967_295.0);
+        assert_exact!(count(4_294_967_296), 4_294_967_296.0);
+        assert_exact!(unsigned(9_007_199_254_740_991), 9_007_199_254_740_991.0);
+        assert_exact!(unsigned(9_007_199_254_740_992), 9_007_199_254_740_992.0);
+        // Above 2^53 the spacing is 2: a tie goes to the even neighbour
+        assert_exact!(unsigned(9_007_199_254_740_993), 9_007_199_254_740_992.0);
+        assert_exact!(unsigned(9_007_199_254_740_995), 9_007_199_254_740_996.0);
+        // Not a tie: the nearer neighbour
+        assert_exact!(unsigned(9_007_199_254_740_994), 9_007_199_254_740_994.0);
+        assert_exact!(unsigned(u64::MAX), 18_446_744_073_709_551_616.0);
+        // A count is as wide as a usize, which fills 64 bits or fewer
+        assert_exact!(count(usize::MAX), unsigned(u64::MAX >> (64 - usize::BITS)));
+        assert_exact!(count(123_456_789), 123_456_789.0);
+    }
+
+    /// A signed whole number keeps its sign, and the rounding is symmetric
+    #[test]
+    fn a_signed_whole_number_becomes_a_number_with_its_sign() {
+        assert_exact!(whole(0), 0.0);
+        assert_exact!(whole(45_000), 45_000.0);
+        assert_exact!(whole(-45_000), -45_000.0);
+        assert_exact!(whole(-9_007_199_254_740_993), -9_007_199_254_740_992.0);
+        assert_exact!(whole(9_007_199_254_740_995), 9_007_199_254_740_996.0);
+        assert_exact!(whole(i64::MAX), 9_223_372_036_854_775_808.0);
+        assert_exact!(whole(i64::MIN), -9_223_372_036_854_775_808.0);
+        // Zero has no sign to keep
+        assert!(whole(0).is_sign_positive());
+    }
+
+    /// Excel's comparison: each number to 15 significant digits (ADR-065)
+    #[test]
+    fn excel_order_rounds_each_number_to_fifteen_digits() {
+        // Exactly equal, and zero of either sign
+        assert_eq!(excel_order(2.5, 2.5), Some(Equal));
+        assert_eq!(excel_order(0.0, -0.0), Some(Equal));
+        // Binary noise in the 17th digit
+        assert_eq!(excel_order(0.1 + 0.2, 0.3), Some(Equal));
+        assert_eq!(excel_order(0.3, 0.1 + 0.2), Some(Equal));
+        // The 15th digit counts, at every size
+        assert_eq!(excel_order(1.0 + 1e-14, 1.0), Some(Greater));
+        assert_eq!(excel_order(1e-300, 1.000_000_000_000_01e-300), Some(Less));
+        assert_eq!(excel_order(1e300, 1.000_000_000_000_01e300), Some(Less));
+        // No tolerance near zero, and far apart is the plain order
+        assert_eq!(excel_order(-1e-12, 0.0), Some(Less));
+        assert_eq!(excel_order(f64::MIN_POSITIVE, 0.0), Some(Greater));
+        assert_eq!(excel_order(-3.0, 2.0), Some(Less));
+        // Two numbers one binary step apart on either side of a 15th digit's
+        // halfway point (1.0000000000000049 and 1.000000000000005) are
+        // unequal: the rule rounds each, it does not measure the gap
+        assert_eq!(
+            excel_order(1.000_000_000_000_004_9, 1.000_000_000_000_005),
+            Some(Less)
+        );
+        // Infinities and NaN
+        assert_eq!(excel_order(f64::INFINITY, f64::INFINITY), Some(Equal));
+        assert_eq!(excel_order(f64::INFINITY, 1e308), Some(Greater));
+        assert_eq!(excel_order(f64::NAN, 1.0), None);
+        assert!(!excel_equal(f64::NAN, f64::NAN));
+        assert!(excel_equal(100.0 * 1.1, 110.0));
+    }
+
+    /// The shortcut for numbers far apart gives what rounding both would
+    #[test]
+    fn excel_order_shortcut_agrees_with_rounding() {
+        let values = [
+            0.0,
+            1e-300,
+            1e-15,
+            0.1,
+            0.3,
+            0.1 + 0.2,
+            1.0,
+            1.0 + 1e-14,
+            1.0 + 1e-13,
+            99.99,
+            110.0,
+            100.0 * 1.1,
+            1e15,
+            1e15 + 1.0,
+            1e15 + 10.0,
+            1e300,
+        ];
+        for &a in &values {
+            for &b in &values {
+                for (x, y) in [(a, b), (-a, b), (a, -b), (-a, -b)] {
+                    assert_eq!(
+                        excel_order(x, y),
+                        to_15_digits(x).partial_cmp(&to_15_digits(y)),
+                        "{x} and {y}"
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn same_is_ieee_equality_on_every_edge() {
@@ -501,6 +731,122 @@ mod tests {
                 .trim_start_matches('0')
                 .len();
             assert!(digits <= SIGNIFICANT_DIGITS, "{x} -> {shown}");
+        }
+    }
+
+    mod rounded_serialization {
+        //! `Rounded` passes every kind of value through, rounding each `f64`
+        //! at any depth and changing nothing else.
+
+        use super::super::Rounded;
+        use serde::{Serialize, Serializer};
+
+        #[derive(Serialize)]
+        struct Marker;
+
+        #[derive(Serialize)]
+        struct Wrapped(f64);
+
+        #[derive(Serialize)]
+        struct Pair(f64, i8);
+
+        #[derive(Serialize)]
+        enum Shape {
+            Newtype(f64),
+            Tuple(f64, u8),
+            Record {
+                a: f64,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                b: Option<f64>,
+            },
+        }
+
+        struct Raw;
+
+        impl Serialize for Raw {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.serialize_bytes(&[1, 2])
+            }
+        }
+
+        /// A map written key by key and value by value
+        struct Entries;
+
+        impl Serialize for Entries {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                use serde::ser::SerializeMap;
+                let mut map = serializer.serialize_map(Some(1))?;
+                map.serialize_key("k")?;
+                map.serialize_value(&(0.1 + 0.2))?;
+                map.end()
+            }
+        }
+
+        struct Readable;
+
+        impl Serialize for Readable {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let readable = serializer.is_human_readable();
+                serializer.serialize_bool(readable)
+            }
+        }
+
+        #[derive(Serialize)]
+        struct Every {
+            small: (i8, i16, i128, u8, u16, u128),
+            single: f32,
+            letter: char,
+            marker: Marker,
+            wrapped: Wrapped,
+            pair: Pair,
+            raw: Raw,
+            readable: Readable,
+            entries: Entries,
+            newtype: Shape,
+            tuple: Shape,
+            record: Shape,
+            skipped: Shape,
+            map: std::collections::BTreeMap<String, f64>,
+            some: Option<f64>,
+            none: Option<f64>,
+            noisy: f64,
+        }
+
+        #[test]
+        fn every_kind_of_value_comes_through_and_only_floats_change() {
+            let value = Every {
+                small: (-1, -2, -3, 4, 5, 6),
+                single: 0.5,
+                letter: 'x',
+                marker: Marker,
+                wrapped: Wrapped(0.1 + 0.2),
+                pair: Pair(0.1 + 0.2, 7),
+                raw: Raw,
+                readable: Readable,
+                entries: Entries,
+                newtype: Shape::Newtype(0.1 + 0.2),
+                tuple: Shape::Tuple(0.1 + 0.2, 8),
+                record: Shape::Record {
+                    a: 0.1 + 0.2,
+                    b: Some(0.5),
+                },
+                skipped: Shape::Record { a: 1.0, b: None },
+                map: std::iter::once(("k".to_string(), 0.1 + 0.2)).collect(),
+                some: Some(0.1 + 0.2),
+                none: None,
+                noisy: 0.300_000_000_000_000_04,
+            };
+            let text = serde_json::to_string(&Rounded(&value)).unwrap();
+            assert_eq!(
+                text,
+                concat!(
+                    r#"{"small":[-1,-2,-3,4,5,6],"single":0.5,"letter":"x","marker":null,"#,
+                    r#""wrapped":0.3,"pair":[0.3,7],"raw":[1,2],"readable":true,"entries":{"k":0.3},"#,
+                    r#""newtype":{"Newtype":0.3},"tuple":{"Tuple":[0.3,8]},"#,
+                    r#""record":{"Record":{"a":0.3,"b":0.5}},"skipped":{"Record":{"a":1.0}},"#,
+                    r#""map":{"k":0.3},"some":0.3,"none":null,"noisy":0.3}"#
+                )
+            );
         }
     }
 }

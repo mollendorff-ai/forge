@@ -573,12 +573,12 @@ fn cell_number(text: &str) -> Option<f64> {
     if parts.next().is_some() || y.len() != 4 || m.len() != 2 || d.len() != 2 {
         return None;
     }
-    let (y, m, d): (i64, i64, i64) = (y.parse().ok()?, m.parse().ok()?, d.parse().ok()?);
+    let (y, m, d): (i32, i32, i32) = (y.parse().ok()?, m.parse().ok()?, d.parse().ok()?);
     if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
         return None;
     }
     // Days from 1970-01-01 of a civil date (H. Hinnant's algorithm)
-    let days_from_epoch = |y: i64, m: i64, d: i64| {
+    let days_from_epoch = |y: i32, m: i32, d: i32| {
         let y = if m <= 2 { y - 1 } else { y };
         let era = y.div_euclid(400);
         let yoe = y - era * 400;
@@ -586,8 +586,9 @@ fn cell_number(text: &str) -> Option<f64> {
         let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
         era * 146_097 + doe - 719_468
     };
-    #[allow(clippy::cast_precision_loss)] // a day count, far below 2^52
-    Some((days_from_epoch(y, m, d) - days_from_epoch(1899, 12, 30)) as f64)
+    Some(f64::from(
+        days_from_epoch(y, m, d) - days_from_epoch(1899, 12, 30),
+    ))
 }
 
 /// The spec's `_includes`, resolved: (file beside the spec, namespace).

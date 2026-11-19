@@ -259,4 +259,309 @@ plan:
             );
         }
     }
+
+    mod microgrid_example {
+        //! The tornado of examples/microgrid: each input of `tornado:` moved alone
+        //! to its low and high, as the `run` of the Python in
+        //! prediction/scenarios.rs (`microgrid_example`) gives it:
+        //! ```python
+        //! run(price=1.10), run(price=1.95)          # 7841813.091454271 20760578.82332357
+        //! run(rate=0.06), run(rate=0.10)            # 17355226.48723297 9916484.447146453
+        //! run(esc=0.01), run(esc=0.045)             # 9946176.727970488 16072140.515814856
+        //! run(growth=0.0), run(growth=0.05)         # 10131332.837667756 14240595.342762135
+        //! run(batt_cost=280e3), run(batt_cost=480e3)  # 14397190.43603617 11925419.290764734
+        //! run(batt=7), run(batt=13)                 # 10911856.19285597 12169816.338769991
+        //! run(yld=1350), run(yld=1700)              # 12187822.241630089 13161304.863400452
+        //! ```
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_diesel_price_moves_the_value_most() {
+            let result =
+                tornado_core(Path::new("examples/microgrid/microgrid.yaml"), None).unwrap();
+            let expected = [
+                (
+                    "fuel.diesel_price",
+                    7_841_813.091_454_271,
+                    20_760_578.823_323_57,
+                ),
+                (
+                    "finance.discount_rate",
+                    17_355_226.487_232_97,
+                    9_916_484.447_146_453,
+                ),
+                (
+                    "fuel.price_escalation",
+                    9_946_176.727_970_488,
+                    16_072_140.515_814_856,
+                ),
+                (
+                    "demand.growth",
+                    10_131_332.837_667_756,
+                    14_240_595.342_762_135,
+                ),
+                (
+                    "costs.battery_per_mwh",
+                    14_397_190.436_036_17,
+                    11_925_419.290_764_734,
+                ),
+                (
+                    "system.battery_mwh",
+                    10_911_856.192_855_97,
+                    12_169_816.338_769_991,
+                ),
+                (
+                    "system.solar_yield_mwh_per_mwp",
+                    12_187_822.241_630_089,
+                    13_161_304.863_400_452,
+                ),
+            ];
+            // In order of the swing, largest first
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!(
+                    (bar.output_at_low - low).abs() <= 1e-6,
+                    "{name} low {}",
+                    bar.output_at_low
+                );
+                assert!(
+                    (bar.output_at_high - high).abs() <= 1e-6,
+                    "{name} high {}",
+                    bar.output_at_high
+                );
+            }
+            // The plan sits at the best battery size: both ends of its range are worse
+            let battery = &result.bars[5];
+            assert!(battery.output_at_low < result.base_value);
+            assert!(battery.output_at_high < result.base_value);
+        }
+    }
+
+    mod fund_example {
+        //! The tornado of examples/fund: each input moved alone, as the `flows`
+        //! of the Python in prediction/scenarios.rs (`fund_example`) gives it,
+        //! then `xirr(n)`:
+        //! ```python
+        //! flows(factor=0.7), flows(factor=1.3)          # 0.04373687769500806 0.16112291601241527
+        //! flows(delay=-12), flows(delay=12)             # 0.1355861504581191 0.0900660541848615
+        //! flows(carry_rate=0.1), flows(carry_rate=0.3)  # 0.11649677373176905 0.09940917752524847
+        //! ```
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_exit_market_moves_the_investors_return_most() {
+            let result = tornado_core(Path::new("examples/fund/fund.yaml"), None).unwrap();
+            let expected = [
+                (
+                    "market.multiple_factor",
+                    0.043_736_877_695_008_06,
+                    0.161_122_916_012_415_27,
+                ),
+                (
+                    "market.delay_months",
+                    0.135_586_150_458_119_1,
+                    0.090_066_054_184_861_5,
+                ),
+                (
+                    "terms.carry_rate",
+                    0.116_496_773_731_769_05,
+                    0.099_409_177_525_248_47,
+                ),
+            ];
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!((bar.output_at_low - low).abs() <= 1e-9, "{name} low");
+                assert!((bar.output_at_high - high).abs() <= 1e-9, "{name} high");
+            }
+        }
+    }
+
+    mod vineyard_example {
+        //! The tornado of examples/vineyard: each input moved alone, as the
+        //! `season` of the Python in prediction/scenarios.rs (`vineyard_example`)
+        //! gives it:
+        //! ```python
+        //! season(y=0.5), season(y=1.3)                # -90429.99999999997 169682.00000000006
+        //! season(price=1500), season(price=2500)      # -16659.99999999994 160940.00000000006
+        //! season(frost=0), season(frost=0.3)          # 72140.00000000006 -25401.99999999997
+        //! ```
+        //! Moved alone, the crop swings the season most. Under uncertainty it
+        //! barely moves it (`monte_carlo/correlation.rs`, `vineyard_example`): the
+        //! price moves against it, which a tornado cannot show.
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_crop_moves_the_season_most_when_moved_alone() {
+            let result = tornado_core(Path::new("examples/vineyard/vineyard.yaml"), None).unwrap();
+            let expected = [
+                ("harvest.yield_factor", -90_430.0, 169_682.0),
+                ("harvest.price_per_tonne", -16_660.0, 160_940.0),
+                ("harvest.frost_loss", 72_140.0, -25_402.0),
+            ];
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!((bar.output_at_low - low).abs() <= 1e-6, "{name} low");
+                assert!((bar.output_at_high - high).abs() <= 1e-6, "{name} high");
+            }
+        }
+    }
+
+    mod realestate_example {
+        //! The tornado of examples/realestate: each input of `tornado:` moved alone
+        //! to its low and high, as the `run` of the Python in
+        //! prediction/scenarios.rs (`realestate_example`) gives it:
+        //! ```python
+        //! run(growth=0.01), run(growth=0.05)    # -803372.9902072488 1278481.6636162195
+        //! run(cap=0.05), run(cap=0.07)          # 586272.8786825631 -356853.2152528884
+        //! run(rate=0.07), run(rate=0.09)        # 531800.6356661897 -186627.01265773457
+        //! run(vac=0.03), run(vac=0.12)          # 374118.4634693004 -281090.98475902807
+        //! run(opex=4600), run(opex=6000)        # 407814.1831154749 -180416.51134763286
+        //! run(egrowth=0.015), run(egrowth=0.04) # 311693.32743657194 -102450.19643294066
+        //! ```
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn rent_growth_moves_the_value_most() {
+            let result =
+                tornado_core(Path::new("examples/realestate/realestate.yaml"), None).unwrap();
+            let expected = [
+                (
+                    "market.rent_growth",
+                    -803_372.990_207_248_8,
+                    1_278_481.663_616_219_5,
+                ),
+                (
+                    "market.exit_cap_rate",
+                    586_272.878_682_563_1,
+                    -356_853.215_252_888_4,
+                ),
+                (
+                    "deal.discount_rate",
+                    531_800.635_666_189_7,
+                    -186_627.012_657_734_57,
+                ),
+                (
+                    "building.vacancy",
+                    374_118.463_469_300_4,
+                    -281_090.984_759_028_07,
+                ),
+                (
+                    "building.opex_per_unit_year",
+                    407_814.183_115_474_9,
+                    -180_416.511_347_632_86,
+                ),
+                (
+                    "market.expense_growth",
+                    311_693.327_436_571_94,
+                    -102_450.196_432_940_66,
+                ),
+            ];
+            // In order of the swing, largest first
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!(
+                    (bar.output_at_low - low).abs() <= 1e-6,
+                    "{name} low {}",
+                    bar.output_at_low
+                );
+                assert!(
+                    (bar.output_at_high - high).abs() <= 1e-6,
+                    "{name} high {}",
+                    bar.output_at_high
+                );
+            }
+        }
+    }
+
+    mod acquisition_example {
+        //! The tornado of examples/acquisition: each input of `tornado:` moved alone
+        //! to its low and high, as the `run` of the Python in
+        //! prediction/scenarios.rs (`acquisition_example`) gives it:
+        //! ```python
+        //! run(r=0.075), run(r=0.09)            # 428.94317671721774 -89.5534775250062
+        //! run(tg=0.015), run(tg=0.03)          # -32.02129424545046 391.2519313997218
+        //! run(cost=20), run(cost=55)           # -12.090702947912177 401.9569106929416
+        //! run(premium=0.20), run(premium=0.45) # 346.90793341829067 40.90793341829067
+        //! run(rev=0), run(rev=90)              # 28.3974515996465 322.5631743276117
+        //! run(growth=0.04), run(growth=0.10)   # 98.45464031669553 361.1597890195958
+        //! run(integ=80), run(integ=170)        # 237.73952921161435 178.1973481416553
+        //! ```
+
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        #[test]
+        fn the_valuation_assumptions_move_the_value_more_than_any_synergy() {
+            let result = tornado_core(Path::new("examples/acquisition/deal.yaml"), None).unwrap();
+            let expected = [
+                (
+                    "case.discount_rate",
+                    428.943_176_717_217_74,
+                    -89.553_477_525_006_2,
+                ),
+                (
+                    "case.terminal_growth",
+                    -32.021_294_245_450_46,
+                    391.251_931_399_721_8,
+                ),
+                (
+                    "synergies.cost_run_rate",
+                    -12.090_702_947_912_177,
+                    401.956_910_692_941_6,
+                ),
+                (
+                    "offer.premium",
+                    346.907_933_418_290_67,
+                    40.907_933_418_290_67,
+                ),
+                (
+                    "synergies.revenue_run_rate",
+                    28.397_451_599_646_5,
+                    322.563_174_327_611_7,
+                ),
+                (
+                    "case.quillon_growth",
+                    98.454_640_316_695_53,
+                    361.159_789_019_595_8,
+                ),
+                (
+                    "synergies.integration_cost",
+                    237.739_529_211_614_35,
+                    178.197_348_141_655_3,
+                ),
+            ];
+            // In order of the swing, largest first
+            let names: Vec<_> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+            let want: Vec<_> = expected.iter().map(|(name, _, _)| *name).collect();
+            assert_eq!(names, want);
+            for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+                assert!(
+                    (bar.output_at_low - low).abs() <= 1e-9,
+                    "{name} low {}",
+                    bar.output_at_low
+                );
+                assert!(
+                    (bar.output_at_high - high).abs() <= 1e-9,
+                    "{name} high {}",
+                    bar.output_at_high
+                );
+            }
+        }
+    }
 }

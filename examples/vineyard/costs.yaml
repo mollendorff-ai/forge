@@ -1,0 +1,14 @@
+_forge_version: "5.1.0"
+# What the vineyard costs to run for a season, kept apart from the harvest so
+# the plan and the simulation read the same figures. All figures are made up.
+vineyard:
+  # Pruning, spraying, canopy work and the tractor, a hectare a year
+  per_hectare: 7000
+harvest:
+  # Pickers and the truck to the winery, a tonne of grapes
+  picking_per_tonne: 180
+fixed:
+  # Insurance, the accountant and repairs
+  overhead: 45000
+  # The loan on the land and the equipment, paid once a year
+  loan_payment: 40000

@@ -340,7 +340,17 @@ mod tests {
         assert_eq!(row("=e - d"), "=B2 - A2");
         assert_eq!(row("=d + 1"), "=A2 + 1");
         assert_eq!(row("=IF(e > d, 1, 0)"), "=IF(B2 > A2, 1, 0)");
-        assert_eq!(row("=MAX(d, e)"), "=MAX(A2, B2)");
+        // The latest of two dates is a date (ADR-060 addendum), so a column of it
+        // holds dates, and a number column of it is its day numbers
+        assert_eq!(
+            excel("=MAX(d, e)", ROW, Holds::Dates).unwrap(),
+            "=MAX(A2, B2)"
+        );
+        assert_eq!(
+            excel("=MAX(d, e)", ROW, Holds::Numbers).unwrap(),
+            "=MAX(A2, B2)"
+        );
+        assert_eq!(row("=MAX(v, 1)"), "=MAX(C2, 1)");
         assert_eq!(row("=TEXT(d, \"yyyy\")"), "=TEXT(A2, \"yyyy\")");
         assert_eq!(row("=YEAR(EDATE(d, 1))"), "=YEAR(EDATE(A2, 1))");
     }
@@ -425,6 +435,24 @@ mod tests {
         }
         // Not a column of dates: no date format
         assert!(!refs().to_excel("=YEAR(d)", ROW).unwrap().is_date);
+    }
+
+    /// A lookup that touches a date has no rule, so its values are written;
+    /// one beside a date, but not over one, is written as a formula
+    #[test]
+    fn a_lookup_over_dates_is_written_as_values() {
+        for formula in [
+            "=VLOOKUP(d, t.e, 1, FALSE)",
+            "=VLOOKUP(v, t.d, 1)",
+            "=HLOOKUP(d, {1,2}, 1)",
+        ] {
+            let reason = excel(formula, ROW, Holds::Other).unwrap_err();
+            assert!(reason.contains("a date in"), "{formula}: {reason}");
+        }
+        assert_eq!(
+            row("=IF(YEAR(d) > 2020, VLOOKUP(v, t.v, 1, FALSE), 0)"),
+            "=IF(YEAR(A2) > 2020, VLOOKUP(C2, $C$2:$C$5, 1, FALSE), 0)"
+        );
     }
 
     #[test]
@@ -1290,13 +1318,20 @@ checks:
             for (sheet, row, col, value) in [
                 ("loans", 2, 4, 2026.0),
                 ("loans", 3, 5, 1.0),
-                ("checks", 1, 1, 46357.0),
                 ("checks", 3, 1, 1.0),
             ] {
                 let (held, formula) = cell(&xlsx, sheet, row, col);
                 assert_eq!(formula, "", "{sheet} {row} {col}");
                 assert_eq!(held, Data::Float(value), "{sheet} {row} {col}");
             }
+            // The latest maturity is a date (ADR-060 addendum): a date cell, as a
+            // date scalar is, with Forge's value and no formula
+            let (held, formula) = cell(&xlsx, "checks", 1, 1);
+            assert_eq!(formula, "");
+            assert!(
+                matches!(&held, Data::DateTime(d) if (d.as_f64() - 46357.0).abs() < 1e-9),
+                "{held:?}"
+            );
             // A formula over those values is live
             assert_eq!(cell(&xlsx, "checks", 4, 1).1, "SUM('loans'!$E$2:$E$5)");
         }

@@ -4,175 +4,174 @@ use super::{
     evaluate, parse_date_value, require_args, Datelike, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::{day_count, number_or};
+use crate::core::precision;
 
 use super::require_args_range;
+use num_traits::ToPrimitive;
 
 /// Try to evaluate a date difference function.
-#[allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::too_many_lines
-)]
-// Date difference casts: u32 month/day from chrono to i32 for arithmetic (values 1-31),
-// i64 serial days to f64 for year fractions (date serials fit in f64 mantissa).
-// Splitting this match would fragment the date function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     let result = match name {
-        "DATEDIF" => {
-            require_args(name, args, 3)?;
-            let start = evaluate(&args[0], ctx)?;
-            let end = evaluate(&args[1], ctx)?;
-            let unit = evaluate(&args[2], ctx)?.as_text().to_uppercase();
-
-            let start_date = parse_date_value(&start)?;
-            let end_date = parse_date_value(&end)?;
-            if start_date > end_date {
-                return Err(EvalError::new(
-                    "#NUM!: DATEDIF: the start date is after the end date",
-                ));
-            }
-
-            let result = match unit.as_str() {
-                "D" => (end_date - start_date).num_days() as f64,
-                "M" => {
-                    // Complete months between dates
-                    let years = end_date.year() - start_date.year();
-                    let months = end_date.month() as i32 - start_date.month() as i32;
-                    let mut total_months = years * 12 + months;
-                    // Adjust if end day < start day (incomplete month)
-                    if end_date.day() < start_date.day() {
-                        total_months -= 1;
-                    }
-                    f64::from(total_months.max(0))
-                },
-                "Y" => {
-                    // Complete years between dates
-                    let mut years = end_date.year() - start_date.year();
-                    // Check if we've reached the anniversary date
-                    if end_date.month() < start_date.month()
-                        || (end_date.month() == start_date.month()
-                            && end_date.day() < start_date.day())
-                    {
-                        years -= 1;
-                    }
-                    f64::from(years.max(0))
-                },
-                "MD" => {
-                    // Days between dates, ignoring months and years
-                    let mut day_diff = end_date.day() as i32 - start_date.day() as i32;
-                    if day_diff < 0 {
-                        // Get days in the previous month
-                        let prev_month_date = if end_date.month() == 1 {
-                            chrono::NaiveDate::from_ymd_opt(end_date.year() - 1, 12, 1)
-                        } else {
-                            chrono::NaiveDate::from_ymd_opt(
-                                end_date.year(),
-                                end_date.month() - 1,
-                                1,
-                            )
-                        };
-                        let days_in_prev_month = prev_month_date
-                            .and_then(|d| {
-                                d.checked_add_months(chrono::Months::new(1))
-                                    .and_then(|next| next.pred_opt())
-                            })
-                            .map_or(30, |d| d.day() as i32);
-                        day_diff += days_in_prev_month;
-                    }
-                    f64::from(day_diff)
-                },
-                "YM" => {
-                    // Months between dates, ignoring years
-                    let mut month_diff = end_date.month() as i32 - start_date.month() as i32;
-                    // An incomplete last month does not count, also across a year
-                    // end: 30 January to 1 January is 11 months
-                    if end_date.day() < start_date.day() {
-                        month_diff -= 1;
-                    }
-                    f64::from(month_diff.rem_euclid(12))
-                },
-                "YD" => {
-                    // Days between dates, ignoring years
-                    use chrono::NaiveDate;
-
-                    // Find the most recent anniversary of start_date before or on end_date
-                    let anniversary_year = if end_date.month() > start_date.month()
-                        || (end_date.month() == start_date.month()
-                            && end_date.day() >= start_date.day())
-                    {
-                        end_date.year()
-                    } else {
-                        end_date.year() - 1
-                    };
-
-                    // Handle Feb 29 -> Feb 28 for non-leap years
-                    let anniversary = if start_date.month() == 2 && start_date.day() == 29 {
-                        NaiveDate::from_ymd_opt(anniversary_year, 2, 29)
-                            .or_else(|| NaiveDate::from_ymd_opt(anniversary_year, 2, 28))
-                    } else {
-                        NaiveDate::from_ymd_opt(
-                            anniversary_year,
-                            start_date.month(),
-                            start_date.day(),
-                        )
-                    }
-                    .ok_or_else(|| EvalError::new("DATEDIF: invalid anniversary date"))?;
-
-                    (end_date - anniversary).num_days() as f64
-                },
-                _ => return Err(EvalError::new(format!("DATEDIF: unknown unit '{unit}'"))),
-            };
-            Value::Number(result)
-        },
-
-        "YEARFRAC" => {
-            require_args_range(name, args, 2, 3)?;
-            let start = parse_date_value(&evaluate(&args[0], ctx)?)?;
-            let end = parse_date_value(&evaluate(&args[1], ctx)?)?;
-            let basis = if args.len() > 2 {
-                number_or(&args[2], ctx, 0.0)?
-            } else {
-                0.0
-            };
-            let basis = day_count::Basis::from_number(basis, "YEARFRAC")?;
-            Value::Number(day_count::yearfrac(start, end, basis))
-        },
-
-        "TIME" => {
-            require_args(name, args, 3)?;
-            let hour = evaluate(&args[0], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("TIME: hour must be a number"))?
-                as i32;
-            let minute = evaluate(&args[1], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("TIME: minute must be a number"))?
-                as i32;
-            let second = evaluate(&args[2], ctx)?
-                .as_cell_number()
-                .ok_or_else(|| EvalError::new("TIME: second must be a number"))?
-                as i32;
-
-            // A fraction of a day, as Excel gives: past 24 hours it starts the
-            // day again (TIME(27, 0, 0) is TIME(3, 0, 0)); a negative time is #NUM!
-            let total_seconds = hour * 3600 + minute * 60 + second;
-            if total_seconds < 0 {
-                return Err(EvalError::new(format!(
-                    "#NUM!: TIME({hour}, {minute}, {second}) is before midnight"
-                )));
-            }
-            Value::Number(f64::from(total_seconds % 86_400) / 86400.0)
-        },
-
+        "DATEDIF" => eval_datedif(name, args, ctx)?,
+        "YEARFRAC" => eval_yearfrac(name, args, ctx)?,
+        "TIME" => eval_time(name, args, ctx)?,
         _ => return Ok(None),
     };
 
     Ok(Some(result))
+}
+
+/// Evaluate `DATEDIF`.
+fn eval_datedif(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 3)?;
+    let start = evaluate(&args[0], ctx)?;
+    let end = evaluate(&args[1], ctx)?;
+    let unit = evaluate(&args[2], ctx)?.as_text().to_uppercase();
+
+    let start_date = parse_date_value(&start)?;
+    let end_date = parse_date_value(&end)?;
+    if start_date > end_date {
+        return Err(EvalError::new(
+            "#NUM!: DATEDIF: the start date is after the end date",
+        ));
+    }
+
+    let result = match unit.as_str() {
+        "D" => precision::whole((end_date - start_date).num_days()),
+        "M" => {
+            // Complete months between dates
+            // (whole numbers, exact as floats)
+            let years = f64::from(end_date.year() - start_date.year());
+            let months = f64::from(end_date.month()) - f64::from(start_date.month());
+            let mut total_months = years.mul_add(12.0, months);
+            // Adjust if end day < start day (incomplete month)
+            if end_date.day() < start_date.day() {
+                total_months -= 1.0;
+            }
+            total_months.max(0.0)
+        },
+        "Y" => {
+            // Complete years between dates
+            let mut years = end_date.year() - start_date.year();
+            // Check if we've reached the anniversary date
+            if end_date.month() < start_date.month()
+                || (end_date.month() == start_date.month() && end_date.day() < start_date.day())
+            {
+                years -= 1;
+            }
+            f64::from(years.max(0))
+        },
+        "MD" => {
+            // Days between dates, ignoring months and years
+            let mut day_diff = f64::from(end_date.day()) - f64::from(start_date.day());
+            if day_diff < 0.0 {
+                // Get days in the previous month
+                let prev_month_date = if end_date.month() == 1 {
+                    chrono::NaiveDate::from_ymd_opt(end_date.year() - 1, 12, 1)
+                } else {
+                    chrono::NaiveDate::from_ymd_opt(end_date.year(), end_date.month() - 1, 1)
+                };
+                let days_in_prev_month = prev_month_date
+                    .and_then(|d| {
+                        d.checked_add_months(chrono::Months::new(1))
+                            .and_then(|next| next.pred_opt())
+                    })
+                    .map_or(30.0, |d| f64::from(d.day()));
+                day_diff += days_in_prev_month;
+            }
+            day_diff
+        },
+        "YM" => {
+            // Months between dates, ignoring years
+            let mut month_diff = f64::from(end_date.month()) - f64::from(start_date.month());
+            // An incomplete last month does not count, also across a year
+            // end: 30 January to 1 January is 11 months
+            if end_date.day() < start_date.day() {
+                month_diff -= 1.0;
+            }
+            month_diff.rem_euclid(12.0)
+        },
+        "YD" => {
+            // Days between dates, ignoring years
+            use chrono::NaiveDate;
+
+            // Find the most recent anniversary of start_date before or on end_date
+            let anniversary_year = if end_date.month() > start_date.month()
+                || (end_date.month() == start_date.month() && end_date.day() >= start_date.day())
+            {
+                end_date.year()
+            } else {
+                end_date.year() - 1
+            };
+
+            // Handle Feb 29 -> Feb 28 for non-leap years
+            let anniversary = if start_date.month() == 2 && start_date.day() == 29 {
+                NaiveDate::from_ymd_opt(anniversary_year, 2, 29)
+                    .or_else(|| NaiveDate::from_ymd_opt(anniversary_year, 2, 28))
+            } else {
+                NaiveDate::from_ymd_opt(anniversary_year, start_date.month(), start_date.day())
+            }
+            .ok_or_else(|| EvalError::new("DATEDIF: invalid anniversary date"))?;
+
+            precision::whole((end_date - anniversary).num_days())
+        },
+        _ => return Err(EvalError::new(format!("DATEDIF: unknown unit '{unit}'"))),
+    };
+    Ok(Value::Number(result))
+}
+
+/// Evaluate `YEARFRAC`.
+fn eval_yearfrac(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 2, 3)?;
+    let start = parse_date_value(&evaluate(&args[0], ctx)?)?;
+    let end = parse_date_value(&evaluate(&args[1], ctx)?)?;
+    let basis = if args.len() > 2 {
+        number_or(&args[2], ctx, 0.0)?
+    } else {
+        0.0
+    };
+    let basis = day_count::Basis::from_number(basis, "YEARFRAC")?;
+    Ok(Value::Number(day_count::yearfrac(start, end, basis)))
+}
+
+/// Evaluate `TIME`.
+fn eval_time(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args(name, args, 3)?;
+    let hour = evaluate(&args[0], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("TIME: hour must be a number"))?;
+    let minute = evaluate(&args[1], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("TIME: minute must be a number"))?;
+    let second = evaluate(&args[2], ctx)?
+        .as_cell_number()
+        .ok_or_else(|| EvalError::new("TIME: second must be a number"))?;
+
+    // A fraction of a day, as Excel gives: each part cut to a whole
+    // number, and past 24 hours it starts the day again (TIME(27, 0,
+    // 0) is TIME(3, 0, 0)); a negative time is #NUM!
+    let seconds = |part: f64, size: i64| part.to_i32().map(|n| i64::from(n) * size);
+    let Some(total_seconds) = seconds(hour, 3600)
+        .zip(seconds(minute, 60))
+        .zip(seconds(second, 1))
+        .map(|((h, m), s)| h + m + s)
+    else {
+        return Err(EvalError::new(format!(
+            "#NUM!: TIME({hour}, {minute}, {second}) is past every time"
+        )));
+    };
+    if total_seconds < 0 {
+        return Err(EvalError::new(format!(
+            "#NUM!: TIME({hour}, {minute}, {second}) is before midnight"
+        )));
+    }
+    Ok(Value::Number(
+        u32::try_from(total_seconds % 86_400).map_or(0.0, f64::from) / 86400.0,
+    ))
 }
 
 #[cfg(test)]
@@ -363,5 +362,33 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         let noon_val = result.scalars.get("noon").unwrap().value.unwrap();
         assert!((noon_val - 0.5).abs() < 0.001);
+    }
+
+    /// An hour, minute or second is cut to a whole number (TIME(1.9, 0, 0)
+    /// is 1:00, as in Excel; Gnumeric keeps the fraction). Their sum was an
+    /// i32, which a million hours overflowed: Gnumeric gives the time of day
+    /// it lands on. One no i32 holds is #NUM!, as in Excel (whose hours stop
+    /// at 32767).
+    #[test]
+    fn a_time_counts_whole_parts_past_any_day() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("TIME(1.9, 0, 0)", 3_600.0 / 86_400.0);
+        h::is_exactly("TIME(1000000, 0, 0)", 57_600.0 / 86_400.0);
+        h::is_exactly("TIME(0, 0, 2147483647)", 11_647.0 / 86_400.0);
+        h::fails_with("TIME(1E+10, 0, 0)", "#NUM!");
+        h::fails_with("TIME(0, -1E+10, 0)", "#NUM!");
+        h::fails_with("TIME(0, 0, -1)", "before midnight");
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::fails_with("TIME(\"x\", 0, 0)", "hour must be a number");
+        h::fails_with("TIME(0, \"x\", 0)", "minute must be a number");
+        h::fails_with("TIME(0, 0, \"x\")", "second must be a number");
+        // An incomplete last month does not count (M), also across a year end (YM)
+        h::is_exactly("DATEDIF(\"2020-01-31\", \"2020-03-01\", \"M\")", 1.0);
+        h::is_exactly("DATEDIF(\"2020-01-30\", \"2021-01-01\", \"YM\")", 11.0);
     }
 }

@@ -1180,6 +1180,19 @@ mod tests {
             );
         }
 
+        // The fund's last exit is the latest of its exit dates, a date (ADR-060
+        // addendum, roadmap T1-DATE-OF-MAX). The README's Python gives it as
+        // `max(d for d, _ in exits)`: Lumen, 78 months after
+        // 2023-03-08, which is 2029-09-08 (the day number 47369).
+        #[test]
+        fn the_funds_last_exit_is_a_date() {
+            let model = calculate_core(Path::new("examples/fund/fund.yaml"), true, None).unwrap();
+            assert_eq!(model.scalars["fund.last_exit"], Some(47369.0));
+            assert!(model.dates.contains("fund.last_exit"));
+            assert_eq!(model.shown("fund.last_exit").as_deref(), Some("2029-09-08"));
+            assert_eq!(model.formatted["fund.last_exit"], "8 Sep 2029");
+        }
+
         #[test]
         fn the_rolling_forecast_matches_python() {
             let model = calculate_core(

@@ -5,11 +5,12 @@
 //! Each module is one kind of check: its code finds what the check reads,
 //! and its tests, inline, assert that the repository passes. The checks that
 //! run commands run the built binary, as a reader types them, like the
-//! Gnumeric and R suites (ADR-057): build it first (`cargo build --bin
-//! forge`), or name another with `FORGE_BIN`.
+//! Gnumeric and R suites (ADR-057): the debug build, which the checks build
+//! first so it is never older than the sources, or another named with
+//! `FORGE_BIN`.
 //!
 //! ```text
-//! cargo build --bin forge && cargo test -p mollendorff-forge-repo
+//! cargo test -p mollendorff-forge-repo
 //! ```
 
 pub mod conventions;
@@ -78,19 +79,45 @@ pub fn without_comment(line: &str) -> &str {
 /// The `forge` binary the checks run: `FORGE_BIN` if it is set (a path from
 /// the repository's top, or an absolute one), the debug build otherwise.
 ///
+/// The debug build is built first, once a run, so the checks never run a
+/// binary older than the sources: one built before 29b3729 wrote YAML into
+/// `forge real-options -o results.json`, and `tables_for_example_files_match`
+/// failed on it with "expected ident at line 1 column 2" though the code was
+/// right. `FORGE_BIN` names a binary someone built for the run, as CI does.
+///
 /// # Panics
 ///
-/// Panics, saying how to build it, if there is no such file.
+/// Panics if the build fails, or, saying how to build it, if there is no
+/// such file.
 #[must_use]
 pub fn forge_bin() -> PathBuf {
-    let path = std::env::var_os("FORGE_BIN")
-        .map_or_else(|| root().join("target/debug/forge"), |bin| root().join(bin));
+    let path = std::env::var_os("FORGE_BIN").map_or_else(debug_bin, |bin| root().join(bin));
     assert!(
         path.is_file(),
         "no forge binary at {}: build it (cargo build --bin forge) or set FORGE_BIN",
         path.display()
     );
     path
+}
+
+/// The debug build of `forge`, built once a run so it is never older than
+/// the sources.
+///
+/// # Panics
+///
+/// Panics if cargo cannot start or the build fails.
+#[must_use]
+pub fn debug_bin() -> PathBuf {
+    static BUILT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    BUILT.get_or_init(|| {
+        let built = Command::new(env!("CARGO"))
+            .args(["build", "--quiet", "--bin", "forge"])
+            .current_dir(root())
+            .status()
+            .expect("cargo starts");
+        assert!(built.success(), "cargo build --bin forge failed");
+    });
+    root().join("target/debug/forge")
 }
 
 /// What the binary did: its exit code and what it printed.
@@ -152,6 +179,20 @@ mod tests {
     fn the_root_is_the_repository_with_its_manifest() {
         assert!(root().join("Cargo.toml").is_file());
         assert!(read("Cargo.toml").contains("name = \"mollendorff-forge\""));
+    }
+
+    /// A binary built before the sources it is checked against fails checks
+    /// the code passes: one from before 29b3729 wrote YAML into
+    /// `forge real-options -o results.json`.
+    #[test]
+    fn the_debug_binary_is_built_after_every_source_file() {
+        let modified = |p: &Path| p.metadata().unwrap().modified().unwrap();
+        let bin = modified(&debug_bin());
+        let mut files = Vec::new();
+        rust_files(&root().join("src"), &mut files);
+        assert!(files.len() > 100, "{}", files.len());
+        let newer: Vec<_> = files.iter().filter(|f| modified(f) > bin).collect();
+        assert_eq!(newer, Vec::<&PathBuf>::new());
     }
 
     #[test]

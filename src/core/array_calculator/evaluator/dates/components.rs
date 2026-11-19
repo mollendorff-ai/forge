@@ -5,19 +5,20 @@ use super::{
     Expr, Timelike, Value,
 };
 use crate::core::array_calculator::evaluator::number_or;
+use num_traits::ToPrimitive;
 
 /// The week of the year, counted from January 1
 fn week_number(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range(name, args, 1, 2)?;
     let date = parse_date_value(&evaluate(&args[0], ctx)?)?;
-    #[allow(clippy::cast_possible_truncation)]
     let return_type = if args.len() > 1 {
-        number_or(&args[1], ctx, 1.0)? as i32
+        number_or(&args[1], ctx, 1.0)?
     } else {
-        1
+        1.0
     };
-    // The day a week starts on (0 = Sunday); 21 is the ISO week
-    let start = match return_type {
+    // The day a week starts on (0 = Sunday); 21 is the ISO week. The type is
+    // cut to a whole number, and one no i32 holds is no type (0).
+    let start = match return_type.to_i32().unwrap_or(0) {
         1 | 17 => 0,
         2 | 11 => 1,
         12 => 2,
@@ -39,8 +40,6 @@ fn week_number(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, Ev
 }
 
 /// Try to evaluate a time component function.
-#[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
-// Time component casts: f64 date serials to i64 (bounded), i64 seconds to f64 (fits in mantissa).
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -51,9 +50,9 @@ pub fn try_evaluate(
             require_args_range(name, args, 1, 2)?;
             let val = evaluate(&args[0], ctx)?;
             let return_type = if args.len() > 1 {
-                number_or(&args[1], ctx, 1.0)? as i32
+                number_or(&args[1], ctx, 1.0)?
             } else {
-                1
+                1.0
             };
 
             let date = parse_date_value(&val)?;
@@ -65,12 +64,13 @@ pub fn try_evaluate(
             // 2: Monday=1, Sunday=7
             // 3: Monday=0, Sunday=6
             // 11 to 17: the week starts on Monday (11) ... Sunday (17), which is 1
-            let result = match return_type {
+            // (cut to a whole number, as for WEEKNUM)
+            let result = match return_type.to_i32().unwrap_or(0) {
                 1 => f64::from(day + 1),
                 2 => f64::from((day + 6) % 7 + 1),
                 3 => f64::from((day + 6) % 7),
-                11..=17 => {
-                    let first = (return_type - 10).cast_unsigned() % 7; // Sunday = 0
+                kind @ 11..=17 => {
+                    let first = (kind - 10).cast_unsigned() % 7; // Sunday = 0
                     f64::from((day + 7 - first) % 7 + 1)
                 },
                 _ => {
@@ -108,7 +108,7 @@ pub fn try_evaluate(
             // Try as fraction of day (Excel serial time)
             if let Some(n) = val.as_number() {
                 let total_seconds = seconds_of_day("HOUR", n)?;
-                return Ok(Some(Value::Number((total_seconds / 3600) as f64)));
+                return Ok(Some(Value::Number(f64::from(total_seconds / 3600))));
             }
             return Err(EvalError::new("HOUR: Could not parse time"));
         },
@@ -127,7 +127,7 @@ pub fn try_evaluate(
             }
             if let Some(n) = val.as_number() {
                 let total_seconds = seconds_of_day("MINUTE", n)?;
-                return Ok(Some(Value::Number(((total_seconds / 60) % 60) as f64)));
+                return Ok(Some(Value::Number(f64::from((total_seconds / 60) % 60))));
             }
             return Err(EvalError::new("MINUTE: Could not parse time"));
         },
@@ -146,7 +146,7 @@ pub fn try_evaluate(
             }
             if let Some(n) = val.as_number() {
                 let total_seconds = seconds_of_day("SECOND", n)?;
-                return Ok(Some(Value::Number((total_seconds % 60) as f64)));
+                return Ok(Some(Value::Number(f64::from(total_seconds % 60))));
             }
             return Err(EvalError::new("SECOND: Could not parse time"));
         },
@@ -159,15 +159,21 @@ pub fn try_evaluate(
 
 /// The second of the day a time holds, rounded to the nearest second; a time
 /// that rounds up to midnight is the next day's 0 (`HOUR(0.9999999)` is 0).
-/// A negative number is no time in Excel's calendar (#NUM!).
-#[allow(clippy::cast_possible_truncation)]
-fn seconds_of_day(name: &str, n: f64) -> Result<i64, EvalError> {
+/// A negative number, or one from the day after 9999-12-31 (serial 2,958,466),
+/// is no time in Excel's calendar (#NUM!).
+fn seconds_of_day(name: &str, n: f64) -> Result<u32, EvalError> {
     if n < 0.0 {
         return Err(EvalError::new(format!(
             "#NUM!: {name}: {n} is before the first day Excel holds"
         )));
     }
-    Ok((n.fract() * 86_400.0).round() as i64 % 86_400)
+    if n >= 2_958_466.0 {
+        return Err(EvalError::new(format!(
+            "#NUM!: {name}: {n} is past the last day Excel holds, 9999-12-31"
+        )));
+    }
+    // From 0 to 86,400, a whole number: a u32 holds it
+    Ok((n.fract() * 86_400.0).round().to_u32().unwrap_or(0) % 86_400)
 }
 
 #[cfg(test)]
@@ -223,6 +229,34 @@ mod tests {
         assert_eq!(eval("HOUR(0.5)", &ctx).unwrap(), Value::Number(12.0));
         // 0.75 = 6pm = 18:00
         assert_eq!(eval("HOUR(0.75)", &ctx).unwrap(), Value::Number(18.0));
+    }
+
+    /// Excel's calendar ends on 9999-12-31, serial 2,958,465: a time from a
+    /// day after it is #NUM!, where Forge gave the time of day (12) or 0
+    /// (HOUR(1E+20)). Checked in Excel for iOS on 2026-11-18: HOUR(2958465.5)
+    /// is 12; HOUR(2958466.5), HOUR(1E+10), and HOUR, MINUTE and SECOND of
+    /// 1E+20 are #NUM!. Gnumeric gives 12 for the day after and #NUM! only far
+    /// out; `LibreOffice` gives 0 for 1E+20.
+    #[test]
+    fn a_time_past_the_last_day_of_the_calendar_is_an_error() {
+        let ctx = EvalContext::new();
+        let number = |text: &str| eval(text, &ctx).unwrap();
+        let error = |text: &str| eval(text, &ctx).unwrap_err().to_string();
+        assert_eq!(number("HOUR(2958465.5)"), Value::Number(12.0));
+        assert_eq!(number("MINUTE(2958465.75)"), Value::Number(0.0));
+        assert_eq!(number("SECOND(2958465.5)"), Value::Number(0.0));
+        for text in [
+            "HOUR(2958466.5)",
+            "MINUTE(2958466.75)",
+            "SECOND(2958467.5)",
+            "HOUR(2958466)",
+            "HOUR(1E+10)",
+            "HOUR(1E+20)",
+            "MINUTE(1E+20)",
+            "SECOND(1E+20)",
+        ] {
+            assert!(error(text).contains("#NUM!"), "{text}: {}", error(text));
+        }
     }
 
     #[test]
@@ -376,5 +410,29 @@ mod tests {
             h::fails_with("SECOND(-2.5)", "#NUM!");
             assert_exact!(h::number("HOUR(0.999999999)"), 0.0); // 24 before
         }
+    }
+
+    /// A return type is cut to a whole number, as Excel and Gnumeric cut it;
+    /// one no i32 holds is no type (#NUM!). 45000 is Wednesday 2023-03-15.
+    #[test]
+    fn a_return_type_is_a_whole_number() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("WEEKDAY(45000, 2.9)", 3.0);
+        h::is_exactly("WEEKNUM(45000, 2.9)", 12.0);
+        h::is_exactly("WEEKDAY(45000, 11.5)", 3.0);
+        h::fails_with("WEEKDAY(45000, 1E+10)", "got 10000000000");
+        h::fails_with("WEEKNUM(45000, 1E+10)", "return type 10000000000");
+        h::fails_with("WEEKDAY(45000, 0.5)", "#NUM!");
+        h::is_exactly("HOUR(45000.75)", 18.0);
+        h::is_exactly("MINUTE(0.999988426)", 59.0);
+        h::is_exactly("SECOND(0.999988426)", 59.0);
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::fails_with("WEEKDAY(45000, 1/0)", "");
+        h::fails_with("WEEKNUM(45000, 1/0)", "");
     }
 }

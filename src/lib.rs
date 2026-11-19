@@ -276,6 +276,7 @@ mod tests {
         use crate::cli::commands::results::CalculationResult;
         use crate::cli::SimulateOptions;
         use crate::cli::{calculate_core, export_core, import_core, simulate_core};
+        use crate::core::precision;
         use proptest::prelude::*;
         use std::fmt::Write as _;
         use std::path::{Path, PathBuf};
@@ -292,9 +293,9 @@ mod tests {
         fn number() -> impl Strategy<Value = f64> {
             prop_oneof![
                 Just(0.0),
-                (-1_000_000i64..1_000_000).prop_map(|n| n as f64 / 100.0),
-                (-9i64..=9, -6i32..=12).prop_map(|(m, e)| m as f64 * 10f64.powi(e)),
-                (-100i64..100).prop_map(|n| n as f64),
+                (-1_000_000i64..1_000_000).prop_map(|n| precision::whole(n) / 100.0),
+                (-9i64..=9, -6i32..=12).prop_map(|(m, e)| precision::whole(m) * 10f64.powi(e)),
+                (-100i64..100).prop_map(precision::whole),
             ]
         }
 

@@ -2,10 +2,25 @@
 //!
 //! Functions: SUM, AVERAGE, MIN, MAX, COUNT, PRODUCT, COUNTA, MEDIAN
 
-// Aggregation casts: array lengths (usize) to f64 for AVERAGE/COUNT (bounded by worksheet size).
-#![allow(clippy::cast_precision_loss)]
+use super::{
+    collect_numbers_and_dates, collect_numeric_values, evaluate, number_or_date, EvalContext,
+    EvalError, Expr, Value,
+};
+use crate::core::precision;
 
-use super::{collect_numeric_values, evaluate, EvalContext, EvalError, Expr, Value};
+/// `SUM`: left to right, as Excel adds. Its last addition is 0 when it
+/// nearly cancels, as the last `+` of a formula is (ADR-066).
+fn sum(values: &[f64]) -> f64 {
+    let total = match values.split_last() {
+        Some((last, rest)) if !rest.is_empty() => {
+            let before = rest.iter().sum::<f64>();
+            precision::final_sum(before, *last, before + last)
+        },
+        _ => values.iter().sum::<f64>(),
+    };
+    // + 0.0: the sum of nothing is 0, not -0
+    total + 0.0
+}
 
 /// Try to evaluate an aggregation function. Returns None if function not recognized.
 pub fn try_evaluate(
@@ -16,36 +31,32 @@ pub fn try_evaluate(
     // ═══════════════════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
-        "SUM" => {
-            let values = collect_numeric_values(args, ctx)?;
-            // + 0.0: the sum of nothing is 0, not -0
-            Value::Number(values.iter().sum::<f64>() + 0.0)
-        },
+        "SUM" => Value::Number(sum(&collect_numeric_values(args, ctx)?)),
 
         "AVERAGE" => {
             let values = collect_numeric_values(args, ctx)?;
             if values.is_empty() {
                 return Err(EvalError::new("AVERAGE of empty set"));
             }
-            Value::Number(values.iter().sum::<f64>() / values.len() as f64)
+            Value::Number(values.iter().sum::<f64>() / precision::count(values.len()))
         },
 
         "MIN" => {
-            let values = collect_numeric_values(args, ctx)?;
+            let (values, dates) = collect_numbers_and_dates(args, ctx)?;
             values
                 .into_iter()
                 .min_by(f64::total_cmp)
                 // No numbers (only empty cells or text): 0, as in Excel
-                .map_or(Value::Number(0.0), Value::Number)
+                .map_or(Value::Number(0.0), |n| number_or_date(n, dates))
         },
 
         "MAX" => {
-            let values = collect_numeric_values(args, ctx)?;
+            let (values, dates) = collect_numbers_and_dates(args, ctx)?;
             values
                 .into_iter()
                 .max_by(f64::total_cmp)
                 // No numbers (only empty cells or text): 0, as in Excel
-                .map_or(Value::Number(0.0), Value::Number)
+                .map_or(Value::Number(0.0), |n| number_or_date(n, dates))
         },
 
         "COUNT" => {
@@ -62,7 +73,7 @@ pub fn try_evaluate(
                     _ => {},
                 }
             }
-            Value::Number(count as f64)
+            Value::Number(precision::count(count))
         },
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -73,7 +84,7 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new("AVG of empty set"));
             }
-            Value::Number(values.iter().sum::<f64>() / values.len() as f64)
+            Value::Number(values.iter().sum::<f64>() / precision::count(values.len()))
         },
 
         "PRODUCT" => {
@@ -97,7 +108,7 @@ pub fn try_evaluate(
                 Value::Array(arr) => arr.iter().filter(|v| blank(v)).count(),
                 single => usize::from(blank(&single)),
             };
-            Value::Number(count as f64)
+            Value::Number(precision::count(count))
         },
 
         "COUNTA" => {
@@ -112,7 +123,7 @@ pub fn try_evaluate(
                     _ => count += 1,
                 }
             }
-            Value::Number(count as f64)
+            Value::Number(precision::count(count))
         },
 
         "MEDIAN" => {
@@ -242,6 +253,48 @@ mod tests {
     use super::super::tests::eval;
     use super::*;
     use std::collections::HashMap;
+
+    // ADR-060 addendum: the largest or smallest of dates is a date, so a date
+    // format on it is read as one (roadmap T1-DATE-OF-MAX)
+    #[test]
+    fn max_and_min_of_dates_are_dates() {
+        let ctx = EvalContext::new();
+        let date = |text: &str| Value::Text(text.to_string());
+        assert_eq!(
+            eval(
+                "MAX(DATE(2026,1,5), DATE(2026,3,1), DATE(2025,12,31))",
+                &ctx
+            )
+            .unwrap(),
+            date("2026-03-01")
+        );
+        assert_eq!(
+            eval(
+                "MIN(DATE(2026,1,5), DATE(2026,3,1), DATE(2025,12,31))",
+                &ctx
+            )
+            .unwrap(),
+            date("2025-12-31")
+        );
+        assert_eq!(
+            eval("MAX({\"2026-01-05\", \"2029-09-08\"})", &ctx).unwrap(),
+            date("2029-09-08")
+        );
+    }
+
+    #[test]
+    fn max_and_min_with_a_number_among_the_dates_stay_numbers() {
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("MAX(DATE(2026,1,5), 5)", &ctx).unwrap(),
+            Value::Number(46027.0)
+        );
+        assert_eq!(
+            eval("MIN(DATE(2026,1,5), 5)", &ctx).unwrap(),
+            Value::Number(5.0)
+        );
+        assert_eq!(eval("MAX(1, 2)", &ctx).unwrap(), Value::Number(2.0));
+    }
 
     #[test]
     fn test_aggregation_with_scalars() {
@@ -375,8 +428,6 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
-
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
