@@ -3,7 +3,6 @@
 
 use super::sheet::{cells_of, date_of, number_of, Cells, Sheet};
 use super::{ExcelImporter, Names};
-use crate::error::{ForgeError, ForgeResult};
 use crate::excel::workbook_refs::dates::Holds;
 use crate::excel::workbook_refs::{Context, ReverseRefs, SheetKind, WorkbookRefs};
 use crate::types::{Column, ColumnValue, ParsedModel, Table};
@@ -16,12 +15,12 @@ impl ExcelImporter {
         read: (&ReverseRefs, &Names),
         model: &mut ParsedModel,
         warnings: &mut Vec<String>,
-    ) -> ForgeResult<()> {
+    ) {
         let (refs, names) = read;
         let names = names.of(refs, &sheet.name);
         let (height, width) = sheet.values.get_size();
         if height < 2 {
-            return Ok(()); // header only
+            return; // header only
         }
         let table_name = match refs.sheets.get(&sheet.name) {
             Some(SheetKind::Table { name, .. }) => name.clone(),
@@ -49,13 +48,11 @@ impl ExcelImporter {
                 match whole_column {
                     Ok(forge) => {
                         let place = format!("{table_name}.{col_name}");
-                        let rows = (1..height).filter(|row| sheet.formula(*row, col).is_some());
-                        let format = sheet.imported_format(
-                            &place,
-                            rows.map(|row| (row, col)),
-                            holds_dates,
-                            warnings,
-                        );
+                        let cells: Vec<(usize, usize)> = (1..height)
+                            .filter(|row| sheet.formula(*row, col).is_some())
+                            .map(|row| (row, col))
+                            .collect();
+                        let format = sheet.imported_format(&place, &cells, holds_dates, warnings);
                         if let Some(format) = format {
                             table.formula_metadata.insert(
                                 col_name.clone(),
@@ -93,11 +90,11 @@ impl ExcelImporter {
                 }
                 continue;
             }
-            let column_value = if cells_of(&data) == Cells::Dates && !holds_dates {
+            let column_value = if cells_of(&mut data.iter()) == Cells::Dates && !holds_dates {
                 // Shown as dates, but numbers to the formulas that read them
                 ColumnValue::Number(data.iter().map(|c| number_of(c).unwrap_or(0.0)).collect())
             } else {
-                Self::convert_to_column_value(&data)?
+                Self::convert_to_column_value(&data)
             };
             // An empty cell among numbers stays empty (ADR-059)
             let column_value = Self::with_empty_cells(column_value, &data);
@@ -125,14 +122,14 @@ impl ExcelImporter {
                 .filter(|i| !matches!(data[*i], Data::Empty))
                 .map(|i| (i + 1, col));
             let place = format!("{table_name}.{col_name}");
-            let format = sheet.imported_format(&place, cells, is_date, warnings);
+            let format =
+                sheet.imported_format(&place, &cells.collect::<Vec<_>>(), is_date, warnings);
             let mut column = Column::new(col_name, column_value);
             column.metadata.format = format;
             table.add_column(column);
         }
 
         model.add_table(table);
-        Ok(())
     }
 
     /// The Forge row formula of a column whose first data row holds the
@@ -200,7 +197,7 @@ impl ExcelImporter {
                     table: table_name,
                     row: 2,
                 };
-                let holds = match cells_of(Self::column_cells(sheet, col)) {
+                let holds = match cells_of(&mut Self::column_cells(sheet, col)) {
                     Cells::Dates if holds_dates => Holds::Dates,
                     Cells::Dates | Cells::Numbers => Holds::Numbers,
                     _ => Holds::Other,
@@ -247,50 +244,31 @@ impl ExcelImporter {
     }
 
     /// Convert Excel Data array to `ColumnValue`
-    pub(super) fn convert_to_column_value(data: &[Data]) -> ForgeResult<ColumnValue> {
+    pub(super) fn convert_to_column_value(data: &[Data]) -> ColumnValue {
         // A column of dates: every cell a whole day shown as a date (ADR-054)
-        if cells_of(data) == Cells::Dates && data.iter().all(|c| !matches!(c, Data::Empty)) {
-            return Ok(ColumnValue::Date(data.iter().filter_map(date_of).collect()));
+        if cells_of(&mut data.iter()) == Cells::Dates
+            && data.iter().all(|c| !matches!(c, Data::Empty))
+        {
+            return ColumnValue::Date(data.iter().filter_map(date_of).collect());
         }
-
-        // Detect column type from first non-empty cell
-        let first_type = data
-            .iter()
-            .find(|cell| !matches!(cell, Data::Empty))
-            .ok_or_else(|| ForgeError::Import("Column has no data".to_string()))?;
-
-        match first_type {
-            Data::Float(_) | Data::Int(_) | Data::DateTime(_) => {
-                // Number column: dates with a time of day, times and durations
-                // are Excel's day numbers
-                let numbers: Vec<f64> = data
-                    .iter()
-                    // An empty cell, or one that holds text, is 0; a date
-                    // or a time is its day number
+        // The column's type is that of its first cell with something in it
+        match data.iter().find(|cell| !matches!(cell, Data::Empty)) {
+            // Number column: dates with a time of day, times and durations are
+            // Excel's day numbers; an empty cell, or one that holds text, is 0
+            Some(Data::Float(_) | Data::Int(_) | Data::DateTime(_)) => ColumnValue::Number(
+                data.iter()
                     .map(|cell| number_of(cell).unwrap_or(0.0))
-                    .collect();
-                Ok(ColumnValue::Number(numbers))
-            },
-            Data::String(_) => {
-                // Text column
-                let texts: Vec<String> =
-                    data.iter().map(std::string::ToString::to_string).collect();
-                Ok(ColumnValue::Text(texts))
-            },
-            Data::Bool(_) => {
-                // Boolean column
-                let bools: Vec<bool> = data
-                    .iter()
+                    .collect(),
+            ),
+            Some(Data::Bool(_)) => ColumnValue::Boolean(
+                data.iter()
                     .map(|cell| matches!(cell, Data::Bool(true)))
-                    .collect();
-                Ok(ColumnValue::Boolean(bools))
-            },
-            _ => {
-                // Default to text
-                let texts: Vec<String> =
-                    data.iter().map(std::string::ToString::to_string).collect();
-                Ok(ColumnValue::Text(texts))
-            },
+                    .collect(),
+            ),
+            // Nothing at all: a column of empty cells (ADR-059)
+            None => ColumnValue::Blanks(vec![None; data.len()]),
+            // Text, or anything else (an error), as text
+            Some(_) => ColumnValue::Text(data.iter().map(ToString::to_string).collect()),
         }
     }
 
@@ -310,6 +288,24 @@ impl ExcelImporter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use calamine::{ExcelDateTime, ExcelDateTimeType};
+    use rust_xlsxwriter::{Format, Formula, Workbook, Worksheet};
+
+    /// The model and the warnings an import of `book` gives
+    fn import(mut book: Workbook) -> (ParsedModel, Vec<String>) {
+        let bytes = book.save_to_buffer().unwrap();
+        ExcelImporter::from_bytes(bytes)
+            .import_with_warnings()
+            .unwrap()
+    }
+
+    fn sheet<'a>(book: &'a mut Workbook, name: &str) -> &'a mut Worksheet {
+        book.add_worksheet().set_name(name).unwrap()
+    }
+
+    fn values(model: &ParsedModel, table: &str, column: &str) -> ColumnValue {
+        model.tables[table].columns[column].values.clone()
+    }
 
     #[test]
     fn test_sanitize_table_name() {
@@ -326,101 +322,203 @@ mod tests {
             ExcelImporter::sanitize_table_name("Special@#$Chars"),
             "specialchars"
         );
-    }
-
-    #[test]
-    fn test_convert_to_column_value_numbers() {
-        let data = vec![
-            Data::Float(100.0),
-            Data::Float(200.0),
-            Data::Int(300),
-            Data::Empty,
-        ];
-        let result = ExcelImporter::convert_to_column_value(&data).unwrap();
-        match result {
-            ColumnValue::Number(nums) => {
-                assert_eq!(nums.len(), 4);
-                assert_exact!(nums[0], 100.0);
-                assert_exact!(nums[1], 200.0);
-                assert_exact!(nums[2], 300.0);
-                assert_exact!(nums[3], 0.0);
-            },
-            _ => panic!("Expected Number column"),
-        }
-    }
-
-    #[test]
-    fn test_convert_to_column_value_text() {
-        let data = vec![
-            Data::String("Apple".to_string()),
-            Data::String("Banana".to_string()),
-            Data::Empty,
-        ];
-        let result = ExcelImporter::convert_to_column_value(&data).unwrap();
-        match result {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts.len(), 3);
-                assert_eq!(texts[0], "Apple");
-                assert_eq!(texts[1], "Banana");
-                assert_eq!(texts[2], "");
-            },
-            _ => panic!("Expected Text column"),
-        }
-    }
-
-    #[test]
-    fn test_convert_to_column_value_boolean() {
-        let data = vec![Data::Bool(true), Data::Bool(false), Data::Empty];
-        let result = ExcelImporter::convert_to_column_value(&data).unwrap();
-        match result {
-            ColumnValue::Boolean(bools) => {
-                assert_eq!(bools.len(), 3);
-                assert!(bools[0]);
-                assert!(!bools[1]);
-                assert!(!bools[2]);
-            },
-            _ => panic!("Expected Boolean column"),
-        }
-    }
-
-    #[test]
-    fn test_convert_to_column_value_empty() {
-        let data = vec![Data::Empty, Data::Empty];
-        let result = ExcelImporter::convert_to_column_value(&data);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_convert_to_column_value_mixed_numeric() {
-        let data = vec![
-            Data::Float(1.5),
-            Data::Int(2),
-            Data::Float(3.0),
-            Data::Int(4),
-        ];
-        let result = ExcelImporter::convert_to_column_value(&data).unwrap();
-        match result {
-            ColumnValue::Number(nums) => {
-                assert_eq!(nums.len(), 4);
-                assert_exact!(nums[0], 1.5);
-                assert_exact!(nums[1], 2.0);
-                assert_exact!(nums[2], 3.0);
-                assert_exact!(nums[3], 4.0);
-            },
-            _ => panic!("Expected Number column"),
-        }
-    }
-
-    #[test]
-    fn test_sanitize_table_name_spaces() {
         assert_eq!(ExcelImporter::sanitize_table_name("My Sheet"), "my_sheet");
-        assert_eq!(
-            ExcelImporter::sanitize_table_name("Financial Data 2024"),
-            "financial_data_2024"
-        );
         assert_eq!(
             ExcelImporter::sanitize_table_name("   trimmed   "),
             "___trimmed___"
         );
+    }
+
+    #[test]
+    fn a_column_takes_the_type_of_its_first_cell() {
+        let convert = ExcelImporter::convert_to_column_value;
+        assert_eq!(
+            convert(&[
+                Data::Float(100.0),
+                Data::Int(300),
+                Data::Empty,
+                Data::String("x".into())
+            ]),
+            ColumnValue::Number(vec![100.0, 300.0, 0.0, 0.0])
+        );
+        assert_eq!(
+            convert(&[Data::String("Apple".into()), Data::Empty]),
+            ColumnValue::Text(vec!["Apple".to_string(), String::new()])
+        );
+        assert_eq!(
+            convert(&[Data::Bool(true), Data::Bool(false), Data::Empty]),
+            ColumnValue::Boolean(vec![true, false, false])
+        );
+        // An error cell first: the column is text
+        assert_eq!(
+            convert(&[Data::Error(calamine::CellErrorType::Div0), Data::Float(1.0)]),
+            ColumnValue::Text(vec!["#DIV/0!".to_string(), "1".to_string()])
+        );
+        assert_eq!(
+            convert(&[Data::Empty, Data::Empty]),
+            ColumnValue::Blanks(vec![None, None])
+        );
+        let day = Data::DateTime(ExcelDateTime::new(
+            46_023.0,
+            ExcelDateTimeType::DateTime,
+            false,
+        ));
+        assert_eq!(
+            convert(&[day.clone(), day.clone()]),
+            ColumnValue::Date(vec!["2026-01-01".to_string(), "2026-01-01".to_string()])
+        );
+        // A date among empty cells is its day number
+        assert_eq!(
+            convert(&[day, Data::Empty]),
+            ColumnValue::Number(vec![46_023.0, 0.0])
+        );
+    }
+
+    #[test]
+    fn a_sheet_with_only_a_header_has_no_table() {
+        let mut book = Workbook::new();
+        sheet(&mut book, "h").write_string(0, 0, "a").unwrap();
+        let (model, _) = import(book);
+        assert!(!model.tables.contains_key("h"));
+    }
+
+    #[test]
+    fn a_sheet_the_layout_does_not_know_is_named_from_the_sheet() {
+        let mut cells = calamine::Range::new((0, 0), (1, 0));
+        cells.set_value((0, 0), Data::String("n".to_string()));
+        cells.set_value((1, 0), Data::Float(4.0));
+        let sheet = Sheet {
+            name: "My Sheet".to_string(),
+            values: cells,
+            formulas: None,
+            styles: None,
+        };
+        let (refs, names) = (ReverseRefs::default(), Names::default());
+        let mut model = ParsedModel::new();
+        ExcelImporter::import_table(&sheet, (&refs, &names), &mut model, &mut Vec::new());
+        assert_eq!(
+            values(&model, "my_sheet", "n"),
+            ColumnValue::Number(vec![4.0])
+        );
+    }
+
+    #[test]
+    fn a_column_without_a_header_is_named_by_its_place_and_an_empty_one_is_left_out() {
+        let mut book = Workbook::new();
+        let t = sheet(&mut book, "t");
+        t.write_string(0, 0, "a").unwrap();
+        t.write_number(1, 0, 1.0).unwrap();
+        t.write_string(0, 2, "c").unwrap();
+        t.write_number(1, 2, 2.0).unwrap();
+        t.write_number(1, 3, 5.0).unwrap();
+        let (model, _) = import(book);
+        let names: Vec<&String> = model.tables["t"].columns.keys().collect();
+        assert_eq!(names, ["a", "c", "col_3"]);
+        assert_eq!(values(&model, "t", "col_3"), ColumnValue::Number(vec![5.0]));
+    }
+
+    #[test]
+    fn text_that_starts_with_a_date_and_goes_on_otherwise_is_warned_about() {
+        let mut book = Workbook::new();
+        let t = sheet(&mut book, "t");
+        t.write_string(0, 0, "when").unwrap();
+        t.write_string(1, 0, "2026-01-01").unwrap();
+        t.write_string(2, 0, "later").unwrap();
+        let (_, warnings) = import(book);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].contains("t.when: starts with a date and holds other text"));
+    }
+
+    #[test]
+    fn numbers_shown_as_dates_by_formulas_that_differ_come_in_as_day_numbers() {
+        let mut book = Workbook::new();
+        let date = Format::new().set_num_format("yyyy-mm-dd");
+        let t = sheet(&mut book, "t");
+        t.write_string(0, 0, "start").unwrap();
+        t.write_string(0, 1, "due").unwrap();
+        for (i, add) in [30, 31, 32].into_iter().enumerate() {
+            let row = u32::try_from(i).unwrap() + 1;
+            t.write_number_with_format(row, 0, 46_023.0, &date).unwrap();
+            let formula =
+                Formula::new(format!("=A{}+{add}", row + 1)).set_result((46_023 + add).to_string());
+            t.write_formula_with_format(row, 1, formula, &date).unwrap();
+        }
+        let (model, warnings) = import(book);
+        assert!(
+            warnings[0].contains("t.due: imported as values (row 4 holds another formula"),
+            "{warnings:?}"
+        );
+        // A day plus days is a day number in Forge, so not a column of dates
+        assert_eq!(
+            values(&model, "t", "due"),
+            ColumnValue::Number(vec![46_053.0, 46_054.0, 46_055.0])
+        );
+    }
+
+    #[test]
+    fn a_column_whose_later_rows_have_no_formula_is_imported_as_values() {
+        let mut book = Workbook::new();
+        let t = sheet(&mut book, "t");
+        t.write_string(0, 0, "x").unwrap();
+        t.write_formula(1, 0, Formula::new("=1+1").set_result("2"))
+            .unwrap();
+        t.write_formula(2, 0, Formula::new("=2+2").set_result("4"))
+            .unwrap();
+        t.write_number(3, 0, 5.0).unwrap();
+        let (model, warnings) = import(book);
+        assert!(
+            warnings[0].contains("row 4 holds no formula"),
+            "{warnings:?}"
+        );
+        assert_eq!(
+            values(&model, "t", "x"),
+            ColumnValue::Number(vec![2.0, 4.0, 5.0])
+        );
+    }
+
+    #[test]
+    fn numbers_beside_longer_formulas_end_in_empty_cells() {
+        let mut book = Workbook::new();
+        let t = sheet(&mut book, "t");
+        t.write_string(0, 0, "actual").unwrap();
+        t.write_string(0, 1, "plan").unwrap();
+        t.write_number(1, 0, 1.0).unwrap();
+        t.write_number(2, 0, 2.0).unwrap();
+        for row in 1..=4 {
+            t.write_formula(row, 1, Formula::new("=10").set_result("10"))
+                .unwrap();
+        }
+        let (model, warnings) = import(book);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(
+            values(&model, "t", "actual"),
+            ColumnValue::Blanks(vec![Some(1.0), Some(2.0), None, None])
+        );
+    }
+
+    #[test]
+    fn non_numbers_in_a_column_of_numbers_are_named_one_or_many() {
+        let mut book = Workbook::new();
+        let t = sheet(&mut book, "one");
+        t.write_string(0, 0, "n").unwrap();
+        t.write_number(1, 0, 1.0).unwrap();
+        t.write_string(2, 0, "x").unwrap();
+        let t = sheet(&mut book, "many");
+        t.write_string(0, 0, "n").unwrap();
+        t.write_number(1, 0, 1.0).unwrap();
+        for row in 2..=8 {
+            t.write_string(row, 0, "x").unwrap();
+        }
+        let (_, warnings) = import(book);
+        assert!(
+            warnings[0].contains("one.n: a column of numbers holds text"),
+            "{warnings:?}"
+        );
+        assert!(
+            warnings[0].contains("in 1 cell, imported as 0: A3 (x)"),
+            "{warnings:?}"
+        );
+        assert!(warnings[1].contains("in several cells,"), "{warnings:?}");
+        assert!(warnings[1].ends_with("A7 (x) and 2 more"), "{warnings:?}");
     }
 }

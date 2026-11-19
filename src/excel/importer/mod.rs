@@ -105,9 +105,9 @@ impl ExcelImporter {
             } else if let Some((namespace, _)) = Self::include_table(&sheet.name, &namespaces) {
                 // A table of an included file goes into that file
                 let included = Self::included_model(&mut model, &namespace);
-                Self::import_table(sheet, read, included, &mut warnings)?;
+                Self::import_table(sheet, read, included, &mut warnings);
             } else {
-                Self::import_table(sheet, read, &mut model, &mut warnings)?;
+                Self::import_table(sheet, read, &mut model, &mut warnings);
             }
         }
         Ok((model, warnings))
@@ -117,9 +117,8 @@ impl ExcelImporter {
     fn sheets<R: Read + Seek>(mut workbook: Xlsx<R>) -> Vec<Sheet> {
         let mut sheets = Vec::new();
         for name in workbook.sheet_names() {
-            let Ok(values) = workbook.worksheet_range(&name) else {
-                continue;
-            };
+            // A sheet that cannot be read is skipped, as an empty one is
+            let values = workbook.worksheet_range(&name).unwrap_or_default();
             if values.is_empty() {
                 continue;
             }
@@ -153,8 +152,9 @@ impl ExcelImporter {
         // (the names it is in, table key there, column, sheet, column index)
         let mut dated: Vec<(Option<String>, String, String, &Sheet, usize)> = Vec::new();
         for sheet in sheets {
-            match refs.sheets.get(&sheet.name) {
-                Some(SheetKind::Table { name, include, .. }) => {
+            // `layout` has a kind for every sheet
+            match &refs.sheets[&sheet.name] {
+                SheetKind::Table { name, include, .. } => {
                     let (_, width) = sheet.values.get_size();
                     let columns: Vec<String> = (0..width)
                         .map(|col| sheet.header(col).unwrap_or_else(|| format!("col_{col}")))
@@ -183,7 +183,7 @@ impl ExcelImporter {
                         };
                         target.columns.insert(key.clone(), letters(&columns));
                         for (col, column) in columns.iter().enumerate() {
-                            match cells_of(Self::column_cells(sheet, col)) {
+                            match cells_of(&mut Self::column_cells(sheet, col)) {
                                 Cells::Dates => {
                                     target.add_date_columns(&key, [column.as_str()]);
                                     if sheet.formula(1, col).is_some() {
@@ -216,7 +216,7 @@ impl ExcelImporter {
                         }
                     }
                 },
-                Some(SheetKind::Scalars { rows, include }) => {
+                SheetKind::Scalars { rows, include } => {
                     for path in rows.values() {
                         let cell = (sheet.name.clone(), 0);
                         match include {
@@ -238,7 +238,6 @@ impl ExcelImporter {
                         }
                     }
                 },
-                None => {},
             }
         }
         Self::settle_dates(&mut names, dated, refs);
@@ -418,7 +417,11 @@ impl ExcelImporter {
     fn scalar_names(sheet: &Sheet) -> impl Iterator<Item = (u32, String)> + '_ {
         let (height, _) = sheet.values.get_size();
         (1..height).filter_map(|row| {
-            let name = sheet.values.get((row, 0))?.to_string();
+            let name = sheet
+                .values
+                .get((row, 0))
+                .map(ToString::to_string)
+                .unwrap_or_default();
             (!name.is_empty()).then(|| (sheet.excel_row(row), name))
         })
     }
@@ -764,6 +767,93 @@ mod tests {
             assert_eq!(result.scalars["s.empty"], Some(2.0));
             // A column with a name and no value is a column of empty cells
             assert_eq!(result.scalars["s.none"], Some(5.0));
+        }
+    }
+
+    mod layout {
+        //! Which sheets are what: chart sheets, sheets that look like an
+        //! included file's and are not, and the dates of an included table.
+
+        use super::super::ExcelImporter;
+        use crate::types::ParsedModel;
+        use rust_xlsxwriter::{Chart, ChartType, Format, Formula, Workbook, Worksheet};
+
+        fn import(mut book: Workbook) -> ParsedModel {
+            let bytes = book.save_to_buffer().unwrap();
+            ExcelImporter::from_bytes(bytes).import().unwrap()
+        }
+
+        fn scalar_sheet<'a>(book: &'a mut Workbook, name: &str) -> &'a mut Worksheet {
+            let sheet = book.add_worksheet().set_name(name).unwrap();
+            sheet.write_string(0, 0, "Name").unwrap();
+            sheet.write_string(0, 1, "Value").unwrap();
+            sheet
+        }
+
+        #[test]
+        fn a_chart_sheet_is_not_a_table() {
+            let mut book = Workbook::new();
+            let t = book.add_worksheet().set_name("t").unwrap();
+            t.write_string(0, 0, "n").unwrap();
+            t.write_number(1, 0, 1.0).unwrap();
+            t.write_number(2, 0, 2.0).unwrap();
+            let mut chart = Chart::new(ChartType::Column);
+            chart.add_series().set_values("t!$A$2:$A$3");
+            book.add_chartsheet()
+                .set_name("chart")
+                .unwrap()
+                .insert_chart(0, 0, &chart)
+                .unwrap();
+            let model = import(book);
+            let names: Vec<&String> = model.tables.keys().collect();
+            assert_eq!(names, ["t"]);
+        }
+
+        #[test]
+        fn a_sheet_named_like_an_included_files_is_one_only_when_it_is() {
+            let mut book = Workbook::new();
+            // Not a namespace Forge writes
+            let s = scalar_sheet(&mut book, "my-ns.Scalars");
+            s.write_string(1, 0, "my-ns.x").unwrap();
+            s.write_number(1, 1, 1.0).unwrap();
+            // Not a Name / Value sheet
+            let t = book.add_worksheet().set_name("ns.Scalars").unwrap();
+            t.write_string(0, 0, "a").unwrap();
+            t.write_number(1, 0, 2.0).unwrap();
+            let model = import(book);
+            assert!(model.resolved_includes.is_empty());
+            let scalars: Vec<&String> = model.scalars.keys().collect();
+            let tables: Vec<&String> = model.tables.keys().collect();
+            assert_eq!(scalars, ["my_nsscalars.my-ns.x"]);
+            assert_eq!(tables, ["nsscalars"]);
+        }
+
+        #[test]
+        fn an_included_tables_date_columns_are_settled_in_its_own_file() {
+            let mut book = Workbook::new();
+            let date = Format::new().set_num_format("yyyy-mm-dd");
+            let c = scalar_sheet(&mut book, "costs.Scalars");
+            c.write_string(1, 0, "costs.rate").unwrap();
+            c.write_number(1, 1, 1.0).unwrap();
+            let p = book.add_worksheet().set_name("costs.prices").unwrap();
+            for (col, name) in ["start", "next", "plus"].into_iter().enumerate() {
+                p.write_string(0, u16::try_from(col).unwrap(), name)
+                    .unwrap();
+            }
+            for row in 1..=2 {
+                let r = row + 1;
+                p.write_number_with_format(row, 0, 46_023.0, &date).unwrap();
+                let next = Formula::new(format!("=EDATE(A{r},1)")).set_result("46054");
+                p.write_formula_with_format(row, 1, next, &date).unwrap();
+                let plus = Formula::new(format!("=A{r}+30")).set_result("46053");
+                p.write_formula_with_format(row, 2, plus, &date).unwrap();
+            }
+            let model = import(book);
+            let prices = &model.resolved_includes["costs"].model.tables["prices"];
+            assert_eq!(prices.row_formulas["next"], "=EDATE(start, 1)");
+            assert_eq!(prices.row_formulas["plus"], "=start + 30");
+            // A day plus 30 is a day number, so its date format is not kept
+            assert!(!prices.formula_metadata.contains_key("plus"));
         }
     }
 }
