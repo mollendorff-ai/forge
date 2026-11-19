@@ -309,21 +309,38 @@ quarters:
             assert!(took.as_secs_f64() < 1.0, "{took:?}");
         }
 
-        /// ADR-058's target, held in every build. It takes 1.4 s in a debug
-        /// build (measured, about five times a release build's) and more under
-        /// the coverage run's instrumentation, so the limit is 10 s: over seven
-        /// times the debug time, still a guard against work that grows with
-        /// the square of the rows far beyond ADR-058's. The one-second limit
-        /// is held by the 1,000-row test above, in every build.
+        /// ADR-058's target in every build. A wall-clock limit cannot hold in
+        /// all of them (1.4 s in debug, 12 s under the coverage run beside
+        /// 2,000 other tests, a few tenths in release), so the calculation is
+        /// timed against a plain nested loop doing the same 25 million
+        /// comparisons in the same process: build mode and load slow both
+        /// alike. It takes about 7 times the loop in debug and in release
+        /// alike (measured), so 100 times is a margin of 14 for a slow machine, and still fails for a
+        /// calculation that does the work again for each cell.
         #[test]
-        fn five_thousand_rows_aggregating_five_thousand_rows_stay_in_seconds() {
+        fn five_thousand_rows_aggregating_five_thousand_rows_stay_near_a_plain_loop() {
+            let rows = 5_000_u64;
             let model = sumifs_model(5_000);
+            let start = std::time::Instant::now();
+            let mut by_loop = 0_u64;
+            for row in 0..rows {
+                for other in 0..rows {
+                    if std::hint::black_box(other % 50) == row % 50 {
+                        by_loop += other;
+                    }
+                }
+            }
+            let loop_took = start.elapsed();
             let start = std::time::Instant::now();
             let result = calculate(&model);
             let took = start.elapsed();
+            assert_eq!(by_loop, 100 * 12_497_500);
             // Key 0 is in rows 0, 50, ..., 4,950: 50 * (0 + 99) * 100 / 2 = 247,500
             assert_exact!(column(&result, "b", "total")[0], 247_500.0);
-            assert!(took.as_secs_f64() < 10.0, "{took:?}");
+            assert!(
+                took < loop_took * 100,
+                "{took:?} against a loop's {loop_took:?}"
+            );
         }
     }
 }
