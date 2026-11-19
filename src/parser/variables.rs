@@ -99,7 +99,10 @@ pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable>
     if let Value::Mapping(map) = value {
         check_scalar_keys(map, path)?;
         let date = match map.get("value") {
-            Some(Value::String(text)) => scalar_date(text, &format!("{path}.value"))?,
+            // `check_scalar_keys` has refused a text that looks like a date and is not one
+            Some(Value::String(text)) => {
+                scalar_date(text, &format!("{path}.value")).unwrap_or_default()
+            },
             _ => None,
         };
         let val = date.or_else(|| map.get("value").and_then(yaml_serde::Value::as_f64));
@@ -223,6 +226,11 @@ pub fn looks_like_date(text: &str) -> bool {
 /// Returns an error naming `path` for a month, a date that does not exist and
 /// a date before 1900-03-01, saying which form is wanted.
 pub fn scalar_date(text: &str, path: &str) -> ForgeResult<Option<f64>> {
+    date_or_message(text, path).map_err(ForgeError::Parse)
+}
+
+/// `scalar_date` with the reason as plain text.
+pub(super) fn date_or_message(text: &str, path: &str) -> Result<Option<f64>, String> {
     if !looks_like_date(text) {
         return Ok(None);
     }
@@ -246,7 +254,7 @@ pub fn scalar_date(text: &str, path: &str) -> ForgeResult<Option<f64>> {
              Excel's day numbers count right"
         )
     };
-    Err(ForgeError::Parse(message))
+    Err(message)
 }
 
 /// A YAML value in a few words, for an error message.
@@ -353,6 +361,180 @@ pub fn is_nested_scalar_section(map: &yaml_serde::Mapping) -> bool {
 
 #[cfg(test)]
 mod tests {
+    fn table_of(text: &str) -> ForgeResult<Table> {
+        parse_table("t", &yaml_serde::from_str(text).unwrap())
+    }
+
+    fn scalar_of(text: &str) -> ForgeResult<Variable> {
+        parse_scalar_variable(&yaml_serde::from_str(text).unwrap(), "x")
+    }
+
+    fn table_error(text: &str) -> String {
+        table_of(text).err().unwrap().to_string()
+    }
+
+    fn scalar_error(text: &str) -> String {
+        scalar_of(text).err().unwrap().to_string()
+    }
+
+    #[test]
+    fn table_level_metadata_is_not_a_column() {
+        let table = table_of("_metadata: {x: 1}\na: [1, 2]\n").unwrap();
+        assert_eq!(table.columns.len(), 1);
+    }
+
+    #[test]
+    fn a_period_column_that_is_not_one_is_refused_with_its_reason() {
+        assert_eq!(
+            table_error("d: {start: \"2026-13\", count: 3, unit: month}\n"),
+            "Parse error: 't.d': start must be a month (2026-12), a day (2026-12-15) or a year (2026)"
+        );
+        assert_eq!(
+            table_error("d: {start: \"2026-01\", count: 0, unit: month}\n"),
+            "Parse error: 't.d': count must be a whole number from 1 to 1048575"
+        );
+    }
+
+    #[test]
+    fn a_rich_column_is_read_and_its_format_is_checked_against_its_values() {
+        assert_eq!(
+            table_error("a: {value: [1, \"x\"]}\n"),
+            "Parse error: Column 'a' row 1: Expected Number, found String"
+        );
+        assert_eq!(
+            table_error("a: {value: [1, 2], format: \"yyyy\"}\n"),
+            "Parse error: 't.a.format': \"yyyy\" is a date format, and 't.a' is a number"
+        );
+        assert_eq!(
+            table_error("a: {value: [\"2026-01-31\"], format: \"#,##0\"}\n"),
+            "Parse error: 't.a.format': \"#,##0\" is a number format, and 't.a' is a date"
+        );
+        assert_eq!(
+            table_error("a: {value: [1, 2], format: \"bogus\"}\n"),
+            "Parse error: 't.a.format': the format \"bogus\" is not one Forge reads (write the text b in quotes)"
+        );
+    }
+
+    #[test]
+    fn a_row_formula_keeps_its_metadata_only_when_it_has_some() {
+        let plain = table_of("a: {formula: \"=b + 1\"}\n").unwrap();
+        assert_eq!(plain.row_formulas["a"], "=b + 1");
+        assert!(plain.formula_metadata.is_empty());
+        let with_unit = table_of("a: {formula: \"=b + 1\", unit: CAD}\n").unwrap();
+        assert_eq!(with_unit.formula_metadata["a"].unit.as_deref(), Some("CAD"));
+        assert_eq!(
+            table_error("a: {formula: \"=b + 1\", format: \"nope\"}\n"),
+            "Parse error: 't.a.format': the format \"nope\" is not one Forge reads (write the text n in quotes)"
+        );
+    }
+
+    #[test]
+    fn a_column_that_is_neither_a_list_nor_a_formula_is_refused() {
+        let reason = "Parse error: Column 'a' in table 't' must be an array or formula";
+        assert_eq!(table_error("a: {formula: x}\n"), reason);
+        assert_eq!(table_error("a: 5\n"), reason);
+        assert_eq!(table_error("a: text\n"), reason);
+        assert_eq!(table_error("a: {formula: 5}\n"), reason);
+        assert_eq!(
+            table_error("a: [1, x]\n"),
+            "Parse error: Column 'a' row 1: Expected Number, found String"
+        );
+    }
+
+    #[test]
+    fn what_makes_a_scalar_is_checked_key_by_key() {
+        let key = "Parse error: 'x.value' must be a number or a date (2026-10-31), not ";
+        for (text, found) in [
+            ("{value: [1]}", "a list"),
+            ("{value: true}", "true (true or false)"),
+            ("{value: text}", "the text \"text\""),
+            ("{value: {a: 1}}", "a mapping"),
+        ] {
+            assert_eq!(scalar_error(text), format!("{key}{found}"));
+        }
+        assert_eq!(
+            scalar_error("{formula: 5}"),
+            "Parse error: 'x.formula' must be a formula starting with = (in quotes), not the number 5"
+        );
+        assert_eq!(
+            scalar_error("{formula: [1]}"),
+            "Parse error: 'x.formula' must be a formula starting with = (in quotes), not a list"
+        );
+        assert_eq!(
+            scalar_error("{format: 5}"),
+            "Parse error: 'x.format' must be an Excel number format in quotes, such as \"#,##0.00\", not the number 5"
+        );
+        assert_eq!(
+            scalar_error("{1: 2}"),
+            "Parse error: 'x': a key of a scalar must be text"
+        );
+        assert_eq!(
+            scalar_error("{value: \"2026-02-30\"}"),
+            "Parse error: 'x.value' is not a date: 2026-02-30 is no day of the calendar (a date is written 2026-10-31)"
+        );
+        assert_eq!(
+            scalar_of("{value: null, formula: null}").unwrap().value,
+            None
+        );
+    }
+
+    #[test]
+    fn a_key_a_scalar_does_not_have_is_named_with_its_close_match() {
+        let keys = "A scalar's keys are value, formula, unit, notes, source, validation_status, last_updated, better, format";
+        assert_eq!(
+            scalar_error("{value: 1, nested: {a: 1}}"),
+            format!("Parse error: 'x.nested': a scalar has no key 'nested'. ('x' has `value:` or `formula:`, so it is read as one scalar, and 'nested' cannot be a scalar inside it) {keys}")
+        );
+    }
+
+    #[test]
+    fn a_date_scalar_has_no_unit_and_no_number_format() {
+        assert_eq!(
+            scalar_error("{value: \"2026-10-31\", unit: CAD}"),
+            "Parse error: 'x' is a date, and a date has no unit: remove `unit:` (ADR-060)"
+        );
+        assert_eq!(
+            scalar_error("{value: \"2026-10-31\", format: \"#,##0\"}"),
+            "Parse error: 'x.format': \"#,##0\" is a number format, and 'x' is a date"
+        );
+        assert_eq!(
+            scalar_error("{value: 1, unit: CAD, format: \"yyyy\"}"),
+            "Parse error: 'x.format': \"yyyy\" is a date format, and 'x' is a number"
+        );
+    }
+
+    #[test]
+    fn a_date_that_cannot_be_a_scalar_says_which_rule_it_breaks() {
+        let reason = |text: &str| scalar_date(text, "p").err().unwrap().to_string();
+        assert_eq!(
+            reason("2026-10"),
+            "Parse error: 'p' is the month 2026-10, and a date in a scalar is a day: write 2026-10-01 for its first day, or use EOMONTH for its last (ADR-060)"
+        );
+        assert_eq!(
+            reason("2026-1-5"),
+            "Parse error: 'p': write the date with two digits for the month and the day, as in 2026-01-05"
+        );
+        assert_eq!(
+            reason("1899-01-01"),
+            "Parse error: 'p' is 1899-01-01, and a date in a scalar is from 1900-03-01 on, the first day Excel's day numbers count right"
+        );
+    }
+
+    #[test]
+    fn a_value_is_described_in_a_few_words() {
+        let tagged: Value = yaml_serde::from_str("!t 1").unwrap();
+        for (value, words) in [
+            (Value::Null, "empty"),
+            (Value::Bool(false), "false (true or false)"),
+            (Value::from(2.5), "the number 2.5"),
+            (Value::from("a"), "the text \"a\""),
+            (Value::Sequence(vec![]), "a list"),
+            (Value::Mapping(yaml_serde::Mapping::new()), "a mapping"),
+            (tagged, "a tagged value"),
+        ] {
+            assert_eq!(describe(&value), words);
+        }
+    }
 
     /// Reading a mapping as one scalar refuses what it would otherwise drop.
     #[test]
@@ -397,17 +579,14 @@ mod tests {
     ";
         let parsed: Value = yaml_serde::from_str(yaml).unwrap();
 
-        if let Value::Mapping(map) = parsed {
-            let table = parse_table("test_table", &map).unwrap();
+        let map = parsed.as_mapping().unwrap();
+        let table = parse_table("test_table", map).unwrap();
 
-            assert_eq!(table.name, "test_table");
-            assert_eq!(table.columns.len(), 2);
-            assert!(table.columns.contains_key("month"));
-            assert!(table.columns.contains_key("revenue"));
-            assert_eq!(table.row_count(), 3);
-        } else {
-            panic!("Expected mapping");
-        }
+        assert_eq!(table.name, "test_table");
+        assert_eq!(table.columns.len(), 2);
+        assert!(table.columns.contains_key("month"));
+        assert!(table.columns.contains_key("revenue"));
+        assert_eq!(table.row_count(), 3);
     }
 
     #[test]
@@ -419,19 +598,16 @@ mod tests {
     ";
         let parsed: Value = yaml_serde::from_str(yaml).unwrap();
 
-        if let Value::Mapping(map) = parsed {
-            let table = parse_table("test_table", &map).unwrap();
+        let map = parsed.as_mapping().unwrap();
+        let table = parse_table("test_table", map).unwrap();
 
-            assert_eq!(table.columns.len(), 2);
-            assert_eq!(table.row_formulas.len(), 1);
-            assert!(table.row_formulas.contains_key("profit"));
-            assert_eq!(
-                table.row_formulas.get("profit").unwrap(),
-                "=revenue - expenses"
-            );
-        } else {
-            panic!("Expected mapping");
-        }
+        assert_eq!(table.columns.len(), 2);
+        assert_eq!(table.row_formulas.len(), 1);
+        assert!(table.row_formulas.contains_key("profit"));
+        assert_eq!(
+            table.row_formulas.get("profit").unwrap(),
+            "=revenue - expenses"
+        );
     }
 
     #[test]
@@ -513,24 +689,23 @@ price:
         let content = std::fs::read_to_string(temp_file.path()).unwrap();
         let yaml: Value = yaml_serde::from_str(&content).unwrap();
 
-        if let Some(price_val) = yaml.get("price") {
-            let price = parse_scalar_variable(price_val, "price").unwrap();
-            assert_eq!(price.value, Some(100.0));
-            assert!(price.formula.is_none());
-            assert_eq!(price.metadata.unit, Some("CAD".to_string()));
-            assert_eq!(
-                price.metadata.notes,
-                Some("Base price per unit".to_string())
-            );
-            assert_eq!(
-                price.metadata.source,
-                Some("market_research.yaml".to_string())
-            );
-            assert_eq!(
-                price.metadata.validation_status,
-                Some("VALIDATED".to_string())
-            );
-        }
+        let price_val = &yaml["price"];
+        let price = parse_scalar_variable(price_val, "price").unwrap();
+        assert_eq!(price.value, Some(100.0));
+        assert!(price.formula.is_none());
+        assert_eq!(price.metadata.unit, Some("CAD".to_string()));
+        assert_eq!(
+            price.metadata.notes,
+            Some("Base price per unit".to_string())
+        );
+        assert_eq!(
+            price.metadata.source,
+            Some("market_research.yaml".to_string())
+        );
+        assert_eq!(
+            price.metadata.validation_status,
+            Some("VALIDATED".to_string())
+        );
     }
 
     #[test]
@@ -972,14 +1147,7 @@ months:
             export_core(&path, &xlsx).unwrap();
             let back = dir.path().join("back.yaml");
             let imported = import_core(&xlsx, &back, false, false).unwrap();
-            assert!(
-                !imported
-                    .warnings
-                    .iter()
-                    .any(|w| w.contains("number format")),
-                "{:?}",
-                imported.warnings
-            );
+            assert_eq!(imported.warnings, Vec::<String>::new());
             let text = std::fs::read_to_string(&back).unwrap();
             assert!(text.starts_with("_forge_version: \"5.4.0\""), "{text}");
             for format in [

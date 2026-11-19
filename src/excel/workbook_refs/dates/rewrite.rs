@@ -236,14 +236,11 @@ impl Dates<'_> {
             });
         }
         if read == Read::Number && self.is_text_value(expr) {
-            return Err(match expr {
-                Expr::Reference(reference) => format!(
-                    "{} is text, read here as a number; Forge and Excel turn text into numbers differently",
-                    Self::word(reference)
-                ),
-                _ => "text is read here as a number; Forge and Excel turn text into numbers differently"
+            // `is_text_value` is true for a call or an `&`, never for a name
+            return Err(
+                "text is read here as a number; Forge and Excel turn text into numbers differently"
                     .to_string(),
-            });
+            );
         }
         match expr {
             Expr::Number(_) | Expr::Boolean(_) => Ok(expr.clone()),
@@ -931,4 +928,343 @@ pub(super) fn upper_names(expr: &Expr) -> Expr {
         },
         other => other,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    //! The refusals and the forms of `Dates`, one formula at a time (ADR-054):
+    //! each formula is exported from a table `t` (d and e dates, v numbers,
+    //! name text) and the result, or the reason for the refusal, is asserted.
+
+    use super::{date_of_numbers, date_of_text, upper_names};
+    use crate::core::array_calculator::parser::{parse, Expr};
+    use crate::core::array_calculator::tokenizer::tokenize;
+    use crate::excel::workbook_refs::dates::Holds;
+    use crate::excel::workbook_refs::{Context, WorkbookRefs};
+
+    fn export(formula: &str, holds: Holds) -> Result<String, String> {
+        let columns = ["d", "e", "v", "name", "m"].map(String::from).to_vec();
+        let mut refs = WorkbookRefs::new([("t", columns, 4)], ["r.x"]);
+        refs.add_column_types("t", [("v", false), ("name", true)]);
+        refs.add_date_columns("t", ["d", "e"]);
+        // m holds dates in some rows and other text in others
+        refs.add_mixed_columns("t", ["m"]);
+        let row = Context::Row { table: "t", row: 2 };
+        refs.to_excel_as(formula, row, holds).map(|t| t.formula)
+    }
+
+    fn refused(formula: &str, holds: Holds) -> String {
+        export(formula, holds).unwrap_err()
+    }
+
+    #[test]
+    fn a_date_in_a_range_or_a_lambda_call_is_refused() {
+        let reason = "a date inside [ ], a range or a LAMBDA call";
+        assert_eq!(refused("=SUM(d:e)", Holds::Other), reason);
+        assert_eq!(refused("=LAMBDA(x, x + d)(1)", Holds::Other), reason);
+    }
+
+    #[test]
+    fn an_array_constant_of_dates_is_refused() {
+        assert_eq!(
+            refused("=SUM({\"2026-01-31\", \"2026-02-01\"})", Holds::Other),
+            "an array constant holds a date as text, which Excel reads as text"
+        );
+    }
+
+    #[test]
+    fn a_date_looked_up_or_looked_in_is_typed_or_refused() {
+        let not_date = "a value that is not a date is looked up in a column of dates";
+        assert_eq!(refused("=MATCH(name, d, 0)", Holds::Other), not_date);
+        assert_eq!(refused("=XLOOKUP(name, d, v)", Holds::Other), not_date);
+        assert_eq!(
+            export("=MATCH(v, d, 0)", Holds::Other).unwrap(),
+            "=MATCH(C2, $A$2:$A$5, 0)"
+        );
+        assert_eq!(
+            refused("=XLOOKUP(d)", Holds::Other),
+            "XLOOKUP needs a value and an array"
+        );
+        assert_eq!(
+            export("=XLOOKUP(d, d, v, d)", Holds::Other).unwrap(),
+            "=XLOOKUP(A2, $A$2:$A$5, $C$2:$C$5, TEXT(YEAR(A2) * 10000 + MONTH(A2) * 100 + \
+             DAY(A2), \"0000-00-00\"))"
+        );
+    }
+
+    #[test]
+    fn switch_reads_its_cases_alike() {
+        assert_eq!(
+            export("=SWITCH(d, d, 1, 2)", Holds::Other).unwrap(),
+            "=SWITCH(A2, A2, 1, 2)"
+        );
+        assert_eq!(
+            export("=SWITCH(d, 1, 2, 3)", Holds::Other).unwrap(),
+            "=SWITCH(A2, 1, 2, 3)"
+        );
+        assert_eq!(
+            export("=SWITCH(d, \"2026-01-01\", 1, 2)", Holds::Other).unwrap(),
+            "=SWITCH(A2, DATE(2026, 1, 1), 1, 2)"
+        );
+        assert_eq!(
+            refused("=SWITCH(name, \"a\", 1, d, 2, 3)", Holds::Other),
+            "SWITCH compares a date with values that are not dates"
+        );
+    }
+
+    #[test]
+    fn a_name_bound_to_a_date_is_its_day_number() {
+        assert_eq!(
+            export("=LET(x, d, x + 1)", Holds::Other).unwrap(),
+            "=LET(_xlpm.x_, A2, _xlpm.x_ + 1)"
+        );
+    }
+
+    #[test]
+    fn a_criterion_with_a_date_is_written_as_the_day_number() {
+        assert_eq!(
+            export("=COUNTIF(d, \"2026-01-01\")", Holds::Other).unwrap(),
+            "=COUNTIF($A$2:$A$5, DATE(2026, 1, 1))"
+        );
+        assert_eq!(
+            export("=COUNTIFS(d, \">=\" & e)", Holds::Other).unwrap(),
+            "=COUNTIFS($A$2:$A$5, \">=\" & B2)"
+        );
+        assert_eq!(
+            export("=COUNTIF(d, name)", Holds::Other).unwrap(),
+            "=COUNTIF($A$2:$A$5, D2)"
+        );
+    }
+
+    fn parsed(formula: &str) -> Expr {
+        parse(tokenize(formula).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn text_read_as_a_number_is_refused_with_its_reason() {
+        assert_eq!(
+            refused("=LEFT(name, 1) * 2 + d", Holds::Other),
+            "text is read here as a number; Forge and Excel turn text into numbers differently"
+        );
+    }
+
+    #[test]
+    fn the_text_of_a_date_is_read_back_only_in_its_exact_shape() {
+        let good = "TEXT(YEAR(d) * 10000 + MONTH(d) * 100 + DAY(d), \"0000-00-00\")";
+        assert_eq!(date_of_text(&parsed(good)), Some(parsed("d")));
+        for bad in [
+            "d",
+            "TEXT(1, \"0000-00-00\")",
+            "TEXT(d)",
+            "TEXT(YEAR(d) + DAY(d), \"0000-00-00\")",
+            "TEXT(YEAR(d, e) * 10000 + MONTH(d) * 100 + DAY(d), \"0000-00-00\")",
+            "TEXT(YEAR(d) * 10000 + MONTH(d) * 100 + DAY(d, e), \"0000-00-00\")",
+            "TEXT(d, \"0000-00-00\")",
+            "TEXT(YEAR(d) * 10000 + MONTH(d) * 100 + DAY(d), \"yyyy\")",
+            "TEXT(YEAR(d) * 10000 + MONTH(d) * 100 + 5, \"0000-00-00\")",
+            "TEXT(1 + MONTH(d) * 100 + DAY(d), \"0000-00-00\")",
+            "TEXT(YEAR(d) * 10000 + 5 + DAY(d), \"0000-00-00\")",
+            "TEXT(YEAR(d) + MONTH(d) * 100 + DAY(d), \"0000-00-00\")",
+            "TEXT(MONTH(d) * 10000 + MONTH(d) * 100 + DAY(d), \"0000-00-00\")",
+            "TEXT(YEAR(d) * 10000 + MONTH(d) * 100 - DAY(d), \"0000-00-00\")",
+            "TEXT(YEAR(d) * 10000 + MONTH(e) * 100 + DAY(d), \"0000-00-00\")",
+        ] {
+            assert_eq!(date_of_text(&parsed(bad)), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_date_of_numbers_is_read_back_only_when_it_is_a_date() {
+        assert_eq!(
+            date_of_numbers(&parsed("DATE(2026, 1, 31)")),
+            Some(Expr::Text("2026-01-31".to_string()))
+        );
+        for bad in [
+            "DATE(2026, 1)",
+            "DATE(d, 1, 31)",
+            "DATE(2026.5, 1, 31)",
+            "DATE(10000, 1, 31)",
+            "DATE(2026, 2, 30)",
+            "DATE(1899, 1, 1)",
+        ] {
+            assert_eq!(date_of_numbers(&parsed(bad)), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn upper_names_reaches_every_kind_of_expression() {
+        let lower = parsed("-sum(a[1], f(2)(3), b:c)");
+        let upper = parsed("-SUM(a[1], F(2)(3), b:c)");
+        assert_eq!(upper_names(&lower), upper);
+    }
+
+    #[test]
+    fn the_largest_of_dates_is_a_date() {
+        assert_eq!(
+            export("=LARGE(d, 1)", Holds::Dates).unwrap(),
+            "=LARGE(A2, 1)"
+        );
+        assert_eq!(
+            refused("=LARGE(d, 1)", Holds::Other),
+            "its values are dates in some rows and not in others"
+        );
+    }
+
+    #[test]
+    fn an_array_constant_of_numbers_is_kept_as_it_is() {
+        assert_eq!(
+            export("=SUM({1,2}) + d", Holds::Other).unwrap(),
+            "=SUM({1,2}) + A2"
+        );
+    }
+
+    #[test]
+    fn a_date_set_against_a_value_that_cannot_be_typed_is_refused() {
+        assert_eq!(
+            refused("=IF(d = {1,2}[1], 1, 0)", Holds::Other),
+            "a date is compared with a value that may be text or a number"
+        );
+        assert_eq!(
+            refused("=MATCH(d, INDEX({1,2}, 1), 0)", Holds::Other),
+            "a date is looked up in values Forge cannot type"
+        );
+        assert_eq!(
+            refused("=COUNTIF({1,2}[1], e)", Holds::Other),
+            "COUNTIF: a date is the criterion for values Forge cannot type"
+        );
+    }
+
+    #[test]
+    fn a_criterion_is_read_by_what_its_range_holds() {
+        assert_eq!(
+            refused("=COUNTIF(m, e)", Holds::Other),
+            "COUNTIF: the criterion is for text that may be a date, which Forge compares as a number"
+        );
+        assert_eq!(
+            export("=COUNTIF(d, name & \"x\")", Holds::Other).unwrap(),
+            "=COUNTIF($A$2:$A$5, D2 & \"x\")"
+        );
+        assert_eq!(
+            export("=COUNTIF(d, e)", Holds::Other).unwrap(),
+            "=COUNTIF($A$2:$A$5, B2)"
+        );
+    }
+
+    #[test]
+    fn a_lambda_with_a_date_in_it_is_refused() {
+        assert_eq!(
+            refused("=LAMBDA(x, x + d)", Holds::Other),
+            "a date inside a LAMBDA"
+        );
+    }
+
+    #[test]
+    fn switch_over_text_that_may_be_a_date_compares_text_with_text() {
+        assert_eq!(
+            export("=SWITCH(m, \"a\", 1, 2)", Holds::Other).unwrap(),
+            "=SWITCH(E2, \"a\", 1, 2)"
+        );
+        assert_eq!(
+            export("=SWITCH(name, \"a\", d, e)", Holds::Dates).unwrap(),
+            "=SWITCH(D2, \"a\", A2, B2)"
+        );
+    }
+
+    #[test]
+    fn xlookup_gives_a_date_only_where_what_is_not_found_is_a_date_too() {
+        let reason = "XLOOKUP gives a date, or a value that is not a date when none is found";
+        assert_eq!(refused("=XLOOKUP(v, v, d, 0)", Holds::Other), reason);
+        assert_eq!(refused("=XLOOKUP(d, d, e, 0)", Holds::Other), reason);
+        assert_eq!(
+            export("=XLOOKUP(d, d, e)", Holds::Dates).unwrap(),
+            "=XLOOKUP(A2, $A$2:$A$5, $B$2:$B$5)"
+        );
+        assert_eq!(
+            export("=LEFT(XLOOKUP(d, d, e), 4)", Holds::Other).unwrap(),
+            "=LEFT(TEXT(YEAR(XLOOKUP(A2, $A$2:$A$5, $B$2:$B$5)) * 10000 + \
+             MONTH(XLOOKUP(A2, $A$2:$A$5, $B$2:$B$5)) * 100 + \
+             DAY(XLOOKUP(A2, $A$2:$A$5, $B$2:$B$5)), \"0000-00-00\"), 4)"
+        );
+    }
+
+    #[test]
+    fn a_let_name_that_is_not_a_word_is_left_to_the_translator() {
+        assert_eq!(
+            refused("=LET(1, d, d)", Holds::Dates),
+            "LET: a name must be a single word"
+        );
+    }
+
+    #[test]
+    fn a_date_column_of_an_included_file_is_a_date() {
+        let columns = ["d", "v"].map(String::from).to_vec();
+        let mut refs = WorkbookRefs::new([("t", columns.clone(), 4)], ["r.x"]);
+        refs.add_include_tables("ns", [("t".to_string(), columns, 4)]);
+        refs.add_date_columns("@ns.t", ["d"]);
+        let row = Context::Row { table: "t", row: 2 };
+        let formula = refs
+            .to_excel_as("=@ns.t.d + 1", row, Holds::Other)
+            .unwrap()
+            .formula;
+        assert_eq!(formula, "='ns.t'!A2 + 1");
+    }
+
+    #[test]
+    fn a_refusal_inside_a_call_comes_out_of_it() {
+        let range = "a date inside [ ], a range or a LAMBDA call";
+        for formula in [
+            "=-(d:e)",
+            "=COUNTIF(d, \">=\" & EDATE(d:e, 1))",
+            "=COUNTIF(d, name & d:e)",
+            "=PREV(d:e, 0)",
+            "=IF(1, d:e, 2)",
+            "=SWITCH(d, d, d:e, 2)",
+            "=LET(x, d:e, x)",
+            "=LET(x, 1, d:e)",
+            "=MATCH(EDATE(d:e, 1), d, 0)",
+            "=MATCH(v, d:e, 0)",
+            "=XLOOKUP(d, d, v, d:e)",
+            "=SUM(v:d)",
+            "=COUNTA(d:e)",
+            "=COUNTIF(d:e, 1)",
+            "=SUMIF(v, 1, d:e)",
+            "=INDEX(d:e, 1)",
+        ] {
+            assert_eq!(refused(formula, Holds::Other), range, "{formula}");
+        }
+    }
+
+    #[test]
+    fn a_date_is_compared_with_text_or_a_number_by_what_the_other_side_is() {
+        assert_eq!(
+            export("=IF(name = m, 1, 0)", Holds::Other).unwrap(),
+            "=IF(D2 = E2, 1, 0)"
+        );
+        assert_eq!(
+            export("=IF(v = d, 1, 0)", Holds::Other).unwrap(),
+            "=IF(C2 = A2, 1, 0)"
+        );
+    }
+
+    #[test]
+    fn a_value_passed_on_may_be_a_date() {
+        let reason = "its values are dates in some rows and not in others";
+        assert_eq!(refused("=PREV(d, 0)", Holds::Other), reason);
+        assert_eq!(refused("=LET(x, d, x)", Holds::Other), reason);
+    }
+
+    #[test]
+    fn an_unknown_column_of_an_included_table_is_left_to_the_translator() {
+        let columns = ["d", "v"].map(String::from).to_vec();
+        let mut refs = WorkbookRefs::new([("t", columns.clone(), 4)], ["r.x"]);
+        refs.add_include_tables("ns", [("t".to_string(), columns, 4)]);
+        refs.add_date_columns("@ns.t", ["d"]);
+        let row = Context::Row { table: "t", row: 2 };
+        let error = refs
+            .to_excel_as("=@ns.t.q + d", row, Holds::Other)
+            .unwrap_err();
+        assert_eq!(error, "unknown name '@ns.t.q'");
+        let error = refs.to_excel_as("=@zz + d", row, Holds::Other).unwrap_err();
+        assert_eq!(error, "unknown name '@zz'");
+    }
 }
