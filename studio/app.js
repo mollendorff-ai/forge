@@ -6,7 +6,7 @@
 import { call, start } from "./forge.js";
 import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
-import { scopeOf, namesFor, functionsOf, suggest, apply, schemaOf, suggestKeys, formulaContext, suggestInFormula } from "./suggest.js";
+import { scopeOf, namesFor, gameResults, functionsOf, suggest, apply, schemaOf, suggestKeys, formulaContext, suggestInFormula } from "./suggest.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -372,10 +372,21 @@ function gameCards() {
 function drawGames() {
   for (const card of $$("#view-model [data-game]")) {
     const r = S.games && !S.games.error ? S.games.find((g) => g.game === card.dataset.game) : null;
-    card.innerHTML = r ? (r.kind === "tournament" ? tournamentCard(r) : tableCard(r))
-      : `<div class="msg bad">${esc(S.games && S.games.error ? S.games.error : S.error || "Not calculated")}</div>`;
+    card.innerHTML = (r ? (r.kind === "tournament" ? tournamentCard(r) : tableCard(r))
+      : `<div class="msg bad">${esc(S.games && S.games.error ? S.games.error : S.error || "Not calculated")}</div>`) + resultsList(card.dataset.game);
     pulse(card, "game:" + card.dataset.game, JSON.stringify(r));
   }
+}
+// The game's results as `calculate` answers them, under the names a formula
+// reads them by (stag_hunt.even_mix.me.stag), each with its value in full
+// for the screen test
+function resultsList(game) {
+  const paths = gameResults(S.structure, S.calc).filter((p) => p.startsWith(game + "."));
+  if (!paths.length) return "";
+  const open = S.open.has("results:" + game);
+  return `<details class="results" data-results="${esc(game)}"${open ? " open" : ""}><summary>${paths.length} results a formula can read</summary><table class="report"><tbody>` +
+    paths.map((p) => { const v = valueOf(p); return `<tr data-scalar="${esc(p)}" data-value="${esc(v === undefined || v === null ? "" : String(v))}"><th scope="row" class="mono">${esc(p)}</th><td>${esc(fmt(v))}</td></tr>`; }).join("") +
+    `</tbody></table></details>`;
 }
 // The pure strategy a player plays in an equilibrium, or null in a mixed one
 const pureOf = (play) => { const on = Object.entries(play.strategies).find(([, p]) => p === 1); return on ? on[0] : null; };
@@ -439,6 +450,13 @@ function setInput(path, value) {
   clearTimeout(typing);
   typing = setTimeout(recalc, 120);
 }
+// A game's list of results stays open or shut while the games are drawn again
+$("#view-model").addEventListener("toggle", (e) => {
+  const d = e.target.closest && e.target.closest("[data-results]");
+  if (!d) return;
+  const k = "results:" + d.dataset.results;
+  if (d.open) S.open.add(k); else S.open.delete(k);
+}, true);
 $("#view-model").addEventListener("input", (e) => {
   const t = e.target, path = t.dataset.input || t.dataset.range;
   if (!path) return;
@@ -529,7 +547,7 @@ function showSuggestions(input) {
   const strip = input.parentElement.querySelector("[data-suggest]");
   if (!strip || !S.structure) return;
   if (!functionList) loadFunctions().then(() => { if (input.isConnected) showSuggestions(input); });
-  const list = suggest({ names: namesFor(S.structure, scopeFor(input)), functions: functionList || [] }, input.value, input.selectionStart ?? input.value.length);
+  const list = suggest({ names: namesFor(S.structure, scopeFor(input), gameResults(S.structure, S.calc)), functions: functionList || [] }, input.value, input.selectionStart ?? input.value.length);
   strip.innerHTML = list.map((x, i) => `<button type="button" class="sug ${x.kind}" data-sug="${i}" title="${esc(x.title)}">${esc(x.label)}</button>`).join("");
   strip._list = list;
   strip.hidden = !list.length;
@@ -576,7 +594,7 @@ async function showKeySuggestions(editor) {
     await loadFunctions();
     if (token !== keysFor || !editor.isConnected) return;
     const part = S.structure && (S.yamlFile === S.main || S.structure.includes.some((i) => i.file === S.yamlFile));
-    list = suggestInFormula({ structure: part ? S.structure : null, functions: functionList || [], file: S.yamlFile }, text, caret) || [];
+    list = suggestInFormula({ structure: part ? S.structure : null, functions: functionList || [], file: S.yamlFile, results: gameResults(S.structure, S.calc) }, text, caret) || [];
   } else {
     const schema = await loadSchema(text);
     if (token !== keysFor || !editor.isConnected) return;
