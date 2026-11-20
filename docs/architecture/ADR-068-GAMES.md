@@ -153,7 +153,7 @@ So the tornado the roadmap asks for is `forge tornado inspection.yaml inspection
 
 - **`forge game model.yaml [--game NAME] [--scenario NAME] [-o FILE]`** prints each game: the dominated strategies, the equilibria, the even-mix payoffs; for a tournament, the ranking, the match table and the stable strategies. `-o` writes the same as YAML or JSON. Its test calls `run` in-process.
 - **MCP:** a 21st tool, `forge_game`, with the same arguments. The tool count changes in the MCP test, the server's instructions, `docs/MCP.md` and README.md.
-- **forge-wasm:** the same core function, as `game`, so the browser has the same tools as the MCP server. Studio shows nothing new in this change.
+- **forge-wasm:** the same core function, as `game`, so the browser has the same tools as the MCP server. Studio shows nothing new in this change. *Note, 2026-11-20:* Studio now shows a model's games on its Model view (below).
 - **REST:** nothing. The REST API has only the five core commands (validate, calculate, audit, export, import), and no analysis engine is there.
 - **`forge examples`:** one example for each game in the acceptance (`stag-hunt`, `chicken`, `axelrod`, `inspection`, `noisy-tournament`, and the optional `battle-of-the-sexes`), each with numbers worked out outside Forge and asserted in an inline test, as the `bagel_example` tests do.
 - **The schema files, `forge schema`, docs/FEATURES.md, docs/cli, the CHANGELOG** and the counts in README.md and VALIDATION.md.
@@ -173,7 +173,7 @@ Every equilibrium and ranking asserted in a test has a comment that says where i
 - **Auctions**, and any game with a continuum of strategies (Cournot quantities, Bertrand prices). A price answer from a competitor can be written today as a table over a few named prices, which this does cover.
 - **Dominance by a mixed strategy.** A strategy that only a mix of two others beats is not reported as dominated. The report says "dominated by one of the player's own strategies", so it does not claim more.
 - **Strategies written by the user** in a tournament, and **evolution:** strategy shares that change from generation to generation (replicator dynamics, T2-GAME-THEORY-MORE).
-- **Studio:** no game view in this change.
+- **Studio:** no game view in this change. *Note, 2026-11-20:* added afterwards. A model with games shows them on the Model view, worked out again with every input and scenario: the payoff table with the pure equilibria marked, the equilibria with their chances, the dominated strategies, and a tournament's ranking, stable players and matches. For the table, `forge game` reports every cell's payoffs (`cells`), so the page draws only Forge's numbers; forge-wasm's `model` names the games. Checked by `studio/tests/games.mjs` on the bagel's price war.
 
 ## The three questions, and what was decided
 

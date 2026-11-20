@@ -14,7 +14,7 @@ const STORE = "forge-studio-v3";
 
 const S = {
   sets: [], set: null, files: {}, main: "", title: "", version: "",
-  structure: null, scenarios: null, scenarioError: null, report: null, scenario: null, calc: null,
+  structure: null, scenarios: null, scenarioError: null, report: null, scenario: null, calc: null, games: null,
   error: null, generation: 0, open: new Set(), prev: {}, yamlFile: "", tab: "model",
   analyze: {}, tools: {},
 };
@@ -96,7 +96,7 @@ const request = (extra = {}) => ({ files: S.files, main: S.main, ...extra });
 async function load() {
   const generation = ++S.generation;
   document.body.dataset.state = "loading";
-  S.error = null; S.structure = null; S.calc = null; S.scenarios = null; S.scenarioError = null; S.report = null;
+  S.error = null; S.structure = null; S.calc = null; S.scenarios = null; S.scenarioError = null; S.report = null; S.games = null;
   try {
     const structure = await call("model", request());
     if (generation !== S.generation) return;
@@ -119,11 +119,14 @@ async function recalc() {
   const generation = ++S.generation;
   try {
     const calc = await call("calculate", request({ scenario: S.scenario }));
+    // The games' results, worked out again with the inputs (ADR-068)
+    const games = S.structure.games && S.structure.games.length
+      ? await call("game", request({ scenario: S.scenario })).catch((e) => ({ error: e.message })) : null;
     if (generation !== S.generation) return;
-    S.calc = calc; S.error = null;
+    S.calc = calc; S.games = games; S.error = null;
   } catch (e) {
     if (generation !== S.generation) return;
-    S.calc = null; S.error = e.message;
+    S.calc = null; S.games = null; S.error = e.message;
   }
   updateValues();
   finish();
@@ -268,6 +271,7 @@ function renderModel() {
       }).join("")}</div><p class="scn-desc" id="scn-desc"></p>`;
   }
   h += reportCards();
+  h += gameCards();
   for (const [g, list] of groupsOf(S.structure.scalars)) {
     h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${addButton(null, g, list)}</div>${addSlot(null, g)}<div class="card stack">${scalarCards(list)}</div>`;
   }
@@ -352,6 +356,70 @@ function updateValues() {
       list.innerHTML = vals.map((x, i) => `<span><i>${esc(labels[i] ?? i + 1)}</i>${esc(fmtAt(x, card.dataset.card))}</span>`).join("");
     }
   }
+  drawGames();
+}
+// ---------- games (ADR-068): forge game's answer, drawn ----------
+// Every number here is in the answer of the `game` tool; the page only lays
+// them out. A cell's payoffs and an equilibrium's chances are also kept in
+// data- attributes, in full, for the screen test (tests/games.mjs).
+const pct = (p) => fmt(p, "", "%");
+function gameCards() {
+  const names = S.structure.games || [];
+  if (!names.length) return "";
+  return `<div class="eyebrow" id="games"><h2>games</h2><span class="tag">forge game · moves with the inputs</span></div>` +
+    names.map((n) => `<div class="card row game" data-game="${esc(n)}"><p class="note">Forge is working out ${esc(n)}…</p></div>`).join("");
+}
+function drawGames() {
+  for (const card of $$("#view-model [data-game]")) {
+    const r = S.games && !S.games.error ? S.games.find((g) => g.game === card.dataset.game) : null;
+    card.innerHTML = r ? (r.kind === "tournament" ? tournamentCard(r) : tableCard(r))
+      : `<div class="msg bad">${esc(S.games && S.games.error ? S.games.error : S.error || "Not calculated")}</div>`;
+    pulse(card, "game:" + card.dataset.game, JSON.stringify(r));
+  }
+}
+// The pure strategy a player plays in an equilibrium, or null in a mixed one
+const pureOf = (play) => { const on = Object.entries(play.strategies).find(([, p]) => p === 1); return on ? on[0] : null; };
+function tableCard(r) {
+  const key = (list) => list.join("\u0001");
+  const pure = new Set(r.equilibria.filter((e) => e.kind === "pure").map((e) => key(r.players.map((p) => pureOf(e.players[p])))));
+  const cellHtml = (c) => {
+    const eq = pure.has(key(c.strategies));
+    return `<td class="${eq ? "eq" : ""}" data-cell="${esc(c.strategies.join(","))}" data-pay="${c.payoffs.join(",")}"${eq ? ' data-eq="1"' : ""}>${c.payoffs.map((v) => `<span class="pay">${esc(fmt(v))}</span>`).join("")}${eq ? '<span class="eq-mark">equilibrium</span>' : ""}</td>`;
+  };
+  let h = `<div class="game-head"><b>${esc(r.game)}</b><span class="note">${esc(r.players.join(" vs "))}, played once</span></div>`;
+  if (r.players.length === 2) {
+    const [a, b] = r.players, cols = r.strategies[b];
+    h += `<div class="scroll-x"><table class="report payoffs"><thead><tr><th scope="col">${esc(a)} ╲ ${esc(b)}</th>${cols.map((c) => `<th scope="col">${esc(c)}</th>`).join("")}</tr></thead><tbody>` +
+      r.strategies[a].map((x) => `<tr><th scope="row">${esc(x)}</th>${cols.map((y) => cellHtml(r.cells.find((c) => c.strategies[0] === x && c.strategies[1] === y))).join("")}</tr>`).join("") +
+      `</tbody></table></div><p class="note">Each cell: what ${esc(a)} gets, and below it what ${esc(b)} gets.</p>`;
+  } else {
+    h += `<div class="scroll-x"><table class="report payoffs"><thead><tr>${r.players.map((p) => `<th scope="col">${esc(p)}</th>`).join("")}<th scope="col">payoffs</th></tr></thead><tbody>` +
+      r.cells.map((c) => `<tr>${c.strategies.map((x) => `<th scope="row">${esc(x)}</th>`).join("")}${cellHtml(c)}</tr>`).join("") +
+      `</tbody></table></div><p class="note">Payoffs in the order of the players.</p>`;
+  }
+  const n = r.equilibria.length;
+  h += `<p class="sub" style="margin-top:12px">${n} equilibri${n === 1 ? "um" : "a"}</p><ol class="eqs">` + r.equilibria.map((e, k) => `<li data-equilibrium="${k + 1}">${esc(e.kind)}: ${r.players.map((p) => {
+    const play = e.players[p], one = pureOf(play);
+    const how = one !== null ? one : Object.entries(play.strategies).filter(([, x]) => x > 0).map(([s, x]) => `${s} ${pct(x)}`).join(", ");
+    return `<span data-play="${esc(p)}" data-chances="${esc(JSON.stringify(play.strategies))}"><b>${esc(p)}</b> ${esc(how)} (gets ${esc(fmt(play.payoff))})</span>`;
+  }).join("; ")}</li>`).join("") + `</ol>`;
+  if (!r.mixed_searched) h += `<p class="note">With more than two players Forge lists the pure equilibria only.</p>`;
+  if (r.ties.length) h += `<p class="note">A tie makes the game degenerate: equilibria between those listed may be missing (${esc(r.ties.join("; "))}).</p>`;
+  if (r.dominated.length) h += `<p class="note" data-dominated>Strictly dominated, removed in this order: ${r.dominated.map((d) => `${esc(d.player)}'s ${esc(d.strategy)} (by ${esc(d.by)})`).join(", ")}.</p>`;
+  return h;
+}
+function tournamentCard(r) {
+  const length = r.rounds != null ? `${r.rounds} rounds a match` : `goes on after each round with chance ${fmt(r.continuation)}`;
+  let h = `<div class="game-head"><b>${esc(r.game)}</b><span class="note">${esc(r.round)} played again and again: ${esc(length)}${r.noise ? `, a move flipped with chance ${esc(fmt(r.noise))}` : ""}${r.self_play ? ", each also against itself" : ""}</span></div>`;
+  h += `<div class="scroll-x"><table class="report ranking"><thead><tr><th scope="col">player</th><th scope="col">rank</th><th scope="col">a round</th><th scope="col">cooperates</th></tr></thead><tbody>` +
+    r.ranking.map((s) => `<tr data-standing="${esc(s.player)}" data-score="${s.score}"><th scope="row">${esc(s.player)}<span class="plays">${esc(s.plays.replace(/_/g, " "))}</span></th><td>${s.rank}</td><td>${esc(fmt(s.score))}</td><td>${esc(pct(s.cooperation))}</td></tr>`).join("") +
+    `</tbody></table></div>`;
+  h += `<p class="note" data-stable>Collectively stable (nobody does better against it than it does against itself): ${r.stable.length ? esc(r.stable.join(", ")) : "none"}.</p>`;
+  // In the ranking's order (the object's keys come back sorted)
+  const names = r.ranking.map((s) => s.player);
+  h += `<p class="sub" style="margin-top:12px">a round, row against column</p><div class="scroll-x"><table class="report"><thead><tr><th scope="col"></th>${names.map((x) => `<th scope="col">${esc(x)}</th>`).join("")}</tr></thead><tbody>` +
+    names.map((a) => `<tr><th scope="row">${esc(a)}</th>${names.map((b) => `<td data-match="${esc(a)},${esc(b)}" data-pay="${r.matches[a][b]}">${esc(fmt(r.matches[a][b]))}</td>`).join("")}</tr>`).join("") + `</tbody></table></div>`;
+  return h;
 }
 
 let typing = 0;
@@ -1055,6 +1123,7 @@ const TOOLS = [
   ["Core", [["validate", "Check a model for formula errors, circular references and type mismatches."], ["calculate", "Calculate every formula, optionally under a named scenario."], ["audit", "Follow one variable's formula down to the inputs it reads."], ["report", "Groups with the same keys, side by side."]]],
   ["What-if", [["goal_seek", "Find the input value that makes an output hit a target."], ["break_even", "Find where an output reaches zero."], ["scenarios", "Run each probability-weighted scenario."], ["compare", "Put scenario results side by side."], ["sensitivity", "Vary one input over a range and watch an output."], ["tornado", "Rank inputs by how much they move one output."], ["variance", "Budget against actual, with favourable and unfavourable flags."]]],
   ["Uncertainty", [["simulate", "Monte Carlo with Latin hypercube sampling and a seed."], ["probability_seek", "Find the input that gives an output a chance of passing a threshold."], ["bootstrap", "Bootstrap confidence intervals from data."], ["decision_tree", "Backward induction: best path and expected value."], ["real_options", "Value the option to defer, expand or abandon."], ["bayesian", "Posterior probabilities in a Bayesian network."]]],
+  ["Games", [["game", "Dominated strategies, equilibria and tournaments of the model's games."]]],
   ["Reference", [["functions", "The Excel-compatible functions, by category."], ["examples", "Runnable example models, by name."], ["schema", "The JSON Schema for Forge model files."]]],
 ];
 function toolArgs(tool) {
@@ -1062,7 +1131,7 @@ function toolArgs(tool) {
   const first = inputs()[0], v = first ? first.value : 1;
   switch (tool) {
     case "functions": case "examples": case "schema": return {};
-    case "calculate": return { ...base, scenario: S.scenario };
+    case "calculate": case "game": return { ...base, scenario: S.scenario };
     case "audit": return { ...base, variable: A.out };
     case "compare": return { ...base, scenarios: S.structure.scenarios.slice(0, 2) };
     case "goal_seek": return { ...base, target: A.out, value: A.target ?? 0, vary: A.vary };

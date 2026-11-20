@@ -358,6 +358,10 @@ jobs:
         working-directory: studio
         run: node tests/scenarios.mjs ../studio-site
 
+      - name: Studio shows the games Forge works out, and they move with the inputs
+        working-directory: studio
+        run: node tests/games.mjs ../studio-site
+
       - name: Studio shows a format as Forge gives it
         working-directory: studio
         run: node tests/formats.mjs ../studio-site

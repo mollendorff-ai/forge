@@ -25,6 +25,15 @@ pub struct Play {
     pub payoff: f64,
 }
 
+/// One cell of the table: a strategy for each player, and what each gets.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Cell {
+    /// One strategy per player, in the order of the players
+    pub strategies: Vec<String>,
+    /// One payoff per player, in the same order
+    pub payoffs: Vec<f64>,
+}
+
 /// One equilibrium, player by player.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct NamedEquilibrium {
@@ -52,6 +61,9 @@ pub struct TableReport {
     pub ties: Vec<String>,
     /// Each strategy's payoff when the others mix evenly
     pub even_mix: IndexMap<String, IndexMap<String, f64>>,
+    /// Every cell of the table, the first player's strategy outermost, as
+    /// the model writes them: what Forge Studio draws
+    pub cells: Vec<Cell>,
 }
 
 /// What was worked out for a game of either kind.
@@ -137,6 +149,18 @@ pub fn analyse(game: &str, table: &Table) -> TableReport {
                         .zip(pays.iter().copied())
                         .collect(),
                 )
+            })
+            .collect(),
+        cells: table
+            .profiles()
+            .iter()
+            .map(|profile| Cell {
+                strategies: profile
+                    .iter()
+                    .zip(&table.strategies)
+                    .map(|(&s, list)| list[s].clone())
+                    .collect(),
+                payoffs: table.payoffs[table.index(profile)].clone(),
             })
             .collect(),
     }
@@ -289,6 +313,26 @@ mod tests {
         assert!((value(&scalars, "inspection.even_mix.human.trust") + 1.5).abs() < 1e-12);
         assert_eq!(report.equilibria[0].kind, "mixed");
         assert_eq!(scalars.len(), 3 + 6 + 4 + 4);
+        // The cells, as the table was written: comply's row, then cheat's
+        let cells: Vec<(Vec<&str>, Vec<f64>)> = report
+            .cells
+            .iter()
+            .map(|c| {
+                (
+                    c.strategies.iter().map(String::as_str).collect(),
+                    c.payoffs.clone(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            cells,
+            [
+                (vec!["comply", "audit"], vec![0.0, -1.0]),
+                (vec!["comply", "trust"], vec![0.0, 0.0]),
+                (vec!["cheat", "audit"], vec![-4.0, -1.0]),
+                (vec!["cheat", "trust"], vec![2.0, -3.0]),
+            ]
+        );
     }
 
     #[test]
