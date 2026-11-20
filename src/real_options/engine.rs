@@ -118,11 +118,8 @@ impl RealOptionsEngine {
     }
 
     /// Analyze all options
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if any option valuation fails.
-    pub fn analyze(&self) -> Result<OptionsResult, String> {
+    #[must_use]
+    pub fn analyze(&self) -> OptionsResult {
         let mut option_results = std::collections::BTreeMap::new();
         let mut best: Option<(String, f64)> = None;
 
@@ -160,7 +157,7 @@ impl RealOptionsEngine {
 
         let recommendation = self.generate_recommendation(&option_results, best.as_ref());
 
-        Ok(OptionsResult {
+        OptionsResult {
             name: self.config.name.clone(),
             underlying: UnderlyingResult {
                 current_value: self.config.underlying.current_value,
@@ -174,7 +171,7 @@ impl RealOptionsEngine {
             project_value_with_options: best.map(|(_, value)| value),
             decision,
             recommendation,
-        })
+        }
     }
 
     /// Value a single option
@@ -431,7 +428,7 @@ mod engine_tests {
             .unwrap()
             .with_traditional_npv(-500_000.0);
 
-        let result = engine.analyze().unwrap();
+        let result = engine.analyze();
 
         // All options should have positive value
         for opt_result in result.options.values() {
@@ -472,7 +469,7 @@ mod engine_tests {
             .unwrap()
             .with_traditional_npv(-500_000.0);
 
-        let result = engine.analyze().unwrap();
+        let result = engine.analyze();
 
         // The best option turns the -$500K project into a positive one
         let best = result.best_option.as_deref().unwrap();
@@ -489,7 +486,7 @@ mod engine_tests {
                 .with_option(OptionDefinition::defer("Wait 1 year", 1.0, 100.0));
 
         let engine = RealOptionsEngine::new(config).unwrap();
-        let result = engine.analyze().unwrap();
+        let result = engine.analyze();
 
         // Defer option value should be close to BS call value
         let defer_value = result.options.get("Wait 1 year").unwrap().value;
@@ -502,7 +499,7 @@ mod engine_tests {
         let engine = RealOptionsEngine::new(config)
             .unwrap()
             .with_traditional_npv(-500_000.0);
-        let result = engine.analyze().unwrap();
+        let result = engine.analyze();
         let yaml = result.to_yaml();
 
         assert!(yaml.contains("best_option"));
@@ -517,7 +514,7 @@ mod engine_tests {
         let engine = RealOptionsEngine::new(config)
             .unwrap()
             .with_traditional_npv(-500_000.0);
-        let result = engine.analyze().unwrap();
+        let result = engine.analyze();
         let json = result.to_json().unwrap();
 
         assert!(json.contains("\"project_value_with_options\""));

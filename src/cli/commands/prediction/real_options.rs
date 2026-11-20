@@ -1,6 +1,6 @@
 //! `forge real-options`: what the choice to wait, expand or abandon is worth.
 
-use super::serialize_for_file;
+use super::write_result;
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::core::precision::money;
@@ -8,8 +8,24 @@ use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use crate::real_options::{RealOptionsConfig, RealOptionsEngine};
 use colored::Colorize;
-use std::fs;
 use std::path::{Path, PathBuf};
+
+/// The `real_options:` section of the model in `file`.
+fn load(file: &Path) -> ForgeResult<RealOptionsConfig> {
+    let yaml_content = parser::read_model_text(file)?;
+
+    // The section is read from YAML as it is, whatever else the file holds
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
+
+    let Some(ro_value) = value.get("real_options") else {
+        return Err(ForgeError::Validation(
+            "No 'real_options' section found in YAML".to_string(),
+        ));
+    };
+    yaml_serde::from_value(ro_value.clone())
+        .map_err(|e| ForgeError::Validation(format!("real_options config error: {e}")))
+}
 
 /// Value real options and return structured results (no printing).
 ///
@@ -18,22 +34,8 @@ use std::path::{Path, PathBuf};
 /// Returns an error if the file cannot be parsed, no `real_options` section exists,
 /// or the analysis fails.
 pub fn real_options_core(file: &Path) -> ForgeResult<crate::real_options::OptionsResult> {
-    let yaml_content = parser::read_model_text(file)?;
-
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
-
-    let config: RealOptionsConfig = if let Some(ro_value) = value.get("real_options") {
-        yaml_serde::from_value(ro_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("real_options config error: {e}")))?
-    } else {
-        return Err(ForgeError::Validation(
-            "No 'real_options' section found in YAML".to_string(),
-        ));
-    };
-
-    let engine = RealOptionsEngine::new(config).map_err(ForgeError::Validation)?;
-    engine.analyze().map_err(ForgeError::Eval)
+    let engine = RealOptionsEngine::new(load(file)?).map_err(ForgeError::Validation)?;
+    Ok(engine.analyze())
 }
 
 /// Execute the real-options command - value managerial flexibility
@@ -54,21 +56,7 @@ pub fn real_options(
     outln!(c, "   File: {}", file.display());
     outln!(c);
 
-    // Parse YAML
-    let yaml_content = parser::read_model_text(file)?;
-
-    // Parse real_options config
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
-
-    let config: RealOptionsConfig = if let Some(ro_value) = value.get("real_options") {
-        yaml_serde::from_value(ro_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("real_options config error: {e}")))?
-    } else {
-        return Err(ForgeError::Validation(
-            "No 'real_options' section found in YAML".to_string(),
-        ));
-    };
+    let config = load(file)?;
 
     // Display config
     outln!(c, "   {}", format!("Analysis: {}", config.name).bold());
@@ -111,7 +99,7 @@ pub fn real_options(
         outln!(c, "{}", "🔄 Valuing options...".cyan());
     }
 
-    let result = engine.analyze().map_err(ForgeError::Eval)?;
+    let result = engine.analyze();
 
     // Filter if specific option requested
     if let Some(filter) = option_filter {
@@ -135,15 +123,7 @@ pub fn real_options(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = serialize_for_file(&result, &output_path)?;
-        fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-        outln!(
-            c,
-            "{}",
-            format!("💾 Results written to {}", output_path.display())
-                .bold()
-                .green()
-        );
+        write_result(c, &result, &output_path)?;
     }
 
     outln!(c, "{}", "✅ Real options analysis complete".bold().green());
@@ -177,13 +157,12 @@ fn print_real_options_results(
     outln!(c);
 
     outln!(c, "   {}", "Options (each valued on its own):".bold());
-    for name in order {
-        if option_filter.is_some_and(|filter| filter != name) {
-            continue;
-        }
-        let Some(opt_result) = result.options.get(name) else {
-            continue;
-        };
+    // The options the file lists, each of which has a result
+    let shown = order
+        .iter()
+        .filter(|name| option_filter.is_none_or(|filter| filter == name.as_str()))
+        .filter_map(|name| result.options.get(name));
+    for opt_result in shown {
         outln!(
             c,
             "      {} ({})",
@@ -210,9 +189,6 @@ fn print_real_options_results(
         }
         if let Some(ref trigger) = opt_result.optimal_trigger {
             outln!(c, "         Rule of thumb: exercise when {trigger}");
-        }
-        if let Some(prob) = opt_result.probability_exercise {
-            outln!(c, "         P(exercise): {:.1}%", prob * 100.0);
         }
     }
     outln!(c);
@@ -298,7 +274,7 @@ mod tests {
                 assert!(printed.contains("Results written to"), "{printed}");
                 let text = std::fs::read_to_string(&path).unwrap();
                 let value: serde_json::Value = if json {
-                    serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}: {text}"))
+                    serde_json::from_str(&text).unwrap()
                 } else {
                     yaml_serde::from_str(&text).unwrap()
                 };
@@ -343,6 +319,161 @@ mod tests {
                 "{abandon}"
             );
             assert_eq!(r.traditional_npv, Some(-40.0));
+        }
+    }
+
+    mod command {
+        //! `forge real-options` end to end: what it refuses, `--verbose`,
+        //! `--compare-npv`, `--option` and `-o`.
+
+        use crate::cli::forge;
+        use crate::cli::real_options_core;
+        use std::path::Path;
+
+        const HEAD: &str = "_forge_version: \"5.1.0\"\nreal_options:\n  name: Probe\n  method: binomial\n  underlying: {current_value: 100, volatility: 0.3, risk_free_rate: 0.05, time_horizon: 2}\n  binomial_steps: 50\n";
+        const WAIT: &str = "    - {type: defer, name: Wait, max_deferral: 1, exercise_cost: 90}\n";
+        const SELL: &str = "    - {type: abandon, name: Sell, salvage_value: 60}\n";
+
+        /// A file in a temporary folder
+        fn file(text: &str) -> (tempfile::TempDir, String) {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, text).unwrap();
+            let path = path.to_str().unwrap().to_string();
+            (dir, path)
+        }
+
+        /// The analysis with `npv` as its traditional NPV, and `options` listed
+        fn analysis(npv: Option<&str>, options: &[&str]) -> (tempfile::TempDir, String) {
+            let npv = npv.map_or(String::new(), |n| format!("  traditional_npv: {n}\n"));
+            file(&format!("{HEAD}{npv}  options:\n{}", options.concat()))
+        }
+
+        #[test]
+        fn a_file_a_section_or_a_config_that_does_not_fit_stops_the_command() {
+            let (_a, empty) = file("_forge_version: \"5.1.0\"\nx: 1\n");
+            let (_b, unknown_key) = file("_forge_version: \"5.1.0\"\nreal_options: {name: X, bogus: 1, underlying: {current_value: 1, volatility: 0.3, risk_free_rate: 0.05, time_horizon: 1}}\n");
+            let (_c, no_options) = file(HEAD);
+            let (_e, not_yaml) = file("_forge_version: \"5.1.0\"\nreal_options: [1\n");
+            let (_d, bad_volatility) = file(&format!(
+                "{}  options:\n{WAIT}",
+                HEAD.replace("volatility: 0.3", "volatility: -1")
+            ));
+            for (path, want) in [
+                (
+                    "/nonexistent/m.yaml",
+                    "IO error: No such file or directory (os error 2)",
+                ),
+                (
+                    &empty,
+                    "Validation error: No 'real_options' section found in YAML",
+                ),
+                (
+                    &unknown_key,
+                    "real_options config error: unknown field `bogus`, expected one of `name`, `method`, `underlying`, `options`, `binomial_steps`, `monte_carlo_iterations`, `seed`, `traditional_npv`",
+                ),
+                (
+                    &not_yaml,
+                    "YAML parse error: did not find expected ',' or ']' at line 3 column 1",
+                ),
+                (&no_options, "At least one option must be defined"),
+                (&bad_volatility, "Volatility must be between 0 and 200%"),
+            ] {
+                let ran = forge(&["real-options", path]);
+                assert!(!ran.success(), "{path}");
+                let text = ran.both();
+                assert!(text.contains(want), "{want}\n{text}");
+                assert!(!text.contains("Real options analysis complete"), "{text}");
+            }
+            // The same refusals without printing
+            let err = real_options_core(Path::new(&empty))
+                .unwrap_err()
+                .to_string();
+            assert_eq!(
+                err,
+                "Validation error: No 'real_options' section found in YAML"
+            );
+            let err = real_options_core(Path::new(&no_options))
+                .unwrap_err()
+                .to_string();
+            assert_eq!(err, "Validation error: At least one option must be defined");
+        }
+
+        #[test]
+        fn an_option_the_file_does_not_list_is_refused_and_one_that_it_does_is_alone() {
+            let (_dir, path) = analysis(Some("5"), &[WAIT, SELL]);
+            let ran = forge(&["real-options", &path, "--option", "nope"]);
+            assert!(!ran.success());
+            let text = ran.both();
+            assert!(
+                text.contains("Option 'nope' not found. Available: [\"Sell\", \"Wait\"]"),
+                "{text}"
+            );
+            let text = forge(&["real-options", &path, "--option", "Sell"]).printed();
+            assert!(text.contains("Sell (Abandon)"), "{text}");
+            assert!(!text.contains("Wait (Defer)"), "{text}");
+        }
+
+        #[test]
+        fn without_a_traditional_npv_the_options_that_need_one_say_so() {
+            let (_dir, path) = analysis(None, &[WAIT, SELL]);
+            let text = forge(&["real-options", &path]).printed();
+            for line in [
+                "      Wait (Defer)\n         Adds over the traditional NPV: needs traditional_npv\n         Project value with this option: $19.72\n",
+                "      Sell (Abandon)\n         Adds over the traditional NPV: $1.09\n         Project value with this option: needs traditional_npv\n",
+            ] {
+                assert!(text.contains(line), "{line}\n{text}");
+            }
+            // Asked for, the missing NPV is a line of its own; otherwise nothing is said
+            assert!(!text.contains("Traditional NPV"), "{text}");
+            let text = forge(&["real-options", &path, "--compare-npv"]).printed();
+            assert!(
+                text.contains(
+                    "   Traditional NPV: not given (set traditional_npv in real_options)\n"
+                ),
+                "{text}"
+            );
+        }
+
+        #[test]
+        fn an_option_with_no_rule_of_thumb_has_no_line_for_one() {
+            let swap = "    - {type: switch, name: Swap, exercise_cost: 10}\n";
+            let (_dir, path) = analysis(Some("5"), &[swap]);
+            let text = forge(&["real-options", &path]).printed();
+            assert!(text.contains("      Swap (Switch)\n"), "{text}");
+            assert!(!text.contains("Rule of thumb"), "{text}");
+        }
+
+        #[test]
+        fn verbose_says_when_it_values_the_options() {
+            let (_dir, path) = analysis(Some("5"), &[WAIT]);
+            let text = forge(&["real-options", &path, "--verbose"]).printed();
+            assert!(
+                text.contains("\n🔄 Valuing options...\n📊 Real Options Results:\n"),
+                "{text}"
+            );
+            assert!(!forge(&["real-options", &path])
+                .printed()
+                .contains("Valuing"));
+        }
+
+        #[test]
+        fn the_result_goes_to_a_file_or_the_command_says_why_it_could_not() {
+            let (dir, path) = analysis(Some("5"), &[WAIT]);
+            let out = dir.path().join("o.json");
+            let text = forge(&["real-options", &path, "-o", out.to_str().unwrap()]).printed();
+            assert!(
+                text.contains(&format!("💾 Results written to {}\n", out.display())),
+                "{text}"
+            );
+            let ran = forge(&["real-options", &path, "-o", "/nonexistent/o.json"]);
+            assert!(!ran.success());
+            let text = ran.both();
+            assert!(
+                text.contains("Error: IO error: No such file or directory (os error 2)"),
+                "{text}"
+            );
+            assert!(!text.contains("Results written"), "{text}");
         }
     }
 }

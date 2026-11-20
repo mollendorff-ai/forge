@@ -1,31 +1,24 @@
 //! `forge tornado`: how far each input, from low to high, moves the output.
 
-use super::serialize_for_file;
+use super::write_result;
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use crate::tornado::{TornadoConfig, TornadoEngine};
+use crate::types::ParsedModel;
 use colored::Colorize;
 use num_traits::ToPrimitive;
-use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Generate tornado sensitivity analysis and return structured results (no printing).
-///
-/// # Errors
-///
-/// Returns an error if the file cannot be parsed, no tornado section exists,
-/// or the analysis fails.
-pub fn tornado_core(
-    file: &Path,
-    output_var: Option<&str>,
-) -> ForgeResult<crate::tornado::TornadoResult> {
+/// The `tornado:` section of the model in `file`, with `output_var` as its
+/// output if given, and the model.
+fn load(file: &Path, output_var: Option<&str>) -> ForgeResult<(TornadoConfig, ParsedModel)> {
     let yaml_content = parser::read_model_text(file)?;
     let model = parser::parse_model(file)?;
 
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
+    // The text is YAML: the model was just read from it
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content).unwrap_or_default();
 
     let mut config: TornadoConfig = if let Some(tornado_value) = value.get("tornado") {
         yaml_serde::from_value(tornado_value.clone())
@@ -39,7 +32,20 @@ pub fn tornado_core(
     if let Some(out_var) = output_var {
         config.output = out_var.to_string();
     }
+    Ok((config, model))
+}
 
+/// Generate tornado sensitivity analysis and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no tornado section exists,
+/// or the analysis fails.
+pub fn tornado_core(
+    file: &Path,
+    output_var: Option<&str>,
+) -> ForgeResult<crate::tornado::TornadoResult> {
+    let (config, model) = load(file, output_var)?;
     let engine = TornadoEngine::new(config, model).map_err(ForgeError::Validation)?;
     engine.analyze().map_err(ForgeError::Eval)
 }
@@ -61,27 +67,7 @@ pub fn tornado(
     outln!(c, "   File: {}", file.display());
     outln!(c);
 
-    // Parse YAML and model
-    let yaml_content = parser::read_model_text(file)?;
-    let model = parser::parse_model(file)?;
-
-    // Parse tornado config
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
-
-    let mut config: TornadoConfig = if let Some(tornado_value) = value.get("tornado") {
-        yaml_serde::from_value(tornado_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("tornado config error: {e}")))?
-    } else {
-        return Err(ForgeError::Validation(
-            "No 'tornado' section found in YAML".to_string(),
-        ));
-    };
-
-    // Override output variable if specified
-    if let Some(out_var) = output_var {
-        config.output = out_var.to_string();
-    }
+    let (config, model) = load(file, output_var)?;
 
     // Display config
     outln!(c, "   Output variable: {}", config.output.bright_blue());
@@ -160,15 +146,7 @@ pub fn tornado(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = serialize_for_file(&result, &output_path)?;
-        fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-        outln!(
-            c,
-            "{}",
-            format!("💾 Results written to {}", output_path.display())
-                .bold()
-                .green()
-        );
+        write_result(c, &result, &output_path)?;
     }
 
     outln!(c, "{}", "✅ Tornado diagram complete".bold().green());
@@ -203,8 +181,8 @@ tornado:
             )
             .expect("write");
             let ran = forge(&["tornado", file.to_str().expect("path")]);
-            assert!(ran.success(), "{}", ran.both());
-            assert_eq!(ran.out.matches("does not use it").count(), 1, "{}", ran.out);
+            assert!(ran.success());
+            assert_eq!(ran.out.matches("does not use it").count(), 1);
         }
     }
 
@@ -253,10 +231,7 @@ plan:
             .unwrap();
             let text = forge(&["tornado", file.to_str().unwrap()]).printed();
             assert!(text.contains("swing 0.063"), "{text}");
-            assert!(
-                text.contains("0.16 at low") || text.contains("0.160 at low"),
-                "{text}"
-            );
+            assert!(text.contains("0.16 at low"), "{text}");
         }
     }
 
@@ -562,6 +537,155 @@ plan:
                     bar.output_at_high
                 );
             }
+        }
+    }
+
+    mod command {
+        //! `forge tornado` end to end: what it refuses, the lines of `--verbose`,
+        //! a bar that does not move, and `-o`.
+
+        use crate::cli::forge;
+        use crate::cli::tornado_core;
+        use std::path::Path;
+
+        const HEAD: &str = "_forge_version: \"5.1.0\"\nprice: 10\nunit: 4\nrevenue: {formula: \"=price * 100\", value: 1000}\nflat: {formula: \"=unit * 0 + 7\", value: 7}\n";
+        const OK: &str =
+            "tornado:\n  output: revenue\n  inputs:\n    - {name: price, low: 5, high: 15}\n";
+
+        /// A model with `tornado` appended, in a temporary folder
+        fn model(tornado: &str) -> (tempfile::TempDir, String) {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, format!("{HEAD}{tornado}")).unwrap();
+            let path = path.to_str().unwrap().to_string();
+            (dir, path)
+        }
+
+        #[test]
+        fn a_file_a_section_or_a_config_that_does_not_fit_stops_the_command() {
+            let dir = tempfile::tempdir().unwrap();
+            let broken = dir.path().join("broken.yaml");
+            std::fs::write(&broken, "_forge_version: \"5.1.0\"\nprice: [1\n").unwrap();
+            let broken = broken.to_str().unwrap();
+            let (_dir, none) = model("");
+            let (_dir2, unknown_key) = model("tornado:\n  output: revenue\n  inputs:\n    - {name: price, low: 5, high: 15}\n  foo: 1\n");
+            let (_dir3, no_inputs) = model("tornado: {output: revenue, inputs: []}\n");
+            let (_dir4, reversed) =
+                model("tornado: {output: revenue, inputs: [{name: price, low: 15, high: 5}]}\n");
+            let (_dir5, no_output) = model(&OK.replace("output: revenue", "output: nope"));
+            for (path, want) in [
+                (
+                    "/nonexistent/m.yaml",
+                    "IO error: No such file or directory (os error 2)",
+                ),
+                (
+                    broken,
+                    "YAML parsing error: did not find expected ',' or ']' at line 3 column 1",
+                ),
+                (&none, "Validation error: No 'tornado' section found in YAML"),
+                (
+                    &unknown_key,
+                    "tornado config error: unknown field `foo`, expected one of `output`, `inputs`, `steps`",
+                ),
+                (&no_inputs, "At least one input variable must be specified"),
+                (
+                    &reversed,
+                    "Input 'price': low (15) must be less than high (5)",
+                ),
+                (
+                    &no_output,
+                    "Tornado output 'nope': not found; use an existing scalar ID",
+                ),
+            ] {
+                let ran = forge(&["tornado", path]);
+                assert!(!ran.success(), "{path}");
+                let text = ran.both();
+                assert!(text.contains(want), "{want}\n{text}");
+                assert!(!text.contains("Tornado diagram complete"), "{text}");
+            }
+            // The same refusals without printing
+            let err = tornado_core(Path::new(&none), None)
+                .unwrap_err()
+                .to_string();
+            assert_eq!(err, "Validation error: No 'tornado' section found in YAML");
+            let err = tornado_core(Path::new(&no_inputs), None)
+                .unwrap_err()
+                .to_string();
+            assert_eq!(
+                err,
+                "Validation error: At least one input variable must be specified"
+            );
+        }
+
+        #[test]
+        fn an_output_that_does_not_calculate_stops_the_analysis() {
+            let (_dir, path) = model(
+                "unit2: {formula: \"=1 / (price - 10)\", value: 0}\ntornado:\n  output: unit2\n  inputs:\n    - {name: price, low: 5, high: 15}\n",
+            );
+            let ran = forge(&["tornado", &path]);
+            assert!(!ran.success());
+            let text = ran.both();
+            assert!(
+                text.contains("unit2: Division by zero (formula: =1 / (price - 10))"),
+                "{text}"
+            );
+            assert!(!text.contains("Tornado Diagram:"), "{text}");
+        }
+
+        #[test]
+        fn the_output_can_be_named_on_the_command_line() {
+            let (_dir, path) = model(OK);
+            let text = forge(&["tornado", &path, "--output-var", "flat"]).printed();
+            assert!(text.contains("Output variable: flat"), "{text}");
+            assert!(text.contains("Base value: 7.00"), "{text}");
+            let result = tornado_core(Path::new(&path), Some("flat")).unwrap();
+            assert_eq!(result.output, "flat");
+        }
+
+        #[test]
+        fn an_input_that_does_not_move_the_output_has_a_bar_of_one_block_and_a_note() {
+            let (_dir, path) = model(&OK.replace("output: revenue", "output: flat"));
+            let text = forge(&["tornado", &path]).printed();
+            assert!(
+                text.contains(
+                    "   price |█                             | swing 0.00  (output 7.00 at low, 7.00 at high)\n"
+                ),
+                "{text}"
+            );
+        }
+
+        #[test]
+        fn verbose_lists_the_inputs_and_says_when_it_calculates() {
+            let (_dir, path) = model(OK);
+            let text = forge(&["tornado", &path, "--verbose"]).printed();
+            assert_eq!(
+                text,
+                format!(
+                    "🌪️ Forge - Tornado Diagram\n   File: {path}\n\n   Output variable: revenue\n   Inputs to vary: 1\n      price [5.00 - 15.00]\n\n🔄 Calculating sensitivities...\n📊 Tornado Diagram:\n   Base value: 1,000.00\n\n   price |██████████████████████████████| swing 1,000.00  (output 500.00 at low, 1,500.00 at high)\n\n✅ Tornado diagram complete\n"
+                )
+            );
+        }
+
+        #[test]
+        fn the_result_goes_to_a_file_or_the_command_says_why_it_could_not() {
+            let (dir, path) = model(OK);
+            let out = dir.path().join("o.json");
+            let text = forge(&["tornado", &path, "-o", out.to_str().unwrap()]).printed();
+            assert!(
+                text.contains(&format!("💾 Results written to {}\n", out.display())),
+                "{text}"
+            );
+            let json: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
+            assert_eq!(json["bars"][0]["swing"], 1000.0);
+            let ran = forge(&["tornado", &path, "-o", "/nonexistent/o.json"]);
+            assert!(!ran.success());
+            let text = ran.both();
+            assert!(
+                text.contains("Error: IO error: No such file or directory (os error 2)"),
+                "{text}"
+            );
+            assert!(!text.contains("Results written"), "{text}");
         }
     }
 }

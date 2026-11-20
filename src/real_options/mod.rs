@@ -102,7 +102,7 @@ mod tests {
                 .unwrap()
                 .with_traditional_npv(-500_000.0);
 
-            let result = engine.analyze().unwrap();
+            let result = engine.analyze();
 
             // Validate structure
             assert_eq!(result.options.len(), 3);
@@ -132,8 +132,8 @@ mod tests {
                 RealOptionsConfig::new("High Vol", UnderlyingConfig::new(100.0, 0.40, 0.05, 1.0))
                     .with_option(OptionDefinition::defer("Wait", 1.0, 100.0));
 
-            let low_result = RealOptionsEngine::new(low_vol).unwrap().analyze().unwrap();
-            let high_result = RealOptionsEngine::new(high_vol).unwrap().analyze().unwrap();
+            let low_result = RealOptionsEngine::new(low_vol).unwrap().analyze();
+            let high_result = RealOptionsEngine::new(high_vol).unwrap().analyze();
 
             assert!(
                 high_result.options["Wait"].value > low_result.options["Wait"].value,
@@ -152,14 +152,8 @@ mod tests {
                 RealOptionsConfig::new("Long", UnderlyingConfig::new(100.0, 0.20, 0.05, 2.0))
                     .with_option(OptionDefinition::defer("Wait", 2.0, 100.0));
 
-            let short_result = RealOptionsEngine::new(short_time)
-                .unwrap()
-                .analyze()
-                .unwrap();
-            let long_result = RealOptionsEngine::new(long_time)
-                .unwrap()
-                .analyze()
-                .unwrap();
+            let short_result = RealOptionsEngine::new(short_time).unwrap().analyze();
+            let long_result = RealOptionsEngine::new(long_time).unwrap().analyze();
 
             assert!(
                 long_result.options["Wait"].value > short_result.options["Wait"].value,
@@ -177,7 +171,7 @@ mod tests {
             .with_option(OptionDefinition::abandon("Exit", 400_000.0));
 
             let engine = RealOptionsEngine::new(config).unwrap();
-            let result = engine.analyze().unwrap();
+            let result = engine.analyze();
 
             let abandon = result.options.get("Exit").unwrap();
             assert!(abandon.value > 0.0, "Abandon option should have value");
@@ -199,7 +193,7 @@ mod tests {
             .with_option(OptionDefinition::expand("Scale Up", 2.0, 500_000.0));
 
             let engine = RealOptionsEngine::new(config).unwrap();
-            let result = engine.analyze().unwrap();
+            let result = engine.analyze();
 
             let expand = result.options.get("Scale Up").unwrap();
             assert!(expand.value > 0.0, "Expand option should have value");
@@ -220,14 +214,8 @@ mod tests {
                     .with_option(OptionDefinition::defer("Wait", 1.0, 100.0))
                     .with_binomial_steps(200); // More steps for accuracy
 
-            let bs_result = RealOptionsEngine::new(bs_config)
-                .unwrap()
-                .analyze()
-                .unwrap();
-            let bin_result = RealOptionsEngine::new(bin_config)
-                .unwrap()
-                .analyze()
-                .unwrap();
+            let bs_result = RealOptionsEngine::new(bs_config).unwrap().analyze();
+            let bin_result = RealOptionsEngine::new(bin_config).unwrap().analyze();
 
             let bs_value = bs_result.options.get("Wait").unwrap().value;
             let bin_value = bin_result.options.get("Wait").unwrap().value;
@@ -254,7 +242,7 @@ mod tests {
             .with_method(ValuationMethod::BlackScholes)
             .with_option(OptionDefinition::defer("Call", 1.0, 100.0));
 
-            let result = RealOptionsEngine::new(config).unwrap().analyze().unwrap();
+            let result = RealOptionsEngine::new(config).unwrap().analyze();
             let call_value = result.options.get("Call").unwrap().value;
 
             // Should be close to QuantLib reference (10.45)
@@ -280,7 +268,7 @@ mod tests {
                 .unwrap()
                 .with_traditional_npv(-100_000.0);
 
-            let result = engine.analyze().unwrap();
+            let result = engine.analyze();
 
             // Should have all 4 options
             assert_eq!(result.options.len(), 4);
@@ -329,7 +317,7 @@ mod tests {
                 .unwrap()
                 .with_traditional_npv(-50_000.0);
 
-            let result = engine.analyze().unwrap();
+            let result = engine.analyze();
 
             if result.project_value_with_options.unwrap() > 0.0 {
                 assert!(result.decision.contains("ACCEPT"));
@@ -349,7 +337,7 @@ mod tests {
                 RealOptionsConfig::new("No NPV", UnderlyingConfig::new(100.0, 0.30, 0.05, 1.0))
                     .with_option(OptionDefinition::defer("Wait", 1.0, 100.0))
                     .with_option(OptionDefinition::expand("Grow", 1.5, 20.0));
-            let result = RealOptionsEngine::new(config).unwrap().analyze().unwrap();
+            let result = RealOptionsEngine::new(config).unwrap().analyze();
 
             assert!(result.traditional_npv.is_none());
             assert!(result.options["Wait"].project_value.is_some());
@@ -372,7 +360,7 @@ options:
   - {type: abandon, name: Exit, salvage_value: 90}
 ";
             let config: RealOptionsConfig = yaml_serde::from_str(yaml).unwrap();
-            let result = RealOptionsEngine::new(config).unwrap().analyze().unwrap();
+            let result = RealOptionsEngine::new(config).unwrap().analyze();
             assert_eq!(result.traditional_npv, Some(-5.0));
             let exit = &result.options["Exit"];
             assert!((exit.project_value.unwrap() - (exit.value - 5.0)).abs() < 1e-9);
