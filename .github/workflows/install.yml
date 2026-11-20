@@ -27,6 +27,10 @@ jobs:
   homebrew:
     name: brew install (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # An install takes about a minute; on 2026-11-20 the macOS binstall check
+    # hung with no limit (a job without one runs six hours), so each fails
+    # here, with its log, after a quarter hour
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +71,8 @@ jobs:
   binstall:
     name: cargo binstall (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Five tries of up to 150 seconds each, and the downloads, fit in 20 minutes
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The install checks after a release stop after 15 and 20 minutes.** On 2026-11-20 the macOS `cargo binstall` check of rc.30 was still on its install step 25 minutes after the other five checks had passed (the step takes seconds elsewhere and retries five times at most 150 seconds each), and a job with no limit runs six hours before GitHub stops it. The Homebrew checks now fail after 15 minutes and the binstall checks after 20, each with its log.
+
 ## [10.0.0-rc.30] - 2026-11-20
 
 Games. A `games:` section (format 5.5.0) finds each game's dominated strategies, pure and mixed equilibria and even-mix payoffs, and a `tournament:` plays repeated games between built-in strategies with exact expected values; `forge game`, `forge_game` (the 21st MCP tool) and forge-wasm read them, and seven examples ship in `examples/games`. The games are compared with Gambit, the axelrod library and R in CI, and no disagreement was found. Wrong answers fixed (`MAX` and `MIN` of dates, `XNPV` with a date before the first, `ROUND` at -309 and below, `HOUR`, `MINUTE` and `SECOND` past 9999-12-31, and more under Fixed), so by docs/STABILITY.md the two weeks start again from this release: no earlier than 2026-12-04. Forge Studio downloads 679 KB less.
