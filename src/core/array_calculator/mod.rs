@@ -1,5 +1,6 @@
 mod errors;
 pub mod evaluator;
+mod formats;
 mod games;
 mod graph;
 mod includes;
@@ -76,6 +77,10 @@ impl Outcome {
     }
 }
 
+/// Why a lookup that cannot miss does not check: what was read a moment ago is
+/// still there.
+const KEPT: &str = "it was read a moment ago, and nothing removed it";
+
 impl ArrayCalculator {
     #[must_use]
     pub fn new(model: ParsedModel) -> Self {
@@ -118,7 +123,7 @@ impl ArrayCalculator {
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
         let outcome = self.calculate_cells()?;
         if outcome.failures.is_empty() {
-            check_formula_formats(&self.model)?;
+            formats::check_formula_formats(&self.model)?;
             return Ok(self.model);
         }
         Err(outcome.report())
@@ -144,7 +149,7 @@ impl ArrayCalculator {
             return Err(outcome.report());
         }
         if outcome.failures.is_empty() {
-            check_formula_formats(&self.model)?;
+            formats::check_formula_formats(&self.model)?;
         }
         self.model
             .scalars
@@ -189,7 +194,7 @@ impl ArrayCalculator {
             return Err(outcome.report());
         }
         if outcome.failures.is_empty() {
-            check_formula_formats(&self.model)?;
+            formats::check_formula_formats(&self.model)?;
         }
         Ok(self.model)
     }
@@ -254,10 +259,7 @@ impl ArrayCalculator {
                 Cell::Game(name) => self.calculate_game(name),
             };
             if let Err(e) = result {
-                outcome.failures.push(match e {
-                    ForgeError::Eval(msg) => msg,
-                    other => other.to_string(),
-                });
+                outcome.failures.push(failure_text(e));
                 outcome.failed.extend(cell.members());
             }
         }
@@ -272,40 +274,39 @@ impl ArrayCalculator {
         let result = self
             .evaluate_rowwise_formula_ast(table_name, &formula)
             .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
-        if let Some(ctx) = self.ctx.as_mut() {
-            ctx.tables
-                .entry(table_name.to_string())
-                .or_default()
-                .insert(col_name.to_string(), column_values(&result).into());
-        }
-        if let Some(stored) = self.model.tables.get_mut(table_name) {
-            stored.add_column(Column::new(col_name.to_string(), result));
-        }
+        // The evaluation kept the context, and the table is the one just read
+        let ctx = self.ctx.as_mut().expect(KEPT);
+        ctx.tables
+            .entry(table_name.to_string())
+            .or_default()
+            .insert(col_name.to_string(), column_values(&result).into());
+        let stored = self.model.tables.get_mut(table_name).expect(KEPT);
+        stored.add_column(Column::new(col_name.to_string(), result));
         Ok(())
     }
 
     /// Calculate one scalar formula and store its value
     fn calculate_scalar_cell(&mut self, scalar_name: &str) -> ForgeResult<()> {
-        let Some(formula) = self
-            .model
-            .scalars
-            .get(scalar_name)
-            .and_then(|v| v.formula.clone())
-        else {
-            return Ok(());
-        };
+        // Only a scalar with a formula is a step of the order
+        let formula = self.model.scalars[scalar_name]
+            .formula
+            .clone()
+            .unwrap_or_default();
         self.check_game_results(&formula)
             .map_err(|e| locate_error(e, scalar_name, &formula))?;
         let (value, is_date) = self
             .evaluate_scalar_formula_ast(scalar_name, &formula)
             .map_err(|e| locate_error(e, scalar_name, &formula))?;
-        if let Some(var) = self.model.scalars.get_mut(scalar_name) {
-            var.value = Some(value);
-            var.is_date = is_date;
-            if let (Some(ctx), Some(held)) = (self.ctx.as_mut(), scalar_value(var)) {
-                ctx.scalars.insert(scalar_name.to_string(), held);
-            }
-        }
+        let var = self.model.scalars.get_mut(scalar_name).expect(KEPT);
+        var.value = Some(value);
+        var.is_date = is_date;
+        // The scalar has a value now, which the context holds too
+        let held = scalar_value(var).expect(KEPT);
+        self.ctx
+            .as_mut()
+            .expect(KEPT)
+            .scalars
+            .insert(scalar_name.to_string(), held);
         Ok(())
     }
 
@@ -378,14 +379,12 @@ impl ArrayCalculator {
         evaluate: impl FnOnce(&mut evaluator::EvalContext) -> R,
     ) -> R {
         let mut ctx = self.ctx.take().unwrap_or_else(|| self.base_context());
-        // Each name laid over the shared context, with what it held before
+        // Each name laid over the shared context, with what it held before: a
+        // name laid twice is put back to its first value last
         let mut saved: Vec<(String, Option<evaluator::Value>)> = Vec::new();
-        let mut laid: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut lay = |ctx: &mut evaluator::EvalContext, name: String, value: evaluator::Value| {
             let previous = ctx.scalars.insert(name.clone(), value);
-            if laid.insert(name.clone()) {
-                saved.push((name, previous));
-            }
+            saved.push((name, previous));
         };
 
         // The shared context holds each calculated scalar under its full name
@@ -432,9 +431,9 @@ impl ArrayCalculator {
         set: impl FnOnce(&mut plan::Step, T),
         compute: impl FnOnce() -> ForgeResult<T>,
     ) -> ForgeResult<T> {
-        let Some(index) = self.step else {
-            return compute();
-        };
+        let index = self
+            .step
+            .expect("a formula is evaluated in a step of the order");
         let fingerprint = self.fingerprint;
         if let Some(found) = self
             .plan
@@ -443,11 +442,9 @@ impl ArrayCalculator {
             return Ok(found);
         }
         let value = compute()?;
-        self.plan.structure(fingerprint, |s| {
-            if let Some(step) = s.steps.get_mut(index) {
-                set(step, value.clone());
-            }
-        });
+        // The plan has a step for each place of the order
+        self.plan
+            .structure(fingerprint, |s| set(&mut s.steps[index], value.clone()));
         Ok(value)
     }
 
@@ -599,44 +596,13 @@ impl ArrayCalculator {
     }
 }
 
-/// A column's values as the evaluator reads them (dates as text).
-/// A formula's `format:` must be a date code where its value is a date and a
-/// number code where it is a number (ADR-061); its value is known only once
-/// calculated.
-fn check_formula_formats(model: &ParsedModel) -> ForgeResult<()> {
-    use evaluator::text::number_format::{check_format, FormatKind};
-    let mismatch = |path: &str, format: &str, is_date: bool| -> ForgeResult<()> {
-        let kind = check_format(format).map_err(ForgeError::Eval)?;
-        let (wrong, value) = match (kind, is_date) {
-            (FormatKind::Date, false) => ("a date format", "a number"),
-            (FormatKind::Number, true) => ("a number format", "a date"),
-            _ => return Ok(()),
-        };
-        Err(ForgeError::Eval(format!(
-            "'{path}.format': \"{format}\" is {wrong}, and the value of '{path}' is {value}"
-        )))
-    };
-    for (path, var) in &model.scalars {
-        if let (Some(format), Some(_), Some(_)) = (&var.metadata.format, &var.formula, var.value) {
-            mismatch(path, format, var.is_date)?;
-        }
+/// What a failed cell is reported as: an evaluation error as its message, which
+/// already says where it is, and any other error as it reads.
+fn failure_text(error: ForgeError) -> String {
+    match error {
+        ForgeError::Eval(msg) => msg,
+        other => other.to_string(),
     }
-    for (name, table) in &model.tables {
-        for (column, metadata) in &table.formula_metadata {
-            let (Some(format), Some(col)) = (&metadata.format, table.columns.get(column)) else {
-                continue;
-            };
-            let is_date = match &col.values {
-                ColumnValue::Date(_) => true,
-                ColumnValue::Text(v) => {
-                    !v.is_empty() && v.iter().all(|t| evaluator::excel_date_serial(t).is_some())
-                },
-                _ => false,
-            };
-            mismatch(&format!("{name}.{column}"), format, is_date)?;
-        }
-    }
-    Ok(())
 }
 
 /// A scalar's value as a formula reads it: a date as its text, as a cell of
@@ -676,7 +642,7 @@ mod aggregation_classifier_tests {
     use super::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table};
 
-    fn calculate_column(formula: &str) -> Result<ColumnValue, String> {
+    fn calculate_column(formula: &str) -> ColumnValue {
         let mut model = ParsedModel::new();
         let mut table = Table::new("t".to_string());
         table.add_column(Column::new(
@@ -685,20 +651,18 @@ mod aggregation_classifier_tests {
         ));
         table.add_row_formula("result".to_string(), formula.to_string());
         model.add_table(table);
-        let calculated = ArrayCalculator::new(model)
-            .calculate_all()
-            .map_err(|e| e.to_string())?;
-        Ok(calculated.tables["t"].columns["result"].values.clone())
+        let calculated = ArrayCalculator::new(model).calculate_all().unwrap();
+        calculated.tables["t"].columns["result"].values.clone()
     }
 
     #[test]
     fn test_max_with_several_arguments_is_row_wise() {
         assert_eq!(
-            calculate_column("=MAX(0, x)").unwrap(),
+            calculate_column("=MAX(0, x)"),
             ColumnValue::Number(vec![3.0, 0.0, 5.0])
         );
         assert_eq!(
-            calculate_column("=MIN(x, 4)").unwrap(),
+            calculate_column("=MIN(x, 4)"),
             ColumnValue::Number(vec![3.0, -2.0, 4.0])
         );
     }
@@ -714,7 +678,7 @@ mod aggregation_classifier_tests {
             ("=COUNTIF(x, \">\" & x) + 1", vec![2.0, 3.0, 1.0]),
         ] {
             assert_eq!(
-                calculate_column(formula).unwrap(),
+                calculate_column(formula),
                 ColumnValue::Number(expected),
                 "{formula}"
             );
@@ -761,7 +725,14 @@ mod aggregation_classifier_tests {
 
     #[test]
     fn test_function_name_inside_text_is_not_an_aggregate() {
-        assert!(calculate_column("=IF(x > 0, \"SUM(\", \"no\")").is_ok());
+        assert_eq!(
+            calculate_column("=IF(x > 0, \"SUM(\", \"no\")"),
+            ColumnValue::Text(vec![
+                "SUM(".to_string(),
+                "no".to_string(),
+                "SUM(".to_string()
+            ])
+        );
     }
 }
 
@@ -853,14 +824,15 @@ mod tests {
         fn check(cases: &[(&str, &str, f64)]) {
             let formulas: Vec<(&str, &str)> = cases.iter().map(|(n, f, _)| (*n, *f)).collect();
             let model = calculate(&formulas);
-            let mut wrong = Vec::new();
             for (name, formula, want) in cases {
                 let got = model.scalars[&format!("p.{name}")].value.unwrap();
-                if got.to_bits() != want.to_bits() && !(got == 0.0 && *want == 0.0) {
-                    wrong.push(format!("{name} {formula}: {got:e}, Excel {want:e}"));
-                }
+                // Adding 0 makes -0 the 0 that Excel shows
+                assert_eq!(
+                    (got + 0.0).to_bits(),
+                    (want + 0.0).to_bits(),
+                    "{name} {formula}: {got:e}, Excel {want:e}"
+                );
             }
-            assert!(wrong.is_empty(), "{}", wrong.join("\n"));
         }
 
         #[test]
@@ -1115,23 +1087,21 @@ mod tests {
             start.elapsed()
         }
 
-        /// In a release build, `took` is less than `times` the time of
-        /// [`one_search_per_row`]. A fixed limit failed twice on a CI runner
+        /// `took` is less than `times` the time of [`one_search_per_row`]. A fixed limit failed twice on a CI runner
         /// (2.09 s and 2.19 s against 2 s), and 5 s would hardly have told the
         /// copies from the search there. Against the same loop on the same
         /// machine, the search takes 4 times it for INDEX/MATCH and 15 for
         /// SUMIF, and the copies took about 29 and 35 times it (measured on the
         /// commit before the fix, 2026-11-18); the limits, 10 and 24, sit
-        /// between. A debug build is too slow to tell them apart, so it checks
-        /// only the results; the Validation workflow runs this in release.
+        /// between. A debug build, where the same loop is slower too, took 0.9
+        /// and 3.5 times it (measured 2026-11-20; release 3.4 and 11.8), so
+        /// the limits hold in every build, the coverage run's included.
         fn in_time(took: Duration, times: u32, what: &str) {
-            if !cfg!(debug_assertions) {
-                let one = one_search_per_row();
-                assert!(
-                    took < one * times,
-                    "16,000 rows of {what} took {took:?}, more than {times} times the {one:?} of one plain search of the column"
-                );
-            }
+            let one = one_search_per_row();
+            assert!(
+                took < one * times,
+                "16,000 rows of {what} took {took:?}, more than {times} times the {one:?} of one plain search of the column"
+            );
         }
 
         /// The time, and the results of `q.r`.
@@ -1340,12 +1310,170 @@ mod tests {
                     model(&vec!["1"; N].join("+")),
                     model(&worst),
                 ]);
-                assert!(answers[0].contains("nested more than"), "{}", answers[0]);
-                assert!(answers[1].contains("\\\"m.x\\\":3.0"), "{}", answers[1]);
-                assert!(answers[2].contains("nested more than"), "{}", answers[2]);
+                assert!(answers[0].contains("nested more than"), "{answers:?}");
+                assert!(answers[1].contains("\\\"m.x\\\":3.0"), "{answers:?}");
+                assert!(answers[2].contains("nested more than"), "{answers:?}");
                 let expected = format!("\\\"m.x\\\":{value:.1}");
-                assert!(answers[3].contains(&expected), "{}", answers[3]);
+                assert!(answers[3].contains(&expected), "{answers:?}");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod error_paths {
+    //! What the calculator says when a formula fails in a later row, does not
+    //! parse, or its `format:` does not fit its value, and the other ways a
+    //! calculation stops.
+
+    use super::ArrayCalculator;
+    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+
+    fn model(body: &str) -> ParsedModel {
+        let text = format!("_forge_version: \"5.4.0\"\n{body}");
+        crate::parser::parse_model_text("m.yaml", &text, &std::collections::HashMap::new()).unwrap()
+    }
+
+    fn calculate_error(model: ParsedModel) -> String {
+        ArrayCalculator::new(model)
+            .calculate_all()
+            .unwrap_err()
+            .to_string()
+    }
+
+    #[test]
+    fn a_row_that_fails_after_the_first_names_its_row_and_its_formula() {
+        for (formula, want) in [
+            // The kind of column is the first row's: text, true/false or numbers
+            (
+                "=IF(x > 1, 1 / 0, \\\"a\\\")",
+                "t.r row 2: Division by zero (formula: =IF(x > 1, 1 / 0, \"a\"))",
+            ),
+            (
+                "=IF(x > 1, 1 / 0, TRUE)",
+                "t.r row 2: Division by zero (formula: =IF(x > 1, 1 / 0, TRUE))",
+            ),
+            (
+                "=IF(x > 1, \\\"a\\\", 1)",
+                "t.r row 2: result is not a number (formula: =IF(x > 1, \"a\", 1))",
+            ),
+            (
+                "=1 +",
+                "t.r: syntax error: Unexpected end of expression (formula: =1 +)",
+            ),
+        ] {
+            let m = model(&format!(
+                "t:\n  x: [1, 2]\n  r: {{formula: \"{formula}\"}}\n"
+            ));
+            assert_eq!(
+                calculate_error(m),
+                format!("Formula evaluation error: {want}"),
+                "{formula}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_table_with_formulas_and_no_rows_cannot_be_calculated() {
+        let mut m = ParsedModel::new();
+        let mut table = Table::new("t".to_string());
+        table.add_column(Column::new("x".to_string(), ColumnValue::Number(vec![])));
+        table.add_row_formula("r".to_string(), "=x * 2".to_string());
+        m.add_table(table);
+        assert_eq!(
+            calculate_error(m),
+            "Formula evaluation error: t.r: Cannot evaluate on empty table (formula: =x * 2)"
+        );
+    }
+
+    #[test]
+    fn a_cycle_stops_the_calculation_of_the_outputs_too() {
+        let m = model("s:\n  a: {formula: \"=b + 1\"}\n  b: {formula: \"=a + 1\"}\n");
+        let err = ArrayCalculator::new(m)
+            .calculate_outputs(&["s.a".to_string()], &[])
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Circular dependency detected: scalars s.a, s.b depend on each other"
+        );
+    }
+
+    #[test]
+    fn a_column_named_like_a_scalar_is_read_in_its_table_and_the_scalar_elsewhere() {
+        let m = model(
+            "x: 5\nt:\n  x: [1, 2]\n  r: {formula: \"=x * 2\"}\nafter: {formula: \"=x + 1\"}\n",
+        );
+        let done = ArrayCalculator::new(m).calculate_all().unwrap();
+        assert_eq!(
+            done.tables["t"].columns["r"].values,
+            ColumnValue::Number(vec![2.0, 4.0])
+        );
+        assert_eq!(done.scalars["after"].value, Some(6.0));
+    }
+
+    #[test]
+    fn a_column_of_true_and_false_is_calculated_in_every_row() {
+        let done =
+            ArrayCalculator::new(model("t:\n  x: [1, 2, 3]\n  big: {formula: \"=x > 1\"}\n"))
+                .calculate_all()
+                .unwrap();
+        assert_eq!(
+            done.tables["t"].columns["big"].values,
+            ColumnValue::Boolean(vec![false, true, true])
+        );
+    }
+
+    #[test]
+    fn a_scalar_formula_that_gives_a_column_is_refused_and_one_row_is_its_value() {
+        let many = calculate_error(model("t:\n  x: [1, 2]\ns:\n  a: {formula: \"=t.x\"}\n"));
+        assert_eq!(
+            many,
+            "Formula evaluation error: s.a: Scalar formula '=t.x' returns 2 values. Aggregate it with a function such as SUM or INDEX. (formula: =t.x)"
+        );
+        let one = ArrayCalculator::new(model("t:\n  x: [7]\ns:\n  a: {formula: \"=t.x\"}\n"))
+            .calculate_all()
+            .unwrap();
+        assert_eq!(one.scalars["s.a"].value, Some(7.0));
+    }
+
+    #[test]
+    fn an_empty_cell_is_null_to_a_formula() {
+        use super::column_values;
+        use crate::core::array_calculator::evaluator::Value;
+        let values = column_values(&ColumnValue::Blanks(vec![Some(1.0), None]));
+        assert_eq!(values, [Value::Number(1.0), Value::Null]);
+    }
+
+    #[test]
+    fn a_failure_that_is_not_an_evaluation_is_reported_as_it_reads() {
+        use super::failure_text;
+        use crate::error::ForgeError;
+        assert_eq!(
+            failure_text(ForgeError::Eval("t.r: Division by zero".to_string())),
+            "t.r: Division by zero"
+        );
+        assert_eq!(
+            failure_text(ForgeError::Validation("no such name".to_string())),
+            "Validation error: no such name"
+        );
+    }
+
+    #[test]
+    fn a_section_scalar_with_no_value_does_not_hide_the_top_level_one_it_is_named_like() {
+        let mut m = ParsedModel::new();
+        m.scalars.insert(
+            "price".to_string(),
+            Variable::new("price".to_string(), Some(5.0), None),
+        );
+        m.scalars.insert(
+            "s.price".to_string(),
+            Variable::new("s.price".to_string(), None, None),
+        );
+        m.scalars.insert(
+            "s.r".to_string(),
+            Variable::new("s.r".to_string(), None, Some("=price + 1".to_string())),
+        );
+        let done = ArrayCalculator::new(m).calculate_all().unwrap();
+        assert_eq!(done.scalars["s.r"].value, Some(6.0));
     }
 }
