@@ -183,12 +183,22 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: validation/games/requirements.txt
-      # pygambit 16.7.0 and the axelrod library, pinned: the pins are what the
-      # numbers in VALIDATION.md were measured with
+      # pygambit 16.7.0 builds from source (about five minutes), so the built
+      # wheels are kept: a directory of wheels for the pinned requirements,
+      # restored when requirements.txt and the Python version are the same
+      - name: Cache built wheels
+        id: wheels
+        uses: actions/cache@v6
+        with:
+          path: wheelhouse
+          key: games-wheels-${{ runner.os }}-${{ runner.arch }}-py3.12-${{ hashFiles('validation/games/requirements.txt') }}
+      - name: Build wheels
+        if: steps.wheels.outputs.cache-hit != 'true'
+        run: pip wheel -r validation/games/requirements.txt -w wheelhouse
+      # pygambit and the axelrod library, pinned: the pins are what the numbers
+      # in VALIDATION.md were measured with. Installed from the wheelhouse only.
       - name: Install Gambit and axelrod
-        run: pip install -r validation/games/requirements.txt
+        run: pip install --no-index --find-links wheelhouse -r validation/games/requirements.txt
       # Only R's base language and jsonlite: no recommended packages
       - name: Install R
         run: |
