@@ -72,7 +72,7 @@ mod tests {
         let doc = read("docs/PROMPTS.md");
         let line = INSTALL_LINE;
         let prompts = prompts(&doc);
-        assert_eq!(prompts.len(), 5, "docs/PROMPTS.md has five prompts");
+        assert_eq!(prompts.len(), 6, "docs/PROMPTS.md has six prompts");
         for (i, prompt) in prompts.iter().enumerate() {
             let n = i + 1;
             assert!(
