@@ -729,7 +729,7 @@ mod tests {
             close(number(ad, "/score"), 2.008, 1e-12);
         }
 
-        /// examples/bagel/price_war.yaml: the model names its two games, and
+        /// `examples/bagel/price_war.yaml`: the model names its two games, and
         /// the table's cells are the margins worked out by hand in
         /// src/cli/commands/examples (21,489.38 each if both hold, 25,585.252
         /// and 12,893.628 if one cuts, 19,188.939 each if both cut)
