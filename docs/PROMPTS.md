@@ -8,7 +8,7 @@ Forge is made to be used by an AI: it writes the model as YAML, Forge does the a
 
 **Where they work:** the AI has to be able to run commands. Tried by the maintainer on 2026-11-15, the first prompt (in the [README](../README.md#try-it-with-your-ai)) worked on Claude and on Grok, free tiers included. The free tiers of ChatGPT and Gemini had no sandbox to run it in. Each prompt asks an AI that cannot run it to say so, not to make numbers up.
 
-**Each prompt here was run by a fresh agent** (one that had never seen Forge) before it went in. The date and the outcome are under each prompt.
+**Prompts 1 to 5 were each run by a fresh agent** (one that had never seen Forge) before they went in; prompt 6's commands were run by hand and it has not yet had a fresh agent. The date and the outcome are under each prompt.
 
 **Opening the result in Studio:**
 - **A model in one file:** open Studio, go to the YAML tab, select all, paste the AI's YAML over it, and press "Check and apply".
@@ -194,6 +194,47 @@ results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
 *Run on 2026-11-15 by a fresh agent (Forge 10.0.0-rc.26): a 35% chance of a profitable first year over 5,000 runs, opening demand the main driver; the tornado led by opening demand, price and staff hours; the decision tree's 58,500 (open now) and 61,500 (pop-up first) worked out again by hand; waiting a year worth 4,605 more than investing today. No file changed. About 70 s.*
+
+## 6. Games: what will the other side do?
+
+When the answer depends on what someone else chooses: an AI that may cut corners and a human who may check, a rival who may cut prices, partners who may or may not cooperate.
+
+```text
+Use Forge, the financial-modelling engine from Möllendorff AI
+(https://github.com/mollendorff-ai/forge; the crate is mollendorff-forge).
+Do not build it from source; install it with:
+
+  curl -fsSL https://raw.githubusercontent.com/mollendorff-ai/forge/main/install.sh | sh -s -- --examples
+
+Two games in forge-examples/games/. Use `forge game --help` when you need
+the options.
+
+1. `forge game games/inspection.yaml`: an AI complies or cheats, a human
+   audits or trusts. Say who does what, and how often, in the equilibrium.
+   Check it yourself: show by hand that each side is indifferent between its
+   two choices when the other plays that mix.
+2. Copy inspection.yaml, raise `penalty` from 4 to 8 in the copy, and run
+   `forge game` on it. What happens to the audit rate, and to the cheating?
+   Explain the result in plain words; it surprises people.
+3. `forge game games/axelrod.yaml`: a prisoner's dilemma, then a tournament
+   of repeated play between five strategies. Who wins, who is "collectively
+   stable", and why does the dilemma's single-round answer differ from the
+   tournament's? Check one cell of the match table by hand (for example
+   tit for tat against always defect over 200 rounds).
+
+At the end, print every YAML file you wrote or changed, in full, each in its
+own code block with its file name, so I can open it in Forge Studio. If you
+changed none, say so.
+
+After this I will keep asking you questions about these games and what-ifs;
+answer from the files and Forge itself, and use `forge --help` and
+`forge <command> --help` for anything else Forge can do.
+
+If you cannot run commands here, say so plainly and do not invent any
+results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
+```
+
+*Commands run by hand on 2026-11-20 (Forge 10.0.0-rc.30), not yet by a fresh agent: the inspection game's one mixed equilibrium (the AI cheats a third of the time, the human audits a third of the time); with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third; in the tournament grim trigger ranks first at 2.596 a round, tit for tat second at 2.448, and grim, tit for tat and always defect are collectively stable; tit for tat against always defect is 0.995 a round (199 rounds at 1, the first at 0), as the match table says. Studio shows the same games on its Model view.*
 
 ## Writing your own
 

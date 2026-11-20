@@ -9,7 +9,7 @@
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/lctavares/b8e2fa78efcf26a20ff97b483050b05a/raw/forge-coverage.json)](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
-Forge reads a financial model written in YAML (inputs, formulas, tables, scenarios) and calculates it with 203 Excel-style functions, plus what a spreadsheet leaves to plug-ins: Monte Carlo, tornado charts, decision trees, real options, Bayesian networks. One engine, written in Rust, runs on the command line, as an MCP server for AI agents, and in your browser.
+Forge reads a financial model written in YAML (inputs, formulas, tables, scenarios) and calculates it with 203 Excel-style functions, plus what a spreadsheet leaves to plug-ins: Monte Carlo, tornado charts, decision trees, real options, Bayesian networks, game theory. One engine, written in Rust, runs on the command line, as an MCP server for AI agents, and in your browser.
 
 <p align="center">
   <a href="https://forge.mollendorff.ai/"><img src="https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/images/studio-phone.png" alt="Forge Studio on a phone: the bagel example's year, with revenue 386,827.45, profit 786.32 and the formula under each result" width="260"></a>
@@ -195,6 +195,7 @@ A spreadsheet calculates cells. The questions above need more than that, and For
 | Invest now, wait, or walk away? | `forge decision-tree` (backward induction), `forge real-options` (Black-Scholes and binomial: defer, expand, contract, abandon, switch) |
 | How sure is that average? | `forge bootstrap`: percentile, basic and BCa intervals |
 | How does one risk lead to another? | `forge bayesian`: Bayesian networks, with evidence |
+| What will a rival do, and what then? | `forge game`: the equilibria of a game in the model's `games:` section (dominated strategies, pure and mixed), and tournaments of repeated play between built-in strategies |
 | Where did the budget go? | `forge variance`, `forge report` |
 | What price breaks even? Hits a target? | `forge break-even`, `forge goal-seek` |
 | Can my colleague open it in Excel? | `forge export` writes a workbook with live formulas; `forge import` reads one back |
