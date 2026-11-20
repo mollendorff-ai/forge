@@ -19,15 +19,19 @@ use std::collections::BTreeMap;
 
 /// What is left of each kind on 2026-11-16, when the rule was made. Lower a
 /// number when a change removes some; never raise one.
-pub const BUDGET: [(&str, usize); 8] = [
+pub const BUDGET: [(&str, usize); 9] = [
     ("lint allow or expect attributes", 37),
-    ("lints allowed in a Cargo.toml", 13),
+    ("lints allowed in a Cargo.toml", 11),
     ("lint groups a crate does not enable", 2),
     ("code compiled only for or only without coverage", 0),
     ("ignored tests", 0),
     ("formatting skips", 0),
     ("test files in a tests folder", 0),
     ("test modules in a file of their own", 0),
+    // syn 2 and 3, since 2026-11-20 (roadmap T1-NO-SKIPPING): what pulls
+    // syn 2 (tracing-attributes, zeroize_derive, windows-implement and
+    // windows-interface) has no release on syn 3
+    ("crates clippy.toml allows in two versions", 1),
 ];
 
 /// The crates: their manifest, and the folders of their Rust code
@@ -220,6 +224,41 @@ pub fn test_folder_files() -> Vec<String> {
         .collect()
 }
 
+/// The crates a `clippy.toml` lets be in the tree in more than one version
+/// (`allowed-duplicate-crates`, which `multiple_crate_versions` then passes
+/// over), one line or several
+#[must_use]
+pub fn duplicates_allowed(text: &str) -> Vec<String> {
+    // A comment in TOML starts at #, which no crate name holds
+    let text = text
+        .lines()
+        .map(|line| line.split('#').next().unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let Some((_, rest)) = text.split_once("allowed-duplicate-crates") else {
+        return Vec::new();
+    };
+    rest.split(['[', ']'])
+        .nth(1)
+        .unwrap_or_default()
+        .split(',')
+        .map(|name| name.trim().trim_matches('"').to_string())
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
+/// The `clippy.toml` of the repository and of each crate that has its own
+#[must_use]
+pub fn clippy_configs() -> Vec<String> {
+    let mut configs: Vec<String> = CRATES
+        .iter()
+        .map(|(manifest, _)| manifest.replace("Cargo.toml", "clippy.toml"))
+        .filter(|config| root().join(config).is_file())
+        .collect();
+    configs.dedup();
+    configs
+}
+
 /// The `[lints.clippy]` table of a manifest: the lints set to allow, and the
 /// lint groups it does not turn on
 ///
@@ -289,6 +328,15 @@ pub fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
             add(BUDGET[2].0, 1, format!("{manifest}: {group}"));
         }
     }
+    // Counted even when there are none, so the kind is known to be scanned
+    let mut duplicates = Vec::new();
+    for config in clippy_configs() {
+        let text = std::fs::read_to_string(root().join(&config)).unwrap();
+        for name in duplicates_allowed(&text) {
+            duplicates.push(format!("{config}: {name}"));
+        }
+    }
+    add(BUDGET[8].0, duplicates.len(), duplicates.join(", "));
     let rustfmt = std::fs::read_to_string(root().join("rustfmt.toml")).unwrap();
     for key in ["ignore", "disable_all_formatting"] {
         let set = rustfmt.lines().any(|line| {
@@ -351,6 +399,34 @@ mod tests {
         assert_eq!(count("#[cfg(no_COV)]fna(){}"), 0);
         assert_eq!(count("#[cfg(unix)]fna(){}"), 0);
         assert_eq!(count("letCOV=1;"), 0);
+    }
+
+    #[test]
+    fn duplicate_crates_are_counted_on_one_line_or_several() {
+        assert_eq!(
+            duplicates_allowed("msrv = \"1.97.0\"\n"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            duplicates_allowed("allowed-duplicate-crates = [\"syn\"]\n"),
+            vec!["syn".to_string()]
+        );
+        assert_eq!(
+            duplicates_allowed(
+                "allowed-duplicate-crates = [\n  \"syn\", # macros\n  \"glam\",\n]\nmsrv = \"1.97.0\"\n"
+            ),
+            vec!["syn".to_string(), "glam".to_string()]
+        );
+        // Only commented out, or a list with nothing in it, allows nothing
+        assert_eq!(
+            duplicates_allowed("# allowed-duplicate-crates = [\"syn\"]\n"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            duplicates_allowed("allowed-duplicate-crates = []\n"),
+            Vec::<String>::new()
+        );
+        assert_eq!(clippy_configs(), vec!["clippy.toml".to_string()]);
     }
 
     #[test]

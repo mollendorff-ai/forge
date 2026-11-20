@@ -22,13 +22,12 @@
 
 use super::errors::{describe_cycle, locate_error};
 use super::evaluator::{self, Value};
+use super::graph;
 use super::order::Cell;
 use super::parser::{Expr, Reference};
 use super::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue};
-use petgraph::algo::{tarjan_scc, toposort};
-use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 /// The names a formula reads in its own row, and the names it reads only in
@@ -109,7 +108,7 @@ fn column_from(values: &[Value]) -> Result<ColumnValue, String> {
 }
 
 /// Cells and which reads which (an edge goes from the cell read).
-type Graph = DiGraph<Cell, ()>;
+type Graph = graph::Graph<Cell>;
 
 /// One column's name, `table.column`, formula and parsed formula.
 type RowFormula = (String, String, String, std::rc::Rc<Expr>);
@@ -230,9 +229,9 @@ impl ArrayCalculator {
     /// The cells as a graph of every dependency, the same without the lagged
     /// ones, and whether there is a lagged one. Nodes are the cells in order.
     fn dependency_graphs(&self, cells: &BTreeSet<Cell>) -> ForgeResult<(Graph, Graph, bool)> {
-        let mut full: DiGraph<Cell, ()> = DiGraph::new();
-        let mut same_row: DiGraph<Cell, ()> = DiGraph::new();
-        let mut index: BTreeMap<&Cell, NodeIndex> = BTreeMap::new();
+        let mut full = Graph::default();
+        let mut same_row = Graph::default();
+        let mut index: BTreeMap<&Cell, usize> = BTreeMap::new();
         for cell in cells {
             let node = full.add_node(cell.clone());
             same_row.add_node(cell.clone());
@@ -246,11 +245,11 @@ impl ArrayCalculator {
             };
             for dep in self.cell_dependencies(cell)? {
                 if let (Some(&from), Some(&to)) = (index.get(&dep), index.get(cell)) {
-                    full.add_edge(from, to, ());
+                    full.add_edge(from, to);
                     if lagged.contains(&dep) {
                         any_lagged = true;
                     } else {
-                        same_row.add_edge(from, to, ());
+                        same_row.add_edge(from, to);
                     }
                 }
             }
@@ -283,26 +282,27 @@ impl ArrayCalculator {
         }
 
         let (full, same_row, any_lagged) = self.dependency_graphs(&cells)?;
-        let index: BTreeMap<&Cell, NodeIndex> = cells.iter().zip(full.node_indices()).collect();
+        let index: BTreeMap<&Cell, usize> = cells.iter().zip(0..).collect();
 
-        let within_a_row = toposort(&same_row, None)
-            .map_err(|_| ForgeError::CircularDependency(describe_cycle(&same_row)))?;
+        let within_a_row = same_row
+            .topological_order()
+            .ok_or_else(|| ForgeError::CircularDependency(describe_cycle(&same_row)))?;
         if !any_lagged {
             return Ok(within_a_row
                 .into_iter()
-                .filter_map(|idx| same_row.node_weight(idx).cloned())
+                .map(|node| same_row[node].clone())
                 .collect());
         }
-        let position: BTreeMap<NodeIndex, usize> = within_a_row
+        let position: BTreeMap<usize, usize> = within_a_row
             .iter()
             .enumerate()
             .map(|(at, &node)| (node, at))
             .collect();
 
         // Cells that reach each other through a lagged dependency
-        let mut group_of: BTreeMap<NodeIndex, usize> = BTreeMap::new();
+        let mut group_of: BTreeMap<usize, usize> = BTreeMap::new();
         let mut groups: Vec<Cell> = Vec::new();
-        for mut component in tarjan_scc(&full) {
+        for mut component in full.strongly_connected() {
             if component.len() == 1 && !full.contains_edge(component[0], component[0]) {
                 continue;
             }
@@ -335,9 +335,9 @@ impl ArrayCalculator {
         }
 
         // The same graph with each group as one node, nodes in name order
-        let mut steps: DiGraph<Cell, ()> = DiGraph::new();
-        let mut step_of: BTreeMap<NodeIndex, NodeIndex> = BTreeMap::new();
-        let mut group_step: BTreeMap<usize, NodeIndex> = BTreeMap::new();
+        let mut steps = Graph::default();
+        let mut step_of: BTreeMap<usize, usize> = BTreeMap::new();
+        let mut group_step: BTreeMap<usize, usize> = BTreeMap::new();
         for cell in &cells {
             let node = index[cell];
             let step = match group_of.get(&node) {
@@ -348,18 +348,16 @@ impl ArrayCalculator {
             };
             step_of.insert(node, step);
         }
-        for edge in full.raw_edges() {
-            let (from, to) = (step_of[&edge.source()], step_of[&edge.target()]);
+        for &(from, to) in full.edges() {
+            let (from, to) = (step_of[&from], step_of[&to]);
             if from != to {
-                steps.update_edge(from, to, ());
+                steps.update_edge(from, to);
             }
         }
-        let order = toposort(&steps, None)
-            .map_err(|_| ForgeError::CircularDependency(describe_cycle(&steps)))?;
-        Ok(order
-            .into_iter()
-            .filter_map(|idx| steps.node_weight(idx).cloned())
-            .collect())
+        let order = steps
+            .topological_order()
+            .ok_or_else(|| ForgeError::CircularDependency(describe_cycle(&steps)))?;
+        Ok(order.into_iter().map(|node| steps[node].clone()).collect())
     }
 
     /// Calculate columns of one table that read each other through `PREV`:

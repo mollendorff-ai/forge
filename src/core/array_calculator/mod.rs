@@ -1,6 +1,7 @@
 mod errors;
 pub mod evaluator;
 mod games;
+mod graph;
 mod includes;
 mod names;
 mod order;

@@ -795,7 +795,8 @@ pub fn apply_scenario(
     scenario_name: &str,
 ) -> ForgeResult<()> {
     let scenario = model.scenarios.get(scenario_name).ok_or_else(|| {
-        let available: Vec<_> = model.scenarios.keys().collect();
+        let mut available: Vec<_> = model.scenarios.keys().collect();
+        available.sort_unstable();
         ForgeError::Validation(format!(
             "Scenario '{scenario_name}' not found. Available scenarios: {available:?}"
         ))
