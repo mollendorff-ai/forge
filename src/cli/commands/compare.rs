@@ -29,21 +29,41 @@ use std::path::Path;
 #[must_use]
 pub fn terminal_width() -> Option<usize> {
     use std::io::IsTerminal as _;
-    if let Some(columns) = std::env::var("COLUMNS")
-        .ok()
+    width_of(
+        std::env::var("COLUMNS").ok().as_deref(),
+        std::io::stdout().is_terminal(),
+        window_columns,
+    )
+}
+
+/// The width for the value of `COLUMNS` (if set), whether the output is a
+/// terminal, and what asking the terminal gives.
+fn width_of(
+    columns: Option<&str>,
+    is_terminal: bool,
+    window: impl FnOnce() -> Option<usize>,
+) -> Option<usize> {
+    if let Some(columns) = columns
         .and_then(|c| c.trim().parse::<usize>().ok())
         .filter(|&c| c > 0)
     {
         return Some(columns);
     }
-    if !std::io::stdout().is_terminal() {
+    if !is_terminal {
         return None;
     }
-    Some(window_columns().unwrap_or(80))
+    Some(window().unwrap_or(80))
 }
 
 #[cfg(unix)]
 fn window_columns() -> Option<usize> {
+    window_columns_of(libc::STDOUT_FILENO)
+}
+
+/// The columns of the terminal that file descriptor `fd` is, `None` when it is
+/// not one or reports no width.
+#[cfg(unix)]
+fn window_columns_of(fd: libc::c_int) -> Option<usize> {
     let mut size = libc::winsize {
         ws_row: 0,
         ws_col: 0,
@@ -51,8 +71,9 @@ fn window_columns() -> Option<usize> {
         ws_ypixel: 0,
     };
     // SAFETY: TIOCGWINSZ writes a `winsize` into the pointer it is given, which
-    // points at a live, writable `winsize`; standard output is open.
-    let ok = unsafe { libc::ioctl(libc::STDOUT_FILENO, libc::TIOCGWINSZ, &raw mut size) } == 0;
+    // points at a live, writable `winsize`; a descriptor that is not open or
+    // not a terminal makes the call fail, which is read as no width.
+    let ok = unsafe { libc::ioctl(fd, libc::TIOCGWINSZ, &raw mut size) } == 0;
     (ok && size.ws_col > 0).then_some(usize::from(size.ws_col))
 }
 
@@ -123,7 +144,10 @@ fn date_text(serial: f64) -> String {
 pub fn comparison_json(result: &ComparisonResult) -> serde_json::Value {
     let mut json = serde_json::to_value(Rounded(result)).unwrap_or_default();
     for variable in &result.dates {
-        if let Some(row) = json["values"][variable].as_object_mut() {
+        if let Some(row) = json["values"]
+            .get_mut(variable)
+            .and_then(serde_json::Value::as_object_mut)
+        {
             for value in row.values_mut() {
                 if let Some(serial) = value.as_f64() {
                     *value = serde_json::Value::String(date_text(serial));
@@ -425,7 +449,8 @@ pub fn compare_core(
 
     for scenario_name in scenarios {
         if !base_model.scenarios.contains_key(scenario_name) {
-            let available: Vec<_> = base_model.scenarios.keys().collect();
+            let mut available: Vec<_> = base_model.scenarios.keys().collect();
+            available.sort_unstable();
             return Err(ForgeError::Validation(format!(
                 "Scenario '{scenario_name}' not found. Available: {available:?}"
             )));
@@ -466,8 +491,9 @@ pub fn compare_core(
     let descriptions = scenarios
         .iter()
         .filter_map(|name| {
-            let text = base_model.scenarios.get(name)?.description.clone()?;
-            Some((name.clone(), text))
+            let scenario = base_model.scenarios.get(name);
+            let text = scenario.and_then(|s| s.description.clone());
+            text.map(|text| (name.clone(), text))
         })
         .collect();
 
@@ -842,6 +868,247 @@ scenarios:
             // agencies' 2.5
             assert!(at("eps.year_3_accretion", "all_cash") > 0.0);
             assert!(at("financing.leverage_at_close", "all_cash") > 2.5);
+        }
+    }
+
+    mod width {
+        //! The width the table wraps at: `COLUMNS`, else the terminal's, else no limit.
+
+        use super::super::window_columns;
+        use super::super::{terminal_width, width_of};
+
+        #[test]
+        fn columns_wins_then_the_terminal_then_no_limit() {
+            // `COLUMNS` is the width, whatever the terminal says
+            assert_eq!(width_of(Some("120"), false, || Some(1)), Some(120));
+            assert_eq!(width_of(Some(" 90 "), true, || Some(1)), Some(90));
+            // A value that is not a width is as if it were not set
+            assert_eq!(width_of(Some("wide"), false, || Some(1)), None);
+            assert_eq!(width_of(Some("0"), false, || Some(1)), None);
+            assert_eq!(width_of(None, false, || Some(1)), None);
+            assert_eq!(width_of(Some("0"), true, || Some(132)), Some(132));
+            assert_eq!(width_of(None, true, || Some(100)), Some(100));
+            // A terminal that does not say is 80 wide
+            assert_eq!(width_of(None, true, || None), Some(80));
+        }
+
+        #[test]
+        fn the_width_of_this_process_is_read_from_its_environment_and_its_output() {
+            use std::io::IsTerminal as _;
+            assert_eq!(
+                terminal_width(),
+                width_of(
+                    std::env::var("COLUMNS").ok().as_deref(),
+                    std::io::stdout().is_terminal(),
+                    window_columns
+                )
+            );
+        }
+
+        #[cfg(unix)]
+        mod window {
+            use super::super::super::{window_columns, window_columns_of};
+
+            /// A pseudo-terminal of `columns` columns: its two ends
+            fn terminal(columns: u16) -> (libc::c_int, libc::c_int) {
+                let size = libc::winsize {
+                    ws_row: 24,
+                    ws_col: columns,
+                    ws_xpixel: 0,
+                    ws_ypixel: 0,
+                };
+                let (mut master, mut slave) = (0, 0);
+                // SAFETY: `openpty` writes two descriptors into the integers it is
+                // given and reads the window size it is given; the name and the
+                // terminal settings are left out (null).
+                let made = unsafe {
+                    libc::openpty(
+                        &raw mut master,
+                        &raw mut slave,
+                        std::ptr::null_mut(),
+                        std::ptr::null(),
+                        &raw const size,
+                    )
+                };
+                assert_eq!(made, 0);
+                (master, slave)
+            }
+
+            fn close(fds: &[libc::c_int]) {
+                for fd in fds {
+                    // SAFETY: each descriptor was opened by the test and is closed once.
+                    unsafe { libc::close(*fd) };
+                }
+            }
+
+            #[test]
+            fn a_terminal_gives_its_columns_and_nothing_else_does() {
+                let (master, slave) = terminal(97);
+                assert_eq!(window_columns_of(slave), Some(97));
+                close(&[master, slave]);
+                // A terminal with no width, a pipe and a descriptor that is not open
+                let (master, slave) = terminal(0);
+                assert_eq!(window_columns_of(slave), None);
+                close(&[master, slave]);
+                let mut ends = [0; 2];
+                // SAFETY: `pipe` writes two descriptors into the array it is given.
+                assert_eq!(unsafe { libc::pipe(ends.as_mut_ptr()) }, 0);
+                assert_eq!(window_columns_of(ends[0]), None);
+                close(&ends);
+                assert_eq!(window_columns_of(-1), None);
+            }
+
+            #[test]
+            fn standard_output_is_asked_when_there_is_no_columns() {
+                assert_eq!(window_columns(), window_columns_of(libc::STDOUT_FILENO));
+            }
+        }
+    }
+
+    mod cells {
+        //! `—` where a scenario has no value, a date as its text, and a format
+        //! that cannot show a number falls back to the number.
+
+        use super::super::{comparison_json, render_comparison, shown_row, ReportFormat};
+        use crate::cli::commands::results::ComparisonResult;
+
+        #[test]
+        fn a_missing_value_is_a_dash_in_every_kind_of_row() {
+            let values = [Some(1.5), None];
+            assert_eq!(
+                shown_row(&values, false, false, Some("0.0%")),
+                ["150.0%", "—"]
+            );
+            assert_eq!(
+                shown_row(&[Some(46326.0), None], false, true, None),
+                ["2026-10-31", "—"]
+            );
+            assert_eq!(shown_row(&values, false, false, None), ["1.50", "—"]);
+            // A format that cannot show the number leaves it as it is
+            assert_eq!(
+                shown_row(&values, false, false, Some("not a format")),
+                ["1.50", "—"]
+            );
+        }
+
+        fn with_dates(date: &str, value: Option<f64>) -> ComparisonResult {
+            let row = indexmap::IndexMap::from([("a".to_string(), value)]);
+            ComparisonResult {
+                scenarios: vec!["a".to_string()],
+                variables: vec![date.to_string()],
+                values: indexmap::IndexMap::from([(date.to_string(), row)]),
+                descriptions: indexmap::IndexMap::new(),
+                dates: std::collections::BTreeSet::from([date.to_string()]),
+                formats: std::collections::BTreeMap::new(),
+            }
+        }
+
+        #[test]
+        fn a_date_is_its_text_in_json_and_csv_and_nothing_stays_null() {
+            let result = with_dates("s.d", Some(46326.0));
+            assert_eq!(comparison_json(&result)["values"]["s.d"]["a"], "2026-10-31");
+            assert_eq!(
+                render_comparison(&result, &[], ReportFormat::Csv, None),
+                "variable,a\ns.d,2026-10-31\n"
+            );
+            let none = with_dates("s.d", None);
+            assert_eq!(
+                comparison_json(&none)["values"]["s.d"]["a"],
+                serde_json::Value::Null
+            );
+            // A date named in `dates` and not in `values` has no row to change
+            let mut orphan = with_dates("s.d", None);
+            orphan.values.clear();
+            assert_eq!(comparison_json(&orphan)["values"], serde_json::json!({}));
+        }
+    }
+
+    mod command {
+        //! `forge compare` end to end: the model's own scalars, a date, a
+        //! description, the verbose line, and what it refuses.
+
+        use crate::cli::forge;
+
+        const MODEL: &str = "_forge_version: \"5.4.0\"\ns:\n  x: 2\n  d: 2026-10-31\n  r: {formula: \"=1 / x\"}\n  pct: {value: 0.5, format: \"0.0%\"}\n  q: {formula: \"=d + 1\"}\nscenarios:\n  base:\n    probability: 0.4\n    scalars: {x: 2}\n  zero:\n    probability: 0.1\n    scalars: {x: 0}\n  bad:\n    probability: 0.1\n    scalars: {nope: 1}\n  later:\n    probability: 0.2\n    scalars: {d: 2026-12-31}\n  big:\n    probability: 0.2\n    description: a big x\n    scalars: {x: 4}\n";
+
+        fn file() -> (tempfile::TempDir, String) {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, MODEL).unwrap();
+            let path = path.to_str().unwrap().to_string();
+            (dir, path)
+        }
+
+        #[test]
+        fn the_table_has_dates_descriptions_and_the_verbose_line() {
+            let (_dir, path) = file();
+            let text = forge(&["compare", &path, "-s", "base,later,big", "--verbose"]).printed();
+            assert_eq!(
+                text,
+                format!(
+                    "🔥 Forge - Scenario Comparison\n   File: {path}\n   Scenarios: base, later, big\n\n   Found 0 tables, 5 scalars, 5 scenarios\n\nvariable        base       later         big\ns.x                2           2           4\ns.d       2026-10-31  2026-12-31  2026-10-31\ns.r             0.50        0.50        0.25\ns.pct          50.0%       50.0%       50.0%\ns.q           46,327      46,388      46,327\n\nbig: a big x\n\n✅ Comparison complete\n"
+                )
+            );
+        }
+
+        #[test]
+        fn csv_gives_a_date_as_its_text() {
+            let (_dir, path) = file();
+            let text =
+                forge(&["compare", &path, "-s", "base,later,big", "--format", "csv"]).printed();
+            assert_eq!(
+                text,
+                "variable,base,later,big\ns.x,2,2,4\ns.d,2026-10-31,2026-12-31,2026-10-31\ns.r,0.5,0.5,0.25\ns.pct,0.5,0.5,0.5\ns.q,46327,46388,46327\n"
+            );
+        }
+
+        #[test]
+        fn a_file_a_scenario_or_a_calculation_that_fails_stops_the_command() {
+            let (_dir, path) = file();
+            for (args, want) in [
+                (
+                    vec!["compare", "/nonexistent/m.yaml", "-s", "base"],
+                    "IO error: No such file or directory (os error 2)",
+                ),
+                (
+                    vec!["compare", path.as_str(), "-s", "nope"],
+                    // Listed in name order, the same on every run
+                    "Scenario 'nope' not found. Available: [\"bad\", \"base\", \"big\", \"later\", \"zero\"]",
+                ),
+                (
+                    vec!["compare", path.as_str(), "-s", "base,bad"],
+                    "Scenario 'bad': Scenario override 'nope' does not name a scalar in the model.",
+                ),
+                (
+                    vec!["compare", path.as_str(), "-s", "base,zero"],
+                    "Formula evaluation error: s.r: Division by zero (formula: =1 / x)",
+                ),
+            ] {
+                let ran = forge(&args);
+                assert!(!ran.success(), "{args:?}");
+                let text = ran.both();
+                assert!(text.contains(want), "{args:?}: {text}");
+                assert!(!text.contains("Comparison complete"), "{text}");
+            }
+        }
+
+        #[test]
+        fn a_core_comparison_names_the_scenarios_in_order_when_one_is_missing() {
+            let (_dir, path) = file();
+            let compare = |file: &str| {
+                super::super::compare_core(std::path::Path::new(file), &["nope".to_string()])
+                    .unwrap_err()
+                    .to_string()
+            };
+            assert_eq!(
+                compare("/nonexistent/m.yaml"),
+                "IO error: No such file or directory (os error 2)"
+            );
+            let err = compare(&path);
+            assert_eq!(
+                err,
+                "Validation error: Scenario 'nope' not found. Available: [\"bad\", \"base\", \"big\", \"later\", \"zero\"]"
+            );
         }
     }
 }
