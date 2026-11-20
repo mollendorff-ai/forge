@@ -9,7 +9,7 @@ Forge's Monte Carlo, bootstrap, decision trees, real options and other analytics
 All tests validate forge against R, the gold-standard for statistical computing.
 If forge disagrees with R, forge has a bug.
 
-This is one of the two validation suites of [Forge](../..), in `validation/r`; the other is [forge-e2e-gnumeric](../gnumeric). Until 2026-11-12 it was the [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) repository, now archived, whose history is in this repository's history (ADR-057). It has no version of its own and is not published; Forge's Validation workflow runs it against the build of the same commit. A pull request that changes or removes an expected value here says `changes expected values` in its title (CONTRIBUTING.md).
+This is one of the validation suites of [Forge](../..), in `validation/r`; the others are [forge-e2e-gnumeric](../gnumeric) and, for games, [validation/games](../games). Until 2026-11-12 it was the [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) repository, now archived, whose history is in this repository's history (ADR-057). It has no version of its own and is not published; Forge's Validation workflow runs it against the build of the same commit. A pull request that changes or removes an expected value here says `changes expected values` in its title (CONTRIBUTING.md).
 
 ## What It Tests
 

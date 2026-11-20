@@ -22,7 +22,7 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 | Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Paste one prompt into your AI and it installs Forge and runs the bagel example; or install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
 | [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Prompt for your AI →](#try-it-with-your-ai) · [Quick start](#quick-start) · [For AI agents](#for-ai-agents) |
 
-**Checked, not trusted.** 2,162 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+**Checked, not trusted.** 2,162 formula tests compare Forge with Gnumeric, the analytics are compared with R, the games' equilibria with Gambit and their tournaments with the axelrod library, and the suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
 ## Four ways to use Forge
 
@@ -308,13 +308,14 @@ See [docs/REPORT.md](docs/REPORT.md).
 
 ## How we know the numbers are right
 
-Forge's results are checked against engines it does not control, and none of the checks is complete. The unit tests run on every push. The two validation suites, in [`validation/`](validation/), run on every pull request and every merge to `main` that changes the engine or a suite, and every week. [VALIDATION.md](VALIDATION.md) lists what each one covers, its latest result and how to run it; [docs/STABILITY.md](docs/STABILITY.md) says what a stable release will promise, and what it will not.
+Forge's results are checked against engines it does not control, and none of the checks is complete. The unit tests run on every push. The validation suites, in [`validation/`](validation/), run on every pull request and every merge to `main` that changes the engine or a suite, and every week. [VALIDATION.md](VALIDATION.md) lists what each one covers, its latest result and how to run it; [docs/STABILITY.md](docs/STABILITY.md) says what a stable release will promise, and what it will not.
 
 | Check | What it covers | Latest result |
 | --- | --- | --- |
 | Unit tests (this repo) | over 2,550 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
 | [forge-e2e-gnumeric](validation/gnumeric) | 2,162 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 175 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,137 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); CI runs them on every pull request |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
+| [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R | 0 disagreements in 3,000 generated games, 372 tournament values and the named games (2026-11-20) |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
 

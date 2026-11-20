@@ -1,6 +1,6 @@
 # ADR-057: The Validation Suites Live in This Repository
 
-**Status:** Accepted (2026-11-12); built, and the old repositories archived (2026-11-12)
+**Status:** Accepted (2026-11-12); built, and the old repositories archived (2026-11-12). Two suites joined later under the same decisions, in Python since they drive Python engines: `validation/sweep`, the generated cases (ADR-062), and `validation/games`, games against Gambit, the axelrod library and R (ADR-068, 2026-11-20)
 **Date:** 2026-11-12
 **Decided by:** the maintainer (bring the two end-to-end suites into Forge and archive their repositories); the design is Claude's, in a session configured for Fable 5.2
 **Supersedes:** the rest of ADR-027 (the suites in repositories of their own)

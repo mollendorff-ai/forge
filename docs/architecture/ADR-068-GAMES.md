@@ -1,6 +1,6 @@
 # ADR-068: Games: a Payoff Table, Its Equilibria, and Tournaments
 
-**Status:** Accepted (the three recommendations). Built: sections 1 to 4, games played once and tournaments, with `forge game`, the `forge_game` MCP tool, `game` in forge-wasm and seven examples. Left: kinship-protocol's three models rewritten in its own repository, and the suite against outside engines (T2-GAME-THEORY-E2E)
+**Status:** Accepted (the three recommendations). Built: sections 1 to 4, games played once and tournaments, with `forge game`, the `forge_game` MCP tool, `game` in forge-wasm and seven examples. The suite against outside engines, `validation/games` (T2-GAME-THEORY-E2E), is built (2026-11-20). Left: kinship-protocol's three models rewritten in its own repository
 **Date:** 2026-11-19
 **Decided by:** the maintainer, who accepted the three recommendations (2026-11-19); the analysis and the recommendations are Claude's
 **For:** roadmap T2-GAME-THEORY. T2-GAME-THEORY-MORE is not part of this.
@@ -161,6 +161,10 @@ So the tornado the roadmap asks for is `forge tornado inspection.yaml inspection
 ### 5. How it is checked
 
 Every equilibrium and ranking asserted in a test has a comment that says where its number comes from: nashpy (and its version), the `axelrod` library (version, runs, seed), or a hand calculation written out in the comment. For the tournament, Forge's exact value is compared with `axelrod`'s average over many seeded runs, within a stated tolerance, and with a hand calculation where one is short (TitForTat against AlwaysDefect over 200 rounds: 199/200).
+
+### The suite against outside engines (2026-11-20)
+
+`validation/games` runs `forge game -o` and compares it with Gambit (pygambit 16.7.0), the axelrod library (4.14.0) and R, in the Validation workflow on every pull request that changes `src/` or the suite (decisions and rules in its README). nashpy is not used there: it runs the same support enumeration as Forge. The rule that decides what fails is the one the roadmap item states, with one addition: a game Forge reports as degenerate must be shown to be (a pure strategy with two best replies, or an equilibrium of Gambit's with a spare best reply, in exact fractions), and a game with that proof must be reported, so that "degenerate" cannot excuse a disagreement it does not describe. Every strategy pair in three settings is compared, not a sample of eighteen as in the unit test.
 
 ## What is left out
 

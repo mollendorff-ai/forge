@@ -1,10 +1,12 @@
 name: Validation
 
-# Runs the two validation suites in validation/ (ADR-057) against a fresh
+# Runs the validation suites in validation/ (ADR-057) against a fresh
 # build of Forge from the same commit:
 #   validation/gnumeric  formulas compared with Gnumeric (and LibreOffice, for
 #                        the LET, LAMBDA and COUNTUNIQUE cases Gnumeric cannot read)
 #   validation/r         functions and analytics compared with R
+#   validation/games     games compared with Gambit, tournaments with the
+#                        axelrod library, 2 x 2 closed forms with R (ADR-068)
 # Weekly (which notices a new Gnumeric, LibreOffice or R), on demand, and on
 # the pull requests and merges to main described below.
 # Runs on Ubuntu 24.04: with the Gnumeric of 22.04, FLOOR and CEILING of a
@@ -21,6 +23,10 @@ on:
         description: "Generated cases: how many a function"
         required: false
         default: '200'
+      games:
+        description: "Games: how many generated games (the seed above is theirs too)"
+        required: false
+        default: '3000'
   # On pull requests and on main after a merge, when they change this file, the
   # source code, the version or dependencies in Cargo.toml, or a suite: the
   # result shows on the PR before it is merged, and main is checked with the
@@ -157,3 +163,55 @@ jobs:
         env:
           FORGE_BIN: ${{ github.workspace }}/target/release/forge
         run: cargo run --release -- --all
+
+  games:
+    name: Games vs Gambit, axelrod and R
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Compiled dependencies, restored from the last run on main; only main
+      # saves one, so pull requests do not fill the 10 GB the repository has
+      - name: Cache compiled dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build Forge
+        run: cargo build --release
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: validation/games/requirements.txt
+      # pygambit 16.7.0 and the axelrod library, pinned: the pins are what the
+      # numbers in VALIDATION.md were measured with
+      - name: Install Gambit and axelrod
+        run: pip install -r validation/games/requirements.txt
+      # Only R's base language and jsonlite: no recommended packages
+      - name: Install R
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends r-base-core r-cran-jsonlite
+      # A pull request and a push: seed 1 and 300 games, 200 seeded runs of each
+      # match. On Mondays, and on demand, the week's seed (year and ISO week),
+      # 3,000 games and 1,000 runs, to find what nobody wrote a case for. A
+      # failure prints the command that replays it.
+      - name: Games
+        working-directory: validation/games
+        env:
+          FORGE: ${{ github.workspace }}/target/release/forge
+          SEED_INPUT: ${{ github.event.inputs.seed }}
+          GAMES_INPUT: ${{ github.event.inputs.games }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            seed="${SEED_INPUT:-$(date -u +%G%V)}"
+            games="${GAMES_INPUT:-3000}"
+            runs=1000
+          else
+            seed=1
+            games=300
+            runs=200
+          fi
+          python3 -I run.py --seed "$seed" --games "$games" --runs "$runs" --fail

@@ -1,0 +1,5 @@
+# What validation/games compares Forge with (see README.md): Gambit, a separate
+# implementation of the pure and mixed solvers, and the axelrod library, which
+# plays the strategies. numpy comes with pygambit.
+pygambit==16.7.0
+axelrod==4.14.0

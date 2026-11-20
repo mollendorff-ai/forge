@@ -258,11 +258,11 @@ graph TB
 ### Scalability
 
 - **173 functions** - Most are Excel-compatible; `forge functions` lists them
-- **External checks** - Formulas are compared with Gnumeric and analytics with R (see VALIDATION.md)
+- **External checks** - Formulas are compared with Gnumeric and analytics with R, games with Gambit and the axelrod library (see VALIDATION.md)
 
 ### Reliability
 
-- **Tests** - Unit tests run on every push; the Gnumeric and R suites run weekly and on pull requests that change `src/`
+- **Tests** - Unit tests run on every push; the Gnumeric, R and games suites run weekly and on pull requests that change `src/`
 - **Lints** - clippy pedantic; CI fails on warnings
 - **Known limitations** - Listed in the README and docs/STABILITY.md
 
