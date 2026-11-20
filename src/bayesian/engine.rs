@@ -268,6 +268,71 @@ mod engine_tests {
             )
     }
 
+    /// `examples/bagel/slow_week.yaml`, its nodes added in the order given
+    fn slow_week(order: [usize; 3]) -> BayesianConfig {
+        let nodes = [
+            (
+                "weather",
+                BayesianNode::discrete(vec!["rainy", "dry"]).with_prior(vec![0.3, 0.7]),
+            ),
+            (
+                "roadwork",
+                BayesianNode::discrete(vec!["yes", "no"]).with_prior(vec![0.2, 0.8]),
+            ),
+            (
+                "sales",
+                BayesianNode::discrete(vec!["slow", "normal"])
+                    .with_parents(vec!["weather", "roadwork"])
+                    .with_cpt_entry("rainy, yes", vec![0.9, 0.1])
+                    .with_cpt_entry("rainy, no", vec![0.6, 0.4])
+                    .with_cpt_entry("dry, yes", vec![0.7, 0.3])
+                    .with_cpt_entry("dry, no", vec![0.15, 0.85]),
+            ),
+        ];
+        order
+            .iter()
+            .fold(BayesianConfig::new("slow week"), |config, &at| {
+                config.with_node(nodes[at].0, nodes[at].1.clone())
+            })
+    }
+
+    /// Same input, same output (STABILITY.md 4), to the last bit. The nodes
+    /// were kept in a `HashMap`, whose order is random per map, so the factors
+    /// were multiplied in a different order from one run to the next, and
+    /// P(no roadwork | slow, rainy) came out as 0.7272727272727272 or
+    /// 0.7272727272727273.
+    /// Each network here is a new map, built in each of the six orders.
+    #[test]
+    fn test_the_same_network_gives_the_same_bits_every_time() {
+        let orders = [
+            [0, 1, 2],
+            [0, 2, 1],
+            [1, 0, 2],
+            [1, 2, 0],
+            [2, 0, 1],
+            [2, 1, 0],
+        ];
+        let mut evidence = HashMap::new();
+        evidence.insert("sales".to_string(), "slow");
+        evidence.insert("weather".to_string(), "rainy");
+        let mut answers = std::collections::BTreeSet::new();
+        for build in 0..200 {
+            let engine = BayesianEngine::new(slow_week(orders[build % 6])).unwrap();
+            let roadwork = engine.query_with_evidence("roadwork", &evidence).unwrap();
+            let all = engine.query_all().unwrap().to_json().unwrap();
+            let bits: Vec<u64> = roadwork.probabilities.iter().map(|p| p.to_bits()).collect();
+            answers.insert((bits, all));
+        }
+        assert_eq!(answers.len(), 1, "{answers:#?}");
+        // 3/11 from the joint distribution, to within one unit in the last place
+        let (bits, _) = answers.into_iter().next().unwrap();
+        let yes = f64::from_bits(bits[0]);
+        assert!(
+            (yes - 3.0 / 11.0).abs() <= f64::EPSILON * yes,
+            "P(roadwork | slow, rainy) = {yes}"
+        );
+    }
+
     #[test]
     fn test_engine_creation() {
         let config = create_credit_risk_network();

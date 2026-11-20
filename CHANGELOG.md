@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A Bayesian network gives the same probabilities, to the last digit, on every run.** Its nodes were kept in a map whose order is random from one run to the next, and the factors of the inference were multiplied in that order, so the last digit could move: `forge bayesian examples/bagel/slow_week.yaml -q roadwork -e sales=slow -e weather=rainy` gave P(no road work) as 0.7272727272727272 on some runs and 0.7272727272727273 on others (both 8/11 to within one unit in the last place). The nodes and each conditional probability table are now kept in name order, so the answer is the same on every run and whatever order the nodes are written in the file, and the order in which nodes are listed, and which of several errors in a network is reported, no longer change from run to run either. A test builds the slow-week network 200 times, in each of the six orders of its nodes, and requires the same bits each time; it fails on 4fe05ea.
+
 ### Changed
 - **One version of each crate but syn (roadmap T1-NO-SKIPPING).** `multiple_crate_versions` is no longer allowed in `Cargo.toml` or `forge-wasm/Cargo.toml`. statrs is used without its default features, so nalgebra and its four versions of glam are out of the tree (99 lines fewer in `Cargo.lock`). petgraph, which pulled a second hashbrown and foldhash, is replaced by `src/core/array_calculator/graph.rs`: the same topological sort and strongly connected components, visiting nodes in the same order, checked against petgraph on 5,000 random graphs, so the calculation order, which error is reported first and every number are unchanged. syn 2 and 3 are both still in the tree, because tracing-attributes, zeroize_derive and windows-implement have no syn-3 release; `clippy.toml` allows syn alone (`allowed-duplicate-crates`, counted in `validation/repo`), so any other duplicate fails clippy.
 
