@@ -3,6 +3,7 @@
 use crate::error::{ForgeError, ForgeResult};
 use regex::Regex;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// Translates YAML row formulas to Excel cell formulas
 pub struct FormulaTranslator {
@@ -13,6 +14,29 @@ pub struct FormulaTranslator {
     /// Global mapping: `table_name` -> `row_count`
     table_row_counts: HashMap<String, usize>,
 }
+
+/// The patterns, compiled once: they are fixed text that is known to be valid.
+/// `SUM(table.column)` and the other aggregates that take a range
+static AGGREGATE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(SUM|AVERAGE|MAX|MIN|COUNT|COUNTA|PRODUCT)\(([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\)").unwrap()
+});
+/// `table.column`, with word boundaries
+static TABLE_COLUMN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap()
+});
+/// `table.column`, anywhere
+static ANY_TABLE_COLUMN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)").unwrap());
+/// A name
+static NAME: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap());
+/// `table.column[index]`
+static INDEXED: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\[(\d+)\]").unwrap()
+});
+/// A scalar's name: `group.name`
+static SCALAR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap());
 
 /// The column letters, by their place in the alphabet
 const LETTERS: &[u8; 26] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -249,10 +273,6 @@ impl FormulaTranslator {
     /// # Errors
     ///
     /// Returns an error if a column reference cannot be resolved.
-    ///
-    /// # Panics
-    ///
-    /// Panics if a regex capture group 0 is missing (should never occur).
     pub fn translate_row_formula(&self, formula: &str, excel_row: u32) -> ForgeResult<String> {
         // Remove leading = if present
         let formula_body = formula.strip_prefix('=').unwrap_or(formula);
@@ -260,9 +280,9 @@ impl FormulaTranslator {
         let mut result = formula_body.to_string();
 
         // Aggregations first, then other tables, then names without a table, then columns
-        self.replace_aggregate_ranges(&mut result)?;
-        self.replace_table_ranges(&mut result)?;
-        Self::replace_unknown_table_cells(&mut result, excel_row)?;
+        self.replace_aggregate_ranges(&mut result);
+        self.replace_table_ranges(&mut result);
+        Self::replace_unknown_table_cells(&mut result, excel_row);
         self.replace_column_references(&mut result, excel_row)?;
 
         Ok(format!("={result}"))
@@ -281,42 +301,32 @@ impl FormulaTranslator {
     /// - `=SUM(table.column)` → `=SUM(table!A2:A4)`
     /// - `=table.column[0]` → `=table!A2`
     /// - `=scalar_name / 100` → `=B3 / 100`
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if a regex compilation fails.
-    ///
-    /// # Panics
-    ///
-    /// Panics if a regex capture group 0 is missing (should never occur).
+    #[must_use]
     pub fn translate_scalar_formula(
         &self,
         formula: &str,
         scalar_row_map: &HashMap<String, u32>,
-    ) -> ForgeResult<String> {
+    ) -> String {
         // Remove leading = if present
         let formula_body = formula.strip_prefix('=').unwrap_or(formula);
 
         let mut result = formula_body.to_string();
 
         // Indexed references first, then ranges, then single cells, then scalars
-        self.replace_indexed_cells(&mut result)?;
-        self.replace_aggregate_ranges(&mut result)?;
-        self.replace_table_ranges(&mut result)?;
-        self.replace_first_row_cells(&mut result, scalar_row_map)?;
-        Self::replace_scalar_cells(&mut result, scalar_row_map)?;
+        self.replace_indexed_cells(&mut result);
+        self.replace_aggregate_ranges(&mut result);
+        self.replace_table_ranges(&mut result);
+        Self::replace_scalar_cells(&mut result, scalar_row_map);
 
-        Ok(format!("={result}"))
+        format!("={result}")
     }
 
     /// Rewrite `SUM(table.column)` and the like as a range: `SUM('table'!A2:A4)`.
-    fn replace_aggregate_ranges(&self, result: &mut String) -> ForgeResult<()> {
+    fn replace_aggregate_ranges(&self, result: &mut String) {
         // FIRST: Handle table.column references in aggregation functions that need ranges
         // Pattern for simple aggregations: SUM(table.column) → SUM(table!A2:A4)
-        let agg_pattern = Regex::new(r"(SUM|AVERAGE|MAX|MIN|COUNT|COUNTA|PRODUCT)\(([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\)")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
-        let agg_replacements: Vec<(std::ops::Range<usize>, String)> = agg_pattern
+        let agg_replacements: Vec<(std::ops::Range<usize>, String)> = AGGREGATE
             .captures_iter(&result.clone())
             .map(|cap| {
                 let full_match = cap.get(0).unwrap();
@@ -342,19 +352,14 @@ impl FormulaTranslator {
         for (range, replacement) in agg_replacements.into_iter().rev() {
             result.replace_range(range, &replacement);
         }
-
-        Ok(())
     }
 
     /// Rewrite any other `table.column` of a known table as a range, for `SUMIFS`,
     /// `PERCENTILE`, `RANK`, `CORREL` and the rest that the aggregate pass leaves.
-    fn replace_table_ranges(&self, result: &mut String) -> ForgeResult<()> {
+    fn replace_table_ranges(&self, result: &mut String) {
         // SECOND: Handle general table.column references that need ranges (for functions like SUMIFS, PERCENTILE, etc.)
-        let general_table_pattern =
-            Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
-        let general_replacements: Vec<(std::ops::Range<usize>, String)> = general_table_pattern
+        let general_replacements: Vec<(std::ops::Range<usize>, String)> = TABLE_COLUMN
             .captures_iter(&result.clone())
             .filter_map(|cap| {
                 let full_match = cap.get(0).unwrap();
@@ -390,18 +395,13 @@ impl FormulaTranslator {
         for (range, replacement) in general_replacements.into_iter().rev() {
             result.replace_range(range, &replacement);
         }
-
-        Ok(())
     }
 
     /// Rewrite a `table.column` of no known table as a cell of this row.
-    fn replace_unknown_table_cells(result: &mut String, excel_row: u32) -> ForgeResult<()> {
+    fn replace_unknown_table_cells(result: &mut String, excel_row: u32) {
         // THIRD: Handle remaining table.column references (not in known tables, use fallback)
-        let remaining_table_pattern =
-            Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
-        let remaining_replacements: Vec<(std::ops::Range<usize>, String)> = remaining_table_pattern
+        let remaining_replacements: Vec<(std::ops::Range<usize>, String)> = ANY_TABLE_COLUMN
             .captures_iter(&result.clone())
             .filter_map(|cap| {
                 let full_match = cap.get(0).unwrap();
@@ -424,19 +424,15 @@ impl FormulaTranslator {
         for (range, replacement) in remaining_replacements.into_iter().rev() {
             result.replace_range(range, &replacement);
         }
-
-        Ok(())
     }
 
     /// Rewrite each name of this table as the cell of its column on this row; a
     /// name that is neither a column, a function, a cell nor a number is an error.
     fn replace_column_references(&self, result: &mut String, excel_row: u32) -> ForgeResult<()> {
         // FOURTH: Handle simple column references in the current table
-        let var_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         let result_clone = result.clone();
-        let matches: Vec<_> = var_pattern.find_iter(&result_clone).collect();
+        let matches: Vec<_> = NAME.find_iter(&result_clone).collect();
 
         for match_obj in matches.iter().rev() {
             let var_name = match_obj.as_str();
@@ -489,14 +485,11 @@ impl FormulaTranslator {
     }
 
     /// Rewrite `table.column[index]` as one cell of the table: `table!A2`.
-    fn replace_indexed_cells(&self, result: &mut String) -> ForgeResult<()> {
+    fn replace_indexed_cells(&self, result: &mut String) {
         // Pattern for table.column[index] references (must be processed first)
-        let indexed_pattern =
-            Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\[(\d+)\]")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         // Replace indexed references: table.column[0] → table!A2
-        let indexed_replacements: Vec<(std::ops::Range<usize>, String)> = indexed_pattern
+        let indexed_replacements: Vec<(std::ops::Range<usize>, String)> = INDEXED
             .captures_iter(&result.clone())
             .map(|cap| {
                 let full_match = cap.get(0).unwrap();
@@ -522,92 +515,22 @@ impl FormulaTranslator {
         for (range, replacement) in indexed_replacements.into_iter().rev() {
             result.replace_range(range, &replacement);
         }
-
-        Ok(())
-    }
-
-    /// Rewrite a `table.column` that is none of the above as the first data row of
-    /// the table, or as a scalar's cell when the name is a scalar.
-    fn replace_first_row_cells(
-        &self,
-        result: &mut String,
-        scalar_row_map: &HashMap<String, u32>,
-    ) -> ForgeResult<()> {
-        // Pattern for simple table.column references (not in aggregations, not indexed)
-        // These become references to row 2 (first data row)
-        let simple_table_pattern =
-            Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
-
-        let simple_replacements: Vec<(std::ops::Range<usize>, String)> = simple_table_pattern
-            .captures_iter(&result.clone())
-            .filter_map(|cap| {
-                let full_match = cap.get(0).unwrap();
-                let table_name = &cap[1];
-                let col_name = &cap[2];
-
-                // Skip if this looks like it's already been processed (contains !)
-                if result[full_match.range()].contains('!') {
-                    return None;
-                }
-
-                // Check if this is actually a table reference
-                if !self.table_column_maps.contains_key(table_name) {
-                    // Could be a scalar like metrics.total_savings
-                    // Check if it's a scalar reference
-                    let scalar_name = format!("{table_name}.{col_name}");
-                    if let Some(&row) = scalar_row_map.get(&scalar_name) {
-                        return Some((full_match.range(), format!("B{row}")));
-                    }
-                    return None;
-                }
-
-                let col_letter = self
-                    .table_column_maps
-                    .get(table_name)
-                    .and_then(|cols| cols.get(col_name))
-                    .cloned()
-                    .unwrap_or_else(|| col_name.to_string());
-
-                // Default to row 2 (first data row)
-                let replacement = format!("'{table_name}'!{col_letter}2");
-                Some((full_match.range(), replacement))
-            })
-            .collect();
-
-        // Apply simple replacements in reverse order
-        for (range, replacement) in simple_replacements.into_iter().rev() {
-            result.replace_range(range, &replacement);
-        }
-
-        Ok(())
     }
 
     /// Rewrite a scalar's name, `metrics.total_savings`, as its cell: `B3`.
-    fn replace_scalar_cells(
-        result: &mut String,
-        scalar_row_map: &HashMap<String, u32>,
-    ) -> ForgeResult<()> {
+    fn replace_scalar_cells(result: &mut String, scalar_row_map: &HashMap<String, u32>) {
         // Handle scalar-to-scalar references (e.g., metrics.total_savings → B3)
         // Pattern for standalone scalar names
-        let scalar_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)\b")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
-        let scalar_replacements: Vec<(std::ops::Range<usize>, String)> = scalar_pattern
+        let scalar_replacements: Vec<(std::ops::Range<usize>, String)> = SCALAR
             .captures_iter(&result.clone())
             .filter_map(|cap| {
                 let full_match = cap.get(0).unwrap();
                 let scalar_name = &cap[1];
 
-                // Skip if already processed (contains ! or is a number)
-                if result[full_match.range()].contains('!') {
-                    return None;
-                }
-
-                if let Some(&row) = scalar_row_map.get(scalar_name) {
-                    return Some((full_match.range(), format!("B{row}")));
-                }
-                None
+                scalar_row_map
+                    .get(scalar_name)
+                    .map(|row| (full_match.range(), format!("B{row}")))
             })
             .collect();
 
@@ -615,8 +538,6 @@ impl FormulaTranslator {
         for (range, replacement) in scalar_replacements.into_iter().rev() {
             result.replace_range(range, &replacement);
         }
-
-        Ok(())
     }
 
     /// Convert a column name to an Excel column letter
@@ -872,9 +793,7 @@ mod tests {
         let scalar_row_map = HashMap::new();
 
         // Test SUM aggregation
-        let result = translator
-            .translate_scalar_formula("=SUM(sales.amount)", &scalar_row_map)
-            .unwrap();
+        let result = translator.translate_scalar_formula("=SUM(sales.amount)", &scalar_row_map);
         assert!(result.contains("SUM"));
         assert!(result.contains("sales"));
     }
@@ -895,9 +814,7 @@ mod tests {
         let scalar_row_map = HashMap::new();
 
         // Test indexed reference: data.value[0]
-        let result = translator
-            .translate_scalar_formula("=data.value[0]", &scalar_row_map)
-            .unwrap();
+        let result = translator.translate_scalar_formula("=data.value[0]", &scalar_row_map);
         assert!(result.contains("data"));
         assert!(result.contains("C2")); // index 0 = row 2
     }
@@ -910,9 +827,7 @@ mod tests {
         scalar_row_map.insert("metrics.total".to_string(), 5);
 
         // Test scalar-to-scalar reference
-        let result = translator
-            .translate_scalar_formula("=metrics.total * 2", &scalar_row_map)
-            .unwrap();
+        let result = translator.translate_scalar_formula("=metrics.total * 2", &scalar_row_map);
         assert!(result.contains("B5")); // scalar at row 5
     }
 
@@ -1048,12 +963,10 @@ mod tests {
         let scalar_row_map = HashMap::new();
 
         // Test SUMIFS with multiple criteria
-        let result = translator
-            .translate_scalar_formula(
-                "=SUMIFS(sales_data.amount, sales_data.region, 1, sales_data.product, 1)",
-                &scalar_row_map,
-            )
-            .unwrap();
+        let result = translator.translate_scalar_formula(
+            "=SUMIFS(sales_data.amount, sales_data.region, 1, sales_data.product, 1)",
+            &scalar_row_map,
+        );
 
         println!("SUMIFS result: {result}");
         assert!(result.contains("'sales_data'!A2:A7"));
@@ -1078,8 +991,7 @@ mod tests {
 
         // Test PERCENTILE
         let result = translator
-            .translate_scalar_formula("=PERCENTILE(dataset.values, 0.5)", &scalar_row_map)
-            .unwrap();
+            .translate_scalar_formula("=PERCENTILE(dataset.values, 0.5)", &scalar_row_map);
 
         println!("PERCENTILE result: {result}");
         assert!(result.contains("'dataset'!A2:A11"));
@@ -1102,15 +1014,85 @@ mod tests {
         let scalar_row_map = HashMap::new();
 
         // Test CORREL
-        let result = translator
-            .translate_scalar_formula(
-                "=CORREL(data_series.advertising, data_series.sales)",
-                &scalar_row_map,
-            )
-            .unwrap();
+        let result = translator.translate_scalar_formula(
+            "=CORREL(data_series.advertising, data_series.sales)",
+            &scalar_row_map,
+        );
 
         println!("CORREL result: {result}");
         assert!(result.contains("'data_series'!A2:A6"));
         assert!(result.contains("'data_series'!B2:B6"));
+    }
+
+    /// A translator that knows table `t` (column `c` is `C`, three rows) and
+    /// the column `a` of the table being written.
+    fn known_table() -> FormulaTranslator {
+        FormulaTranslator::new_with_tables(
+            HashMap::from([("a".to_string(), "A".to_string())]),
+            HashMap::from([(
+                "t".to_string(),
+                HashMap::from([("c".to_string(), "C".to_string())]),
+            )]),
+            HashMap::from([("t".to_string(), 3)]),
+        )
+    }
+
+    #[test]
+    fn a_column_or_table_the_translator_does_not_know_keeps_its_name() {
+        let tr = known_table();
+        let scalars = HashMap::new();
+        for (formula, want) in [
+            // A column of a known table that has no letter keeps its name
+            ("SUM(t.zz)", "=SUM('t'!zz2:zz4)"),
+            ("t.zz", "='t'!zz2:zz4"),
+            ("t.zz[0]", "='t'!zz2"),
+            // A table with no known row count is one row long
+            ("SUM(u.c)", "=SUM('u'!c2:c2)"),
+            ("u.c[2]", "='u'!c4"),
+            // Known columns and tables
+            ("SUM(t.c)", "=SUM('t'!C2:C4)"),
+            ("t.c[1]", "='t'!C3"),
+        ] {
+            assert_eq!(tr.translate_scalar_formula(formula, &scalars), want);
+        }
+        assert_eq!(
+            tr.translate_row_formula("SUM(u.c) + t.zz + u.c", 5)
+                .unwrap(),
+            "=SUM('u'!c2:c2) + 't'!zz2:zz4 + 'u'!c5"
+        );
+    }
+
+    #[test]
+    fn a_name_already_written_as_a_sheet_reference_is_left_alone() {
+        let tr = known_table();
+        let scalars = HashMap::new();
+        // A quoted sheet name with a dot, and a name before a `!`
+        assert_eq!(
+            tr.translate_scalar_formula("'x.y'!A1", &scalars),
+            "='x.y'!A1"
+        );
+        assert_eq!(tr.translate_scalar_formula("x.y!A1", &scalars), "=x.y!A1");
+        assert_eq!(
+            tr.translate_row_formula("Sheet1!A1 + a", 5).unwrap(),
+            "=Sheet1!A1 + A5"
+        );
+        // In a row formula the dotted name's last part is then read as a column
+        for formula in ["'x.y'!A1", "x.y!A1"] {
+            let err = tr.translate_row_formula(formula, 5).unwrap_err();
+            assert!(
+                err.to_string().contains("not found in table"),
+                "{formula}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_scalar_is_its_cell_and_an_unknown_one_stays() {
+        let tr = known_table();
+        let scalars = HashMap::from([("m.x".to_string(), 7)]);
+        assert_eq!(
+            tr.translate_scalar_formula("m.x * 2 + m.y", &scalars),
+            "=B7 * 2 + m.y"
+        );
     }
 }
