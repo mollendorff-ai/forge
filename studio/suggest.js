@@ -2,6 +2,9 @@
 // what a name or a function is: the names come from the model as Forge
 // returns it (structure.scalars, tables and includes) and the functions from
 // Forge's own list (the `functions` tool). The page adds no list of its own.
+// A game's results (ADR-068) are named only once Forge has worked the game
+// out (a third equilibrium exists only when there are three), so they come
+// from Forge's `calculate` answer: `gameResults`.
 
 // A formula is written in the scope of the group or table it sits in, as Forge
 // reads it: a name of the same group or table is bare, any other is written
@@ -24,8 +27,18 @@ export function scopeOf(structure, path) {
   return { ns: ns ? ns[1] : null, group: dot < 0 ? null : own.slice(0, dot), table: null };
 }
 
-// The names a formula in `scope` can use, each with how it is written there
-export function namesFor(structure, scope) {
+// The results of the model's games that `calculate` answered: every scalar
+// of the main file whose first part is a game's name, in Forge's order
+export function gameResults(structure, calc) {
+  const games = new Set(structure && structure.games ? structure.games : []);
+  if (!games.size || !calc) return [];
+  return Object.keys(calc.scalars).filter((p) => games.has(p.slice(0, p.indexOf("."))));
+}
+
+// The names a formula in `scope` can use, each with how it is written there;
+// `results` are the games' results (gameResults), read in full from the main
+// file
+export function namesFor(structure, scope, results = []) {
   const out = [];
   const mine = scope.ns ? structure.includes.find((i) => i.as === scope.ns) : structure;
   if (!mine) return out;
@@ -40,6 +53,7 @@ export function namesFor(structure, scope) {
     for (const c of t.columns) out.push({ text: `${tname}.${c.name}`, bare: scope.table === tname ? c.name : null, kind: "column", unit: c.unit });
   }
   if (!scope.ns) {
+    for (const p of results) out.push({ text: p, bare: null, kind: "game", unit: null });
     for (const inc of structure.includes) {
       for (const s of inc.scalars) out.push({ text: s.path, bare: null, kind: "included", unit: s.unit });
       for (const t of inc.tables) for (const c of t.columns) out.push({ text: `${t.name}.${c.name}`, bare: null, kind: "included", unit: c.unit });
@@ -87,7 +101,7 @@ export function letBindings(formula) {
   return out;
 }
 
-const LIMIT = { names: 16, functions: 8 };
+export const LIMIT = { names: 16, functions: 8 };
 // The two words of the formula language that are values, not names or functions
 const CONSTANTS = ["TRUE", "FALSE"];
 const byLength = (a, b) => a.length - b.length || a.localeCompare(b);
@@ -272,9 +286,9 @@ export function scopeInYaml(structure, file, chain, key) {
 // What to offer at `caret` when it is in a formula of `file`; null when it is
 // not in one. `structure` is the model as Forge reads it, or null for a file
 // that is not part of it (the functions are still offered).
-export function suggestInFormula({ structure, functions, file }, text, caret) {
+export function suggestInFormula({ structure, functions, file, results = [] }, text, caret) {
   const at = formulaContext(text, caret);
   if (!at) return null;
-  const names = structure ? namesFor(structure, scopeInYaml(structure, file, at.chain, at.key)) : [];
+  const names = structure ? namesFor(structure, scopeInYaml(structure, file, at.chain, at.key), results) : [];
   return suggest({ names, functions }, at.formula, at.formula.length).map((o) => ({ ...o, start: o.start + at.start, end: o.end + at.start }));
 }

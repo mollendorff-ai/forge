@@ -107,6 +107,33 @@ fn column_from(values: &[Value]) -> Result<ColumnValue, String> {
     }
 }
 
+/// A row added to the growing column `column`, held as an array among the
+/// scalars; a name that holds anything else is left as it is.
+fn add_row(scalars: &mut evaluator::NameMap<Value>, column: &str, value: Value) {
+    if let Some(Value::Array(values)) = scalars.get_mut(column) {
+        std::sync::Arc::make_mut(values).push(value);
+    }
+}
+
+/// A row added to the growing column of a table, `(table, column)`.
+fn push_row(
+    tables: &mut evaluator::NameMap<evaluator::NameMap<std::sync::Arc<Vec<Value>>>>,
+    (table, column): (&str, &str),
+    value: Value,
+) {
+    if let Some(values) = tables.get_mut(table).and_then(|t| t.get_mut(column)) {
+        std::sync::Arc::make_mut(values).push(value);
+    }
+}
+
+/// The rows of a growing column that is taken back out of the context.
+fn rows_of(value: Option<Value>) -> Vec<Value> {
+    match value {
+        Some(Value::Array(values)) => std::sync::Arc::unwrap_or_clone(values),
+        _ => Vec::new(),
+    }
+}
+
 /// Cells and which reads which (an edge goes from the cell read).
 type Graph = graph::Graph<Cell>;
 
@@ -146,16 +173,8 @@ fn rows_together(
                 Ok(value) => {
                     // Nothing else holds the growing column once a row is
                     // evaluated, so this pushes in place without a copy
-                    if let Some(Value::Array(values)) = ctx.scalars.get_mut(column) {
-                        std::sync::Arc::make_mut(values).push(value.clone());
-                    }
-                    if let Some(values) = ctx
-                        .tables
-                        .get_mut(table_name)
-                        .and_then(|t| t.get_mut(column))
-                    {
-                        std::sync::Arc::make_mut(values).push(value);
-                    }
+                    add_row(&mut ctx.scalars, column, value.clone());
+                    push_row(&mut ctx.tables, (table_name, column), value);
                 },
                 Err(e) => {
                     let hint = if e.message.contains("out of bounds") {
@@ -178,17 +197,16 @@ fn rows_together(
     ctx.growing_table = None;
     let mut results = Vec::with_capacity(formulas.len());
     for ((column, place, formula, _), held) in formulas.iter().zip(before) {
-        let values = match ctx.scalars.remove(column) {
-            Some(Value::Array(values)) => std::sync::Arc::unwrap_or_clone(values),
-            _ => Vec::new(),
-        };
+        let values = rows_of(ctx.scalars.remove(column));
         if let Some(held) = held {
             ctx.scalars.insert(column.clone(), held);
         }
         if failure.is_some() {
-            if let Some(table) = ctx.tables.get_mut(table_name) {
-                table.remove(column);
-            }
+            // The table was entered above, and nothing removed it
+            ctx.tables
+                .get_mut(table_name)
+                .expect(super::KEPT)
+                .remove(column);
             continue;
         }
         match column_from(&values) {
@@ -228,7 +246,7 @@ impl ArrayCalculator {
 
     /// The cells as a graph of every dependency, the same without the lagged
     /// ones, and whether there is a lagged one. Nodes are the cells in order.
-    fn dependency_graphs(&self, cells: &BTreeSet<Cell>) -> ForgeResult<(Graph, Graph, bool)> {
+    fn dependency_graphs(&self, cells: &BTreeSet<Cell>) -> (Graph, Graph, bool) {
         let mut full = Graph::default();
         let mut same_row = Graph::default();
         let mut index: BTreeMap<&Cell, usize> = BTreeMap::new();
@@ -243,7 +261,7 @@ impl ArrayCalculator {
                 Cell::Column { table, column } => self.lagged_dependencies(table, column),
                 _ => Vec::new(),
             };
-            for dep in self.cell_dependencies(cell)? {
+            for dep in self.cell_dependencies(cell) {
                 if let (Some(&from), Some(&to)) = (index.get(&dep), index.get(cell)) {
                     full.add_edge(from, to);
                     if lagged.contains(&dep) {
@@ -254,7 +272,7 @@ impl ArrayCalculator {
                 }
             }
         }
-        Ok((full, same_row, any_lagged))
+        (full, same_row, any_lagged)
     }
 
     /// Every formula cell (table column or scalar) in dependency order, the
@@ -281,7 +299,7 @@ impl ArrayCalculator {
             cells.insert(Cell::Game(name.clone()));
         }
 
-        let (full, same_row, any_lagged) = self.dependency_graphs(&cells)?;
+        let (full, same_row, any_lagged) = self.dependency_graphs(&cells);
         let index: BTreeMap<&Cell, usize> = cells.iter().zip(0..).collect();
 
         let within_a_row = same_row
@@ -354,9 +372,10 @@ impl ArrayCalculator {
                 steps.update_edge(from, to);
             }
         }
+        // Cells that reach each other are one step, so the steps have no cycle
         let order = steps
             .topological_order()
-            .ok_or_else(|| ForgeError::CircularDependency(describe_cycle(&steps)))?;
+            .expect("the cells of a cycle are one step");
         Ok(order.into_iter().map(|node| steps[node].clone()).collect())
     }
 
@@ -409,10 +428,9 @@ impl ArrayCalculator {
             rows_together(ctx, table_name, &formulas, row_count)
         })?;
 
-        if let Some(stored) = self.model.tables.get_mut(table_name) {
-            for (column, values) in results {
-                stored.add_column(Column::new(column, values));
-            }
+        let stored = self.model.tables.get_mut(table_name).expect(super::KEPT);
+        for (column, values) in results {
+            stored.add_column(Column::new(column, values));
         }
         Ok(())
     }
@@ -443,10 +461,9 @@ mod tests {
     }
 
     fn numbers(model: &ParsedModel, column: &str) -> Vec<f64> {
-        match &model.tables["t"].columns[column].values {
-            ColumnValue::Number(v) => v.clone(),
-            other => panic!("t.{column} is not numeric: {other:?}"),
-        }
+        let values = &model.tables["t"].columns[column].values;
+        // The numbers of a column of numbers; a column of anything else has none
+        values.numbers().map(|n| n.to_vec()).unwrap_or_default()
     }
 
     fn calculate(model: ParsedModel) -> Result<ParsedModel, String> {
@@ -548,10 +565,10 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(numbers(&m, "above"), [0.0, 2.0, 4.0]);
-        match &m.tables["t"].columns["label"].values {
-            ColumnValue::Text(v) => assert_eq!(v, &["first", "later", "later"]),
-            other => panic!("{other:?}"),
-        }
+        assert_eq!(
+            m.tables["t"].columns["label"].values,
+            ColumnValue::Text(vec!["first".into(), "later".into(), "later".into()])
+        );
     }
 
     #[test]
@@ -631,10 +648,10 @@ mod tests {
         m.add_table(other);
         let m = calculate(m).unwrap();
         assert_eq!(numbers(&m, "cum"), [1.0, 3.0, 6.0, 10.0]);
-        match &m.tables["u"].columns["from_t"].values {
-            ColumnValue::Number(v) => assert_eq!(v, &[9.0, 21.0, 33.0, 46.0]),
-            other => panic!("{other:?}"),
-        }
+        assert_eq!(
+            m.tables["u"].columns["from_t"].values,
+            ColumnValue::Number(vec![9.0, 21.0, 33.0, 46.0])
+        );
     }
 
     /// The error of a row names the column and the row, and the other columns of
@@ -647,5 +664,173 @@ mod tests {
         ))
         .unwrap_err();
         assert!(err.contains("t.a row 2:"), "{err}");
+    }
+
+    mod error_paths {
+        //! What a group of columns that read each other through `PREV` says when
+        //! one of them fails, and how its rows are kept.
+
+        use super::{calculate, model, numbers};
+        use crate::core::array_calculator::recursive::{
+            add_row, column_from, names_by_row, push_row, rows_of,
+        };
+        use crate::core::array_calculator::{evaluator, evaluator::Value, parser, tokenizer};
+        use crate::types::{ColumnValue, ParsedModel, Variable};
+        use std::sync::Arc;
+
+        /// `a` reads the `b` of the row above, and `b` reads `a`, over `x`
+        fn group(b: &str, x: Vec<f64>) -> ParsedModel {
+            model(&[("x", x)], &[("a", "=PREV(b, 0) + x"), ("b", b)])
+        }
+
+        #[test]
+        fn a_group_that_fails_says_where_and_what_it_left_out() {
+            for (b, x, want) in [
+                (
+                    "=IF(x > 1, \"s\", a)",
+                    vec![1.0, 2.0],
+                    "t.b row 2: result is not a number (formula: =IF(x > 1, \"s\", a))",
+                ),
+                (
+                    "=a +",
+                    vec![1.0, 2.0],
+                    "t.b: syntax error: Unexpected end of expression (formula: =a +)",
+                ),
+                (
+                    "=a + 1",
+                    vec![],
+                    "t.a: Cannot evaluate on empty table (formula: =PREV(b, 0) + x)",
+                ),
+                (
+                    "=a + OFFSET(a, 1, 0)",
+                    vec![1.0, 2.0],
+                    "t.b row 1: OFFSET: row out of bounds. A column calculated with PREV is known only up to the row being calculated: read it in the same row after it is calculated, or in the row above through PREV (formula: =a + OFFSET(a, 1, 0))",
+                ),
+                (
+                    "=a + INDEX(a, 2)",
+                    vec![1.0, 2.0],
+                    "t.b: reads all of t.a, which is calculated row by row with this column through PREV, so it needs a whole column first (formula: =a + INDEX(a, 2))",
+                ),
+            ] {
+                let err = calculate(group(b, x)).unwrap_err();
+                assert_eq!(err, format!("Formula evaluation error: {want}"), "{b}");
+            }
+        }
+
+        #[test]
+        fn a_name_that_fits_two_scalars_is_refused_in_a_group() {
+            let mut m = group("=a + price", vec![1.0]);
+            for path in ["p.price", "q.price"] {
+                m.scalars.insert(
+                    path.to_string(),
+                    Variable::new(path.to_string(), Some(7.0), None),
+                );
+            }
+            assert_eq!(
+                calculate(m).unwrap_err(),
+                "Formula evaluation error: t.b: Name 'price' in formula '=a + price' is ambiguous: it matches p.price, q.price. Use the full name. (formula: =a + price)"
+            );
+        }
+
+        #[test]
+        fn a_column_of_true_and_false_and_a_scalar_of_a_columns_name_are_kept() {
+            let bools = calculate(group("=a > 0", vec![1.0, 2.0])).unwrap();
+            assert_eq!(numbers(&bools, "a"), [1.0, 3.0]);
+            assert_eq!(
+                bools.tables["t"].columns["b"].values,
+                ColumnValue::Boolean(vec![true, true])
+            );
+            // A scalar called `b` is what `b` means outside the table, and is back after it
+            let mut m = group("=a + 1", vec![1.0, 2.0]);
+            m.scalars.insert(
+                "b".to_string(),
+                Variable::new("b".to_string(), Some(7.0), None),
+            );
+            let m = calculate(m).unwrap();
+            assert_eq!(numbers(&m, "b"), [2.0, 5.0]);
+            assert_eq!(m.scalars["b"].value, Some(7.0));
+        }
+
+        #[test]
+        fn a_formula_names_the_columns_it_reads_in_its_row_and_in_an_earlier_one() {
+            let names = |formula: &str| {
+                let ast = parser::parse(tokenizer::tokenize(formula).unwrap()).unwrap();
+                let (same, earlier) = names_by_row(&ast);
+                let sorted = |names: std::collections::HashSet<String>| {
+                    let mut names: Vec<String> = names.into_iter().collect();
+                    names.sort();
+                    names
+                };
+                (sorted(same), sorted(earlier))
+            };
+            assert_eq!(
+                names("x[1] + PREV(y, 0)"),
+                (vec!["x".to_string()], vec!["y".to_string()])
+            );
+            assert_eq!(
+                names("SUM(a:b) + PREV(y, 0)"),
+                (
+                    vec!["a".to_string(), "b".to_string()],
+                    vec!["y".to_string()]
+                )
+            );
+            assert_eq!(names("{1, 2}[1]"), (vec![], vec![]));
+        }
+
+        #[test]
+        fn a_column_takes_its_kind_from_its_first_row() {
+            let n = Value::Number;
+            let t = |s: &str| Value::Text(s.to_string());
+            assert_eq!(
+                column_from(&[t("a"), n(1.0)]),
+                Ok(ColumnValue::Text(vec!["a".to_string(), "1".to_string()]))
+            );
+            assert_eq!(
+                column_from(&[Value::Boolean(true), Value::Boolean(false)]),
+                Ok(ColumnValue::Boolean(vec![true, false]))
+            );
+            assert_eq!(
+                column_from(&[n(1.0), n(2.0)]),
+                Ok(ColumnValue::Number(vec![1.0, 2.0]))
+            );
+            assert_eq!(
+                column_from(&[n(1.0), t("a")]),
+                Err("row 2: result is not a number".to_string())
+            );
+        }
+
+        #[test]
+        fn rows_are_added_to_a_growing_column_and_nothing_else() {
+            let one = || Value::Array(Arc::new(vec![Value::Number(1.0)]));
+            let mut scalars = evaluator::NameMap::default();
+            scalars.insert("a".to_string(), one());
+            scalars.insert("n".to_string(), Value::Number(1.0));
+            add_row(&mut scalars, "a", Value::Number(2.0));
+            // What is not a growing column, or is not there, is left as it is
+            add_row(&mut scalars, "n", Value::Number(2.0));
+            add_row(&mut scalars, "missing", Value::Number(2.0));
+            let grown = Value::Array(Arc::new(vec![Value::Number(1.0), Value::Number(2.0)]));
+            assert_eq!(scalars["a"], grown);
+            assert_eq!(scalars["n"], Value::Number(1.0));
+            assert_eq!(scalars.len(), 2);
+
+            let mut tables = evaluator::NameMap::default();
+            let mut columns = evaluator::NameMap::default();
+            columns.insert("c".to_string(), Arc::new(vec![Value::Number(1.0)]));
+            tables.insert("t".to_string(), columns);
+            push_row(&mut tables, ("t", "c"), Value::Number(2.0));
+            push_row(&mut tables, ("t", "missing"), Value::Number(2.0));
+            push_row(&mut tables, ("missing", "c"), Value::Number(2.0));
+            assert_eq!(*tables["t"]["c"], [Value::Number(1.0), Value::Number(2.0)]);
+            assert_eq!(tables["t"].len(), 1);
+            assert_eq!(tables.len(), 1);
+
+            assert_eq!(
+                rows_of(Some(grown)),
+                [Value::Number(1.0), Value::Number(2.0)]
+            );
+            assert_eq!(rows_of(Some(Value::Number(1.0))), []);
+            assert_eq!(rows_of(None), []);
+        }
     }
 }

@@ -108,10 +108,10 @@ impl ArrayCalculator {
             .calculation_order()?
             .into_iter()
             .map(|cell| {
-                let deps = self.cell_dependencies(&cell)?;
-                Ok((cell, deps))
+                let deps = self.cell_dependencies(&cell);
+                (cell, deps)
             })
-            .collect::<ForgeResult<Vec<_>>>()?;
+            .collect::<Vec<_>>();
         let order = Rc::new(order);
         self.plan.structure(self.fingerprint, |s| {
             s.steps = vec![plan::Step::default(); order.len()];
@@ -123,7 +123,7 @@ impl ArrayCalculator {
     /// The formula cells that `cell`'s formula reads. Names that are data
     /// (an input column, a scalar without a formula) need no edge and are
     /// left out.
-    pub(super) fn cell_dependencies(&self, cell: &Cell) -> ForgeResult<Vec<Cell>> {
+    pub(super) fn cell_dependencies(&self, cell: &Cell) -> Vec<Cell> {
         let mut deps = Vec::new();
         match cell {
             Cell::Column { table, column } => {
@@ -151,7 +151,7 @@ impl ArrayCalculator {
             Cell::Columns { .. } => {
                 let members = cell.members();
                 for member in &members {
-                    for dep in self.cell_dependencies(member)? {
+                    for dep in self.cell_dependencies(member) {
                         if !members.contains(&dep) && !deps.contains(&dep) {
                             deps.push(dep);
                         }
@@ -160,7 +160,7 @@ impl ArrayCalculator {
             },
             Cell::Scalar(name) => {
                 let formula = self.model.scalars[name].formula.as_deref().unwrap_or("");
-                for full in self.extract_scalar_dependencies(formula, name)? {
+                for full in self.extract_scalar_dependencies(formula, name) {
                     deps.push(Cell::Scalar(full));
                 }
                 for word in formula_words(formula) {
@@ -172,7 +172,7 @@ impl ArrayCalculator {
             },
             Cell::Game(name) => deps = self.game_dependencies(name),
         }
-        Ok(deps)
+        deps
     }
 
     /// `table.column` where the column has a row formula
@@ -190,13 +190,11 @@ impl ArrayCalculator {
 
     /// Extract scalar dependencies from a formula, using the same name
     /// resolution as evaluation (`resolve_scalar_name`)
-    // Returns Result for consistency with other dependency extraction methods.
-    #[allow(clippy::unnecessary_wraps)]
     pub(super) fn extract_scalar_dependencies(
         &self,
         formula: &str,
         scalar_name: &str,
-    ) -> ForgeResult<Vec<String>> {
+    ) -> Vec<String> {
         let mut deps = Vec::new();
 
         let section = scalar_name.rsplit_once('.').map(|(section, _)| section);
@@ -214,7 +212,7 @@ impl ArrayCalculator {
             // literal, so no dependency edge is needed
         }
 
-        Ok(deps)
+        deps
     }
 }
 
@@ -248,10 +246,9 @@ mod tests {
     }
 
     fn numbers(model: &ParsedModel, table: &str, column: &str) -> Vec<f64> {
-        match &model.tables[table].columns[column].values {
-            ColumnValue::Number(v) => v.clone(),
-            other => panic!("{table}.{column} is not numeric: {other:?}"),
-        }
+        let values = &model.tables[table].columns[column].values;
+        // The numbers of a column of numbers; a column of anything else has none
+        values.numbers().map(|n| n.to_vec()).unwrap_or_default()
     }
 
     fn value(model: &ParsedModel, name: &str) -> f64 {

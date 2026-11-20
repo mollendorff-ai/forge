@@ -71,7 +71,7 @@ jobs:
   binstall:
     name: cargo binstall (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # Five tries of up to 150 seconds each, and the downloads, fit in 20 minutes
+    # An install takes under two minutes; 20 leaves room for the five tries.
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -80,6 +80,15 @@ jobs:
     defaults:
       run:
         shell: bash
+    # cargo-binstall asks GitHub's API whether the release has the archive.
+    # Without a token that is the anonymous limit of 60 requests an hour per
+    # address, which GitHub's macOS runners share and use up: after
+    # 10.0.0-rc.30 every request got 403 Forbidden, and cargo-binstall waited
+    # 120 seconds for each of the four macOS archive names it tries, twice,
+    # so the first try took 16 minutes. A user's own address has its own 60;
+    # the token changes only the limit, not what is installed.
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
 
@@ -91,7 +100,8 @@ jobs:
       # Only the release's own archive counts: no QuickInstall, no building.
       # cargo-binstall gives up on a download it cannot check within 15
       # seconds; GitHub's macOS runners took longer five times in a row after
-      # 10.0.0-rc.12 (the archive was there), so the check waits 120.
+      # 10.0.0-rc.12 (the archive was there, most likely the same 403s as
+      # rc.30 before the token), so the check waits 120.
       - name: Install with the metadata of this pull request
         if: github.event_name == 'pull_request'
         run: |
