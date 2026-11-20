@@ -25,8 +25,9 @@ Each has a README with the numbers it should print. All figures are made up.
 | [`vineyard/`](vineyard/) | A vineyard's season, where a big harvest sells cheap: the crop and the price correlated, a spring frost one year in ten, scenarios, a tornado, and the same season simulated with and without the correlation. The correlation cuts the chance of a loss from one season in three to one in four, and the mean with it. |
 | [`fund/`](fund/) | A venture fund seen by its investors: calls, fees and exits on their own dates, the return by `XIRR` and the value by `XNPV`, fees and carry taking 15.7% down to 10.8%, and what a year's delay or a cold exit market costs. |
 | [`options/`](options/compare-options.yaml) | Two rentals compared. |
+| [`games/`](games/) | Games and tournaments, run with `forge game`: kinship-protocol's stag hunt, chicken and Axelrod tournament with the flags it wrote by hand now read from the games; the inspection game, where a harsher penalty lowers the audit rate and not the cheating (`forge tornado`); a tournament where noise moves a forgiving strategy ahead of TitForTat; the battle of the sexes; and the continuation at which cooperation holds (`forge sensitivity`). |
 
-Studio opens all of these except the one-command files below.
+Studio opens all of these except `games/` and the one-command files below.
 
 ## One command each
 

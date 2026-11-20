@@ -66,6 +66,7 @@ pub mod writer;
 pub mod bayesian;
 pub mod bootstrap;
 pub mod decision_trees;
+pub mod games;
 pub mod monte_carlo;
 pub mod real_options;
 pub mod scenarios;

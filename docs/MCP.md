@@ -1,6 +1,6 @@
 # Forge MCP Integration Guide
 
-Forge implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) over stdin/stdout using JSON-RPC 2.0. This gives AI agents structured access to all 20 Forge tools.
+Forge implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) over stdin/stdout using JSON-RPC 2.0. This gives AI agents structured access to all 21 Forge tools.
 
 Forge uses [rmcp](https://github.com/anthropics/rust-mcp-sdk) (Anthropic's official Rust MCP SDK) for protocol handling. Tool definitions use typed request structs with automatic JSON schema generation. Additional transports (SSE, WebSocket) are planned for a future release.
 
@@ -97,13 +97,13 @@ When calling `forge_calculate` with `content` and `dry_run: false`, the server c
 
 The response will contain both the calculation results and a `calculated_content` field with the updated YAML.
 
-## Available Tools (20)
+## Available Tools (21)
 
 | Category | Count | Tools |
 |----------|-------|-------|
 | **Core** | 5 | validate, calculate, audit, export, import |
 | **Analysis** | 5 | sensitivity, goal_seek, break_even, variance, compare |
-| **Engines** | 7 | simulate, scenarios, decision_tree, real_options, tornado, bootstrap, bayesian |
+| **Engines** | 8 | simulate, scenarios, decision_tree, real_options, tornado, bootstrap, bayesian, game |
 | **Discovery** | 3 | schema, functions, examples |
 
 ## Tool Reference
@@ -382,6 +382,24 @@ Generate tornado sensitivity diagram. Varies each input one-at-a-time to show wh
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_tornado","arguments":{"file_path":"/path/to/tornado.yaml"}}}
+```
+
+#### `forge_game`
+
+Find the equilibria of the games in a model's `games` section, and play its tournaments (ADR-068). The same as `forge game`. Each report has `kind`: `table` for a game played once (its strictly and weakly dominated strategies, pure equilibria, mixed equilibria for two players, the ties of a degenerate game, and each strategy's payoff against an even mix), or `tournament` (each player's score, rank and cooperation, the match table, and the collectively stable players, as exact expected values).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file_path` | string | no* | Path to YAML model with a `games` section |
+| `content` | string | no* | Raw YAML model content (alternative to `file_path`) |
+| `includes` | object | no | Inline include content as namespace-to-YAML map |
+| `game` | string | no | Only this game |
+| `scenario` | string | no | Apply this scenario's overrides first |
+
+*One of `file_path` or `content` is required.
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_game","arguments":{"file_path":"examples/games/axelrod.yaml","game":"axelrod"}}}
 ```
 
 #### `forge_bootstrap`

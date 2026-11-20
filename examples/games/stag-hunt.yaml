@@ -1,0 +1,51 @@
+# Stag Hunt
+# =========
+# Run in the examples folder: forge game games/stag-hunt.yaml
+#
+# Two hunters choose at once: a stag, which takes both of them, or a hare,
+# which one can catch alone. kinship-protocol's stag_hunt.yaml wrote this as
+# one formula per strategy for each of four costs, and its flag as an IF by
+# hand; here the game is the table, and the flag reads the game's results.
+#
+# The cost c of a defection is taken off each hare payoff. Forge finds two
+# pure equilibria, (stag, stag) and (hare, hare), and a mixed one in which
+# each hunter plays stag with (3 - c) / 4: 3/4 at c = 0 (nashpy agrees).
+# Against a hunter who plays each half the time, stag pays 2 and hare 3 - c,
+# so stag wins once c passes 1. The scenarios are kinship's other costs:
+#   forge game games/stag-hunt.yaml --scenario c3
+
+_forge_version: "5.5.0"
+
+c: 0      # the cost of a defection (hunting hare)
+
+games:
+  stag_hunt:
+    description: Hunt the stag together, or a hare alone
+    players: [me, you]
+    strategies: [stag, hare]
+    symmetric: true                 # a cell is the payoff of the row's player
+    payoffs:
+      stag: {stag: 4, hare: 0}
+      hare: {stag: =3 - c, hare: =3 - c}
+
+kinship:
+  coop_wins:
+    formula: "=IF(stag_hunt.even_mix.me.stag > stag_hunt.even_mix.me.hare, 1, 0)"
+    notes: 1 when stag pays more against an even mix (kinship's c0_coop_wins)
+  crossover_c:
+    formula: "=c + stag_hunt.even_mix.me.hare - stag_hunt.even_mix.me.stag"
+    notes: The cost at which stag and hare pay the same against an even mix
+  stag_share:
+    formula: "=stag_hunt.equilibrium_3.me.stag"
+    notes: How often each hunter goes for the stag in the mixed equilibrium
+
+scenarios:
+  c1:
+    description: kinship's second cost
+    scalars: {c: 0.5}
+  c2:
+    description: The crossover, where stag and hare tie
+    scalars: {c: 1}
+  c3:
+    description: A cost at which cooperation wins
+    scalars: {c: 1.5}

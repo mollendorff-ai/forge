@@ -133,9 +133,15 @@ pub(super) fn parse_multi_document_from(
             claim("Scenario", &scenario_name)?;
             merged_model.scenarios.insert(scenario_name, scenario);
         }
+        for (game_name, game) in doc_model.games {
+            claim("Game", &game_name)?;
+            merged_model.games.insert(game_name, game);
+        }
         merged_model.includes.extend(doc_model.includes);
         merged_model.documents.push(doc_name);
     }
+    // A game in one document and a group of the same name in another
+    super::model::check_game_names(&merged_model)?;
 
     // A group of scalars and a table with the same name would read the same
     // `name.x` two ways

@@ -220,6 +220,18 @@ impl ExcelExporter {
             ));
         }
 
+        // Excel cannot find an equilibrium. The payoff formulas are not
+        // written, and the results are plain numbers as of the export (the
+        // scalars of the calculated model), which do not follow the inputs.
+        if !self.model.games.is_empty() {
+            let mut names: Vec<&str> = self.model.games.keys().map(String::as_str).collect();
+            names.sort_unstable();
+            warnings.push(format!(
+                "games: not exported ({}); Excel cannot find an equilibrium, so the results are written as numbers as of now and do not follow the inputs, and the payoff formulas are not written. Keep the YAML file as the source of truth",
+                names.join(", ")
+            ));
+        }
+
         Ok((workbook, warnings, text_results))
     }
 
@@ -1238,6 +1250,52 @@ mod tests {
             warnings[0].starts_with("scenarios: not exported (base, bull)"),
             "{}",
             warnings[0]
+        );
+    }
+
+    /// Excel cannot find an equilibrium, so a game's payoff formulas are not
+    /// written and its results are numbers as of the export: changing an
+    /// input in Excel would not move them. The export says so (ADR-068).
+    #[test]
+    fn a_game_is_not_exported_and_the_export_says_so() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("game.yaml");
+        std::fs::write(
+            &path,
+            "_forge_version: \"5.5.0\"
+c: 0.5
+games:
+  stag_hunt:
+    players: [me, you]
+    strategies: [stag, hare]
+    symmetric: true
+    payoffs:
+      stag: {stag: 4, hare: 0}
+      hare: {stag: =3 - c, hare: =3 - c}
+  chicken:
+    players: [me, you]
+    strategies: [swerve, straight]
+    symmetric: true
+    payoffs:
+      swerve: {swerve: 3, straight: 1}
+      straight: {swerve: 5, straight: 0}
+",
+        )
+        .unwrap();
+        let model = crate::parser::parse_model(&path).unwrap();
+        let model = crate::core::ArrayCalculator::new(model)
+            .calculate_all()
+            .unwrap();
+        let out = dir.path().join("game.xlsx");
+        let warnings = ExcelExporter::new(model)
+            .export_with_warnings(&out)
+            .unwrap();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(
+            warnings[0],
+            "games: not exported (chicken, stag_hunt); Excel cannot find an equilibrium, so the \
+             results are written as numbers as of now and do not follow the inputs, and the \
+             payoff formulas are not written. Keep the YAML file as the source of truth"
         );
     }
 

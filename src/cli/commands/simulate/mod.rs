@@ -131,6 +131,11 @@ fn expand_outputs(
             .or_else(|| model.scalars.get(&format!("outputs.{var}")))
             .or_else(|| model.scalars.get(&format!("scalars.{var}")));
         let Some(scalar) = scalar else {
+            // A game's result is a scalar once calculated (ADR-068)
+            if model.names_game_result(var) {
+                expanded.push(output.clone());
+                continue;
+            }
             return Err(ForgeError::Validation(format!(
                 "monte_carlo output '{var}' is neither a scalar nor a table column of the model"
             )));
@@ -517,6 +522,42 @@ scalars:
         let path = dir.join(name);
         std::fs::write(&path, text).unwrap();
         path
+    }
+
+    /// A game's result is an output (ADR-068): in each run the human audits
+    /// with gain / (gain + penalty), by hand and as nashpy 0.0.43 finds,
+    /// for that run's penalty.
+    #[test]
+    fn a_games_result_is_simulated_run_by_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(
+            dir.path(),
+            "m.yaml",
+            r#"_forge_version: "5.5.0"
+i:
+  penalty:
+    formula: "=MC.Uniform(2, 8)"
+games:
+  g:
+    players: [ai, human]
+    strategies: {ai: [comply, cheat], human: [audit, trust]}
+    payoffs:
+      comply: {audit: [0, -1], trust: [0, 0]}
+      cheat: {audit: [=-i.penalty, -1], trust: [2, -3]}
+monte_carlo:
+  iterations: 100
+  seed: 7
+  outputs:
+    - variable: g.equilibrium_1.human.audit
+"#,
+        );
+        let result = simulate_core(&path, SimulateOptions::default()).unwrap();
+        let audit = &result.outputs["g.equilibrium_1.human.audit"].samples;
+        let penalty = &result.input_samples["i.penalty"];
+        assert_eq!(audit.len(), 100);
+        for (a, p) in audit.iter().zip(penalty) {
+            assert!((a - 2.0 / (2.0 + p)).abs() < 1e-12, "{a} at {p}");
+        }
     }
 
     /// A scenario that overrides an MC.* input fixes it: it is no longer

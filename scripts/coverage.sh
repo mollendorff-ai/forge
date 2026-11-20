@@ -25,8 +25,8 @@ mcp_session() {
 }
 tools=$(mcp_session | cargo llvm-cov run --no-report --bin forge -- mcp |
   jq -r 'select(.result.tools) | .result.tools | length')
-if [ "$tools" != "20" ]; then
-  echo "forge mcp listed ${tools:-no} tools, not 20" >&2
+if [ "$tools" != "21" ]; then
+  echo "forge mcp listed ${tools:-no} tools, not 21" >&2
   exit 1
 fi
 

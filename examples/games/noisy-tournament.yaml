@@ -1,0 +1,51 @@
+# A Tournament With Noise
+# =======================
+# Run in the examples folder: forge game games/noisy-tournament.yaml
+#
+# The same five strategies play two tournaments of 200-round matches. In
+# the first every move is played as meant, and TitForTat comes first. In
+# the second each move is flipped with a chance of 5%. One mistake sets two
+# TitForTat players punishing each other in turn, and the forgiving
+# strategies pull ahead: TitForTwoTats first (2.518), generous TitForTat
+# second (2.471), TitForTat third (2.457). The values are exact; the Python
+# axelrod library, 2,000 seeded runs of each match, gives the same order
+# (2.517, 2.471, 2.457).
+
+_forge_version: "5.5.0"
+
+noise: 0.05     # the chance that a move is flipped
+
+games:
+  dilemma:
+    players: [me, you]
+    strategies: [cooperate, defect]
+    symmetric: true
+    payoffs:
+      cooperate: {cooperate: 3, defect: 0}
+      defect: {cooperate: 5, defect: 1}
+
+  clean:
+    description: Every move as meant
+    tournament:
+      round: dilemma
+      players: &roster
+        ac: always_cooperate
+        ad: always_defect
+        tft: tit_for_tat
+        gtft: generous_tit_for_tat     # forgives a defection with 1/3
+        tf2t: tit_for_two_tats
+      rounds: 200
+
+  noisy:
+    description: Each move flipped with the chance noise
+    tournament:
+      round: dilemma
+      players: *roster
+      rounds: 200
+      noise: =noise
+
+results:
+  tft_place_without_noise:
+    formula: "=clean.rank.tft"
+  tft_place_with_noise:
+    formula: "=noisy.rank.tft"

@@ -1,5 +1,6 @@
 mod errors;
 pub mod evaluator;
+mod games;
 mod includes;
 mod names;
 mod order;
@@ -47,6 +48,12 @@ pub struct ArrayCalculator {
     fingerprint: u64,
     /// Position in the calculation order of the cell being calculated
     step: Option<usize>,
+    /// What each game calculated so far worked out, for messages about a
+    /// result it does not have
+    game_reports: std::collections::BTreeMap<String, crate::games::GameReport>,
+    /// Each game played once calculated so far, with its payoffs worked
+    /// out: the round of a tournament
+    game_tables: std::collections::BTreeMap<String, crate::games::table::Table>,
 }
 
 /// What a calculation of every cell left: the failures, each starting with
@@ -90,6 +97,8 @@ impl ArrayCalculator {
             plan,
             fingerprint: 0,
             step: None,
+            game_reports: std::collections::BTreeMap::new(),
+            game_tables: std::collections::BTreeMap::new(),
         }
     }
 
@@ -140,7 +149,10 @@ impl ArrayCalculator {
             .scalars
             .get(name)
             .ok_or_else(|| {
-                ForgeError::Validation(format!("Output variable '{name}' not found in model"))
+                ForgeError::Validation(
+                    self.missing_game_result(name)
+                        .unwrap_or_else(|| format!("Output variable '{name}' not found in model")),
+                )
             })?
             .value
             .ok_or_else(|| ForgeError::Validation(format!("Output variable '{name}' has no value")))
@@ -192,6 +204,7 @@ impl ArrayCalculator {
     /// included file that fails, uneven columns in a table with row formulas,
     /// or a cycle.
     fn calculate_cells(&mut self) -> ForgeResult<Outcome> {
+        self.clear_game_results();
         self.fingerprint = plan::fingerprint(&self.model);
         (self.included, self.included_tables) = self.included_values()?;
 
@@ -237,6 +250,7 @@ impl ArrayCalculator {
                 Cell::Column { table, column } => self.calculate_column(table, column),
                 Cell::Scalar(name) => self.calculate_scalar_cell(name),
                 Cell::Columns { table, columns } => self.calculate_columns(table, columns),
+                Cell::Game(name) => self.calculate_game(name),
             };
             if let Err(e) = result {
                 outcome.failures.push(match e {
@@ -252,6 +266,8 @@ impl ArrayCalculator {
     /// Calculate one row-formula column and store it in its table
     fn calculate_column(&mut self, table_name: &str, col_name: &str) -> ForgeResult<()> {
         let formula = self.model.tables[table_name].row_formulas[col_name].clone();
+        self.check_game_results(&formula)
+            .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
         let result = self
             .evaluate_rowwise_formula_ast(table_name, &formula)
             .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
@@ -277,6 +293,8 @@ impl ArrayCalculator {
         else {
             return Ok(());
         };
+        self.check_game_results(&formula)
+            .map_err(|e| locate_error(e, scalar_name, &formula))?;
         let (value, is_date) = self
             .evaluate_scalar_formula_ast(scalar_name, &formula)
             .map_err(|e| locate_error(e, scalar_name, &formula))?;

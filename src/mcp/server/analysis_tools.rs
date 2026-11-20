@@ -1,10 +1,10 @@
 //! The tools that analyse a model: sensitivity, goal seek, break-even,
-//! variance, scenarios and their comparison, and the tornado.
+//! variance, scenarios and their comparison, the tornado, and games.
 
 use super::{to_json, ForgeMcpServer};
 use crate::mcp::types::{
-    BreakEvenRequest, CompareRequest, GoalSeekRequest, ScenariosRequest, SensitivityRequest,
-    TornadoRequest, VarianceRequest,
+    BreakEvenRequest, CompareRequest, GameRequest, GoalSeekRequest, ScenariosRequest,
+    SensitivityRequest, TornadoRequest, VarianceRequest,
 };
 use std::path::Path;
 
@@ -13,8 +13,8 @@ use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{tool, tool_router};
 
 use crate::cli::{
-    compare_core, comparison_json, goal_seek_core, scenarios_core, sensitivity_core, tornado_core,
-    variance_core,
+    compare_core, comparison_json, game_core, goal_seek_core, scenarios_core, sensitivity_core,
+    tornado_core, variance_core,
 };
 
 /// Scenario results as JSON, a date's value as its text, as in `forge calculate`
@@ -210,6 +210,22 @@ impl ForgeMcpServer {
         tornado_core(&path, req.output_var.as_deref())
             .map(|r| to_json(&r))
             .map_err(|e| format!("Tornado analysis failed: {e}"))
+    }
+
+    #[tool(
+        name = "forge_game",
+        description = "Find the equilibria of the games in a model's 'games' section, and play its tournaments (ADR-068). For a game played once: strictly dominated strategies in the order removed, weakly dominated ones, pure Nash equilibria (any number of players), mixed ones (two players, support enumeration, with the ties of a degenerate game named), and each strategy's payoff against an even mix. For a tournament of built-in strategies (tit_for_tat, grim_trigger, ...): each player's score, rank and cooperation, the match table and the collectively stable players, as exact expected values. Each report has `kind` table or tournament. The same numbers are scalars formulas can read (stag_hunt.equilibrium_1.me.stag, axelrod.score.tft)."
+    )]
+    fn game(&self, Parameters(req): Parameters<GameRequest>) -> Result<String, String> {
+        let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        game_core(&path, req.game.as_deref(), req.scenario.as_deref())
+            .map(|r| to_json(&r))
+            .map_err(|e| format!("Game analysis failed: {e}"))
     }
 }
 
@@ -989,6 +1005,83 @@ scalars:
         }
     }
 
+    /// kinship-protocol's tournament and the stag hunt, inline: the scores
+    /// are the exact ones of src/games/standings.rs (by hand, and against
+    /// axelrod 4.14.0), the mixed equilibrium nashpy 0.0.43's
+    #[test]
+    fn game_reports_tables_and_tournaments() {
+        let content = r#"_forge_version: "5.5.0"
+c: 0
+games:
+  stag_hunt:
+    players: [me, you]
+    strategies: [stag, hare]
+    symmetric: true
+    payoffs:
+      stag: {stag: 4, hare: 0}
+      hare: {stag: =3 - c, hare: =3 - c}
+  dilemma:
+    players: [me, you]
+    strategies: [cooperate, defect]
+    symmetric: true
+    payoffs:
+      cooperate: {cooperate: 3, defect: 0}
+      defect: {cooperate: 5, defect: 1}
+  axelrod:
+    tournament:
+      round: dilemma
+      players: {grim: grim_trigger, tft: tit_for_tat, ad: always_defect, ac: always_cooperate, rand: random}
+      rounds: 200
+scenarios:
+  costly:
+    c: 1
+"#;
+        let server = ForgeMcpServer::new();
+        let ask = |game: Option<&str>, scenario: Option<&str>| {
+            server.game(Parameters(GameRequest {
+                file_path: None,
+                content: Some(content.into()),
+                includes: None,
+                game: game.map(Into::into),
+                scenario: scenario.map(Into::into),
+            }))
+        };
+        let all = json(&ok_text(ask(None, None)));
+        assert_eq!(all[0]["kind"], "table");
+        assert!(close(
+            all[0]["equilibria"][2]["players"]["me"]["strategies"]["stag"]
+                .as_f64()
+                .unwrap(),
+            0.75,
+            1e-12
+        ));
+        assert_eq!(all[2]["kind"], "tournament");
+        assert_eq!(all[2]["ranking"][0]["player"], "grim");
+        assert!(close(
+            all[2]["ranking"][0]["score"].as_f64().unwrap(),
+            2.596,
+            1e-12
+        ));
+        assert_eq!(all[2]["stable"], serde_json::json!(["grim", "tft", "ad"]));
+        // c = 1: the mix is stag at (3 - 1) / 4
+        let costly = json(&ok_text(ask(Some("stag_hunt"), Some("costly"))));
+        assert_eq!(costly.as_array().unwrap().len(), 1);
+        assert!(close(
+            costly[0]["equilibria"][2]["players"]["me"]["strategies"]["stag"]
+                .as_f64()
+                .unwrap(),
+            0.5,
+            1e-12
+        ));
+        let err = err_text(ask(Some("nope"), None));
+        assert!(
+            err.starts_with("Game analysis failed: ")
+                && err
+                    .contains("Game 'nope' not found; the model has: stag_hunt, dilemma, axelrod"),
+            "{err}"
+        );
+    }
+
     /// What every tool that reads a model says when it is given none
     const ASKS: &str = "Either file_path or content is required";
 
@@ -1030,5 +1123,6 @@ scalars:
         );
         assert_eq!(server.scenarios(request(json!({}))).unwrap_err(), ASKS);
         assert_eq!(server.tornado(request(json!({}))).unwrap_err(), ASKS);
+        assert_eq!(server.game(request(json!({}))).unwrap_err(), ASKS);
     }
 }
