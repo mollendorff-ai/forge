@@ -88,6 +88,51 @@ pub fn calculate_with_override(
     ArrayCalculator::new(model).calculate_scalar(output_name)
 }
 
+/// The model and the full names of the inputs and the output, each found as
+/// [`scalar_name`](crate::cli::commands::names::scalar_name) finds it, with a
+/// date input refused (ADR-060).
+struct Resolved {
+    model: crate::types::ParsedModel,
+    vary: String,
+    vary2: Option<String>,
+    output: String,
+}
+
+fn resolve(file: &Path, vary: &str, vary2: Option<&str>, output: &str) -> ForgeResult<Resolved> {
+    use crate::cli::commands::names::scalar_name;
+    let model = parser::parse_model(file)?;
+    let vary = scalar_name(&model, vary, false)?;
+    let vary2 = vary2.map(|v| scalar_name(&model, v, false)).transpose()?;
+    let output = scalar_name(&model, output, true)?;
+    for name in std::iter::once(&vary).chain(&vary2) {
+        model
+            .refuse_date_input(name, "sensitivity")
+            .map_err(ForgeError::Validation)?;
+    }
+    Ok(Resolved {
+        model,
+        vary,
+        vary2,
+        output,
+    })
+}
+
+/// The output with both inputs set, or `None` when it has no value there: a
+/// formula the output does not use may fail without failing the cell.
+fn two_input_cell(
+    base_model: &crate::types::ParsedModel,
+    (vary, val1): (&str, f64),
+    (vary2, val2): (&str, f64),
+    output: &str,
+) -> Option<f64> {
+    let mut model = base_model.clone();
+    model
+        .set_input(vary, val1)
+        .and_then(|()| model.set_input(vary2, val2))
+        .ok()
+        .and_then(|()| ArrayCalculator::new(model).calculate_scalar(output).ok())
+}
+
 /// Run sensitivity analysis and return structured results (no printing).
 ///
 /// # Errors
@@ -102,67 +147,54 @@ pub fn sensitivity_core(
     range2: Option<&str>,
     output: &str,
 ) -> ForgeResult<crate::cli::commands::results::SensitivityResult> {
-    let base_model = parser::parse_model(file)?;
-    let vary = &crate::cli::commands::names::scalar_name(&base_model, vary, false)?;
-    let vary2 = vary2
-        .map(|v| crate::cli::commands::names::scalar_name(&base_model, v, false))
-        .transpose()?;
-    let vary2 = vary2.as_deref();
-    let output = &crate::cli::commands::names::scalar_name(&base_model, output, true)?;
-    for name in std::iter::once(vary.as_str()).chain(vary2) {
-        base_model
-            .refuse_date_input(name, "sensitivity")
-            .map_err(ForgeError::Validation)?;
-    }
-
+    use crate::cli::commands::results::{SensitivityData, SensitivityEntry, SensitivityResult};
+    let Resolved {
+        model,
+        vary,
+        vary2,
+        output,
+    } = resolve(file, vary, vary2, output)?;
     let values1 = parse_range(range)?;
 
     let data = if let (Some(v2), Some(r2)) = (vary2, range2) {
         let values2 = parse_range(r2)?;
-        let mut matrix = Vec::new();
-        for val1 in &values1 {
-            let mut row = Vec::new();
-            for val2 in &values2 {
-                let mut model = base_model.clone();
-                model
-                    .set_input(vary, *val1)
-                    .map_err(ForgeError::Validation)?;
-                model.set_input(v2, *val2).map_err(ForgeError::Validation)?;
-                // A formula the output does not use may fail here
-                row.push(ArrayCalculator::new(model).calculate_scalar(output).ok());
-            }
-            matrix.push(row);
-        }
-        crate::cli::commands::results::SensitivityData::TwoVar {
-            vary2: v2.to_string(),
+        let matrix = values1
+            .iter()
+            .map(|val1| {
+                values2
+                    .iter()
+                    .map(|val2| two_input_cell(&model, (&vary, *val1), (&v2, *val2), &output))
+                    .collect()
+            })
+            .collect();
+        SensitivityData::TwoVar {
+            vary2: v2,
             row_values: values1,
             col_values: values2,
             matrix,
         }
     } else {
-        let mut entries = Vec::new();
-        for val in &values1 {
-            match calculate_with_override(&base_model, vary, *val, output) {
-                Ok(result) => entries.push(crate::cli::commands::results::SensitivityEntry {
-                    input: *val,
-                    output: Some(result),
-                    error: None,
-                }),
-                Err(e) => entries.push(crate::cli::commands::results::SensitivityEntry {
-                    input: *val,
-                    output: None,
-                    error: Some(e.to_string()),
-                }),
-            }
-        }
-        crate::cli::commands::results::SensitivityData::OneVar { entries }
+        let entries = values1
+            .iter()
+            .map(
+                |val| match calculate_with_override(&model, &vary, *val, &output) {
+                    Ok(result) => SensitivityEntry {
+                        input: *val,
+                        output: Some(result),
+                        error: None,
+                    },
+                    Err(e) => SensitivityEntry {
+                        input: *val,
+                        output: None,
+                        error: Some(e.to_string()),
+                    },
+                },
+            )
+            .collect();
+        SensitivityData::OneVar { entries }
     };
 
-    Ok(crate::cli::commands::results::SensitivityResult {
-        vary: vary.clone(),
-        output: output.clone(),
-        data,
-    })
+    Ok(SensitivityResult { vary, output, data })
 }
 
 /// Execute the sensitivity command
@@ -192,19 +224,12 @@ pub fn sensitivity(
     }
     outln!(c, "   Output: {}\n", output.bright_blue());
 
-    let base_model = parser::parse_model(file)?;
-    let vary = &crate::cli::commands::names::scalar_name(&base_model, vary, false)?;
-    let vary2 = vary2
-        .map(|v| crate::cli::commands::names::scalar_name(&base_model, v, false))
-        .transpose()?;
-    let vary2 = vary2.as_deref();
-    let output = &crate::cli::commands::names::scalar_name(&base_model, output, true)?;
-
-    for name in std::iter::once(vary.as_str()).chain(vary2) {
-        base_model
-            .refuse_date_input(name, "sensitivity")
-            .map_err(ForgeError::Validation)?;
-    }
+    let Resolved {
+        model: base_model,
+        vary,
+        vary2,
+        output,
+    } = resolve(file, vary, vary2, output)?;
 
     // Parse range
     let values1 = parse_range(range)?;
@@ -220,10 +245,10 @@ pub fn sensitivity(
     }
 
     // Two-variable analysis
-    if let (Some(v2), Some(r2)) = (vary2, range2) {
-        run_two_var_sensitivity(c, &base_model, vary, (v2, r2), output, &values1, verbose)?;
+    if let (Some(v2), Some(r2)) = (vary2.as_deref(), range2) {
+        run_two_var_sensitivity(c, &base_model, &vary, (v2, r2), &output, &values1, verbose)?;
     } else {
-        print_one_var_sensitivity(c, &base_model, vary, output, &values1);
+        print_one_var_sensitivity(c, &base_model, &vary, &output, &values1);
     }
 
     outln!(c, "\n{}", "✅ Sensitivity analysis complete".bold().green());
@@ -231,7 +256,9 @@ pub fn sensitivity(
 }
 
 /// The table of a one-variable sensitivity: each input value and the output
-/// it gives, in columns wide enough for the names and the numbers.
+/// it gives, in columns wide enough for the names and the numbers. A value
+/// with no output shows `ERR`, as in the two-input matrix, and its reason is
+/// under the table, where its lines do not stretch the column.
 fn print_one_var_sensitivity(
     c: &mut Console<'_>,
     base_model: &crate::types::ParsedModel,
@@ -256,9 +283,10 @@ fn print_one_var_sensitivity(
             )
         })
         .collect();
-    let shown = |result: &Result<f64, String>| match result {
-        Ok(v) => display_number(*v),
-        Err(e) => format!("ERR: {e}"),
+    let shown = |result: &Result<f64, String>| {
+        result
+            .as_ref()
+            .map_or_else(|_| "ERR".to_string(), |v| display_number(*v))
     };
     let input_width = rows
         .iter()
@@ -295,6 +323,11 @@ fn print_one_var_sensitivity(
         );
     }
     outln!(c, "{rule}");
+    for (input, result) in &rows {
+        if let Err(e) = result {
+            outln!(c, "{} {vary} = {input}: {e}", "ERR".red());
+        }
+    }
 }
 
 /// `forge sensitivity` in the format asked for: the table, or JSON for
@@ -317,13 +350,14 @@ pub fn sensitivity_in_format(
         return sensitivity(c, file, (vary, range), (vary2, range2), output, verbose);
     }
     let result = sensitivity_core(file, vary, range, vary2, range2, output)?;
-    let json = serde_json::to_string_pretty(&crate::core::precision::Rounded(&result))
-        .map_err(|e| ForgeError::Validation(format!("Failed to write JSON: {e}")))?;
+    // Names, numbers and lists of them: there is nothing JSON cannot write
+    let json =
+        serde_json::to_string_pretty(&crate::core::precision::Rounded(&result)).unwrap_or_default();
     outln!(c, "{json}");
     Ok(())
 }
 
-/// Run two-variable sensitivity analysis matrix
+/// Run two-variable sensitivity analysis matrix, for inputs [`resolve`] found
 fn run_two_var_sensitivity(
     c: &mut Console<'_>,
     base_model: &crate::types::ParsedModel,
@@ -333,19 +367,6 @@ fn run_two_var_sensitivity(
     values1: &[f64],
     verbose: bool,
 ) -> ForgeResult<()> {
-    for name in [vary, v2] {
-        base_model
-            .refuse_date_input(name, "sensitivity")
-            .map_err(ForgeError::Validation)?;
-    }
-    if !base_model.scalars.contains_key(v2) {
-        return Err(ForgeError::Validation(format!(
-            "Variable '{}' not found. Available scalars: {:?}",
-            v2,
-            base_model.scalars.keys().collect::<Vec<_>>()
-        )));
-    }
-
     let values2 = parse_range(r2)?;
 
     if verbose {
@@ -369,14 +390,7 @@ fn run_two_var_sensitivity(
 
     // Calculate every cell first, so the columns can be as wide as their numbers
     let cell = |val1: f64, val2: f64| {
-        let mut model = base_model.clone();
-        // A refused input, like a formula the output does not use, fails
-        // its cell
-        model
-            .set_input(vary, val1)
-            .and_then(|()| model.set_input(v2, val2))
-            .ok()
-            .and_then(|()| ArrayCalculator::new(model).calculate_scalar(output).ok())
+        two_input_cell(base_model, (vary, val1), (v2, val2), output)
             .map_or_else(|| "ERR".to_string(), display_number)
     };
     let rows: Vec<(String, Vec<String>)> = values1
@@ -430,6 +444,13 @@ fn run_two_var_sensitivity(
 #[cfg(test)]
 mod tests {
     use super::parse_range;
+    use crate::cli::commands::results::SensitivityData;
+
+    /// The matrix of a two-input result (empty for one input)
+    fn two_var_matrix(data: SensitivityData) -> Vec<Vec<Option<f64>>> {
+        let json = serde_json::to_value(data).unwrap();
+        serde_json::from_value(json["TwoVar"]["matrix"].clone()).unwrap_or_default()
+    }
 
     #[test]
     fn a_range_with_more_steps_than_can_be_counted_is_refused() {
@@ -606,7 +627,7 @@ out:
         //! output that uses the failing formula still has no value there.
 
         use super::super::sensitivity_core;
-        use crate::cli::commands::results::SensitivityData;
+        use super::two_var_matrix;
         use crate::cli::forge;
 
         const MODEL: &str = "_forge_version: \"5.4.0\"\ns:\n  x: 2\n  y: 0\n  per_point: {formula: \"=1 / (x - 1)\"}\n  out: {formula: \"=x + y\"}\n  uses_it: {formula: \"=per_point + y\"}\n";
@@ -623,10 +644,7 @@ out:
             let result =
                 sensitivity_core(&path, "s.x", "1,2,1", Some("s.y"), Some("0,1,1"), output)
                     .unwrap();
-            match result.data {
-                SensitivityData::TwoVar { matrix, .. } => matrix,
-                SensitivityData::OneVar { .. } => panic!("one input"),
-            }
+            two_var_matrix(result.data)
         }
 
         #[test]
@@ -674,7 +692,7 @@ out:
         //! is in the middle.
 
         use super::super::sensitivity_core;
-        use crate::cli::commands::results::SensitivityData;
+        use super::two_var_matrix;
         use std::path::Path;
 
         #[test]
@@ -688,9 +706,7 @@ out:
                 "valuation.value_created",
             )
             .unwrap();
-            let SensitivityData::TwoVar { matrix, .. } = result.data else {
-                panic!("two inputs")
-            };
+            let matrix = two_var_matrix(result.data);
             assert_eq!((matrix.len(), matrix[0].len()), (7, 5));
             let cell = |row: usize, col: usize| matrix[row][col].unwrap();
             for (got, want) in [
@@ -709,7 +725,7 @@ out:
         //! model gives with each value.
 
         use super::super::sensitivity_core;
-        use crate::cli::commands::results::SensitivityData;
+        use super::two_var_matrix;
         use crate::core::ArrayCalculator;
         use std::path::Path;
 
@@ -737,17 +753,14 @@ out:
             )
             .unwrap();
             assert_eq!(result.vary, CASH);
-            let SensitivityData::OneVar { entries } = result.data else {
-                panic!("one input")
-            };
+            let json = serde_json::to_value(result.data).unwrap();
+            let entries = json["OneVar"]["entries"].as_array().unwrap();
             assert_eq!(entries.len(), 3);
             for entry in entries {
-                let want = value_created(&[(CASH, entry.input)]);
-                assert!(
-                    (entry.output.unwrap() - want).abs() <= 1e-9,
-                    "{}",
-                    entry.input
-                );
+                let input = entry["input"].as_f64().unwrap();
+                let want = value_created(&[(CASH, input)]);
+                let got = entry["output"].as_f64().unwrap();
+                assert!((got - want).abs() <= 1e-9, "{input}");
             }
         }
 
@@ -762,9 +775,7 @@ out:
                 "valuation.value_created",
             )
             .unwrap();
-            let SensitivityData::TwoVar { matrix, .. } = result.data else {
-                panic!("two inputs")
-            };
+            let matrix = two_var_matrix(result.data);
             for (row, premium) in [0.2, 0.4].into_iter().enumerate() {
                 for (col, cash) in [50.0, 70.0].into_iter().enumerate() {
                     let want = value_created(&[("offer.premium", premium), (CASH, cash)]);
@@ -772,6 +783,302 @@ out:
                     assert!((got - want).abs() <= 1e-9, "{premium} {cash}: {got}");
                 }
             }
+        }
+
+        /// The printed matrix took the included input as unknown ("Variable
+        /// '`@target.company.free_cash_flow_next_year`' not found"), though
+        /// the JSON and the one-input table took it.
+        #[test]
+        fn the_printed_matrix_takes_an_included_input_too() {
+            let text = crate::cli::forge(&[
+                "sensitivity",
+                MODEL,
+                "--vary",
+                "offer.premium",
+                "-r",
+                "0.2,0.4,0.2",
+                "--vary2",
+                CASH,
+                "--range2",
+                "50,70,20",
+                "--output-var",
+                "valuation.value_created",
+            ])
+            .printed();
+            let rows: Vec<&str> = text.lines().skip_while(|l| !l.starts_with('─')).collect();
+            assert_eq!(
+                rows[1..3],
+                [
+                    "       0.2000        92.86       516.27",
+                    "       0.4000      -151.94       271.47"
+                ]
+            );
+            for (premium, cash, shown) in [(0.2, 50.0, "92.86"), (0.4, 70.0, "271.47")] {
+                let want = value_created(&[("offer.premium", premium), (CASH, cash)]);
+                assert_eq!(crate::cli::commands::display_number(want), shown);
+            }
+        }
+    }
+
+    #[test]
+    fn a_range_that_is_not_start_end_step_is_refused() {
+        for (range, want) in [
+            (
+                "1,2",
+                "Invalid range format '1,2'. Expected: start,end,step (e.g., 0.01,0.15,0.02)",
+            ),
+            ("a,2,1", "Invalid start value: 'a'"),
+            ("1,b,1", "Invalid end value: 'b'"),
+            ("1,2,c", "Invalid step value: 'c'"),
+            ("1,2,0", "Step must be positive"),
+            ("1,2,-1", "Step must be positive"),
+            ("3,2,1", "Start must be less than or equal to end"),
+        ] {
+            let err = parse_range(range).unwrap_err().to_string();
+            assert_eq!(err, format!("Validation error: {want}"), "{range}");
+        }
+        assert_eq!(parse_range(" 1 , 2 , 1 ").unwrap(), [1.0, 2.0]);
+    }
+
+    #[test]
+    fn an_override_of_a_name_the_model_does_not_have_is_refused() {
+        let model =
+            crate::parser::parse_model(std::path::Path::new("examples/acquisition/deal.yaml"))
+                .unwrap();
+        let err = super::calculate_with_override(&model, "nope", 1.0, "valuation.value_created")
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Validation error: Scenario override 'nope' does not name a scalar in the model."
+        );
+        let dated = crate::parser::parse_model_text(
+            "m.yaml",
+            "_forge_version: \"5.4.0\"\ns:\n  d: 2026-10-31\n  out: {formula: \"=1\"}\n",
+            &std::collections::HashMap::new(),
+        )
+        .unwrap();
+        let err = super::calculate_with_override(&dated, "s.d", 1.0, "s.out").unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Validation error: 's.d' is a date (2026-10-31), and this command varies numbers: \
+             varying a date is not supported (ADR-060)"
+        );
+    }
+
+    mod refused_and_failed {
+        //! What each way in refuses before it calculates (the file, a name, a
+        //! date, a range), and a value whose output fails. `s.per_point`
+        //! divides by zero at x = 1, and `b.out` uses it; `a.out` does not.
+
+        use super::super::sensitivity_core;
+        use crate::cli::forge;
+
+        const MODEL: &str = "_forge_version: \"5.4.0\"\ns:\n  x: 2\n  y: 0\n  d: 2026-10-31\n  per_point: {formula: \"=1 / (s.x - 1)\"}\na:\n  out: {formula: \"=s.x + s.y\"}\nb:\n  out: {formula: \"=s.per_point + s.y\"}\n";
+        const SCALARS: &str = r#"["s.x", "s.y", "s.d", "s.per_point", "a.out", "b.out"]"#;
+
+        fn file() -> (tempfile::TempDir, std::path::PathBuf) {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, MODEL).unwrap();
+            (dir, path)
+        }
+
+        #[test]
+        fn the_core_refuses_each_thing_it_checks() {
+            let (_dir, path) = file();
+            let refused = |file: &std::path::Path,
+                           (vary, range): (&str, &str),
+                           (vary2, range2): (Option<&str>, Option<&str>),
+                           output: &str| {
+                sensitivity_core(file, vary, range, vary2, range2, output)
+                    .unwrap_err()
+                    .to_string()
+            };
+            let missing = path.with_file_name("missing.yaml");
+            assert_eq!(
+                refused(&missing, ("s.x", "1,2,1"), (None, None), "a.out"),
+                "IO error: No such file or directory (os error 2)"
+            );
+            assert_eq!(
+                refused(&path, ("s.q", "1,2,1"), (None, None), "a.out"),
+                format!("Validation error: Variable 's.q' not found. Available scalars: {SCALARS}")
+            );
+            assert_eq!(
+                refused(
+                    &path,
+                    ("s.x", "1,2,1"),
+                    (Some("s.q"), Some("0,1,1")),
+                    "a.out"
+                ),
+                format!("Validation error: Variable 's.q' not found. Available scalars: {SCALARS}")
+            );
+            assert_eq!(
+                refused(&path, ("s.x", "1,2,1"), (None, None), "out"),
+                "Validation error: 'out' could be any of a.out, b.out; write the full name"
+            );
+            assert_eq!(
+                refused(
+                    &path,
+                    ("s.x", "1,2,1"),
+                    (Some("s.d"), Some("0,1,1")),
+                    "a.out"
+                ),
+                "Validation error: 's.d' is a date (2026-10-31), and sensitivity varies \
+                 numbers: varying a date is not supported (ADR-060)"
+            );
+            assert_eq!(
+                refused(&path, ("s.x", "1,2"), (None, None), "a.out"),
+                "Validation error: Invalid range format '1,2'. Expected: start,end,step (e.g., \
+                 0.01,0.15,0.02)"
+            );
+            assert_eq!(
+                refused(&path, ("s.x", "1,2,1"), (Some("s.y"), Some("0,1")), "a.out"),
+                "Validation error: Invalid range format '0,1'. Expected: start,end,step (e.g., \
+                 0.01,0.15,0.02)"
+            );
+        }
+
+        #[test]
+        fn an_output_the_model_does_not_have_fails_each_entry() {
+            let (_dir, path) = file();
+            let result = sensitivity_core(&path, "s.x", "1,2,1", None, None, "nope").unwrap();
+            let json = serde_json::to_value(result.data).unwrap();
+            let entry = |input: f64| {
+                serde_json::json!({
+                    "input": input,
+                    "output": null,
+                    "error": "Validation error: Output variable 'nope' not found in model",
+                })
+            };
+            assert_eq!(
+                json,
+                serde_json::json!({"OneVar": {"entries": [entry(1.0), entry(2.0)]}})
+            );
+        }
+
+        #[test]
+        fn the_printed_commands_refuse_what_the_core_refuses() {
+            let (_dir, path) = file();
+            let p = path.to_str().unwrap();
+            let missing = path.with_file_name("missing.yaml");
+            let missing = missing.to_str().unwrap();
+            for (args, want) in [
+                (
+                    vec![
+                        missing,
+                        "--vary",
+                        "s.x",
+                        "-r",
+                        "1,2,1",
+                        "--output-var",
+                        "a.out",
+                    ],
+                    "IO error: No such file or directory (os error 2)",
+                ),
+                (
+                    vec![p, "--vary", "s.x", "-r", "1,2", "--output-var", "a.out"],
+                    "Invalid range format '1,2'",
+                ),
+                (
+                    vec![
+                        p,
+                        "--vary",
+                        "s.x",
+                        "-r",
+                        "1,2,1",
+                        "--vary2",
+                        "s.y",
+                        "--range2",
+                        "0,1",
+                        "--output-var",
+                        "a.out",
+                    ],
+                    "Invalid range format '0,1'",
+                ),
+                (
+                    vec![
+                        p,
+                        "--vary",
+                        "s.x",
+                        "-r",
+                        "1,2",
+                        "--output-var",
+                        "a.out",
+                        "--format",
+                        "json",
+                    ],
+                    "Invalid range format '1,2'",
+                ),
+            ] {
+                let ran = forge(&[&["sensitivity"], args.as_slice()].concat());
+                assert!(!ran.success(), "{args:?}");
+                let text = ran.both();
+                assert!(text.contains(want), "{text}");
+                assert!(!text.contains("Sensitivity analysis complete"), "{text}");
+            }
+        }
+
+        #[test]
+        fn a_failed_value_shows_err_in_the_table_and_its_reason_under_it() {
+            let (_dir, path) = file();
+            let p = path.to_str().unwrap();
+            let text = forge(&[
+                "sensitivity",
+                p,
+                "--vary",
+                "s.x",
+                "-r",
+                "1,2,1",
+                "--output-var",
+                "b.out",
+                "--verbose",
+            ])
+            .printed();
+            assert_eq!(
+                text,
+                format!(
+                    "🔥 Forge - Sensitivity Analysis\n   File: {p}\n   Vary: s.x (1,2,1)\n   \
+                     Output: b.out\n\n   Range 1: 2 values from 1 to 2\n\n📊 Sensitivity \
+                     Table: s.x → b.out\n────────────\n   s.x b.out\n────────────\n1.0000   \
+                     ERR\n2.0000  1.00\n────────────\nERR s.x = 1.0000: Formula evaluation \
+                     error: 1 formula failed:\n  - s.per_point: Division by zero (formula: =1 \
+                     / (s.x - 1))\n  Not calculated, because they use a failed formula:\n  - \
+                     b.out (uses s.per_point)\n\n✅ Sensitivity analysis complete\n"
+                )
+            );
+        }
+
+        #[test]
+        fn the_verbose_matrix_gives_both_ranges() {
+            let (_dir, path) = file();
+            let p = path.to_str().unwrap();
+            let text = forge(&[
+                "sensitivity",
+                p,
+                "--vary",
+                "s.x",
+                "-r",
+                "1,2,1",
+                "--vary2",
+                "s.y",
+                "--range2",
+                "0,1,1",
+                "--output-var",
+                "b.out",
+                "--verbose",
+            ])
+            .printed();
+            assert_eq!(
+                text,
+                format!(
+                    "🔥 Forge - Sensitivity Analysis\n   File: {p}\n   Vary: s.x (1,2,1)\n   \
+                     Vary2: s.y (0,1,1)\n   Output: b.out\n\n   Range 1: 2 values from 1 to \
+                     2\n   Range 2: 2 values from 0 to 1\n\n📊 Sensitivity Matrix: (s.x, s.y) \
+                     → b.out\n   s.x       0.0000       1.0000\n────────────────────────────────\n\
+                     1.0000          ERR          ERR\n2.0000         1.00         2.00\n\n✅ \
+                     Sensitivity analysis complete\n"
+                )
+            );
         }
     }
 }
