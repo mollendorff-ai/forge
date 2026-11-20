@@ -3,8 +3,7 @@
 //! validator's "is not valid under any of the schemas listed in 'anyOf'"
 //! followed by the whole group as JSON.
 
-use jsonschema::error::{TypeKind, ValidationErrorKind};
-use jsonschema::{JsonType, ValidationError};
+use super::schema_reader::{JsonType, Kind, SchemaError};
 use serde_json::Value;
 use std::fmt::Write as _;
 
@@ -12,14 +11,29 @@ use std::fmt::Write as _;
 const MAX_LISTED: usize = 10;
 
 /// One line per problem, most specific first.
-pub(super) fn describe_errors<'a>(
-    errors: impl Iterator<Item = ValidationError<'a>>,
+pub(super) fn describe_errors(errors: &[SchemaError<'_>], model: &Value, schema: &Value) -> String {
+    let lines = problem_lines(errors, model, schema);
+    let total = lines.len();
+    let mut out: Vec<String> = lines
+        .into_iter()
+        .take(MAX_LISTED)
+        .map(|l| format!("  - {l}"))
+        .collect();
+    if total > MAX_LISTED {
+        out.push(format!("  ... and {} more", total - MAX_LISTED));
+    }
+    out.join("\n")
+}
+
+/// Every line, before the list is cut at `MAX_LISTED`.
+pub(super) fn problem_lines(
+    errors: &[SchemaError<'_>],
     model: &Value,
     schema: &Value,
-) -> String {
+) -> Vec<String> {
     let mut problems: Vec<Problem> = Vec::new();
     for error in errors {
-        collect(&error, schema, &mut problems);
+        collect(error, schema, &mut problems);
     }
     misspelt_keys(model, schema, &mut problems);
     // An unknown key explains the rest of what fails at the same place or
@@ -42,16 +56,7 @@ pub(super) fn describe_errors<'a>(
             lines.push(p.text);
         }
     }
-    let total = lines.len();
-    let mut out: Vec<String> = lines
-        .into_iter()
-        .take(MAX_LISTED)
-        .map(|l| format!("  - {l}"))
-        .collect();
-    if total > MAX_LISTED {
-        out.push(format!("  ... and {} more", total - MAX_LISTED));
-    }
-    out.join("\n")
+    lines
 }
 
 /// A key that the schema cannot call unknown, because there it would be the
@@ -188,10 +193,19 @@ const fn type_words(t: JsonType) -> &'static str {
     }
 }
 
-fn expected_types(kind: &TypeKind) -> Vec<&'static str> {
-    match kind {
-        TypeKind::Single(t) => vec![type_words(*t)],
-        TypeKind::Multiple(set) => set.iter().map(type_words).collect(),
+fn expected_types(types: &[JsonType]) -> Vec<&'static str> {
+    types.iter().copied().map(type_words).collect()
+}
+
+/// What text a pattern that is not a formula's asks for.
+fn pattern_words(pattern: &str) -> String {
+    match pattern {
+        r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$" => "a date (YYYY-MM-DD)".to_string(),
+        r"^\d{4}-\d{2}(-\d{2})?$" => "a date (YYYY-MM-DD) or a month (YYYY-MM)".to_string(),
+        r"^[0-9]{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?$" => {
+            "a month (YYYY-MM) or a day (YYYY-MM-DD)".to_string()
+        },
+        other => format!("text that matches {other}"),
     }
 }
 
@@ -291,119 +305,83 @@ fn unknown_keys(
         .collect()
 }
 
-fn collect(error: &ValidationError<'_>, schema: &Value, out: &mut Vec<Problem>) {
-    let pointer = error.instance_path().to_string();
-    let path = key_path(&pointer);
-    let instance = error.instance();
-    let schema_path = error.schema_path().to_string();
-    let push = |out: &mut Vec<Problem>, text: String, unknown_key: bool| {
-        out.push(Problem {
-            path: path.clone(),
-            text,
-            unknown_key,
-        });
-    };
-    match error.kind() {
-        ValidationErrorKind::AdditionalProperties { unexpected } => {
-            for text in unknown_keys(unexpected, &path, instance, &schema_path, schema) {
-                push(out, text, true);
+fn collect(error: &SchemaError<'_>, schema: &Value, out: &mut Vec<Problem>) {
+    let path = key_path(&error.instance_path);
+    let instance = error.instance;
+    let shown = what(instance);
+    let text = match &error.kind {
+        Kind::AdditionalProperties(unexpected) => {
+            for text in unknown_keys(unexpected, &path, instance, &error.schema_path, schema) {
+                out.push(Problem {
+                    path: path.clone(),
+                    text,
+                    unknown_key: true,
+                });
             }
+            return;
         },
-        ValidationErrorKind::Type { kind } => {
-            let column = schema_path.starts_with("/definitions/TableColumn/");
-            push(
-                out,
-                type_text(&path, expected_types(kind), instance, column),
-                false,
-            );
-        },
-        ValidationErrorKind::Pattern { pattern } if pattern.starts_with("^=") => {
-            push(
-                out,
-                format!(
-                    "'{path}' must be a formula starting with '=', not {}",
-                    what(instance)
-                ),
-                false,
-            );
-        },
-        ValidationErrorKind::Enum { options } => {
-            let options: Vec<String> = options
-                .as_array()
-                .map(|a| a.iter().map(std::string::ToString::to_string).collect())
-                .unwrap_or_default();
-            let options: Vec<&str> = options.iter().map(String::as_str).collect();
-            push(
-                out,
-                format!(
-                    "'{path}' must be {}, not {}",
-                    or_list(&options),
-                    what(instance)
-                ),
-                false,
-            );
-        },
-        ValidationErrorKind::Minimum { limit }
-        | ValidationErrorKind::ExclusiveMinimum { limit } => {
-            push(
-                out,
-                format!("'{path}' must be at least {limit}, not {}", what(instance)),
-                false,
-            );
-        },
-        ValidationErrorKind::Maximum { limit }
-        | ValidationErrorKind::ExclusiveMaximum { limit } => {
-            push(
-                out,
-                format!("'{path}' must be at most {limit}, not {}", what(instance)),
-                false,
-            );
-        },
-        ValidationErrorKind::MinItems { limit } => {
-            push(
-                out,
-                format!("'{path}' needs at least {limit} entries"),
-                false,
-            );
-        },
-        ValidationErrorKind::Required { property } => {
-            let name = property
-                .as_str()
-                .map_or_else(|| property.to_string(), str::to_string);
-            push(out, format!("'{path}' needs '{name}'"), false);
-        },
-        ValidationErrorKind::AnyOf { context } | ValidationErrorKind::OneOfNotValid { context } => {
+        Kind::AnyOf(context) | Kind::OneOfNone(context) => {
             any_of(error, context, &path, schema, out);
+            return;
         },
-        ValidationErrorKind::Not { .. } => {
-            push(
-                out,
-                format!("'{path}' cannot be {} here", what(instance)),
-                false,
-            );
+        Kind::Type(types) => {
+            let column = error.schema_path.starts_with("/definitions/TableColumn/");
+            type_text(&path, expected_types(types), instance, column)
         },
-        _ => push(out, format!("'{path}': {}", error.masked()), false),
-    }
+        Kind::Pattern(pattern) if pattern.starts_with("^=") => {
+            format!("'{path}' must be a formula starting with '=', not {shown}")
+        },
+        Kind::Pattern(pattern) => {
+            format!("'{path}' must be {}, not {shown}", pattern_words(pattern))
+        },
+        Kind::Format => {
+            format!("'{path}' must be a date (YYYY-MM-DD) that is on the calendar, not {shown}")
+        },
+        Kind::Enum(options) => {
+            let options: Vec<String> = options.iter().map(Value::to_string).collect();
+            let options: Vec<&str> = options.iter().map(String::as_str).collect();
+            format!("'{path}' must be {}, not {shown}", or_list(&options))
+        },
+        Kind::Minimum(limit) => format!("'{path}' must be at least {limit}, not {shown}"),
+        Kind::Maximum(limit) => format!("'{path}' must be at most {limit}, not {shown}"),
+        Kind::MinItems(limit) => format!("'{path}' needs at least {limit} entries"),
+        Kind::MaxItems(limit) => format!("'{path}' has more than {limit} entries"),
+        Kind::Required(name) => format!("'{path}' needs '{name}'"),
+        Kind::OneOfMany => {
+            format!("'{path}' fits more than one of the forms allowed here ({shown})")
+        },
+        Kind::Not => format!("'{path}' cannot be {shown} here"),
+        Kind::Unreadable(problems) => format!(
+            "Forge cannot read the schema of this model format, so no model of it is \
+             accepted (a bug in Forge): {}",
+            problems.join("; ")
+        ),
+    };
+    out.push(Problem {
+        path,
+        text,
+        unknown_key: false,
+    });
 }
 
 /// None of several alternatives fit. Say what they all expect when they are
 /// alternative types, explain a list of mixed types, or else report the
 /// alternative that got furthest into the value.
 fn any_of(
-    error: &ValidationError<'_>,
-    context: &[Vec<ValidationError<'static>>],
+    error: &SchemaError<'_>,
+    context: &[Vec<SchemaError<'_>>],
     path: &str,
     schema: &Value,
     out: &mut Vec<Problem>,
 ) {
-    let instance = error.instance();
-    let pointer = error.instance_path().to_string();
+    let instance = error.instance;
+    let pointer = error.instance_path.as_str();
     // value: number or null; formula: text or null
     let types: Option<Vec<&'static str>> = context
         .iter()
         .map(|branch| match branch.as_slice() {
-            [e] if e.instance_path().to_string() == pointer => match e.kind() {
-                ValidationErrorKind::Type { kind } => Some(expected_types(kind)),
+            [e] if e.instance_path == pointer => match &e.kind {
+                Kind::Type(types) => Some(expected_types(types)),
                 _ => None,
             },
             _ => None,
@@ -421,11 +399,11 @@ fn any_of(
     }
     // Alternatives whose type fitted say what is wrong (a formula without
     // its =); the others only say the type is not theirs
-    let type_only = |branch: &Vec<ValidationError<'static>>| {
-        matches!(branch.as_slice(), [e] if e.instance_path().to_string() == pointer
-            && matches!(e.kind(), ValidationErrorKind::Type { .. }))
+    let type_only = |branch: &Vec<SchemaError<'_>>| {
+        matches!(branch.as_slice(), [e] if e.instance_path == pointer
+            && matches!(e.kind, Kind::Type(_)))
     };
-    let fitted: Vec<&Vec<ValidationError<'static>>> = context
+    let fitted: Vec<&Vec<SchemaError<'_>>> = context
         .iter()
         .filter(|b| !b.is_empty() && !type_only(b))
         .collect();
@@ -435,12 +413,7 @@ fn any_of(
         }
         return;
     }
-    if instance.is_array()
-        && error
-            .schema_path()
-            .to_string()
-            .starts_with("/definitions/TableColumn/")
-    {
+    if instance.is_array() && error.schema_path.starts_with("/definitions/TableColumn/") {
         let kinds: Vec<&str> = instance
             .as_array()
             .into_iter()
@@ -472,10 +445,10 @@ fn any_of(
     }
     // The alternative whose errors reach deepest into the value, then the
     // one with the fewest errors
-    let depth = |branch: &Vec<ValidationError<'static>>| {
+    let depth = |branch: &Vec<SchemaError<'_>>| {
         branch
             .iter()
-            .map(|e| e.instance_path().to_string().matches('/').count())
+            .map(|e| e.instance_path.matches('/').count())
             .max()
             .unwrap_or(0)
     };
@@ -503,7 +476,10 @@ fn any_of(
 
 #[cfg(test)]
 mod tests {
+    use super::problem_lines;
     use crate::parser::schema::validate_against_schema;
+    use crate::parser::schema_reader::Schema;
+    use serde_json::json;
     use std::fmt::Write as _;
 
     /// The message for a model, or "" if it fits its schema.
@@ -634,6 +610,103 @@ monte_carlo:
         let text = message(&model);
         assert_eq!(text.lines().filter(|l| l.starts_with("  - ")).count(), 10);
         assert!(text.ends_with("  ... and 4 more"), "{text}");
+    }
+
+    /// Where `jsonschema` used its own words, Forge's (ADR-069, point 3).
+    #[test]
+    fn a_date_a_period_start_and_too_many_entries_are_said_in_words() {
+        assert_eq!(
+            lines("_forge_version: \"5.4.0\"\nopened: \"text\"\n"),
+            ["'opened' must be a date (YYYY-MM-DD), not the text \"text\""]
+        );
+        assert_eq!(
+            lines(
+                "_forge_version: \"5.4.0\"\ncash:\n  year: {start: \"text\", count: 5, unit: year}\n  x: \"=1\"\n"
+            ),
+            ["'cash.year.start' must be a month (YYYY-MM) or a day (YYYY-MM-DD), not the text \"text\""]
+        );
+        assert_eq!(
+            lines(
+                "_forge_version: \"5.4.0\"\na: 1\nb: 2\nc: 3\nmonte_carlo:\n  iterations: 1000\n  correlations:\n    - variables: [a, b, c]\n      coefficient: 0\n  outputs:\n    - variable: a\n"
+            ),
+            ["'monte_carlo.correlations[0].variables' has more than 2 entries"]
+        );
+    }
+
+    /// An unknown key at the top of the model, where the schema names no
+    /// keys (`jsonschema` reports so for `additionalProperties: false` with
+    /// no `properties`, which the reader does not read).
+    #[test]
+    fn an_unknown_key_where_no_keys_are_named() {
+        use crate::parser::schema_reader::{Kind, SchemaError};
+        let model = json!({"k": 1});
+        let error = SchemaError {
+            instance: &model,
+            instance_path: String::new(),
+            schema_path: "/additionalProperties".to_string(),
+            kind: Kind::AdditionalProperties(vec!["k".to_string()]),
+        };
+        assert_eq!(
+            problem_lines(&[error], &model, &json!({})),
+            ["'k': there is no key 'k' here."]
+        );
+    }
+
+    /// The lines for a model against a schema of its own.
+    fn against(schema: &serde_json::Value, model: &serde_json::Value) -> Vec<String> {
+        let schema = Schema::from_text(&schema.to_string());
+        problem_lines(&schema.errors(model), model, &schema.doc)
+    }
+
+    /// The kinds the six schemas give only inside alternatives that are not
+    /// reported still have words.
+    #[test]
+    fn every_kind_has_words() {
+        let one = |schema: serde_json::Value, value: serde_json::Value| {
+            against(
+                &json!({"properties": {"x": schema}}),
+                &json!({ "x": value }),
+            )
+        };
+        assert_eq!(
+            one(json!({"format": "date"}), json!("2025-02-30")),
+            ["'x' must be a date (YYYY-MM-DD) that is on the calendar, not the text \"2025-02-30\""]
+        );
+        assert_eq!(
+            one(json!({"pattern": r"^\d{4}-\d{2}(-\d{2})?$"}), json!("May")),
+            ["'x' must be a date (YYYY-MM-DD) or a month (YYYY-MM), not the text \"May\""]
+        );
+        assert_eq!(
+            one(json!({"pattern": "^[a-z]+$"}), json!("A")),
+            ["'x' must be text that matches ^[a-z]+$, not the text \"A\""]
+        );
+        assert_eq!(
+            one(json!({"type": "boolean"}), json!(1)),
+            ["'x' must be true or false, not the number 1"]
+        );
+        // Two alternatives that fail alike, neither deeper than the other
+        assert_eq!(
+            one(
+                json!({"anyOf": [{"pattern": "^a"}, {"pattern": "^b"}]}),
+                json!("c")
+            ),
+            ["'x' is not any of the forms allowed here (the text \"c\")"]
+        );
+        // The same line twice is said once
+        assert_eq!(
+            one(
+                json!({"allOf": [{"type": "string"}, {"type": "string"}]}),
+                json!(1)
+            ),
+            ["'x' must be text, not the number 1"]
+        );
+        assert_eq!(
+            one(
+                json!({"oneOf": [{"type": "string"}, {"pattern": "^="}]}),
+                json!("=a")
+            ),
+            ["'x' fits more than one of the forms allowed here (the text \"=a\")"]
+        );
     }
 
     #[test]

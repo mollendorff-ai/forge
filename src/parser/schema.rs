@@ -1,6 +1,8 @@
-//! JSON Schema validation for Forge YAML models
+//! Validation of a Forge YAML model against the schema of its format
 //!
-//! Validates YAML against embedded JSON schemas (v1.0.0, v5.0.0, v5.1.0, v5.2.0, v5.3.0, v5.4.0).
+//! Forge's own checks first, with messages that name the format a feature
+//! needs, then the schema file of the model's `_forge_version` (1.0.0 and
+//! 5.0.0 to 5.4.0), read by `schema_reader` (ADR-069).
 
 use crate::error::{ForgeError, ForgeResult};
 use yaml_serde::Value;
@@ -23,19 +25,10 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
             )
         })?;
 
-    // Load the appropriate schema based on version
-    let schema_str = match version {
-        "1.0.0" => include_str!("../../schema/forge-v1.0.0.schema.json"),
-        "5.0.0" => include_str!("../../schema/forge-v5.0.0.schema.json"),
-        "5.1.0" => include_str!("../../schema/forge-v5.1.0.schema.json"),
-        "5.2.0" => include_str!("../../schema/forge-v5.2.0.schema.json"),
-        "5.3.0" => include_str!("../../schema/forge-v5.3.0.schema.json"),
-        "5.4.0" => include_str!("../../schema/forge-v5.4.0.schema.json"),
-        _ => {
-            return Err(ForgeError::Validation(format!(
-                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns), 5.3.0 (5.2.0 plus empty cells), 5.4.0 (5.3.0 plus dates as scalars). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
-            )));
-        },
+    let Some(schema) = super::schema_reader::for_format(version) else {
+        return Err(ForgeError::Validation(format!(
+            "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns), 5.3.0 (5.2.0 plus empty cells), 5.4.0 (5.3.0 plus dates as scalars). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
+        )));
     };
 
     check_short_form(yaml, version)?;
@@ -48,30 +41,19 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         validate_v1_0_0_no_tables(yaml)?;
     }
 
-    let schema_value: serde_json::Value = serde_json::from_str(schema_str)
-        .map_err(|e| ForgeError::Validation(format!("Failed to parse schema: {e}")))?;
-
-    // Convert YAML to JSON for validation
+    // The model as JSON, as the schema reads it
     let json_value: serde_json::Value = serde_json::to_value(yaml)
         .map_err(|e| ForgeError::Validation(format!("Failed to convert YAML to JSON: {e}")))?;
-
-    // Build the validator
-    let validator = jsonschema::validator_for(&schema_value)
-        .map_err(|e| ForgeError::Validation(format!("Failed to compile schema: {e}")))?;
-
-    // Validate
-    if validator.validate(&json_value).is_err() {
-        return Err(ForgeError::Validation(format!(
-            "The model does not fit model format {version}:\n{}",
-            super::schema_errors::describe_errors(
-                validator.iter_errors(&json_value),
-                &json_value,
-                &schema_value
-            )
-        )));
+    let errors = schema.errors(&json_value);
+    #[cfg(test)]
+    super::schema_reader::tests::agrees_with_jsonschema(version, &json_value, &errors);
+    if errors.is_empty() {
+        return Ok(());
     }
-
-    Ok(())
+    Err(ForgeError::Validation(format!(
+        "The model does not fit model format {version}:\n{}",
+        super::schema_errors::describe_errors(&errors, &json_value, &schema.doc)
+    )))
 }
 
 /// A period column in a model of an earlier format: say which format has it,

@@ -538,6 +538,11 @@ pub mod cases {
         if let Some(main) = case.get("main") {
             request["main"] = main.clone();
         }
+        // A model written in the case: one the browser must refuse
+        if let Some(model) = case.get("model") {
+            request["files"] = json!({ "model.yaml": model });
+            request["main"] = json!("model.yaml");
+        }
         request
     }
 }
@@ -643,6 +648,21 @@ mod tests {
                 let tool = case["tool"].as_str().unwrap();
                 let request = cases::request(&case, &examples());
                 let in_memory = run(tool, &request);
+                // A refused model: refused for the reason named, and with the
+                // same message as the command line's, from a file on disk
+                if let Some(why) = case.get("refused").and_then(Value::as_str) {
+                    let message = in_memory.unwrap_err();
+                    assert!(message.contains(why), "{name}: {message}");
+                    let dir = tempfile::tempdir().unwrap();
+                    let model = case["model"].as_str().unwrap();
+                    std::fs::write(dir.path().join("model.yaml"), model).unwrap();
+                    assert_eq!(
+                        run_on_disk(tool, &request, dir.path()),
+                        Err(message),
+                        "{name}"
+                    );
+                    continue;
+                }
                 assert!(in_memory.is_ok(), "{name}: {in_memory:?}");
                 if case.get("files").is_none() {
                     continue;

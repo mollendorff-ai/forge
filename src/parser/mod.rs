@@ -5,7 +5,10 @@
 //!
 //! # Submodules
 //! - `arrays`: Array/column type parsing (Number, Text, Date, Boolean)
-//! - `schema`: JSON Schema validation (v1.0.0 and v5.0.0)
+//! - `schema`: validation against the schema of the model's format
+//! - `schema_reader`: Forge's reader of its JSON schemas (ADR-069)
+//! - `schema_pattern`: the schemas' `pattern`s, matched without a regex engine
+//! - `schema_errors`: what does not fit a schema, in words
 //! - `multi_doc`: Multi-document YAML parsing (v4.4.2)
 //! - `includes`: Cross-file include resolution (v4.0)
 //! - `variables`: Table and scalar variable parsing
@@ -19,6 +22,8 @@ mod multi_doc;
 pub(crate) mod periods;
 mod schema;
 mod schema_errors;
+mod schema_pattern;
+mod schema_reader;
 mod variables;
 
 // Re-export commonly used functions

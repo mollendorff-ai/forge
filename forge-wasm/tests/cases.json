@@ -39,5 +39,19 @@
   {"name": "export mortgage", "tool": "export", "dir": "mortgage", "files": ["mortgage.yaml"], "main": "mortgage.yaml"},
   {"name": "functions", "tool": "functions"},
   {"name": "schema 5.2", "tool": "schema", "args": {"version": "v5.2"}},
-  {"name": "examples list", "tool": "examples"}
+  {"name": "examples list", "tool": "examples"},
+  {"name": "refused: a misspelt formula key", "tool": "validate", "model": "_forge_version: \"5.1.0\"\nloan:\n  principal: 450000\n  payment:\n    formla: \"=principal * 2\"\n", "refused": "Did you mean 'formula'?"},
+  {"name": "refused: an unknown key in a scalar", "tool": "validate", "model": "_forge_version: \"5.1.0\"\nprice:\n  value: 1\n  colour: red\n", "refused": "there is no key 'colour' here"},
+  {"name": "refused: a table column that is not a list", "tool": "validate", "model": "_forge_version: \"5.1.0\"\nt:\n  quarter: [1, 2]\n  rate: 0.05\n", "refused": "A single number belongs in a group of scalars"},
+  {"name": "refused: a column of numbers and text", "tool": "validate", "model": "_forge_version: \"5.1.0\"\nt:\n  revenue: [100, \"Q2\", 150]\n", "refused": "mixes numbers and text"},
+  {"name": "refused: an empty cell before 5.3.0", "tool": "validate", "model": "_forge_version: \"5.1.0\"\nt:\n  x: [1, null]\n", "refused": "which model format 5.3.0 adds"},
+  {"name": "refused: a misspelt scenario probability", "tool": "validate", "model": "_forge_version: \"5.1.0\"\na:\n  b: 1\nscenarios:\n  up:\n    probabilty: 0.5\n    scalars:\n      a.b: 2\n", "refused": "Did you mean 'probability'?"},
+  {"name": "refused: a bare formula as a scalar", "tool": "validate", "model": "_forge_version: \"5.0.0\"\ntotal: \"=1 + 2\"\n", "refused": "a bare formula is a table column"},
+  {"name": "refused: too few iterations", "tool": "validate", "model": "_forge_version: \"5.1.0\"\na: 1\nmonte_carlo:\n  iterations: 5\n  outputs:\n    - variable: a\n", "refused": "must be at least 100"},
+  {"name": "refused: a direction that is not higher or lower", "tool": "validate", "model": "_forge_version: \"5.1.0\"\ng:\n  c:\n    value: 1\n    better: down\n", "refused": "must be \"higher\" or \"lower\""},
+  {"name": "refused: text where a date scalar belongs", "tool": "validate", "model": "_forge_version: \"5.4.0\"\nopened: \"text\"\n", "refused": "must be a date (YYYY-MM-DD)"},
+  {"name": "refused: a period that starts on no date", "tool": "validate", "model": "_forge_version: \"5.4.0\"\ncash:\n  year: {start: \"text\", count: 5, unit: year}\n  x: \"=1\"\n", "refused": "must be a month (YYYY-MM) or a day (YYYY-MM-DD)"},
+  {"name": "refused: three variables in one correlation", "tool": "validate", "model": "_forge_version: \"5.4.0\"\na: 1\nb: 2\nc: 3\nmonte_carlo:\n  iterations: 1000\n  correlations:\n    - variables: [a, b, c]\n      coefficient: 0\n  outputs:\n    - variable: a\n", "refused": "has more than 2 entries"},
+  {"name": "refused: no format version", "tool": "validate", "model": "price: 1\n", "refused": "Missing required field: _forge_version"},
+  {"name": "refused: a format version Forge does not have", "tool": "validate", "model": "_forge_version: \"6.0.0\"\nprice: 1\n", "refused": "Unsupported _forge_version: '6.0.0'"}
 ]

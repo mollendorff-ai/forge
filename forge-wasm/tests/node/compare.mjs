@@ -1,5 +1,6 @@
 // Run every case of tests/cases.json through the WebAssembly build and compare
-// each answer with the native build's (examples/expected.rs). Numbers may
+// each answer with the native build's (examples/expected.rs). A case with a
+// `model` and `refused` is a model both must refuse, with the same message. Numbers may
 // differ in their last bits (the browser's maths library is not the system's);
 // anything else must be equal.
 //
@@ -60,13 +61,22 @@ for (const c of cases) {
     );
   }
   if (c.main) request.main = c.main;
+  // A model written in the case, which both builds must refuse alike
+  if (c.model) {
+    request.files = { "model.yaml": c.model };
+    request.main = "model.yaml";
+  }
   console.log(`running: ${c.name}`);
   const start = performance.now();
   const answer = JSON.parse(forge.call(c.tool, JSON.stringify(request)));
   const ms = performance.now() - start;
   const before = differences.length;
   compare(answer, expected[c.name], c.name);
-  rows.push({ name: c.name, ms, ok: differences.length === before && !("error" in answer) });
+  const refused = "error" in answer;
+  if (c.refused && !(refused && answer.error.includes(c.refused))) {
+    differences.push(`${c.name}: not refused for "${c.refused}": ${JSON.stringify(answer).slice(0, 200)}`);
+  }
+  rows.push({ name: c.name, ms, ok: differences.length === before && refused === Boolean(c.refused) });
 }
 
 const wasm = join(pkg, "forge_wasm_bg.wasm");
@@ -76,7 +86,7 @@ const mb = (n) => (n / 1048576).toFixed(2);
 const summary = [
   `## forge-wasm ${forge.version()}`,
   "",
-  `${rows.filter((r) => r.ok).length} of ${rows.length} cases give the native answer.`,
+  `${rows.filter((r) => r.ok).length} of ${rows.length} cases give the native answer (${cases.filter((c) => c.refused).length} of them a model both refuse, with the same message).`,
   "",
   `WebAssembly module: ${mb(bytes)} MB, ${mb(gzipped)} MB gzipped (wasm-bindgen output, not run through wasm-opt).`,
   "",

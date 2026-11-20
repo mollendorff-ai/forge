@@ -1,8 +1,8 @@
 # ADR-069: One Model Validator, Without a JSON Schema Engine
 
-**Status:** Proposed
-**Date:** 2026-11-19
-**Decided by:** the maintainer (one hand-written validator on every platform, `jsonschema` kept only to check it, the schema files still published); the analysis and the recommendation between the two ways of writing it are Claude's
+**Status:** Accepted (option 1); built
+**Date:** 2026-11-19, built 2026-11-20
+**Decided by:** the maintainer (one hand-written validator on every platform, `jsonschema` kept only to check it, the schema files still published), who chose option 1 on 2026-11-20; the analysis and the recommendation are Claude's
 **Closes:** roadmap T1-ONE-VALIDATOR
 
 ---
@@ -73,19 +73,22 @@ A function per definition per format version (`ScalarMapping`, `TableColumn`, `M
 
 ## Decision
 
-**Option 1, a reader of the schema files**, as Claude recommends; the maintainer to confirm.
+**Option 1, a reader of the schema files.**
 
 1. **Where.** A module beside `schema.rs` (`src/parser/schema/validator.rs` or similar, split by what it does if it nears 1,500 lines). `validate_against_schema` keeps its signature and its own checks, and calls the reader instead of `jsonschema`. Nothing that calls it changes.
-2. **What it reads.** The seventeen keywords of the table, with draft 07's meaning as `jsonschema` 0.60 applies it (the list in Context): `format: date` asserted, `1.0` an integer, `\d` as `[0-9]`, `$ref` only to `#/definitions/`. The patterns are compiled with the `regex` crate, once per process, after the same `\d` translation. An unknown keyword, a `$ref` elsewhere or a pattern that does not compile refuses the model with a message that names it.
+2. **What it reads.** The seventeen keywords of the table, with draft 07's meaning as `jsonschema` 0.60 applies it (the list in Context): `format: date` asserted, `1.0` an integer, `\d` as `[0-9]`, `$ref` only to `#/definitions/`. An unknown keyword, a `$ref` elsewhere or a pattern it cannot read makes every model of that format refused, with a message that names it, and a test that reads the six files fails first.
+   *As built:* the patterns are not compiled with the `regex` crate, which was to stay in the browser for the Excel translation. Measured on 2026-11-20, nothing else in the browser calls `regex`: it reached the module only through `jsonschema`, and alone it was 277 KB of it (1,488,393 bytes gzipped with it, 1,211,577 without). The patterns are matched by a matcher of the reader's own (`src/parser/schema_pattern.rs`): literal characters, `.`, `^`, `$`, classes, groups with alternatives, `?`, `*`, `+` and `{n,m}`, checked against the `regex` crate in its tests. It loops over a repeated character and allows a group only a bounded number of repetitions, so a long text in a model never makes it go deeper.
 3. **The messages.** Every line `schema_errors.rs` writes today is written word for word, in the same order. The lines that today are `jsonschema`'s own words get Forge's: `'t.x' has more than 2 entries`, `'t.month[0]' must be a date (YYYY-MM-DD), not the text "2025-13-01"`, a non-formula pattern as what the text must look like, and `'x' fits more than one of the forms allowed here`. The tests in `schema_errors.rs` and the 21 tests pass unchanged.
 4. **The proof, with `jsonschema` as a dev-dependency.** A test runs both validators on (a) every model under `examples/` and every model written in a test that reaches `validate_against_schema`, and (b) bad models generated from each example by fixed mutations at every key path: a key misspelt, a key added, a required key dropped, a value replaced by null, true, a number, text, a list, a mapping, a formula without its `=`, a month, an impossible date, and a number just past each `minimum` and `maximum`. They must accept and refuse the same models. Generation is deterministic, so a failure names the model and the mutation.
+   *As built:* both must also give the same lines (sorted, since the order is `jsonschema`'s to change): `jsonschema`'s errors are turned into the reader's and worded by the same code. In a test build `validate_against_schema` runs this check on every model it is given, so each of the 2,350 library tests' models is checked too. The generated corpus is 73,650 models and gives every kind of error the six schemas can (`the_reader_and_jsonschema_refuse_the_same_generated_models`); small schemas check each keyword and each order of errors against `jsonschema` on their own. One form the six files never use, `additionalProperties: false` without `properties`, `jsonschema` reports apart (as a false schema): the reader does not read it, rather than word it differently.
 5. **The browser.** The native and WebAssembly comparison (`forge-wasm/expected.json`, `forge-wasm/tests/node/compare.mjs`) gains a set of refused models with their messages, so CI checks that the browser refuses each one with the same words as the command line.
 6. **One time, in the pull request:** the messages of the old path (`jsonschema` plus today's `schema_errors.rs`) and the new one are compared on every refused model of point 4, and the differences listed. Only the lines of point 3 may differ.
+   *As built:* on the 73,650 models of point 4 (41,742 refused), 2,064 messages differ, each only in the lines of point 3: 2,996 lines for a date scalar, 54 for a period's start, 8 for too many correlation variables. Every other line is the same, in the same place.
 7. **Dependencies.** `jsonschema` moves to `[dev-dependencies]`; its two target entries in `[dependencies]` go, and so does `getrandom_03`. The `[profile.wasm.package.*]` entries of #296 for crates no longer in the browser build go. The size budget in `ci.yml` is lowered to the measured size plus 100 KB.
 
 ## Consequences
 
-- The browser module loses the 53 crates. The check off gives 1,202,754 bytes; the acceptance (at least 500 KB smaller, at most 1,387,038) leaves 184 KB for the reader and the messages, which by their size in lines should take a small part of it. Measured as in #296.
+- The browser module loses the 53 crates. The check off gives 1,202,754 bytes; the acceptance (at least 500 KB smaller, at most 1,387,038) leaves 184 KB for the reader and the messages, which by their size in lines should take a small part of it. Measured as in #296. *As built:* 1,212,222 bytes gzipped (2026-11-20), 674,816 less than before; the check costs 26 KB over the same build with it off (1,185,987). The budget in `ci.yml` is 1,313,000.
 - The command line, the MCP server, the REST API and the browser refuse the same models with the same words, because they run the same code. A model's acceptance does not change on any of them; point 4 is the test of that.
 - The schema files stay where they are and are still published (`forge schema`, `forge_schema`, `editors/vscode/schemas`). Changing one now changes what Forge enforces directly, through the reader. A change that uses a new keyword needs the reader extended first, and the test of point 2 says so.
 - The native binary loses `jsonschema` too, and with it about 50 crates from a release build.
