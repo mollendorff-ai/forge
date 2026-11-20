@@ -96,9 +96,6 @@ serde = { version = "1.0", features = ["derive"] }
 yaml_serde = "0.10"
 serde_json = "1.0"  # JSON handling for schema validation
 
-# JSON Schema validation (v1.0.0 array model)
-jsonschema = { version = "0.60", default-features = false, features = ["idna"] }
-
 # CLI
 clap = { version = "4.5.53", features = ["derive", "env"], optional = true }
 # Whether help and usage errors are in colour, decided as clap decides it
@@ -167,18 +164,11 @@ base64 = { version = "0.23.1", optional = true }
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# jsonschema may follow a $ref to a local file everywhere but in a browser,
-# where its file resolver does not build (Forge's schemas are built in)
-[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
-jsonschema = { version = "0.60", default-features = false, features = ["resolve-file"] }
-
 # In a browser (wasm32-unknown-unknown, ADR-055): randomness for unseeded
 # simulations from the browser's crypto, and today's date from its clock.
 # Both apply to that target only; other builds are unchanged.
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.4", features = ["wasm_js"] }
-# jsonschema's hashing (ahash) still uses getrandom 0.3
-getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 chrono = { version = "0.4", features = ["serde", "wasmbind"] }
 # A workbook's creation time from the browser's clock (std's clock panics
 # there); only when Excel is built in (feature `excel`)
@@ -197,6 +187,11 @@ assert_cmd = "2.0"  # CLI integration testing
 predicates = "3.1"  # CLI output assertions
 # Property tests: rules that must hold for any model (src/lib.rs (its properties tests))
 proptest = { version = "1", default-features = false, features = ["std"] }
+# The JSON Schema engine Forge's own reader of its schemas replaced (ADR-069):
+# every model a test reads is checked by both, and they must agree
+jsonschema = { version = "0.60", default-features = false }
+# What the schema patterns' own matcher must agree with (src/parser/schema_pattern.rs)
+regex = "1.12"
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 
@@ -230,25 +225,3 @@ panic = "abort"
 [profile.wasm]
 inherits = "release"
 opt-level = "s"
-
-# The JSON Schema check runs once for a model that is read, never in a loop, so
-# its crates are built for size alone ("z"): 86,816 bytes less gzipped
-# (1,973,854 to 1,887,038, measured 2026-11-19), and as fast (simulations and
-# seeks 0.97 of the time, all cases 0.98, five interleaved runs each; the noise
-# between runs of one build is about 5%). The regex, Excel and zip crates at "z"
-# too saved 50 KB more but read 3 to 4% slower, within that noise, and are left
-# out. The calculator stays at "s".
-[profile.wasm.package.jsonschema]
-opt-level = "z"
-[profile.wasm.package.jsonschema-regex]
-opt-level = "z"
-[profile.wasm.package.jsonschema-value]
-opt-level = "z"
-[profile.wasm.package.referencing]
-opt-level = "z"
-[profile.wasm.package.fancy-regex]
-opt-level = "z"
-[profile.wasm.package.fluent-uri]
-opt-level = "z"
-[profile.wasm.package.fraction]
-opt-level = "z"

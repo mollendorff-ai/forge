@@ -22,6 +22,11 @@ wasm-bindgen = "0.2"
 # A Rust panic in the browser shows its message in the console
 console_error_panic_hook = "0.1"
 
+[dev-dependencies]
+# A refused model of tests/cases.json is read from a file too, as the command
+# line reads it
+tempfile = "3.8"
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
