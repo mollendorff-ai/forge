@@ -2,6 +2,7 @@
 //! result a viewer shows, a table's header and the note a value's metadata
 //! becomes.
 
+use super::limits::CHECKED;
 use super::ExcelExporter;
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::text_results::{self, TextCell, TextResult};
@@ -11,22 +12,27 @@ use rust_xlsxwriter::{Format, Formula, Note, Worksheet};
 use std::collections::HashMap;
 
 impl ExcelExporter {
+    /// The `Name` and `Value` headers of a sheet of scalars.
+    pub(super) fn write_name_value_header(worksheet: &mut Worksheet) {
+        for (col, header) in [(0, "Name"), (1, "Value")] {
+            worksheet.write_string(0, col, header).expect(CHECKED);
+        }
+    }
+
     /// Write a scalar's value: a date as a date cell (ADR-060).
     pub(super) fn write_scalar_value(
         worksheet: &mut rust_xlsxwriter::Worksheet,
         row: u32,
         var: &crate::types::Variable,
-    ) -> ForgeResult<()> {
+    ) {
         let Some(value) = var.value else {
-            return Ok(());
+            return;
         };
-        let written = match Self::scalar_format(var) {
+        match Self::scalar_format(var) {
             Some(format) => worksheet.write_number_with_format(row, 1, value, &format),
             None => worksheet.write_number(row, 1, value),
-        };
-        written
-            .map(|_| ())
-            .map_err(|e| ForgeError::Export(format!("Failed to write scalar value: {e}")))
+        }
+        .expect(CHECKED);
     }
 
     /// Write a scalar's formula, with its cached value: a date as a date cell.
@@ -35,7 +41,7 @@ impl ExcelExporter {
         row: u32,
         var: &crate::types::Variable,
         translated: &crate::excel::workbook_refs::Translated,
-    ) -> ForgeResult<()> {
+    ) {
         let mut formula = Formula::new(&translated.formula);
         if let Some(value) = var.value {
             formula = formula.set_result(value.to_string());
@@ -48,9 +54,7 @@ impl ExcelExporter {
             (None, true) => worksheet.write_dynamic_formula(row, 1, formula),
             (None, false) => worksheet.write_formula(row, 1, formula),
         };
-        written
-            .map(|_| ())
-            .map_err(|e| ForgeError::Export(format!("Failed to write scalar formula: {e}")))
+        written.expect(CHECKED);
     }
 
     /// The cell format of a scalar: its `format:` (ADR-061), else a date's
@@ -126,7 +130,7 @@ impl ExcelExporter {
         table: &Table,
         column_names: &[String],
     ) -> ForgeResult<()> {
-        // Past Excel's last column the writer refuses the cell, long before the counter ends
+        // The sheet's size was checked: a header fails only for its length
         for (col, col_name) in (0u16..=u16::MAX).zip(column_names) {
             worksheet
                 .write_string(0, col, col_name)
@@ -174,19 +178,18 @@ impl ExcelExporter {
                 Some(format) => worksheet.write_number_with_format(row, col, value, format),
                 None => worksheet.write_number(row, col, value),
             }
-            .map(|_| ())
-            .map_err(|e| ForgeError::Export(format!("Failed to write number: {e}")))
+            .expect(CHECKED);
         };
         match values {
             ColumnValue::Number(nums) => {
                 if let Some(&value) = nums.get(index) {
-                    number(worksheet, value)?;
+                    number(worksheet, value);
                 }
             },
             // An empty cell is left empty (ADR-059)
             ColumnValue::Blanks(nums) => {
                 if let Some(Some(value)) = nums.get(index) {
-                    number(worksheet, *value)?;
+                    number(worksheet, *value);
                 }
             },
             // A column of dates is written as dates: the day number, shown
@@ -203,9 +206,7 @@ impl ExcelExporter {
                                     serial,
                                     format.unwrap_or(&date_format),
                                 )
-                                .map_err(|e| {
-                                    ForgeError::Export(format!("Failed to write date: {e}"))
-                                })?;
+                                .expect(CHECKED);
                         }
                     } else {
                         worksheet.write_string(row, col, value).map_err(|e| {
@@ -216,9 +217,7 @@ impl ExcelExporter {
             },
             ColumnValue::Boolean(bools) => {
                 if let Some(&value) = bools.get(index) {
-                    worksheet
-                        .write_boolean(row, col, value)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write boolean: {e}")))?;
+                    worksheet.write_boolean(row, col, value).expect(CHECKED);
                 }
             },
         }
@@ -491,5 +490,130 @@ r:
             assert_eq!(values.get_value((1, 1)), Some(&Data::Float(7.0)));
             assert_eq!(values.get_value((2, 1)), Some(&Data::Float(1.0)));
         }
+    }
+
+    #[test]
+    fn a_cached_result_is_what_the_column_holds_at_that_row() {
+        let numbers = ColumnValue::Number(vec![1.5, 2.0]);
+        let blanks = ColumnValue::Blanks(vec![Some(3.0), None]);
+        let text = ColumnValue::Text(vec!["a".to_string()]);
+        let dates = ColumnValue::Date(vec!["2026-10-31".to_string(), "soon".to_string()]);
+        let bools = ColumnValue::Boolean(vec![true, false]);
+        let cached = |values: &ColumnValue, index, is_date| {
+            ExcelExporter::cached_result(values, index, is_date)
+        };
+        assert_eq!(cached(&numbers, 0, false).as_deref(), Some("1.5"));
+        assert_eq!(cached(&numbers, 2, false), None);
+        assert_eq!(cached(&blanks, 0, false).as_deref(), Some("3"));
+        assert_eq!(cached(&blanks, 1, false), None);
+        assert_eq!(cached(&text, 0, false).as_deref(), Some("a"));
+        assert_eq!(cached(&text, 1, false), None);
+        assert_eq!(cached(&bools, 0, false).as_deref(), Some("TRUE"));
+        assert_eq!(cached(&bools, 1, false).as_deref(), Some("FALSE"));
+        // A date of a column of dates is its day number, and text that is no date has none
+        assert_eq!(cached(&dates, 0, true).as_deref(), Some("46326"));
+        assert_eq!(cached(&dates, 1, true), None);
+        assert_eq!(cached(&dates, 0, false).as_deref(), Some("2026-10-31"));
+        // A column that is not text is read as itself, dates or not
+        assert_eq!(cached(&numbers, 0, true).as_deref(), Some("1.5"));
+    }
+
+    /// The cells of a sheet that `fill` wrote, read back from the saved workbook
+    fn read_back(fill: impl FnOnce(&mut Worksheet)) -> calamine::Range<calamine::Data> {
+        use calamine::Reader;
+        let mut workbook = rust_xlsxwriter::Workbook::new();
+        fill(workbook.add_worksheet());
+        let bytes = workbook.save_to_buffer().unwrap();
+        let mut book = calamine::Xlsx::new(std::io::Cursor::new(bytes)).unwrap();
+        book.worksheet_range("Sheet1").unwrap()
+    }
+
+    #[test]
+    fn a_formula_keeps_no_result_when_the_column_has_none_at_that_row() {
+        let column = Column::new("a".to_string(), ColumnValue::Number(vec![1.0]));
+        let mut text_results = Vec::new();
+        let range = read_back(|sheet| {
+            for (index, (column, row)) in [(Some(&column), 0), (Some(&column), 5), (None, 0)]
+                .into_iter()
+                .enumerate()
+            {
+                let formula = ExcelExporter::with_cached_result(
+                    Formula::new("=A2"),
+                    column,
+                    (row, false),
+                    (
+                        TextCell {
+                            sheet: 0,
+                            position: (0, 0),
+                        },
+                        &mut text_results,
+                    ),
+                );
+                sheet
+                    .write_formula(u32::try_from(index).unwrap(), 0, formula)
+                    .unwrap();
+            }
+        });
+        // The result is cached for the first, and the others keep the writer's 0
+        let cached: Vec<Option<&calamine::Data>> =
+            (0..3).map(|row| range.get_value((row, 0))).collect();
+        assert_eq!(
+            cached,
+            [
+                Some(&calamine::Data::Float(1.0)),
+                Some(&calamine::Data::Float(0.0)),
+                Some(&calamine::Data::Float(0.0))
+            ]
+        );
+        assert!(text_results.is_empty());
+    }
+
+    #[test]
+    fn a_cell_is_written_only_where_the_column_has_a_value() {
+        let write = |sheet: &mut Worksheet, values: &ColumnValue, index, is_date| {
+            ExcelExporter::write_cell_value(sheet, (0, 0), values, index, (is_date, None)).unwrap();
+        };
+        let blanks = ColumnValue::Blanks(vec![Some(3.0), None]);
+        let dates = ColumnValue::Date(vec!["2026-10-31".to_string(), "soon".to_string()]);
+        let bools = ColumnValue::Boolean(vec![true]);
+        let numbers = ColumnValue::Number(vec![1.0]);
+        // A cell past the end of its column is empty, and so are a blank and text that is no date
+        let range = read_back(|sheet| {
+            write(sheet, &blanks, 1, false);
+            write(sheet, &dates, 1, true);
+            write(sheet, &dates, 2, true);
+            write(sheet, &bools, 1, false);
+            write(sheet, &numbers, 1, false);
+        });
+        assert!(range.is_empty());
+        let value = |values: &ColumnValue, is_date| {
+            read_back(|sheet| write(sheet, values, 0, is_date))
+                .get_value((0, 0))
+                .cloned()
+        };
+        assert_eq!(value(&blanks, false), Some(calamine::Data::Float(3.0)));
+        assert_eq!(value(&bools, false), Some(calamine::Data::Bool(true)));
+        assert_eq!(value(&dates, true).unwrap().to_string(), "46326");
+    }
+
+    #[test]
+    fn a_header_note_that_is_too_long_is_refused() {
+        let mut table = Table::new("t".to_string());
+        table.add_column(Column::with_metadata(
+            "a".to_string(),
+            ColumnValue::Number(vec![1.0]),
+            Metadata {
+                notes: Some("x".repeat(33_000)),
+                ..Metadata::default()
+            },
+        ));
+        let names = vec!["a".to_string()];
+        let err = ExcelExporter::write_header(&mut Worksheet::new(), &table, &names)
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            err,
+            "Excel export error: Failed to add note: String exceeds Excel's limit of 32,767 characters."
+        );
     }
 }
