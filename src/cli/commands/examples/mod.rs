@@ -781,6 +781,94 @@ mod tests {
             assert!(close(shortfall[0].1, worst(50), 1e-9));
             assert!(close(shortfall[1].1, worst(100), 1e-9));
         }
+
+        /// `price_war.yaml`, by hand: a month's margin from the plan's numbers,
+        /// nashpy 0.0.43 for the equilibrium, and each match of the tournament
+        /// as (1 - w) times its expected total.
+        /// ```python
+        /// food = 12 / 9 * 1.15 + 12 * 6 / 1000 * 9.40 + 0.35        # 2.5601333
+        /// hold, cut = 16 * 0.974 - food, 14 * 0.974 - food          # 13.0238667, 11.0758667
+        /// R, T = 0.5 * 110 * hold * 30, 0.70 * 110 * cut * 30       # 21489.38, 25585.252
+        /// S, P = 0.30 * 110 * hold * 30, 0.5 * 115.5 * cut * 30     # 12893.628, 19188.939
+        /// # nashpy: one equilibrium, both cut; with a share of 0.55, both hold
+        /// # tit for tat or grim against always cut: (1 - w) S + w P = 18874.17339 at w = 0.95;
+        /// # generous (forgive 1/3): (1 - w) S + w (S / 3 + 2 P / 3) = 16880.6583
+        /// # each score is the mean over the five opponents, itself included
+        /// ```
+        /// axelrod 4.14.0 (4,000 seeded matches of each pair, `prob_end` 0.05,
+        /// `GTFT(p=1/3)`) agrees within 1.19 standard errors.
+        #[test]
+        fn the_price_war_is_a_dilemma_that_matching_settles() {
+            let file = Path::new("examples/bagel/price_war.yaml");
+            let calculated = |scenario: Option<&str>| {
+                let mut model = crate::parser::parse_model(file).unwrap();
+                if let Some(name) = scenario {
+                    crate::cli::commands::apply_scenario(&mut model, name).unwrap();
+                }
+                crate::core::ArrayCalculator::new(model)
+                    .calculate_all()
+                    .unwrap()
+            };
+            let value =
+                |model: &crate::types::ParsedModel, name: &str| model.scalars[name].value.unwrap();
+            let base = calculated(None);
+            for (name, expected) in [
+                ("market.R", 21_489.38),
+                ("market.T", 25_585.252),
+                ("market.S", 12_893.628),
+                ("market.P", 19_188.939),
+                ("war.cost_per_month", 2_300.441),
+                ("war.cutting_dominates", 1.0),
+                ("war.matching_holds_above", 0.640_348_901),
+                ("price_war.equilibria", 1.0),
+                ("price_war.equilibrium_1.lune.cut", 1.0),
+                ("price_war.equilibrium_1.rival.cut", 1.0),
+                ("rivalry.score.steady", 19_770.229_6),
+                ("rivalry.score.matcher", 20_966.338_69),
+                ("rivalry.score.grudge", 20_966.338_69),
+                ("rivalry.score.discounter", 21_065.190_813_33),
+                ("rivalry.score.forgiving", 20_567.635_66),
+                ("rivalry.match.forgiving.discounter", 16_880.658_3),
+            ] {
+                assert!(close(value(&base, name), expected, 1e-6), "{name}");
+            }
+            let stable = |model: &crate::types::ParsedModel| -> Vec<f64> {
+                ["steady", "matcher", "grudge", "discounter", "forgiving"]
+                    .iter()
+                    .map(|p| value(model, &format!("rivalry.stable.{p}")))
+                    .collect()
+            };
+            assert_eq!(stable(&base), [0.0, 1.0, 1.0, 1.0, 0.0]);
+            // Loyal regulars: cutting no longer pays, and the discounter comes last
+            let loyal = calculated(Some("loyal_regulars"));
+            assert!(close(value(&loyal, "market.T"), 20_102.698, 1e-6));
+            assert!(close(value(&loyal, "war.cutting_dominates"), 0.0, 0.0));
+            assert!(close(value(&loyal, "war.matching_holds_above"), 0.0, 0.0));
+            assert!(close(
+                value(&loyal, "price_war.equilibrium_1.lune.hold"),
+                1.0,
+                0.0
+            ));
+            assert!(close(
+                value(&loyal, "rivalry.score.discounter"),
+                19_456.974_973_33,
+                1e-6
+            ));
+            assert_eq!(stable(&loyal), [1.0, 1.0, 1.0, 0.0, 1.0]);
+            // A lease ending: at w = 0.6, below 0.640, matching no longer holds
+            let ending = calculated(Some("lease_ending"));
+            assert!(close(
+                value(&ending, "rivalry.score.discounter"),
+                22_259.169_24,
+                1e-6
+            ));
+            assert!(close(
+                value(&ending, "rivalry.score.matcher"),
+                20_525.666_92,
+                1e-6
+            ));
+            assert_eq!(stable(&ending), [0.0, 0.0, 0.0, 1.0, 0.0]);
+        }
     }
 
     mod demo_examples {

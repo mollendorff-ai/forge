@@ -1,0 +1,96 @@
+_forge_version: "5.5.0"
+# Bagel Lune: a price war with the bagel shop across the street (fictional).
+# Run in the examples folder: forge game bagel/price_war.yaml
+#
+# Each month both shops either hold the plan's price ($16 a dozen) or cut it
+# to $14. The payoffs are each shop's monthly margin before rent and staff,
+# worked out from bagel.yaml and costs.yaml: the price, the card fee, and the
+# flour, sesame and honey water in a dozen. Four inputs are new, in market:
+# the street's sales, the share a cheaper shop takes, the cut price, and how
+# much a price war grows the street. The rival is assumed to have Bagel
+# Lune's costs, which makes the game symmetric.
+#
+# Played once, cutting pays more whatever the rival does, so both cut and
+# each earns 2,300 a month less than if both had held: a prisoner's dilemma
+# the plan's own numbers make. Played month after month (rivalry), a shop
+# that matches the rival's last price (tit for tat), or holds until the
+# first cut and then cuts for good (grim trigger), cannot be beaten by a
+# discounter, as long as both shops are likely to be there next month:
+# continuation above (T - R) / (T - P), 0.640 here.
+#   forge game bagel/price_war.yaml --scenario loyal_regulars
+#   forge game bagel/price_war.yaml --scenario lease_ending
+
+_includes:
+  - file: bagel.yaml
+    as: plan
+  - file: costs.yaml
+    as: costs
+
+market:
+  dozens_per_day: 110       # both shops together, at the plan's price
+  undercut_share: 0.70      # the cheaper shop's share when only one cuts
+  cut_price: 14
+  cut_growth: 0.05          # two $14 shops sell 5% more than two $16 ones
+  days:
+    formula: "=@plan.assumptions.open_days_per_month"
+  food_per_dozen:
+    formula: "=12 / @plan.assumptions.bagels_per_kg_flour * @costs.ingredients.flour_per_kg + 12 * @plan.assumptions.sesame_grams_per_bagel / 1000 * @costs.ingredients.sesame_per_kg + @costs.ingredients.honey_water_per_dozen"
+  margin_hold:
+    formula: "=@plan.assumptions.price_per_dozen * (1 - @plan.assumptions.card_fee_rate) - food_per_dozen"
+  margin_cut:
+    formula: "=cut_price * (1 - @plan.assumptions.card_fee_rate) - food_per_dozen"
+  # A month's margin: R both hold, T only I cut, S only the rival cuts, P both cut
+  R:
+    formula: "=0.5 * dozens_per_day * margin_hold * days"
+  T:
+    formula: "=undercut_share * dozens_per_day * margin_cut * days"
+  S:
+    formula: "=(1 - undercut_share) * dozens_per_day * margin_hold * days"
+  P:
+    formula: "=0.5 * dozens_per_day * (1 + cut_growth) * margin_cut * days"
+
+continuation: 0.95          # the chance that both shops are open next month
+
+games:
+  price_war:
+    description: Hold $16 a dozen, or cut to $14
+    players: [lune, rival]
+    strategies: [hold, cut]         # a tournament reads the first as cooperate
+    symmetric: true                 # a cell is the payoff of the row's shop
+    payoffs:
+      hold: {hold: =market.R, cut: =market.S}
+      cut: {hold: =market.T, cut: =market.P}
+
+  rivalry:
+    description: The price war, month after month
+    tournament:
+      round: price_war
+      players:
+        steady: always_cooperate      # holds whatever the rival does
+        matcher: tit_for_tat          # charges what the rival charged last month
+        grudge: grim_trigger          # holds until the first cut, then cuts for good
+        discounter: always_defect     # always $14
+        forgiving: generous_tit_for_tat   # matches, but lets a cut go a third of the time
+      continuation: =continuation
+      self_play: true
+
+war:
+  cost_per_month:
+    formula: "=market.R - market.P"
+    notes: What each shop gives up a month when both cut
+  cutting_dominates:
+    formula: "=price_war.dominated.lune.hold"
+    notes: 1 when cutting pays more whatever the rival does
+  matching_holds_above:
+    formula: "=MAX(0, (market.T - market.R) / (market.T - market.P))"
+    notes: The continuation above which grim trigger is stable against a discounter (0 when cutting does not pay)
+
+scenarios:
+  loyal_regulars:
+    description: Regulars stay; a cheaper shop takes only 55% of the street
+    scalars:
+      market.undercut_share: 0.55
+  lease_ending:
+    description: The rival's lease ends soon; each month is likelier the last
+    scalars:
+      continuation: 0.6
