@@ -299,11 +299,15 @@ fn structure(model: &ParsedModel) -> Value {
         .collect();
     let mut scenarios: Vec<&String> = model.scenarios.keys().collect();
     scenarios.sort();
+    // The games, by name in the order of the file: Studio asks the `game`
+    // tool for their results (ADR-068)
+    let games: Vec<&String> = model.games.keys().collect();
     json!({
         "scalars": scalars(model, ""),
         "tables": tables(model, ""),
         "includes": includes,
         "scenarios": scenarios,
+        "games": games,
     })
 }
 
@@ -723,6 +727,32 @@ mod tests {
                 .find(|s| s["player"] == "ad")
                 .unwrap();
             close(number(ad, "/score"), 2.008, 1e-12);
+        }
+
+        /// `examples/bagel/price_war.yaml`: the model names its two games, and
+        /// the table's cells are the margins worked out by hand in
+        /// src/cli/commands/examples (21,489.38 each if both hold, 25,585.252
+        /// and 12,893.628 if one cuts, 19,188.939 each if both cut)
+        #[test]
+        fn the_bagel_price_war_names_its_games_and_gives_its_cells() {
+            let model = case("model bagel price war");
+            assert_eq!(model["games"], serde_json::json!(["price_war", "rivalry"]));
+            assert_eq!(case("model bagel")["games"], serde_json::json!([]));
+            let reports = case("game bagel price war");
+            let cells = reports[0]["cells"].as_array().unwrap();
+            let expected = [
+                (["hold", "hold"], [21_489.38, 21_489.38]),
+                (["hold", "cut"], [12_893.628, 25_585.252]),
+                (["cut", "hold"], [25_585.252, 12_893.628]),
+                (["cut", "cut"], [19_188.939, 19_188.939]),
+            ];
+            assert_eq!(cells.len(), expected.len());
+            for (cell, (strategies, payoffs)) in cells.iter().zip(expected) {
+                assert_eq!(cell["strategies"], serde_json::json!(strategies));
+                close(number(cell, "/payoffs/0"), payoffs[0], 1e-6);
+                close(number(cell, "/payoffs/1"), payoffs[1], 1e-6);
+            }
+            assert_eq!(reports[1]["kind"], "tournament");
         }
 
         #[test]

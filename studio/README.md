@@ -6,10 +6,10 @@ The first visit opens with a short welcome card: what the page is and three thin
 
 ## What it does
 
-- **Model:** inputs as sliders and fields, results with their formulas, tables, scenarios to apply. A formula can be changed on its card, with suggestions for names and functions; it is kept only when Forge accepts it, and otherwise Forge's message says why. A group's Add button adds an input, a formula or a table column, and a card's Delete removes it; each change is kept only when Forge reads back exactly that change.
+- **Model:** inputs as sliders and fields, results with their formulas, tables, scenarios to apply, and a model's games (ADR-068): a payoff table with its equilibria marked, a tournament's ranking and matches, all worked out again when an input or a scenario changes. A formula can be changed on its card, with suggestions for names and functions; it is kept only when Forge accepts it, and otherwise Forge's message says why. A group's Add button adds an input, a formula or a table column, and a card's Delete removes it; each change is kept only when Forge reads back exactly that change.
 - **Grid:** the model as a spreadsheet reads it, read-only. A tap shows a cell's formula and leads to its card.
 - **YAML:** the model's text, with Forge's formula colours, and suggestions for the keys of the model format and for names and functions inside a formula. On a phone the edit is applied with a button; above 900 px the editor sits beside the cards and a number typed in one changes the other.
-- **Analyze:** goal seek, break-even, scenarios, a tornado, a simulation and budget against actual. **Tools:** the MCP server's tools, run on the open model (games are not shown yet).
+- **Analyze:** goal seek, break-even, scenarios, a tornado, a simulation and budget against actual. **Tools:** the MCP server's tools, run on the open model.
 - **Files:** the examples, opening and saving. Save opens the share sheet on an iPhone or iPad (Save to Files, iCloud Drive) for the model's YAML or its Excel workbook.
 
 ## Your model stays on your device
@@ -58,6 +58,7 @@ All of these run in CI, in the `forge-wasm` job, which keeps the built site as t
 | --- | --- |
 | `no-engine.mjs` | No file of the page loads a YAML library or implements what Forge calculates |
 | `screen.mjs` | Every scalar on screen equals `forge calculate` run natively for that model, and the same with a scenario applied (`expected.json` comes from `cargo run -p forge-wasm --release --example expected`) |
+| `games.mjs` | The bagel's price war: every payoff cell, the equilibria marked, the tournament's ranking, scores, stable players and matches are what `forge game` answers, in the plan and both scenarios; an input typed on a card moves them; Tools runs `forge_game` |
 | `grid.mjs` | Every cell of every table and every scalar in the Grid tab is what Forge returns, with its formula; a tap leads to the card |
 | `formats.mjs` | A `format:` on screen: the bagel's price, margin, season and dozens, and the rolling forecast's date, percentages and counts, are the text Forge gives on the cards and in the grid, with the values underneath unchanged |
 | `text.mjs`, `formulas.mjs` | Changing an input or a formula changes its one line and nothing else, byte for byte, for each way YAML writes it; an invalid formula is refused with Forge's message and the file stays as it was |
