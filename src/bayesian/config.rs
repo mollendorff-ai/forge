@@ -3,7 +3,7 @@
 //! Handles parsing and validation of Bayesian network definitions.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Type of node in the Bayesian network
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -38,7 +38,7 @@ pub struct BayesianNode {
     /// of that parent (`good`). With several parents it lists one state of each
     /// parent, in the order of `parents`, separated by commas (`yes, off`).
     #[serde(default)]
-    pub cpt: HashMap<String, Vec<f64>>,
+    pub cpt: BTreeMap<String, Vec<f64>>,
     /// For continuous nodes: mean
     #[serde(default)]
     pub mean: f64,
@@ -58,7 +58,7 @@ impl BayesianNode {
                 .collect(),
             prior: Vec::new(),
             parents: Vec::new(),
-            cpt: HashMap::new(),
+            cpt: BTreeMap::new(),
             mean: 0.0,
             std: 1.0,
         }
@@ -66,13 +66,13 @@ impl BayesianNode {
 
     /// Create a new continuous node
     #[must_use]
-    pub fn continuous(mean: f64, std: f64) -> Self {
+    pub const fn continuous(mean: f64, std: f64) -> Self {
         Self {
             node_type: NodeType::Continuous,
             states: Vec::new(),
             prior: Vec::new(),
             parents: Vec::new(),
-            cpt: HashMap::new(),
+            cpt: BTreeMap::new(),
             mean,
             std,
         }
@@ -219,9 +219,11 @@ pub struct BayesianConfig {
     /// Network name
     #[serde(default)]
     pub name: String,
-    /// Nodes by name
+    /// Nodes by name, in name order: the factors are multiplied in this
+    /// order, so a map in an order of its own (a `HashMap`'s is random) moved
+    /// the last digit of a probability from one run to the next
     #[serde(default)]
-    pub nodes: HashMap<String, BayesianNode>,
+    pub nodes: BTreeMap<String, BayesianNode>,
 }
 
 impl BayesianConfig {
@@ -230,7 +232,7 @@ impl BayesianConfig {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
         }
     }
 
