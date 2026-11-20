@@ -36,10 +36,11 @@ const answer = JSON.parse(forge.call("goal_seek", JSON.stringify({
 | `report` | `groups`, `keys`, `no_inputs` |
 | `bootstrap` | `iterations`, `seed`, `confidence` (list) |
 | `bayesian` | `query`, `evidence` (`["sales=slow"]`) |
+| `game` | `game` (one game by name), `scenario`; each report is `kind: table` or `kind: tournament` |
 | `functions`, `examples` (`name`), `schema` (`version`) | no `files` |
 | `export` | none: the workbook `forge export` writes, as `excel_base64`, with `byte_count`, `table_count`, `scalar_count` and `warnings` (the MCP tool's in-memory answer) |
 | `import` | `excel_base64`, `name` (`model.yaml`), no `files`: the model `forge import` writes from that workbook, as `files` (the main model and its included files, by name) and `main`, with `warnings` |
-| `model` (not an MCP tool) | none: the model read and not calculated, as Forge Studio's cards show it: each scalar's input value or formula with its unit, each table's columns (data or formula) in the file's order, and each included file's scalars as `@namespace.group.name` |
+| `model` (not an MCP tool) | none: the model read and not calculated, as Forge Studio's cards show it: each scalar's input value or formula with its unit, each table's columns (data or formula) in the file's order, and each included file's scalars as `@namespace.group.name`, and the names of the model's games |
 
 `calculate` never writes results back: there is no file. The module is built without the engine's command line and servers (ADR-055) and runs inside the page's own tab: nothing in it sends a model anywhere. A workbook made by `export` is the one `forge export` writes from the same files, apart from the time it was made (docProps/core.xml, to the second); CI compares them part by part.
 
