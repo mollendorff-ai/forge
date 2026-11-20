@@ -206,6 +206,21 @@ tier1:
   # lines split by what they do, none rewritten (the dispatch tables keep one
   # line per function), and the stale allows in the Gnumeric Cargo.toml and
   # the R suite gone. 38 allows left in attributes and 13 in Cargo.toml files.
+  # T1-NO-SKIPPING, multiple_crate_versions (2026-11-20): the allow is gone
+  # from Cargo.toml and forge-wasm/Cargo.toml (13 to 11). glam (four
+  # versions) came from statrs's nalgebra, which Forge does not use: statrs
+  # now has no features (even std names nalgebra weakly, which clippy, reading
+  # cargo metadata, counts). hashbrown 0.15 and foldhash 0.1 came from
+  # petgraph 0.8.3, its latest release: its toposort and tarjan_scc are now
+  # core/array_calculator/graph.rs, the same algorithms in the same order,
+  # checked against petgraph (a dev-dependency) on 5,000 random graphs; the
+  # browser module's expected results are byte for byte the same. syn 2 and 3
+  # are left: tracing-attributes (rmcp turns on tracing's defaults),
+  # zeroize_derive (zip 9, under calamine and rust_xlsxwriter) and
+  # windows-implement/interface (chrono's clock) have no syn-3 release. So
+  # clippy.toml allows syn alone (allowed-duplicate-crates, counted in
+  # no_skipping, budget 1), and any other duplicate fails; remove it when they
+  # move to syn 3 (check with cargo clippy after deleting the line).
   # T1-NO-SKIPPING, float_cmp is done (2026-11-17): no allow is left. Tests
   # assert an exact number with assert_exact! (the same bits, src/lib.rs),
   # and the ten exact comparisons in the engine (MODE, a variance on budget,

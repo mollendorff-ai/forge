@@ -2,6 +2,7 @@
 //! the scalar, with its formula, and the members of a cycle.
 
 use super::evaluator;
+use super::graph::Graph;
 use super::order::Cell;
 use crate::error::ForgeError;
 
@@ -48,12 +49,13 @@ pub(super) fn failure_report(failures: &[String], skipped: &[(Cell, Cell)]) -> F
 
 /// Say which cells form a dependency cycle, for example
 /// "scalars calc.a, calc.b depend on each other".
-pub(super) fn describe_cycle(graph: &petgraph::graph::DiGraph<Cell, ()>) -> String {
-    let mut cells: Vec<&Cell> = petgraph::algo::tarjan_scc(graph)
+pub(super) fn describe_cycle(graph: &Graph<Cell>) -> String {
+    let mut cells: Vec<&Cell> = graph
+        .strongly_connected()
         .into_iter()
         .filter(|component| component.len() > 1 || graph.contains_edge(component[0], component[0]))
         .flatten()
-        .filter_map(|idx| graph.node_weight(idx))
+        .map(|node| &graph[node])
         .collect();
     cells.sort();
     cells.dedup();

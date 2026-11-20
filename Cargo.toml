@@ -105,9 +105,6 @@ anstream = { version = "1.0.0", optional = true }
 anyhow = "1.0"
 thiserror = "2.0"
 
-# Dependency graph (for formula ordering)
-petgraph = "0.8"
-
 # Ordered maps: tables, columns and scalars keep the order of the model file
 indexmap = { version = "2", features = ["serde"] }
 # Fast, fixed hashing for the evaluator's name lookups (already used by indexmap)
@@ -157,7 +154,13 @@ sha2 = { version = "0.11", optional = true }
 
 # Monte Carlo simulation
 rand_distr = "0.6"  # Distribution sampling (Normal, Triangular, PERT, etc.)
-statrs = "0.19"     # Statistical functions (PDF, CDF, percentiles)
+# Statistical functions (CDF), with no features: Forge uses neither nalgebra
+# nor rand from statrs, and even its std feature names nalgebra (weakly), so
+# that clippy counted the four versions of glam nalgebra can convert to
+# (multiple_crate_versions). Without std statrs calls its math through
+# num_traits::Float, which with num-traits' std (above) is the std functions:
+# the same numbers.
+statrs = { version = "0.19", default-features = false }
 base64 = { version = "0.23.1", optional = true }
 
 # A closed pipe (`forge functions | head`) ends the CLI quietly
@@ -192,6 +195,9 @@ proptest = { version = "1", default-features = false, features = ["std"] }
 jsonschema = { version = "0.60", default-features = false }
 # What the schema patterns' own matcher must agree with (src/parser/schema_pattern.rs)
 regex = "1.12"
+# What the calculation order's own graph algorithms must agree with
+# (src/core/array_calculator/graph.rs)
+petgraph = "0.8"
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 
@@ -205,8 +211,6 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
-# Transitive deps pull different versions of the same crate; unfixable without swapping dependencies
-multiple_crate_versions = "allow"
 
 [profile.release]
 # Optimize for size and performance

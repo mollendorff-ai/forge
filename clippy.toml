@@ -1,3 +1,12 @@
 # The oldest Rust Forge builds with (Cargo.toml: rust-version). Clippy then does
 # not suggest APIs newer than this, which would break the build on it.
 msrv = "1.97.0"
+
+# The one crate allowed in two versions (multiple_crate_versions), counted in
+# validation/repo/src/no_skipping.rs: syn 2 and 3. serde, clap, tokio, rmcp
+# and wasm-bindgen are on syn 3; tracing-attributes (tracing's default
+# features, which rmcp turns on), zeroize_derive (zip, under calamine and
+# rust_xlsxwriter) and windows-implement and windows-interface (chrono's
+# clock, through iana-time-zone) have no release on syn 3 (2026-11-20).
+# Remove syn here when they do. Any other crate in two versions fails clippy.
+allowed-duplicate-crates = ["syn"]
