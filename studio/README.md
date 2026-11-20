@@ -6,7 +6,7 @@ The first visit opens with a short welcome card: what the page is and three thin
 
 ## What it does
 
-- **Model:** inputs as sliders and fields, results with their formulas, tables, scenarios to apply, and a model's games (ADR-068): a payoff table with its equilibria marked, a tournament's ranking and matches, all worked out again when an input or a scenario changes. A formula can be changed on its card, with suggestions for names and functions; it is kept only when Forge accepts it, and otherwise Forge's message says why. A group's Add button adds an input, a formula or a table column, and a card's Delete removes it; each change is kept only when Forge reads back exactly that change.
+- **Model:** inputs as sliders and fields, results with their formulas, tables, scenarios to apply, and a model's games (ADR-068): a payoff table with its equilibria marked, a tournament's ranking and matches, all worked out again when an input or a scenario changes, and under each game the results a formula can read, by name (`stag_hunt.even_mix.me.stag`), which the formula suggestions offer too. A formula can be changed on its card, with suggestions for names and functions; it is kept only when Forge accepts it, and otherwise Forge's message says why. A group's Add button adds an input, a formula or a table column, and a card's Delete removes it; each change is kept only when Forge reads back exactly that change.
 - **Grid:** the model as a spreadsheet reads it, read-only. A tap shows a cell's formula and leads to its card.
 - **YAML:** the model's text, with Forge's formula colours, and suggestions for the keys of the model format and for names and functions inside a formula. On a phone the edit is applied with a button; above 900 px the editor sits beside the cards and a number typed in one changes the other.
 - **Analyze:** goal seek, break-even, scenarios, a tornado, a simulation and budget against actual. **Tools:** the MCP server's tools, run on the open model.
@@ -28,7 +28,7 @@ Every number is Forge's. The page reads no YAML itself: a change on a card is wr
 | `app.js` | State, the six views, events |
 | `forge.js`, `worker.js` | The only way to a number: `call(tool, request)` to forge-wasm, in a worker |
 | `text.js` | Text work on YAML: changing one input's or one formula's line, colouring the editor with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
-| `suggest.js` | What to offer while a formula or a key is typed: names from the model, functions from Forge's own list, keys from Forge's schema (the page keeps no list of its own) |
+| `suggest.js` | What to offer while a formula or a key is typed: names from the model and the games' results from Forge's `calculate`, functions from Forge's own list, keys from Forge's schema (the page keeps no list of its own) |
 | `format.js` | How numbers look on screen: one rule (`isPercent`) for when a number is a percentage, by the model's unit first |
 | `build.mjs` | Puts the page, forge-wasm and the example sets in one folder |
 | `sw.js`, `manifest.webmanifest` | Offline and Add to Home Screen: the page keeps its own files on the device |
@@ -58,12 +58,12 @@ All of these run in CI, in the `forge-wasm` job, which keeps the built site as t
 | --- | --- |
 | `no-engine.mjs` | No file of the page loads a YAML library or implements what Forge calculates |
 | `screen.mjs` | Every scalar on screen equals `forge calculate` run natively for that model, and the same with a scenario applied (`expected.json` comes from `cargo run -p forge-wasm --release --example expected`) |
-| `games.mjs` | The bagel's price war: every payoff cell, the equilibria marked, the tournament's ranking, scores, stable players and matches are what `forge game` answers, in the plan and both scenarios; an input typed on a card moves them; Tools runs `forge_game` |
+| `games.mjs` | The bagel's price war: every payoff cell, the equilibria marked, the tournament's ranking, scores, stable players and matches are what `forge game` answers, in the plan and both scenarios; an input typed on a card moves them; Tools runs `forge_game`. The Games set: every game of its seven files is Forge's, each equilibrium with its chances, and the stag hunt's scenario and a typed cost move its mixed equilibrium |
 | `grid.mjs` | Every cell of every table and every scalar in the Grid tab is what Forge returns, with its formula; a tap leads to the card |
 | `formats.mjs` | A `format:` on screen: the bagel's price, margin, season and dozens, and the rolling forecast's date, percentages and counts, are the text Forge gives on the cards and in the grid, with the values underneath unchanged |
 | `text.mjs`, `formulas.mjs` | Changing an input or a formula changes its one line and nothing else, byte for byte, for each way YAML writes it; an invalid formula is refused with Forge's message and the file stays as it was |
 | `elements.mjs` | An input, a formula and a column added to every group and table of every example, then deleted: only the new lines, and the file back byte for byte; refusals leave it as it was |
-| `suggest.mjs`, `yamlformula.mjs`, `keys.mjs` | The first letters of every name, function and key in every example are offered at their place (on a card, in the Add form and in the YAML editor), only Forge's functions and the schema's keys are offered, and nothing inside a text, a number, a comment or after a colon |
+| `suggest.mjs`, `yamlformula.mjs`, `keys.mjs` | The first letters of every name, function and key in every example are offered at their place (a few more for a name a game's results crowd out of the 16 offered) (on a card, in the Add form and in the YAML editor), only Forge's functions and the schema's keys are offered, and nothing inside a text, a number, a comment or after a colon |
 | `excel.mjs`, `save.mjs` | The workbook Studio downloads is the one `forge export` writes, part by part; a workbook `forge export` wrote opens in Studio and calculates to the same numbers; Save shares the model's files and the workbook within the tap Safari requires |
 | `offline.mjs` | Every file is kept on the device, the page opens and calculates with the connection cut, and a later release replaces the cache once Studio has been closed |
 | `layout.mjs` | No view scrolls sideways at 320 px; at 1440 x 900 the editor and the cards are side by side and follow each other, the divider moves, either side hides |

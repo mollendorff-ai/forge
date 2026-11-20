@@ -44,13 +44,13 @@ await page.waitForFunction(() => document.body.dataset.state === "ready", null, 
 // the suggestions for the first letters of each word in it
 const result = await page.evaluate(async () => {
   const { call } = await import("./forge.js");
-  const { scopeOf, namesFor, functionsOf, letBindings, suggest, apply } = await import("./suggest.js");
+  const { scopeOf, namesFor, functionsOf, letBindings, suggest, apply, gameResults, LIMIT } = await import("./suggest.js");
   const sets = await (await fetch("examples.json")).json();
   const answer = await call("functions", {});
   const functions = functionsOf(answer);
   const listed = new Set(functions.map((f) => f.name));
   const problems = [];
-  let formulas = 0, words = 0, offered = 0;
+  let formulas = 0, words = 0, offered = 0, crowded = 0;
   const wordsOf = (formula) => {
     // A text is blanked, keeping every position
     const plain = formula.replace(/"(?:[^"\\]|\\.)*"/g, (m) => '"' + " ".repeat(m.length - 2) + '"');
@@ -58,6 +58,8 @@ const result = await page.evaluate(async () => {
   };
   for (const set of sets) {
     const model = await call("model", { files: set.files, main: set.main });
+    // The games' results are named by Forge's calculation (an uncertain model has none)
+    const results = gameResults(model, await call("calculate", { files: set.files, main: set.main }).catch(() => null));
     const entries = [];
     const collect = (part) => {
       for (const s of part.scalars) if (s.formula != null) entries.push({ path: s.path, formula: s.formula });
@@ -68,19 +70,27 @@ const result = await page.evaluate(async () => {
     for (const { path, formula } of entries) {
       formulas++;
       const scope = scopeOf(model, path);
-      const index = { names: namesFor(model, scope), functions };
+      const index = { names: namesFor(model, scope, results), functions };
       // A name a LET declares is offered after its declaration, not where it is declared
       const declares = new Set(letBindings(formula).map((b) => b.start));
       for (const { word, call: isCall, index: at } of wordsOf(formula)) {
         if (declares.has(at)) continue;
         words++;
         const before = formula.slice(0, at);
-        const typed = before + word.slice(0, Math.min(3, word.length));
-        const list = suggest(index, typed, typed.length);
+        // Three letters; a name crowded out of the names offered then (a
+        // game's results share their first letters) must be offered once
+        // more of it is typed
         const want = isCall ? word + "(" : word;
-        const hit = list.find((s) => s.label === want || (!isCall && s.insert === word));
+        let typed, list, hit;
+        for (let n = Math.min(3, word.length); ; n++) {
+          typed = before + word.slice(0, n);
+          list = suggest(index, typed, typed.length);
+          hit = list.find((s) => s.label === want || (!isCall && s.insert === word));
+          if (hit || n >= word.length || list.filter((s) => s.kind !== "function" && s.kind !== "constant").length < LIMIT.names) break;
+        }
         if (!hit) { problems.push(`${set.id}: ${path}: typing "${typed}" does not offer ${want}`); continue; }
         offered++;
+        if (typed.length - before.length > 3) crowded++;
         const after = apply(typed, hit).text;
         if (after !== before + want) problems.push(`${set.id}: ${path}: taking ${hit.label} after "${typed}" gives "${after}", not "${before + want}"`);
         if (isCall && !listed.has(word)) problems.push(`${set.id}: ${path}: ${word} is not in Forge's function list`);
@@ -100,7 +110,7 @@ const result = await page.evaluate(async () => {
   const letText = "=LET(gain, 1, cost, 2, ga";
   if (!suggest(probe, letText, letText.length).some((s) => s.label === "gain" && s.insert === "gain")) problems.push("a name a LET declared was not offered after it");
   if (suggest(probe, "=LET(ga", 7).some((s) => s.label === "gain")) problems.push("a LET name was offered before it was declared");
-  return { problems, formulas, words, offered, total: answer.total, count: functions.length };
+  return { problems, formulas, words, offered, crowded, total: answer.total, count: functions.length };
 });
 for (const p of result.problems) fail(p);
 if (result.count !== result.total) fail(`the function list has ${result.count} entries, Forge says ${result.total}`);
@@ -161,4 +171,4 @@ if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.slice(0, 40).join("\n") + (failures.length > 40 ? `\n… and ${failures.length - 40} more` : ""));
   process.exit(1);
 }
-console.log(`Suggestions: ${result.offered} of ${result.words} names and functions in ${result.formulas} formulas are offered by their first three letters and complete to the same word; only Forge's ${result.total} functions are offered; the strip works on a card and in the Add form.`);
+console.log(`Suggestions: ${result.offered} of ${result.words} names and functions in ${result.formulas} formulas are offered by their first three letters (${result.crowded} of a game's results, crowded out of the 16 names then, a few letters later) and complete to the same word; only Forge's ${result.total} functions are offered; the strip works on a card and in the Add form.`);

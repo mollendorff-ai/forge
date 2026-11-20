@@ -197,6 +197,10 @@ table.report thead th:first-child { background: var(--sunk) }
 table.report tbody tr:last-child > * { border-bottom: 0 }
 table.report tfoot > tr > * { border-top: 1px solid var(--ink); border-bottom: 0; font-weight: 600 }
 table.report td.neg { color: var(--ember) }
+/* games: a game's results, under the names a formula reads them by */
+.results { margin-top: 12px }
+.results summary { cursor: pointer; color: var(--muted); font-size: 13px }
+.results th { font-weight: 400; word-break: break-all; text-align: left }
 /* games: the equilibrium cells of a payoff table */
 .game-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 8px }
 table.payoffs td.eq { background: var(--accent-soft); font-weight: 600 }

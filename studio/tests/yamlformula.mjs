@@ -41,12 +41,12 @@ await page.waitForFunction(() => document.body.dataset.state === "ready", null, 
 
 const result = await page.evaluate(async () => {
   const { call } = await import("./forge.js");
-  const { functionsOf, letBindings, suggestInFormula, formulaContext, suggestKeys, schemaOf, apply } = await import("./suggest.js");
+  const { functionsOf, letBindings, suggestInFormula, formulaContext, suggestKeys, schemaOf, apply, gameResults, LIMIT } = await import("./suggest.js");
   const sets = await (await fetch("examples.json")).json();
   const functions = functionsOf(await call("functions", {}));
   const schema = schemaOf(await call("schema", { version: "v5.1.0" }));
   const problems = [];
-  let formulas = 0, words = 0, offered = 0, files = 0;
+  let formulas = 0, words = 0, offered = 0, crowded = 0, files = 0;
   // A formula in a file: `key: "=..."` or `key: '=...'`
   const LINE = /^(\s*)(-\s+)?(?:"[^"]+"|'[^']+'|[^\s:#"'-][^:#"']*?)\s*:\s+(["'])(=.*)\3\s*(?:#.*)?$/;
   const wordsOf = (formula) => {
@@ -56,6 +56,8 @@ const result = await page.evaluate(async () => {
   };
   for (const set of sets) {
     const model = await call("model", { files: set.files, main: set.main });
+    // The games' results are named by Forge's calculation (an uncertain model has none)
+    const results = gameResults(model, await call("calculate", { files: set.files, main: set.main }).catch(() => null));
     for (const [name, text] of Object.entries(set.files)) {
       const isMain = name === set.main, included = model.includes.some((i) => i.file === name);
       if (!isMain && !included) continue;
@@ -73,13 +75,21 @@ const result = await page.evaluate(async () => {
         for (const { word, call: isCall, index } of wordsOf(formula)) {
           if (declares.has(index)) continue;
           words++;
-          const typed = word.slice(0, Math.min(3, word.length));
-          const upto = above + lines[i].slice(0, start + index) + typed;
-          const list = suggestInFormula({ structure: model, functions, file: name }, upto, upto.length);
+          // Three letters; a name crowded out of the names offered then (a
+          // game's results share their first letters) must be offered once
+          // more of it is typed
           const want = isCall ? word + "(" : word;
-          const hit = list && list.find((s) => s.label === want || (!isCall && s.insert === word));
+          let typed, upto, list, hit;
+          for (let n = Math.min(3, word.length); ; n++) {
+            typed = word.slice(0, n);
+            upto = above + lines[i].slice(0, start + index) + typed;
+            list = suggestInFormula({ structure: model, functions, file: name, results }, upto, upto.length);
+            hit = list && list.find((s) => s.label === want || (!isCall && s.insert === word));
+            if (hit || n >= word.length || !list || list.filter((s) => s.kind !== "function" && s.kind !== "constant").length < LIMIT.names) break;
+          }
           if (!hit) { problems.push(`${set.id}/${name}:${i + 1}: typing "${typed}" does not offer ${want}${list ? ` (offers ${list.map((s) => s.label).join(" ") || "nothing"})` : " (not seen as a formula)"}`); continue; }
           offered++;
+          if (typed.length > 3) crowded++;
           const after = apply(upto, hit).text;
           if (after !== above + lines[i].slice(0, start + index) + want) problems.push(`${set.id}/${name}:${i + 1}: taking ${hit.label} after "${typed}" gives a different file`);
         }
@@ -105,7 +115,7 @@ const result = await page.evaluate(async () => {
   const bare = 'year:\n  margin:\n    formula: =un';
   if (suggestKeys(schema, bare, bare.length).length) problems.push("keys are offered inside an unquoted formula");
   if (formulaContext(bare, bare.length)?.formula !== "=un") problems.push("an unquoted formula is not seen as one");
-  return { problems, formulas, words, offered, files };
+  return { problems, formulas, words, offered, crowded, files };
 });
 for (const p of result.problems.slice(0, 40)) fail(p);
 if (result.problems.length > 40) fail(`… and ${result.problems.length - 40} more`);
@@ -153,4 +163,4 @@ if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log(`YAML formulas: ${result.offered} of ${result.words} names and functions in ${result.formulas} formulas of ${result.files} example files are offered by their first three letters at their place in the file and complete to the same word; nothing after the formula, in a comment or for a plain value; keys are not offered inside a formula; the strip in the editor inserts exactly the text.`);
+console.log(`YAML formulas: ${result.offered} of ${result.words} names and functions in ${result.formulas} formulas of ${result.files} example files are offered by their first three letters (${result.crowded} of a game's results, crowded out of the 16 names then, a few letters later) at their place in the file and complete to the same word; nothing after the formula, in a comment or for a plain value; keys are not offered inside a formula; the strip in the editor inserts exactly the text.`);
