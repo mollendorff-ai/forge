@@ -192,7 +192,7 @@ impl<N> Graph<N> {
 /// After looking at `next`, a successor of the node being visited: if `next`
 /// has the smaller root index, the node takes it, and is not the root of its
 /// component.
-fn lower_root(root: &mut [usize], visiting: &mut [(usize, usize, bool)], next: usize) {
+const fn lower_root(root: &mut [usize], visiting: &mut [(usize, usize, bool)], next: usize) {
     if let Some((node, _, is_root)) = visiting.last_mut() {
         if root[next] < root[*node] {
             root[*node] = root[next];
