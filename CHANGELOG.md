@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **One version of each crate but syn (roadmap T1-NO-SKIPPING).** `multiple_crate_versions` is no longer allowed in `Cargo.toml` or `forge-wasm/Cargo.toml`. statrs is used without its default features, so nalgebra and its four versions of glam are out of the tree (99 lines fewer in `Cargo.lock`). petgraph, which pulled a second hashbrown and foldhash, is replaced by `src/core/array_calculator/graph.rs`: the same topological sort and strongly connected components, visiting nodes in the same order, checked against petgraph on 5,000 random graphs, so the calculation order, which error is reported first and every number are unchanged. syn 2 and 3 are both still in the tree, because tracing-attributes, zeroize_derive and windows-implement have no syn-3 release; `clippy.toml` allows syn alone (`allowed-duplicate-crates`, counted in `validation/repo`), so any other duplicate fails clippy.
+
 ## [10.0.0-rc.30] - 2026-11-20
 
 Games. A `games:` section (format 5.5.0) finds each game's dominated strategies, pure and mixed equilibria and even-mix payoffs, and a `tournament:` plays repeated games between built-in strategies with exact expected values; `forge game`, `forge_game` (the 21st MCP tool) and forge-wasm read them, and seven examples ship in `examples/games`. The games are compared with Gambit, the axelrod library and R in CI, and no disagreement was found. Wrong answers fixed (`MAX` and `MIN` of dates, `XNPV` with a date before the first, `ROUND` at -309 and below, `HOUR`, `MINUTE` and `SECOND` past 9999-12-31, and more under Fixed), so by docs/STABILITY.md the two weeks start again from this release: no earlier than 2026-12-04. Forge Studio downloads 679 KB less.
