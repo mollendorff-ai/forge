@@ -1,0 +1,46 @@
+# The Inspection Game
+# ===================
+# Run in the examples folder: forge game games/inspection.yaml
+#   forge tornado games/inspection.yaml
+#
+# An AI complies or cheats; a human audits or trusts. Cheating gains the AI
+# 2 if it is not caught, and costs it the penalty if it is. An audit costs
+# the human 1, and undetected cheating costs the human 3.
+#
+# No cell is an equilibrium: whatever one side does, the other wants to
+# change. In the mixed equilibrium the human audits with gain / (gain +
+# penalty), 1/3, and the AI cheats with audit_cost / harm, also 1/3 (nashpy
+# agrees). The tornado shows the known result: a harsher penalty lowers the
+# audit rate (1/2 at a penalty of 2, 1/5 at 8) and leaves the cheating where
+# it was, because the cheating is what keeps the human indifferent.
+
+_forge_version: "5.5.0"
+
+inputs:
+  gain: 2         # what cheating gains the AI when it is not caught
+  penalty: 4      # what cheating costs the AI when it is caught
+  audit_cost: 1   # what an audit costs the human
+  harm: 3         # what undetected cheating costs the human
+
+games:
+  inspection:
+    players: [ai, human]
+    strategies:
+      ai: [comply, cheat]
+      human: [audit, trust]
+    payoffs:                          # [ai, human]
+      comply: {audit: [0, =-inputs.audit_cost], trust: [0, 0]}
+      cheat: {audit: [=-inputs.penalty, =-inputs.audit_cost], trust: [=inputs.gain, =-inputs.harm]}
+
+tornado:
+  output: inspection.equilibrium_1.human.audit
+  inputs:
+    - name: inputs.penalty
+      low: 2
+      high: 8
+    - name: inputs.gain
+      low: 1
+      high: 3
+    - name: inputs.audit_cost
+      low: 0.5
+      high: 1.5

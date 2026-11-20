@@ -1,6 +1,6 @@
 //! Typed request structs for Forge MCP tools.
 //!
-//! Each struct corresponds to one of the 20 MCP tools and derives
+//! Each struct corresponds to one of the 21 MCP tools and derives
 //! `JsonSchema` so rmcp can auto-generate input schemas.
 
 use std::collections::HashMap;
@@ -249,6 +249,21 @@ pub struct TornadoRequest {
     pub includes: Option<HashMap<String, String>>,
     /// Optional: override the output variable to analyze
     pub output_var: Option<String>,
+}
+
+/// Parameters for the `forge_game` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct GameRequest {
+    /// Path to YAML model with a 'games' section (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    pub includes: Option<HashMap<String, String>>,
+    /// Optional: only this game
+    pub game: Option<String>,
+    /// Optional: apply this scenario's overrides first
+    pub scenario: Option<String>,
 }
 
 /// Parameters for the `forge_bootstrap` tool.

@@ -1,7 +1,7 @@
 //! Forge's reader of its own JSON schemas (ADR-069).
 //!
 //! The six schema files in `schema/` are the statement of each model format.
-//! This module reads them: the seventeen keywords they use, with the meaning
+//! This module reads them: the eighteen keywords they use, with the meaning
 //! JSON Schema draft 07 gives them as the `jsonschema` crate (0.60) applied
 //! them before this reader replaced it. Anything else in a schema is a
 //! problem, and a schema with a problem refuses every model, so a keyword
@@ -19,7 +19,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::OnceLock;
 
 /// The model formats and their schemas, built in.
-const FORMATS: [(&str, &str); 6] = [
+const FORMATS: [(&str, &str); 7] = [
     (
         "1.0.0",
         include_str!("../../schema/forge-v1.0.0.schema.json"),
@@ -44,12 +44,16 @@ const FORMATS: [(&str, &str); 6] = [
         "5.4.0",
         include_str!("../../schema/forge-v5.4.0.schema.json"),
     ),
+    (
+        "5.5.0",
+        include_str!("../../schema/forge-v5.5.0.schema.json"),
+    ),
 ];
 
 /// The schema of a model format, read once; `None` for a format Forge does
 /// not have.
 pub(super) fn for_format(version: &str) -> Option<&'static Schema> {
-    static READ: [OnceLock<Schema>; 6] = [const { OnceLock::new() }; 6];
+    static READ: [OnceLock<Schema>; 7] = [const { OnceLock::new() }; 7];
     let index = FORMATS.iter().position(|(v, _)| *v == version)?;
     Some(READ[index].get_or_init(|| Schema::from_text(FORMATS[index].1)))
 }
@@ -79,23 +83,6 @@ impl JsonType {
             _ => return None,
         })
     }
-
-    /// Whether a value is of this type. An integer is a number with no
-    /// fraction, so `1.0` is one (draft 6 on).
-    fn fits(self, value: &Value) -> bool {
-        match (self, value) {
-            (Self::Null, Value::Null)
-            | (Self::Boolean, Value::Bool(_))
-            | (Self::Number, Value::Number(_))
-            | (Self::String, Value::String(_))
-            | (Self::Array, Value::Array(_))
-            | (Self::Object, Value::Object(_)) => true,
-            (Self::Integer, Value::Number(n)) => {
-                n.is_i64() || n.is_u64() || n.as_f64().is_some_and(|f| f.fract() == 0.0)
-            },
-            _ => false,
-        }
-    }
 }
 
 /// What does not fit, and where.
@@ -124,6 +111,8 @@ pub(super) enum Kind<'v> {
     Maximum(Number),
     MinItems(usize),
     MaxItems(usize),
+    /// A mapping with fewer entries than it needs
+    MinProperties(usize),
     /// A key the mapping must have
     Required(String),
     /// The pattern, as the schema writes it
@@ -147,30 +136,31 @@ pub(super) enum Kind<'v> {
 pub(super) struct Schema {
     /// The schema as JSON, for the names of keys in messages
     pub doc: Value,
-    nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
     /// What could not be read; a schema with any refuses every model
-    problems: Vec<String>,
+    pub problems: Vec<String>,
 }
 
 #[derive(Debug)]
-struct Node {
+pub(super) struct Node {
     /// Where the schema object is, as a JSON pointer
-    at: String,
+    pub at: String,
     /// In the order they run
-    checks: Vec<Check>,
+    pub checks: Vec<Check>,
     /// The node a `$ref` points to; a schema object with one has nothing
     /// else (draft 07)
-    reference: Option<usize>,
+    pub reference: Option<usize>,
 }
 
 #[derive(Debug)]
-enum Check {
+pub(super) enum Check {
     Type(Vec<JsonType>),
     Enum(Vec<Value>),
     Minimum(Number),
     Maximum(Number),
     MinItems(usize),
     MaxItems(usize),
+    MinProperties(usize),
     Required(Vec<String>),
     Pattern(String, Matcher),
     Date,
@@ -197,17 +187,17 @@ enum Check {
 /// `properties`, `additionalProperties` and, when `jsonschema` checks it with
 /// them, `required`.
 #[derive(Debug)]
-struct Properties {
-    known: BTreeMap<String, usize>,
-    rest: Rest,
+pub(super) struct Properties {
+    pub known: BTreeMap<String, usize>,
+    pub rest: Rest,
     /// `required` with one key beside `properties` and
     /// `additionalProperties: false`: `jsonschema` reports it last
-    required: Option<String>,
+    pub required: Option<String>,
 }
 
 /// What a key not in `properties` may hold.
 #[derive(Debug)]
-enum Rest {
+pub(super) enum Rest {
     Anything,
     Nothing,
     Schema(usize),
@@ -223,6 +213,7 @@ impl Check {
             Self::Maximum(_) => 11,
             Self::MinItems(_) => 22,
             Self::MaxItems(_) => 23,
+            Self::MinProperties(_) => 24,
             Self::Required(_) => 26,
             Self::Pattern(..) => 30,
             Self::Date => 31,
@@ -250,41 +241,8 @@ const NOTES: [&str; 8] = [
 ];
 
 /// A JSON pointer step: `~` and `/` escaped.
-fn step(key: &str) -> String {
+pub(super) fn step(key: &str) -> String {
     key.replace('~', "~0").replace('/', "~1")
-}
-
-/// `format: date`: `YYYY-MM-DD`, a day that exists, leap years counted.
-fn is_date(text: &str) -> bool {
-    let b = text.as_bytes();
-    let digits = |range: std::ops::Range<usize>| {
-        b[range].iter().try_fold(0_u32, |n, d| {
-            d.is_ascii_digit().then(|| n * 10 + u32::from(d - b'0'))
-        })
-    };
-    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
-        return false;
-    }
-    let (Some(year), Some(month), Some(day)) = (digits(0..4), digits(5..7), digits(8..10)) else {
-        return false;
-    };
-    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let last = match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 if leap => 29,
-        2 => 28,
-        _ => return false,
-    };
-    (1..=last).contains(&day)
-}
-
-/// Two JSON values are equal, numbers by their value (`1` is `1.0`).
-fn same(a: &Value, b: &Value) -> bool {
-    match (a, b) {
-        (Value::Number(x), Value::Number(y)) => x.as_f64() == y.as_f64(),
-        _ => a == b,
-    }
 }
 
 struct Reader<'d> {
@@ -503,6 +461,7 @@ impl<'d> Reader<'d> {
             "maximum" => Check::Maximum(self.number(at, keyword, value)?),
             "minItems" => Check::MinItems(self.limit(at, keyword, value)?),
             "maxItems" => Check::MaxItems(self.limit(at, keyword, value)?),
+            "minProperties" => Check::MinProperties(self.limit(at, keyword, value)?),
             "required" => {
                 let keys: Option<Vec<String>> = value.as_array().and_then(|keys| {
                     keys.iter()
@@ -559,23 +518,6 @@ impl<'d> Reader<'d> {
     }
 }
 
-/// Where a value is in the model, built only when an error needs it.
-enum Path<'p> {
-    Root,
-    Key(&'p Self, &'p str),
-    Index(&'p Self, usize),
-}
-
-impl Path<'_> {
-    fn pointer(&self) -> String {
-        match self {
-            Self::Root => String::new(),
-            Self::Key(parent, key) => format!("{}/{}", parent.pointer(), step(key)),
-            Self::Index(parent, i) => format!("{}/{i}", parent.pointer()),
-        }
-    }
-}
-
 impl Schema {
     /// Read a schema from its text.
     pub(super) fn from_text(text: &str) -> Self {
@@ -604,244 +546,6 @@ impl Schema {
             problems,
         }
     }
-
-    /// Everything in `model` that does not fit, in the order `jsonschema`
-    /// reports it; empty if it fits.
-    pub(super) fn errors<'v>(&self, model: &'v Value) -> Vec<SchemaError<'v>> {
-        if !self.problems.is_empty() {
-            return vec![SchemaError {
-                instance: model,
-                instance_path: String::new(),
-                schema_path: String::new(),
-                kind: Kind::Unreadable(self.problems.clone()),
-            }];
-        }
-        self.collect(0, model, &Path::Root)
-    }
-
-    fn collect<'v>(&self, node: usize, value: &'v Value, path: &Path<'_>) -> Vec<SchemaError<'v>> {
-        let mut out = Sink {
-            errors: Vec::new(),
-            quick: false,
-        };
-        self.node(node, value, path, &mut out);
-        out.errors
-    }
-
-    /// Whether a value fits a node; stops at the first error.
-    fn fits(&self, node: usize, value: &Value) -> bool {
-        let mut out = Sink {
-            errors: Vec::new(),
-            quick: true,
-        };
-        self.node(node, value, &Path::Root, &mut out);
-        out.errors.is_empty()
-    }
-
-    /// The errors of `value` against a node.
-    fn node<'v>(&self, node: usize, value: &'v Value, path: &Path<'_>, out: &mut Sink<'v>) {
-        let node = &self.nodes[node];
-        if let Some(target) = node.reference {
-            return self.node(target, value, path, out);
-        }
-        for check in &node.checks {
-            if out.done() {
-                return;
-            }
-            self.check(node, check, value, path, out);
-        }
-    }
-
-    /// The errors of each alternative, for a message; none when only
-    /// whether the value fits matters.
-    fn alternatives<'v>(
-        &self,
-        branches: &[usize],
-        value: &'v Value,
-        path: &Path<'_>,
-        out: &Sink<'v>,
-    ) -> Vec<Vec<SchemaError<'v>>> {
-        if out.quick {
-            return Vec::new();
-        }
-        branches
-            .iter()
-            .map(|&b| self.collect(b, value, path))
-            .collect()
-    }
-
-    /// `properties` and `additionalProperties` (and a `required` read with
-    /// them): each key's errors in the order of the keys, then the keys the
-    /// mapping cannot have, then the required key if it is missing.
-    fn properties<'v>(
-        &self,
-        node: &Node,
-        p: &Properties,
-        map: &'v serde_json::Map<String, Value>,
-        value: &'v Value,
-        path: &Path<'_>,
-        out: &mut Sink<'v>,
-    ) {
-        let mut unexpected = Vec::new();
-        let mut found = false;
-        for (key, child) in map {
-            if out.done() {
-                return;
-            }
-            let at = Path::Key(path, key);
-            if let Some(&known) = p.known.get(key) {
-                self.node(known, child, &at, out);
-                found |= p.required.as_ref() == Some(key);
-            } else if let Rest::Schema(rest) = p.rest {
-                self.node(rest, child, &at, out);
-            } else if matches!(p.rest, Rest::Nothing) {
-                unexpected.push(key.clone());
-            }
-        }
-        if !unexpected.is_empty() {
-            let kind = Kind::AdditionalProperties(unexpected);
-            out.errors
-                .push(fail(node, "additionalProperties", value, path, kind));
-        }
-        if let (Some(key), false) = (&p.required, found) {
-            let kind = Kind::Required(key.clone());
-            out.errors.push(fail(node, "required", value, path, kind));
-        }
-    }
-
-    fn items<'v>(&self, item: usize, items: &'v [Value], path: &Path<'_>, out: &mut Sink<'v>) {
-        for (i, child) in items.iter().enumerate() {
-            if out.done() {
-                return;
-            }
-            self.node(item, child, &Path::Index(path, i), out);
-        }
-    }
-
-    fn check<'v>(
-        &self,
-        node: &Node,
-        check: &Check,
-        value: &'v Value,
-        path: &Path<'_>,
-        out: &mut Sink<'v>,
-    ) {
-        let mut push = |keyword: &str, kind: Kind<'v>| {
-            out.errors.push(fail(node, keyword, value, path, kind));
-        };
-        match (check, value) {
-            (Check::Type(types), _) if !types.iter().any(|t| t.fits(value)) => {
-                push("type", Kind::Type(types.clone()));
-            },
-            (Check::Enum(options), _) if !options.iter().any(|o| same(o, value)) => {
-                push("enum", Kind::Enum(options.clone()));
-            },
-            (Check::Minimum(limit), Value::Number(n)) if n.as_f64() < limit.as_f64() => {
-                push("minimum", Kind::Minimum(limit.clone()));
-            },
-            (Check::Maximum(limit), Value::Number(n)) if n.as_f64() > limit.as_f64() => {
-                push("maximum", Kind::Maximum(limit.clone()));
-            },
-            (Check::MinItems(limit), Value::Array(items)) if items.len() < *limit => {
-                push("minItems", Kind::MinItems(*limit));
-            },
-            (Check::MaxItems(limit), Value::Array(items)) if items.len() > *limit => {
-                push("maxItems", Kind::MaxItems(*limit));
-            },
-            (Check::Required(keys), Value::Object(map)) => {
-                for key in keys.iter().filter(|k| !map.contains_key(*k)) {
-                    push("required", Kind::Required(key.clone()));
-                }
-            },
-            (Check::Pattern(pattern, re), Value::String(text)) if !re.is_match(text) => {
-                push("pattern", Kind::Pattern(pattern.clone()));
-            },
-            (Check::Date, Value::String(text)) if !is_date(text) => push("format", Kind::Format),
-            (Check::Properties(p), Value::Object(map)) => {
-                self.properties(node, p, map, value, path, out);
-            },
-            (Check::Items(item), Value::Array(items)) => self.items(*item, items, path, out),
-            (Check::Array { min, max, item }, Value::Array(items)) => {
-                if let Some(min) = min.filter(|min| items.len() < *min) {
-                    push("minItems", Kind::MinItems(min));
-                }
-                if let Some(max) = max.filter(|max| items.len() > *max) {
-                    push("maxItems", Kind::MaxItems(max));
-                }
-                self.items(*item, items, path, out);
-            },
-            (Check::Array { .. }, _) => push("type", Kind::Type(vec![JsonType::Array])),
-            (Check::AllOf(all), _) => {
-                for &b in all {
-                    self.node(b, value, path, out);
-                }
-            },
-            (Check::AnyOf(any), _) if !any.iter().any(|&b| self.fits(b, value)) => {
-                let context = self.alternatives(any, value, path, out);
-                out.errors
-                    .push(fail(node, "anyOf", value, path, Kind::AnyOf(context)));
-            },
-            (Check::OneOf(one), _) => match one.iter().filter(|&&b| self.fits(b, value)).count() {
-                0 => {
-                    let context = self.alternatives(one, value, path, out);
-                    out.errors
-                        .push(fail(node, "oneOf", value, path, Kind::OneOfNone(context)));
-                },
-                1 => {},
-                _ => out
-                    .errors
-                    .push(fail(node, "oneOf", value, path, Kind::OneOfMany)),
-            },
-            (Check::Not(not), _) if self.fits(*not, value) => push("not", Kind::Not),
-            (
-                Check::If {
-                    test,
-                    then,
-                    otherwise,
-                },
-                _,
-            ) => {
-                let branch = if self.fits(*test, value) {
-                    then
-                } else {
-                    otherwise
-                };
-                if let Some(b) = branch {
-                    self.node(*b, value, path, out);
-                }
-            },
-            _ => {},
-        }
-    }
-}
-
-/// Where errors go. When `quick`, only whether there is one matters, and the
-/// walk stops at the first.
-struct Sink<'v> {
-    errors: Vec<SchemaError<'v>>,
-    quick: bool,
-}
-
-impl Sink<'_> {
-    const fn done(&self) -> bool {
-        self.quick && !self.errors.is_empty()
-    }
-}
-
-/// An error of `value`, at `path`, against a keyword of `node`.
-fn fail<'v>(
-    node: &Node,
-    keyword: &str,
-    value: &'v Value,
-    path: &Path<'_>,
-    kind: Kind<'v>,
-) -> SchemaError<'v> {
-    SchemaError {
-        instance: value,
-        instance_path: path.pointer(),
-        schema_path: format!("{}/{keyword}", node.at),
-        kind,
-    }
 }
 
 #[cfg(test)]
@@ -853,7 +557,7 @@ pub(super) mod tests {
 
     /// `jsonschema`'s validator for a model format, compiled once.
     fn theirs(version: &str) -> &'static jsonschema::Validator {
-        static COMPILED: [OnceLock<jsonschema::Validator>; 6] = [const { OnceLock::new() }; 6];
+        static COMPILED: [OnceLock<jsonschema::Validator>; 7] = [const { OnceLock::new() }; 7];
         let index = FORMATS.iter().position(|(v, _)| *v == version).unwrap();
         COMPILED[index].get_or_init(|| {
             jsonschema::validator_for(&serde_json::from_str(FORMATS[index].1).unwrap()).unwrap()
@@ -898,6 +602,7 @@ pub(super) mod tests {
             Their::Maximum { limit } => Kind::Maximum(limit.as_number().unwrap().clone()),
             Their::MinItems { limit } => Kind::MinItems(usize::try_from(*limit).unwrap()),
             Their::MaxItems { limit } => Kind::MaxItems(usize::try_from(*limit).unwrap()),
+            Their::MinProperties { limit } => Kind::MinProperties(usize::try_from(*limit).unwrap()),
             Their::Required { property } => Kind::Required(property.as_str().unwrap().to_string()),
             Their::Pattern { pattern } => Kind::Pattern(pattern.clone()),
             Their::Format { .. } => Kind::Format,
@@ -1102,6 +807,7 @@ pub(super) mod tests {
                 "MaxItems",
                 "Maximum",
                 "MinItems",
+                "MinProperties",
                 "Minimum",
                 "Not",
                 "OneOfNone",
@@ -1182,6 +888,17 @@ pub(super) mod tests {
         same(
             &json!({"minItems": 1, "maxItems": 2}),
             &[json!([]), json!([1]), json!([1, 2, 3]), json!({})],
+        );
+        // `minProperties` runs after the sizes of a list and before `required`
+        same(
+            &json!({"minProperties": 2, "maxItems": 1, "required": ["a"], "minItems": 1}),
+            &[
+                json!({}),
+                json!({"a": 1}),
+                json!({"a": 1, "b": 2}),
+                json!([]),
+                json!(3),
+            ],
         );
     }
 
@@ -1399,6 +1116,10 @@ pub(super) mod tests {
                 "/: minItems that is not a whole number",
             ),
             (
+                json!({"minProperties": 1.5}),
+                "/: minProperties that is not a whole number",
+            ),
+            (
                 json!({"type": "array", "items": {}, "maxItems": "2"}),
                 "/: maxItems that is not a whole number",
             ),
@@ -1474,7 +1195,7 @@ pub(super) mod tests {
                 "{version}"
             );
         }
-        assert!(for_format("5.5.0").is_none());
+        assert!(for_format("5.6.0").is_none());
     }
 
     /// A kind of jsonschema's that the reader does not have cannot agree.

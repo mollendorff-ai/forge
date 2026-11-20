@@ -114,7 +114,7 @@ Comments, quotes, blank lines, key order and inputs stay as you typed them, and 
 
 How Forge reads a group under a top-level key: it is a **table** if any entry is a list or a period column (`{start, count, unit}`, below); otherwise a **group of scalars** if any entry is a number or has `value:` or `formula:`. In a group of scalars, a formula needs the `formula:` form, because a bare string has no place to hold its result.
 
-**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads six formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included), `5.1.0` (5.0.0 plus the short form above), `5.2.0` (5.1.0 plus the period column, needed only by a file that has one; `forge upgrade --to 5.2.0`), `5.3.0` (5.2.0 plus the empty cell, below; `forge upgrade --to 5.3.0`) and `5.4.0` (5.3.0 plus a date as a scalar and `format:`, below; `forge upgrade --to 5.4.0`). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
+**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads seven formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included), `5.1.0` (5.0.0 plus the short form above), `5.2.0` (5.1.0 plus the period column, needed only by a file that has one; `forge upgrade --to 5.2.0`), `5.3.0` (5.2.0 plus the empty cell, below; `forge upgrade --to 5.3.0`) `5.4.0` (5.3.0 plus a date as a scalar and `format:`, below; `forge upgrade --to 5.4.0`) and `5.5.0` (5.4.0 plus games, below; `forge upgrade --to 5.5.0`). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
 
 ---
 
@@ -230,6 +230,66 @@ The full list, by category, is in [FUNCTIONS.md](FUNCTIONS.md); `forge functions
 - `+` adds: `"5" + 1` is 6, and text that is not a number or a date is `#VALUE!`. `&` joins text: `=name & "-" & d`.
 - `TEXT(value, format)` reads these Excel format codes: digits `0` and `#`, a point, `,` between digits, `%`, `E+00`, text in quotes (and `$ - + ( ) :` and spaces as they are), and for dates `yy yyyy`, `m mm mmm mmmm`, `d dd ddd dddd`, with names in English; and (ADR-061) up to three sections `positive;negative;zero` (the negative one has no minus of its own: `#,##0;(#,##0)`), a colour in brackets (`[Red]`, no text), `_x` (a space), `*x` (nothing) and a run of `,` after the last digit, each dividing by 1,000 (`0.0,,"M"`). Any other code (a fourth section, a condition such as `[>1000]`, a locale tag, times, fractions) is an error that says which part Forge does not read.
 - **`format:` beside `unit:`** (format 5.4.0, ADR-061) says how a number is shown, with any code `TEXT` reads: `price: {value: 16, format: "$#,##0.00"}`, a data column `{value: [...], format: "0%"}`, a formula column `{formula: "=...", format: "#,##0;(#,##0)"}`, and a date code on a date (`"mmm yyyy"`). It never changes the value: `calculate`, the file it writes and every value in JSON stay as they are. `forge export` writes the code into each cell, `forge import` reads it back where a column's cells share one, `forge report`'s table and Markdown show the formatted text (CSV and JSON the value), and so do the terminal output of `forge calculate` (the formatted value, then the full value in brackets: `year.margin = 0.2%  (0.00203274189215848)`; a column's formatted values are separated by `;`, as a format may write commas), `forge scenarios` and `forge compare`'s table and Markdown, JSON has a `formatted` map beside the values, and Forge Studio shows what Forge formats. A code Forge does not read, a date code on a number and a number code on a date are refused. A formula column's long form keeps its `unit:` and `notes:` too (they were dropped).
+
+---
+
+## Games (format 5.5.0, ADR-068)
+
+A `games:` section holds games played once: players, their strategies, and a payoff table whose cells are numbers or formulas over the model. It can also hold tournaments of repeated play (below). Because the cells are formulas, `scenarios`, `compare`, `tornado`, `sensitivity`, `goal-seek` and `simulate` work on a game as on any model: they move an input, and the payoffs move with it.
+
+```yaml
+_forge_version: "5.5.0"
+inputs: {gain: 2, penalty: 4, audit_cost: 1, harm: 3}
+games:
+  inspection:
+    players: [ai, human]
+    strategies:
+      ai: [comply, cheat]
+      human: [audit, trust]
+    payoffs:                     # the first player's strategy, then the second's
+      comply: {audit: [0, =-inputs.audit_cost], trust: [0, 0]}
+      cheat:  {audit: [=-inputs.penalty, =-inputs.audit_cost], trust: [=inputs.gain, =-inputs.harm]}
+```
+
+- **A cell** has one payoff per player, in the order of `players`. With more players, `payoffs:` nests one level per player. `symmetric: true` (two players with the same strategies) takes one payoff per cell, the first player's; the second player's is read from the mirror cell. A strategy list can be one list for every player (`strategies: [stag, hare]`).
+- **What Forge works out:** strictly dominated strategies, removed one at a time (by another of the player's own strategies; weak dominance is noted, not removed); every pure equilibrium, for any number of players; every mixed equilibrium for two players with at most ten strategies each, by support enumeration, the method nashpy uses; and each strategy's payoff when the others play each of theirs equally often. In a degenerate game, where a tie can give a whole line of equilibria, the list may be incomplete, and `degenerate` is 1.
+- **`forge game model.yaml`** prints each game's dominated strategies, equilibria, ties and even-mix payoffs (`--game NAME` for one game, `--scenario NAME`, `-o FILE` for YAML or JSON).
+- **The results are scalars** named under the game, which any formula and any command can read: `inspection.pure_equilibria`, `inspection.equilibria`, `inspection.degenerate`, `inspection.equilibrium_1.human.audit` (the probability; pure equilibria first, in table order, then mixed ones), `inspection.equilibrium_1.human.payoff`, `inspection.dominated.ai.cheat` (1 or 0) and `inspection.even_mix.ai.cheat`. `forge calculate` prints them and does not write them into the file. A name the game does not have (`equilibrium_2` of a game with one) is an error that says how many it has, so a sweep that crosses a change in the number of equilibria stops there rather than read another one under the same name.
+- **Checked:** every equilibrium in the tests is checked with nashpy 0.0.43 or by hand. In the example above the human audits a third of the time and the AI cheats a third of the time; with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third.
+- **Excel:** `forge export` does not write the payoff formulas, since Excel cannot find an equilibrium. The results are written as numbers as of the export and do not follow the inputs, and the export warns and names the games.
+- **Not in this format:** mixed equilibria for three or more players (their pure equilibria are found), extensive-form games (moves in turn), auctions and continuous strategies, dominance by a mix of strategies, strategies written by the user, and strategy shares that change by generation.
+
+### Tournaments
+
+A tournament plays a symmetric game of two strategies (cooperate first, defect second) round after round, between built-in strategies, each against every other:
+
+```yaml
+games:
+  dilemma:
+    players: [me, you]
+    strategies: [cooperate, defect]
+    symmetric: true
+    payoffs:
+      cooperate: {cooperate: 3, defect: 0}
+      defect: {cooperate: =5 - c, defect: =1 - c}
+  axelrod:
+    tournament:
+      round: dilemma
+      players:                     # a name, and the strategy it plays
+        grim: grim_trigger
+        tft: tit_for_tat
+        ad: always_defect
+        ac: always_cooperate
+        rand: {plays: random, cooperate: 0.5}
+      rounds: 200                  # or continuation: 0.99
+      noise: 0                     # the chance that a move is flipped
+      self_play: true
+```
+
+- **Strategies:** `always_cooperate`, `always_defect`, `tit_for_tat`, `suspicious_tit_for_tat` (starts by defecting), `tit_for_two_tats`, `grim_trigger` (defects for good once the other has; its own moves flipped by noise do not set it off), `win_stay_lose_shift`, `generous_tit_for_tat` (`forgive`: the chance of answering a defection with cooperation, 1/3 if not given) and `random` (`cooperate`, 1/2 if not given). They behave as the Python axelrod library's strategies of the same name. `rounds`, `continuation`, `noise` and a parameter can each be a formula.
+- **Exact values:** each match is a Markov chain of at most nine states, stepped for `rounds` (up to 100,000) or solved for `continuation` (up to 0.9999). There is no seed, and a sweep over `noise` or `continuation` is smooth.
+- **Results:** `axelrod.score.tft` (the expected payoff per round over its matches), `axelrod.rank.tft` (players that tie share a rank), `axelrod.cooperation.tft` (its share of moves that cooperate), `axelrod.match.tft.ad` (tft's payoff per round against ad) and `axelrod.stable.tft` (1 when collectively stable: no player does better against it than it does against itself, so (tft, tft) is an equilibrium of the match table). `forge game` prints the ranking, the match table and the stable players.
+- **Checked:** against the axelrod library 4.14.0, every pair of the nine strategies, with noise, over fixed rounds and with a continuation, is within 2.4 standard errors of its average over seeded runs; kinship-protocol's tournament is worked out by hand where it is short (TitForTat against AlwaysDefect over 200 rounds: 199/200). `examples/games` has seven models with their numbers.
 
 ---
 

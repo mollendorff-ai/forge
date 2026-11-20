@@ -18,7 +18,11 @@ use super::variables::{is_nested_scalar_section, parse_scalar_variable, parse_ta
 pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     // Validate against JSON Schema - this is mandatory
     validate_against_schema(yaml)?;
+    read_model(yaml)
+}
 
+/// The tables, scalars and scenarios of a model the schema has accepted.
+fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     let mut model = ParsedModel::new();
 
     // Parse each top-level key as either a table or scalar
@@ -43,6 +47,22 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 continue;
             }
 
+            // Games (5.5.0, ADR-068); before 5.5.0 a group named `games`
+            // reads as a group (the schema check refused a game section)
+            if key_str == "games"
+                && super::schema::format_at_least(
+                    yaml.get("_forge_version")
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                    "5.5.0",
+                )
+            {
+                for game in crate::games::parse_games(value)? {
+                    model.games.insert(game.name().to_string(), game);
+                }
+                continue;
+            }
+
             // Parse _includes section (v4.0 cross-file references)
             if key_str == "_includes" {
                 if let Value::Sequence(includes_seq) = value {
@@ -61,8 +81,10 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                     let is_scenarios_section = scenarios_map
                         .iter()
                         .all(|(_, v)| matches!(v, Value::Mapping(_)))
-                        && scenarios_map.iter().any(|(_, v)| {
-                            if let Value::Mapping(m) = v {
+                        && scenarios_map
+                            .values()
+                            .filter_map(Value::as_mapping)
+                            .any(|m| {
                                 // A number (a flat override, or `probability`) or
                                 // a `scalars` mapping, which needs no probability
                                 m.iter().any(|(_, vv)| match vv {
@@ -70,10 +92,7 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                                     Value::String(text) => super::variables::looks_like_date(text),
                                     _ => false,
                                 }) || matches!(m.get("scalars"), Some(Value::Mapping(_)))
-                            } else {
-                                false
-                            }
-                        });
+                            });
 
                     if is_scenarios_section {
                         parse_scenarios(scenarios_map, &mut model)?;
@@ -121,11 +140,43 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
         }
     }
 
+    check_game_names(&model)?;
+
     // Note: Table column length validation is deferred to calculation time
     // This allows test files to have columns of different lengths when used independently
     // Row-wise operations will still validate at runtime in array_calculator
 
     Ok(model)
+}
+
+/// A game's results are scalars named under it (`stag_hunt.equilibria`), so
+/// its name cannot also be a table, a scalar or a group of scalars.
+///
+/// # Errors
+///
+/// Returns an error naming the first game whose name is taken.
+pub fn check_game_names(model: &ParsedModel) -> ForgeResult<()> {
+    for name in model.games.keys() {
+        let prefix = format!("{name}.");
+        let taken = if model.tables.contains_key(name) {
+            Some("a table".to_string())
+        } else if model.scalars.contains_key(name) {
+            Some("a scalar".to_string())
+        } else {
+            model
+                .scalars
+                .keys()
+                .find(|s| s.starts_with(&prefix))
+                .map(|s| format!("the group of scalar '{s}'"))
+        };
+        if let Some(what) = taken {
+            return Err(ForgeError::Parse(format!(
+                "game '{name}' has the name of {what}; its results are named under it \
+                 ({name}.equilibria), so rename one"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Parse nested scalar variables (e.g., summary.total, summary.average)
@@ -157,8 +208,8 @@ pub fn parse_nested_scalars(
                 model.add_scalar(full_path, variable);
             },
             Value::String(text) if super::variables::looks_like_date(text) => {
-                let serial = super::variables::scalar_date(text, &full_path)?
-                    .ok_or_else(|| ForgeError::Parse(format!("'{full_path}' is not a date")))?;
+                // Text that looks like a date is a date or an error
+                let serial = super::variables::scalar_date(text, &full_path)?.unwrap_or_default();
                 model.add_scalar(full_path.clone(), date_input(&full_path, serial));
             },
             Value::String(s) if s.starts_with('=') => {
@@ -301,10 +352,10 @@ fn add_override(
     };
     match var_value {
         Value::Number(n) => {
-            scenario.add_override(var_name.to_string(), n.as_f64().ok_or_else(must)?);
+            scenario.add_override(var_name.to_string(), n.as_f64().unwrap_or_default());
         },
         Value::String(text) => {
-            let path = format!("Scenario '{name}': '{var_name}'");
+            let path = format!("scenarios.{name}.{var_name}");
             let serial = super::variables::scalar_date(text, &path)?.ok_or_else(must)?;
             scenario.add_override(var_name.to_string(), serial);
             scenario.dates.insert(var_name.to_string());
@@ -872,5 +923,223 @@ sales:
 
         assert!(sales.row_formulas.contains_key("profit"));
         assert_eq!(sales.row_formulas.get("profit").unwrap(), "=revenue * 0.3");
+    }
+
+    fn mapping(text: &str) -> yaml_serde::Mapping {
+        yaml_serde::from_str(text).unwrap()
+    }
+
+    fn read(text: &str) -> ForgeResult<ParsedModel> {
+        read_model(&yaml_serde::from_str(text).unwrap())
+    }
+
+    fn reason<T>(result: ForgeResult<T>) -> String {
+        result.err().unwrap().to_string()
+    }
+
+    #[test]
+    fn what_the_schema_lets_through_is_still_read_with_its_reasons() {
+        assert_eq!(
+            reason(read("_includes:\n  - file: x.yaml\n")),
+            "Parse error: Include 'x.yaml' must have an 'as' field for the namespace"
+        );
+        assert_eq!(
+            reason(read("1:\n  value: 5\n")),
+            "Parse error: Table name must be a string"
+        );
+    }
+
+    #[test]
+    fn a_top_level_date_is_an_input_scalar_held_as_its_day_number() {
+        let model = read("start: \"2026-10-31\"\n").unwrap();
+        let start = &model.scalars["start"];
+        assert_eq!(start.value, Some(46326.0));
+        assert!(start.is_date);
+        assert_eq!(
+            reason(read("start: \"2026-02-30\"\n")),
+            "Parse error: 'start' is not a date: 2026-02-30 is no day of the calendar (a date is written 2026-10-31)"
+        );
+    }
+
+    #[test]
+    fn a_mapping_of_formula_columns_alone_is_a_table() {
+        let model = read("t:\n  x: \"=1 + 2\"\n").unwrap();
+        assert_eq!(model.tables.len(), 1);
+        assert!(model.scalars.is_empty());
+    }
+
+    #[test]
+    fn a_group_of_scalars_holds_numbers_dates_and_mappings_only() {
+        let mut model = ParsedModel::new();
+        parse_nested_scalars(
+            "g",
+            &mapping("a: 1\nb: \"2026-10-31\"\nc:\n  value: 3\n"),
+            &mut model,
+        )
+        .unwrap();
+        assert_eq!(model.scalars["g.a"].value, Some(1.0));
+        assert_eq!(model.scalars["g.b"].value, Some(46326.0));
+        assert!(model.scalars["g.b"].is_date);
+        assert_eq!(model.scalars["g.c"].value, Some(3.0));
+        let refused = |text: &str| {
+            reason(parse_nested_scalars(
+                "g",
+                &mapping(text),
+                &mut ParsedModel::new(),
+            ))
+        };
+        assert_eq!(
+            refused("1: 5\n"),
+            "Parse error: Scalar name must be a string"
+        );
+        assert_eq!(
+            refused("a: \"=1 + 2\"\n"),
+            "Parse error: 'g.a' is a formula in a group of scalars; write it as \
+             `a: {formula: \"=1 + 2\"}` so its result has a place in the file"
+        );
+        assert_eq!(
+            refused("a: hello\n"),
+            "Parse error: 'g.a' must be a number, a date (2026-10-31) or a mapping with `value:` or `formula:`"
+        );
+    }
+
+    #[test]
+    fn a_scenario_is_read_in_either_form_or_refused_with_its_reason() {
+        let mut model = ParsedModel::new();
+        parse_scenarios(
+            &mapping(
+                "flat:\n  rate: 0.05\n  start: \"2026-10-31\"\nfull:\n  probability: 0.5\n  description: Base\n  scalars:\n    rate: 0.07\n",
+            ),
+            &mut model,
+        )
+        .unwrap();
+        assert_eq!(
+            model.scenarios["flat"].overrides["rate"].to_bits(),
+            0.05_f64.to_bits()
+        );
+        assert_eq!(
+            model.scenarios["flat"].overrides["start"].to_bits(),
+            46326.0_f64.to_bits()
+        );
+        assert!(model.scenarios["flat"].dates.contains("start"));
+        assert_eq!(
+            model.scenarios["full"].overrides["rate"].to_bits(),
+            0.07_f64.to_bits()
+        );
+        assert_eq!(model.scenarios["full"].description.as_deref(), Some("Base"));
+        let refused = |text: &str| reason(parse_scenarios(&mapping(text), &mut ParsedModel::new()));
+        assert_eq!(
+            refused("1:\n  rate: 1\n"),
+            "Parse error: Scenario name must be a string"
+        );
+        assert_eq!(
+            refused("up: 5\n"),
+            "Parse error: Scenario 'up' must be a mapping of variable overrides"
+        );
+        assert_eq!(
+            refused("up:\n  probability: 1\n  scalars: 5\n"),
+            "Parse error: Scenario 'up': 'scalars' must be a mapping of variable overrides"
+        );
+        assert_eq!(
+            refused("up:\n  probability: 1\n  scalars:\n    1: 5\n"),
+            "Parse error: Variable name must be a string"
+        );
+        assert_eq!(
+            refused("up:\n  1: 5\n"),
+            "Parse error: Variable name must be a string"
+        );
+        for value in ["hello", "[1]"] {
+            assert_eq!(
+                refused(&format!("up:\n  rate: {value}\n")),
+                "Parse error: Scenario 'up': Variable 'rate' must be a number or a date (2026-10-31)"
+            );
+        }
+    }
+
+    #[test]
+    fn what_is_neither_a_scenario_nor_a_scalar_nor_a_table_is_read_as_it_is() {
+        // A scenario with a description and a `scalars` mapping, and no number
+        let model =
+            read("scenarios:\n  s:\n    description: Base\n    scalars:\n      rate: 1\n").unwrap();
+        assert_eq!(
+            model.scenarios["s"].overrides["rate"].to_bits(),
+            1.0_f64.to_bits()
+        );
+        // Mappings of lists are a table that is called scenarios
+        let model = read("scenarios:\n  rate: [1, 2]\n").unwrap();
+        assert_eq!(model.tables.len(), 1);
+        assert!(model.scenarios.is_empty());
+        // Text that is not a date, as a value, is skipped
+        let model = read("note: hello\n").unwrap();
+        assert!(model.scalars.is_empty() && model.tables.is_empty());
+        // Scenarios are refused with the reason of the one that fails
+        assert_eq!(
+            reason(read("scenarios:\n  up:\n    n: 1\n    rate: hello\n")),
+            "Parse error: Scenario 'up': Variable 'rate' must be a number or a date (2026-10-31)"
+        );
+    }
+
+    #[test]
+    fn a_scalar_or_table_that_cannot_be_read_gives_its_reason() {
+        assert_eq!(
+            reason(read("t:\n  1: [1, 2]\n")),
+            "Parse error: Column name must be a string"
+        );
+        assert_eq!(reason(read("t:\n  value: 1\n  bogus: 2\n")), "Parse error: 't.bogus': a scalar has no key 'bogus'. A scalar's keys are value, formula, unit, notes, source, validation_status, last_updated, better, format");
+        assert_eq!(
+            reason(read("t:\n  x: \"=1\"\n  1: \"=2\"\n")),
+            "Parse error: Column name must be a string"
+        );
+    }
+
+    #[test]
+    fn a_value_that_is_neither_text_nor_a_mapping_is_skipped() {
+        let model = read("scenarios: hello\nflag: true\nlist_of: null\n_includes: none\n").unwrap();
+        assert!(model.scalars.is_empty() && model.tables.is_empty() && model.scenarios.is_empty());
+    }
+
+    #[test]
+    fn a_date_in_a_group_or_a_scenario_that_is_no_day_is_refused() {
+        assert_eq!(
+            reason(parse_nested_scalars(
+                "g",
+                &mapping("a: \"2026-02-30\"\n"),
+                &mut ParsedModel::new()
+            )),
+            "Parse error: 'g.a' is not a date: 2026-02-30 is no day of the calendar (a date is written 2026-10-31)"
+        );
+        assert_eq!(
+            reason(parse_scenarios(
+                &mapping("up:\n  probability: 1\n  scalars:\n    rate: hello\n"),
+                &mut ParsedModel::new()
+            )),
+            "Parse error: Scenario 'up': Variable 'rate' must be a number or a date (2026-10-31)"
+        );
+    }
+
+    #[test]
+    fn a_scenario_override_that_is_no_day_is_refused() {
+        assert_eq!(
+            reason(parse_scenarios(
+                &mapping("up:\n  rate: \"2026-02-30\"\n"),
+                &mut ParsedModel::new()
+            )),
+            "Parse error: 'scenarios.up.rate' is not a date: 2026-02-30 is no day of the calendar (a date is written 2026-10-31)"
+        );
+    }
+
+    #[test]
+    fn a_mapping_of_mappings_called_scenarios_without_numbers_is_not_a_scenario_section() {
+        // It is read as a table, and its column is neither a list nor a formula
+        assert_eq!(
+            reason(read("scenarios:\n  a:\n    x: hello\n")),
+            "Parse error: Column 'a' in table 'scenarios' must be an array or formula"
+        );
+    }
+
+    #[test]
+    fn a_document_that_is_not_a_mapping_has_nothing_in_it() {
+        let model = read("- 1\n").unwrap();
+        assert!(model.scalars.is_empty() && model.tables.is_empty());
     }
 }

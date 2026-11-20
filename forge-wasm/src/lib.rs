@@ -16,9 +16,9 @@
 
 use mollendorff_forge::cli::{
     audit_core, bayesian_core, bootstrap_core, calculate_core, compare_core, decision_tree_core,
-    examples_core, functions_core, goal_seek_core, probability_seek_core, real_options_core,
-    scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core, validate_core,
-    variance_core, SeekGoal, SimulateOptions,
+    examples_core, functions_core, game_core, goal_seek_core, probability_seek_core,
+    real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
+    validate_core, variance_core, SeekGoal, SimulateOptions,
 };
 use mollendorff_forge::cli::{
     commands::render, commands::report_core, ReportFormat, ReportOptions,
@@ -32,7 +32,7 @@ use std::path::Path;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The tools, by the names of the MCP tools without `forge_`.
-pub const TOOLS: [&str; 22] = [
+pub const TOOLS: [&str; 23] = [
     "validate",
     "calculate",
     "audit",
@@ -50,6 +50,7 @@ pub const TOOLS: [&str; 22] = [
     "real_options",
     "bootstrap",
     "bayesian",
+    "game",
     "functions",
     "examples",
     "schema",
@@ -223,6 +224,9 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
                 &opt_strings(args, "evidence")?,
             )
             .map_err(fail)?,
+        ),
+        "game" => to_value(
+            game_core(main, opt_str(args, "game")?, opt_str(args, "scenario")?).map_err(fail)?,
         ),
         _ => Err(format!("No tool named '{tool}'")),
     }
@@ -702,6 +706,23 @@ mod tests {
                 24.27,
                 0.005,
             );
+        }
+
+        /// kinship-protocol's tournament with c = 0.2 (examples/games): the
+        /// exact scores, by hand for AD, 2.208 - c; src/cli/commands/game.rs
+        /// checks them against the axelrod library
+        #[test]
+        fn axelrods_tournament_at_a_cost_of_a_fifth() {
+            let reports = case("game axelrod");
+            assert_eq!(reports[1]["kind"], "tournament");
+            assert_eq!(reports[1]["ranking"][0]["player"], "grim");
+            let ad = reports[1]["ranking"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|s| s["player"] == "ad")
+                .unwrap();
+            close(number(ad, "/score"), 2.008, 1e-12);
         }
 
         #[test]

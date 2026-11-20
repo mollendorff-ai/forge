@@ -1,0 +1,70 @@
+# Axelrod's Tournament
+# ====================
+# Run in the examples folder: forge game games/axelrod.yaml
+#
+# Five strategies play the repeated prisoner's dilemma, 200 rounds a match,
+# each against every other and against itself. kinship-protocol's
+# axelrod_tournament.yaml typed their average payoffs in (grim 2.622, tft
+# 2.445, ad 2.212, ac 2.112, random 1.9), half of a table from a chat model
+# that cannot be right: it had GrimTrigger at 5.244 a round, more than the
+# temptation T = 5, the most a round can pay. Here Forge plays the matches.
+#
+# The scores are exact expected values, not samples: grim 2.596, tft
+# 2.44825, ad 2.208, ac 2.1, random 1.90875 (the Python axelrod library,
+# 300 seeded runs of each match, gives 2.599, 2.447, 2.208, 2.102, 1.909).
+# The order is kinship's. The cost c of a defection comes off each defecting
+# payoff; AlwaysCooperate overtakes AlwaysDefect at c = 0.108, not 0.1:
+#   forge game games/axelrod.yaml --scenario c2
+
+_forge_version: "5.5.0"
+
+c: 0      # the cost of a defection
+dilemma_payoffs:
+  T: 5    # temptation: defect against a cooperator
+  R: 3    # reward: both cooperate
+  P: 1    # punishment: both defect
+  S: 0    # sucker: cooperate against a defector
+
+games:
+  dilemma:
+    description: The prisoner's dilemma, one round
+    players: [me, you]
+    strategies: [cooperate, defect]   # a tournament reads the first as cooperate
+    symmetric: true
+    payoffs:
+      cooperate: {cooperate: =R, defect: =S}
+      defect: {cooperate: =T - c, defect: =P - c}
+
+  axelrod:
+    description: kinship-protocol's five strategies
+    tournament:
+      round: dilemma
+      players:
+        grim: grim_trigger            # defects for good once the other has
+        tft: tit_for_tat
+        ad: always_defect
+        ac: always_cooperate
+        rand: {plays: random, cooperate: 0.5}
+      rounds: 200
+      self_play: true
+
+kinship:
+  coop_wins:
+    formula: "=IF(axelrod.score.ac > axelrod.score.ad, 1, 0)"
+    value: 0
+    notes: 1 when AlwaysCooperate scores more than AlwaysDefect
+  crossover_c:
+    formula: "=c + (axelrod.score.ad - axelrod.score.ac) / (axelrod.cooperation.ac - axelrod.cooperation.ad)"
+    value: 0.108
+    notes: Each score falls by c times its share of defections, so the gap closes at this cost
+  grim_defect_rate:
+    formula: "=1 - axelrod.cooperation.grim"
+    value: 0.397
+
+scenarios:
+  c1:
+    scalars: {c: 0.1}
+  c2:
+    scalars: {c: 0.2}
+  c3:
+    scalars: {c: 0.3}

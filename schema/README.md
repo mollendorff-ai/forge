@@ -4,7 +4,8 @@ JSON Schemas for the Forge model formats. The version is the model format (`_for
 
 | File | Format |
 | --- | --- |
-| `forge.schema.json` | Any of them, for editors: it checks a file against the schema of the format its `_forge_version` names (5.4.0, 5.3.0, 5.2.0 or 5.1.0; for 5.0.0 and 1.0.0 it checks only the version, and `forge validate` does the rest). |
+| `forge.schema.json` | Any of them, for editors: it checks a file against the schema of the format its `_forge_version` names (5.5.0, 5.4.0, 5.3.0, 5.2.0 or 5.1.0; for 5.0.0 and 1.0.0 it checks only the version, and `forge validate` does the rest). |
+| `forge-v5.5.0.schema.json` | 5.5.0 (ADR-068): 5.4.0 plus `games:`, each game with players, their strategies and a payoff table whose cells are numbers or formulas over the model (`hare: {stag: =3 - c, hare: =3 - c}`). The schema checks a game's shape; Forge checks it in full and names the cell that is wrong. Needed only by a file that has a game. |
 | `forge-v5.4.0.schema.json` | 5.4.0 (ADR-060, ADR-061): 5.3.0 plus a date as a scalar (`last_actual: 2026-10-31`) and `format:` beside `unit:` (`{value: 16, format: "$#,##0.00"}`). Needed only by a file that has one. |
 | `forge-v5.3.0.schema.json` | 5.3.0 (ADR-059): 5.2.0 plus the empty cell, `null` in a column of numbers (`actual: [985, 1032, null]`). Needed only by a file that has one. |
 | `forge-v5.2.0.schema.json` | 5.2.0 (ADR-053): 5.1.0 plus the period column, a table column written as `{start: 2026-12, count: 300, unit: month}`. Needed only by a file that has one. |
@@ -12,7 +13,7 @@ JSON Schemas for the Forge model formats. The version is the model format (`_for
 | `forge-v5.0.0.schema.json` | 5.0.0: tables, row formulas, includes and the analysis sections (`monte_carlo`, `scenarios`, `decision_tree`, `tornado` and the others). `test-data/` uses it. |
 | `forge-v1.0.0.schema.json` | 1.0.0: scalars only. |
 
-Forge embeds these files: `forge schema v5.4` (or `v5.3`, `v5.2`, `v5.1`, `v5`, `v1`) prints the one of the Forge you have installed, and every model is checked against its schema before it is calculated. So a mixed array (`[100, "Q2", 150]`) or a formula without its `=` (`total: "SUM(revenue)"`) is an error from `forge validate` and `forge calculate`. The 5.1.0 to 5.4.0 schemas read each top-level mapping the way Forge does (one scalar, a table or a group of scalars, ADR-051), so an error is reported under the one reading that applies, with its key path: `'loan.payment.formla': there is no key 'formla' here. Did you mean 'formula'?` The schema checks the shape of a file; whether a formula's names exist and its stored results are current is what `forge validate` checks after that.
+Forge embeds these files: `forge schema v5.5` (or `v5.4`, `v5.3`, `v5.2`, `v5.1`, `v5`, `v1`) prints the one of the Forge you have installed, and every model is checked against its schema before it is calculated. So a mixed array (`[100, "Q2", 150]`) or a formula without its `=` (`total: "SUM(revenue)"`) is an error from `forge validate` and `forge calculate`. The 5.1.0 to 5.5.0 schemas read each top-level mapping the way Forge does (one scalar, a table or a group of scalars, ADR-051), so an error is reported under the one reading that applies, with its key path: `'loan.payment.formla': there is no key 'formla' here. Did you mean 'formula'?` The schema checks the shape of a file; whether a formula's names exist and its stored results are current is what `forge validate` checks after that.
 
 Forge reads these files with a reader of its own (`src/parser/schema_reader.rs`, ADR-069), the same on the command line, in the MCP server, in the REST API and in the browser. It reads the JSON Schema keywords the files use (draft 07: `type`, `properties`, `additionalProperties`, `required`, `$ref` to `#/definitions/`, `enum`, `anyOf`, `oneOf`, `allOf`, `not`, `if`/`then`/`else`, `items`, `minItems`, `maxItems`, `minimum`, `maximum`, `pattern` and `format: date`), and nothing else: a schema with any other keyword, or a pattern it cannot read, refuses every model, and its tests say so first. `format: date` is checked, as `jsonschema` checked it: a real day, `YYYY-MM-DD`; an editor whose JSON Schema engine treats `format` as a note can disagree with Forge where it decides the form a value is read in. Its tests check it against the `jsonschema` crate on every example and on 73,650 models made from them.
 
@@ -65,5 +66,5 @@ A change here changes what `forge validate` accepts. After one:
 
 ```bash
 cargo test                                                    # every example still passes (src/cli/commands/examples.rs (its demo_examples tests))
-cp schema/forge.schema.json schema/forge-v5.[12].0.schema.json editors/vscode/schemas/    # the extension's copies; its test checks they match
+cp schema/forge.schema.json schema/forge-v5.[1-5].0.schema.json editors/vscode/schemas/    # the extension's copies; its test checks they match
 ```

@@ -8,89 +8,8 @@ use {
     std::io::Write,
 };
 
-/// Embedded example YAML files (compile-time)
-const EXAMPLE_STARTER: &str = include_str!("../../../examples/starter.yaml");
-const EXAMPLE_MONTE_CARLO: &str = include_str!("../../../examples/monte-carlo.yaml");
-const EXAMPLE_SCENARIOS: &str = include_str!("../../../examples/scenarios.yaml");
-const EXAMPLE_DECISION_TREE: &str = include_str!("../../../examples/decision-tree.yaml");
-const EXAMPLE_REAL_OPTIONS: &str = include_str!("../../../examples/real-options.yaml");
-const EXAMPLE_TORNADO: &str = include_str!("../../../examples/tornado.yaml");
-const EXAMPLE_BOOTSTRAP: &str = include_str!("../../../examples/bootstrap.yaml");
-const EXAMPLE_BAYESIAN: &str = include_str!("../../../examples/bayesian.yaml");
-const EXAMPLE_VARIANCE: &str = include_str!("../../../examples/variance.yaml");
-const EXAMPLE_BREAKEVEN: &str = include_str!("../../../examples/breakeven.yaml");
-
-/// Example metadata
-struct Example {
-    name: &'static str,
-    description: &'static str,
-    command: &'static str,
-    content: &'static str,
-}
-
-/// All available examples
-const EXAMPLES: &[Example] = &[
-    Example {
-        name: "starter",
-        description: "A first model: a group of scalars and a table",
-        command: "forge calculate",
-        content: EXAMPLE_STARTER,
-    },
-    Example {
-        name: "monte-carlo",
-        description: "Probabilistic simulation with distributions",
-        command: "forge simulate",
-        content: EXAMPLE_MONTE_CARLO,
-    },
-    Example {
-        name: "scenarios",
-        description: "Probability-weighted scenario analysis",
-        command: "forge scenarios",
-        content: EXAMPLE_SCENARIOS,
-    },
-    Example {
-        name: "decision-tree",
-        description: "Sequential decisions with backward induction",
-        command: "forge decision-tree",
-        content: EXAMPLE_DECISION_TREE,
-    },
-    Example {
-        name: "real-options",
-        description: "Option pricing for managerial flexibility",
-        command: "forge real-options",
-        content: EXAMPLE_REAL_OPTIONS,
-    },
-    Example {
-        name: "tornado",
-        description: "One-at-a-time sensitivity analysis",
-        command: "forge tornado",
-        content: EXAMPLE_TORNADO,
-    },
-    Example {
-        name: "bootstrap",
-        description: "Non-parametric confidence intervals",
-        command: "forge bootstrap",
-        content: EXAMPLE_BOOTSTRAP,
-    },
-    Example {
-        name: "bayesian",
-        description: "Probabilistic graphical models",
-        command: "forge bayesian",
-        content: EXAMPLE_BAYESIAN,
-    },
-    Example {
-        name: "variance",
-        description: "Budget vs actual analysis",
-        command: "forge calculate",
-        content: EXAMPLE_VARIANCE,
-    },
-    Example {
-        name: "breakeven",
-        description: "Break-even calculations",
-        command: "forge calculate",
-        content: EXAMPLE_BREAKEVEN,
-    },
-];
+mod catalog;
+use catalog::EXAMPLES;
 
 /// Return examples as structured JSON (no printing).
 ///
@@ -246,7 +165,7 @@ fn print_examples_json(c: &mut Console<'_>) {
 
 /// Run an example by writing to temp file and executing
 #[cfg(feature = "cli")]
-fn run_example(c: &mut Console<'_>, example: &Example) -> ForgeResult<()> {
+fn run_example(c: &mut Console<'_>, example: &catalog::Example) -> ForgeResult<()> {
     // Write example to temp file
     let temp_dir = std::env::temp_dir();
     let temp_file = temp_dir.join(format!("forge-example-{}.yaml", example.name));
@@ -263,13 +182,8 @@ fn run_example(c: &mut Console<'_>, example: &Example) -> ForgeResult<()> {
         )))
     })?;
 
-    // The command that runs it
-    let command = match example.name {
-        "monte-carlo" => "simulate",
-        name @ ("scenarios" | "decision-tree" | "real-options" | "tornado" | "bootstrap"
-        | "bayesian") => name,
-        _ => "calculate",
-    };
+    // The command that runs it: `forge game` runs `game`
+    let command = example.command.trim_start_matches("forge ");
 
     // Run it as `forge` would, in this same process, on the same console
     let code = crate::cli::run_from(
@@ -378,7 +292,7 @@ mod tests {
 
     #[test]
     fn an_example_that_fails_says_so_with_its_exit_code() {
-        let broken = Example {
+        let broken = catalog::Example {
             name: "broken",
             description: "A formula that reads nothing",
             command: "forge calculate",
@@ -396,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_example_count() {
-        assert_eq!(EXAMPLES.len(), 10, "Should have exactly 10 examples");
+        assert_eq!(EXAMPLES.len(), 17, "Should have exactly 17 examples");
     }
 
     #[test]

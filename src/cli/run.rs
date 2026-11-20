@@ -103,6 +103,7 @@ impl Commands {
             Self::DecisionTree(a) => a.run(c),
             Self::RealOptions(a) => a.run(c),
             Self::Tornado(a) => a.run(c),
+            Self::Game(a) => a.run(c),
             Self::Bootstrap(a) => a.run(c),
             Self::Bayesian(a) => a.run(c),
             Self::Functions(a) => a.run(c),

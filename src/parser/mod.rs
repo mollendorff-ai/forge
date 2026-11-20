@@ -7,6 +7,7 @@
 //! - `arrays`: Array/column type parsing (Number, Text, Date, Boolean)
 //! - `schema`: validation against the schema of the model's format
 //! - `schema_reader`: Forge's reader of its JSON schemas (ADR-069)
+//! - `schema_check`: a model checked against a schema read so
 //! - `schema_pattern`: the schemas' `pattern`s, matched without a regex engine
 //! - `schema_errors`: what does not fit a schema, in words
 //! - `multi_doc`: Multi-document YAML parsing (v4.4.2)
@@ -21,6 +22,7 @@ pub(crate) mod model;
 mod multi_doc;
 pub(crate) mod periods;
 mod schema;
+mod schema_check;
 mod schema_errors;
 mod schema_pattern;
 mod schema_reader;

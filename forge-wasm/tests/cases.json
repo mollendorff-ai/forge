@@ -16,6 +16,7 @@
   {"name": "real options wait", "tool": "real_options", "dir": "bagel", "files": ["wait_option.yaml"], "main": "wait_option.yaml"},
   {"name": "bootstrap first month", "tool": "bootstrap", "dir": "bagel", "files": ["first_month.yaml"], "main": "first_month.yaml"},
   {"name": "bayesian slow week", "tool": "bayesian", "dir": "bagel", "files": ["slow_week.yaml"], "main": "slow_week.yaml", "args": {"query": "roadwork", "evidence": ["sales=slow", "weather=rainy"]}},
+  {"name": "game axelrod", "tool": "game", "dir": "games", "files": ["axelrod.yaml"], "main": "axelrod.yaml", "args": {"scenario": "c2"}},
   {"name": "calculate mortgage", "tool": "calculate", "dir": "mortgage", "files": ["mortgage.yaml"], "main": "mortgage.yaml"},
   {"name": "goal seek mortgage extra", "tool": "goal_seek", "dir": "mortgage", "files": ["mortgage.yaml"], "main": "mortgage.yaml", "args": {"target": "saved.interest", "value": 80000, "vary": "loan.extra_per_month"}},
   {"name": "calculate monthly plan", "tool": "calculate", "dir": "periods", "files": ["monthly_plan.yaml"], "main": "monthly_plan.yaml"},

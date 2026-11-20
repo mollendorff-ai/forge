@@ -2,8 +2,9 @@
 //!
 //! Forge's own checks first, with messages that name the format a feature
 //! needs, then the schema file of the model's `_forge_version` (1.0.0 and
-//! 5.0.0 to 5.4.0), read by `schema_reader` (ADR-069).
+//! 5.0.0 to 5.5.0), read by `schema_reader` (ADR-069).
 
+use super::schema_reader::Schema;
 use crate::error::{ForgeError, ForgeResult};
 use yaml_serde::Value;
 
@@ -20,22 +21,28 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
             ForgeError::Validation(
-                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\", \"5.1.0\", \"5.2.0\", \"5.3.0\" or \"5.4.0\""
+                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\", \"5.1.0\", \"5.2.0\", \"5.3.0\", \"5.4.0\" or \"5.5.0\""
                     .to_string(),
             )
         })?;
 
     let Some(schema) = super::schema_reader::for_format(version) else {
         return Err(ForgeError::Validation(format!(
-            "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns), 5.3.0 (5.2.0 plus empty cells), 5.4.0 (5.3.0 plus dates as scalars). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
+            "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns), 5.3.0 (5.2.0 plus empty cells), 5.4.0 (5.3.0 plus dates as scalars), 5.5.0 (5.4.0 plus games). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
         )));
     };
 
+    validate_with(yaml, version, schema)
+}
+
+/// `validate_against_schema` once the model format's schema is chosen.
+fn validate_with(yaml: &Value, version: &str, schema: &Schema) -> ForgeResult<()> {
     check_short_form(yaml, version)?;
     check_period_columns(yaml, version)?;
     check_empty_cells(yaml, version)?;
     check_date_scalars(yaml, version)?;
     check_formats(yaml, version)?;
+    check_games(yaml, version)?;
     // Tables in a 1.0.0 model: say so before the schema reports the shapes
     if version == "1.0.0" {
         validate_v1_0_0_no_tables(yaml)?;
@@ -45,8 +52,12 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
     let json_value: serde_json::Value = serde_json::to_value(yaml)
         .map_err(|e| ForgeError::Validation(format!("Failed to convert YAML to JSON: {e}")))?;
     let errors = schema.errors(&json_value);
+    // In a test build, `jsonschema` checks the format's own schema too (a
+    // schema of a test's own, as the one that cannot be read, is not its)
     #[cfg(test)]
-    super::schema_reader::tests::agrees_with_jsonschema(version, &json_value, &errors);
+    if super::schema_reader::for_format(version).is_some_and(|own| std::ptr::eq(own, schema)) {
+        super::schema_reader::tests::agrees_with_jsonschema(version, &json_value, &errors);
+    }
     if errors.is_empty() {
         return Ok(());
     }
@@ -56,13 +67,35 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
     )))
 }
 
+/// Whether model format `version` is `least` or later: 5.4.0 has everything
+/// 5.3.0 has. 1.0.0 is earlier than every 5.x format.
+#[must_use]
+pub fn format_at_least(version: &str, least: &str) -> bool {
+    let parts = |v: &str| -> Vec<u32> { v.split('.').map(|p| p.parse().unwrap_or(0)).collect() };
+    parts(version) >= parts(least)
+}
+
+/// A `games:` section in a model of an earlier format: say which format has
+/// it (ADR-068). A group named `games` that is not one reads as before.
+fn check_games(yaml: &Value, version: &str) -> ForgeResult<()> {
+    match yaml.get("games") {
+        Some(section)
+            if !format_at_least(version, "5.5.0")
+                && crate::games::model::looks_like_games(section) =>
+        {
+            Err(ForgeError::Validation(format!(
+                "'games' is a section of games, which model format 5.5.0 adds (ADR-068). Set \
+                 `_forge_version: \"5.5.0\"` (this file says {version})"
+            )))
+        },
+        _ => Ok(()),
+    }
+}
+
 /// A period column in a model of an earlier format: say which format has it,
 /// before the schema reports the keys it does not know.
 fn check_period_columns(yaml: &Value, version: &str) -> ForgeResult<()> {
-    let (Some(root), false) = (
-        yaml.as_mapping(),
-        matches!(version, "5.2.0" | "5.3.0" | "5.4.0"),
-    ) else {
+    let (Some(root), false) = (yaml.as_mapping(), format_at_least(version, "5.2.0")) else {
         return Ok(());
     };
     for (key, value) in root {
@@ -144,7 +177,7 @@ fn date_scalars(yaml: &Value) -> Vec<(String, String)> {
 /// A `format:` in a model of an earlier format: say which format has it
 /// (ADR-061).
 fn check_formats(yaml: &Value, version: &str) -> ForgeResult<()> {
-    if version == "5.4.0" {
+    if format_at_least(version, "5.4.0") {
         return Ok(());
     }
     let Some(root) = yaml.as_mapping() else {
@@ -182,11 +215,8 @@ fn check_formats(yaml: &Value, version: &str) -> ForgeResult<()> {
 /// 1900-03-01 is refused with what is wanted (ADR-060).
 fn check_date_scalars(yaml: &Value, version: &str) -> ForgeResult<()> {
     for (path, text) in date_scalars(yaml) {
-        if version == "5.4.0" {
-            crate::parser::scalar_date(&text, &path).map_err(|e| match e {
-                ForgeError::Parse(message) => ForgeError::Validation(message),
-                other => other,
-            })?;
+        if format_at_least(version, "5.4.0") {
+            super::variables::date_or_message(&text, &path).map_err(ForgeError::Validation)?;
         } else {
             return Err(ForgeError::Validation(format!(
                 "'{path}' is the date {text}, and a date as a scalar is in model format 5.4.0 \
@@ -200,7 +230,7 @@ fn check_date_scalars(yaml: &Value, version: &str) -> ForgeResult<()> {
 /// An empty cell (null in a column of data) in a model of an earlier format:
 /// say which format has it (ADR-059).
 fn check_empty_cells(yaml: &Value, version: &str) -> ForgeResult<()> {
-    let (Some(root), false) = (yaml.as_mapping(), matches!(version, "5.3.0" | "5.4.0")) else {
+    let (Some(root), false) = (yaml.as_mapping(), format_at_least(version, "5.3.0")) else {
         return Ok(());
     };
     for (key, value) in root {
@@ -258,7 +288,10 @@ fn check_short_form(yaml: &Value, version: &str) -> ForgeResult<()> {
     };
     for (key, value) in root {
         let Some(key) = key.as_str() else { continue };
-        if SECTIONS.contains(&key) || key == "bayesian_network" {
+        if SECTIONS.contains(&key)
+            || key == "bayesian_network"
+            || (key == "games" && format_at_least(version, "5.5.0"))
+        {
             continue;
         }
         // `price: {value: 100}` is one scalar, not a group with an entry `value`
@@ -278,7 +311,7 @@ fn check_short_form(yaml: &Value, version: &str) -> ForgeResult<()> {
                 .collect(),
             _ => Vec::new(),
         };
-        if !matches!(version, "5.1.0" | "5.2.0" | "5.3.0" | "5.4.0") {
+        if !format_at_least(version, "5.1.0") {
             if let Some(first) = numbers.first() {
                 return Err(ForgeError::Validation(format!(
                     "'{first}' is a plain number, which is the short form of model format 5.1.0. \
@@ -427,11 +460,7 @@ tornado:
         let content = std::fs::read_to_string(file.path()).unwrap();
         let yaml: Value = yaml_serde::from_str(&content).unwrap();
         let result = validate_against_schema(&yaml);
-        assert!(
-            result.is_ok(),
-            "Schema should accept valid tornado section: {:?}",
-            result.err()
-        );
+        result.unwrap();
     }
 
     #[test]
@@ -458,11 +487,7 @@ decision_tree:
         let content = std::fs::read_to_string(file.path()).unwrap();
         let yaml: Value = yaml_serde::from_str(&content).unwrap();
         let result = validate_against_schema(&yaml);
-        assert!(
-            result.is_ok(),
-            "Schema should accept valid decision_tree section: {:?}",
-            result.err()
-        );
+        result.unwrap();
     }
 
     fn validate_str(yaml: &str) -> ForgeResult<()> {
@@ -481,7 +506,7 @@ t:
   total: "=SUM(ebit)"
 "#,
         );
-        assert!(result.is_ok(), "{:?}", result.err());
+        result.unwrap();
     }
 
     #[test]
@@ -496,7 +521,7 @@ t:
   doubled: ["=x * 2", "=x * 2"]
 "#,
         );
-        assert!(result.is_ok(), "{:?}", result.err());
+        result.unwrap();
     }
 
     #[test]
@@ -515,7 +540,7 @@ bayesian_network:
   name: "Example"
 "#,
         );
-        assert!(result.is_ok(), "{:?}", result.err());
+        result.unwrap();
     }
 
     #[test]
@@ -582,6 +607,23 @@ price:
     }
 
     #[test]
+    fn a_later_format_has_what_an_earlier_one_has() {
+        assert!(format_at_least("5.5.0", "5.4.0"));
+        assert!(format_at_least("5.4.0", "5.4.0"));
+        assert!(!format_at_least("5.3.0", "5.4.0"));
+        assert!(!format_at_least("1.0.0", "5.1.0"));
+        assert!(!format_at_least("", "5.5.0"));
+        // 5.5.0 is 5.4.0 plus games: a date as a scalar, a format:, an
+        // empty cell and a period column are all read
+        let yaml: Value = yaml_serde::from_str(
+            "_forge_version: \"5.5.0\"\nlast: 2026-10-31\nprice: {value: 16, format: \"0.00\"}\n\
+             t:\n  month: {start: 2026-12, count: 2, unit: month}\n  sales: [1, null]\n",
+        )
+        .unwrap();
+        validate_against_schema(&yaml).unwrap();
+    }
+
+    #[test]
     fn test_unsupported_version() {
         let yaml_str = r#"
 _forge_version: "99.0.0"
@@ -592,5 +634,133 @@ price:
         let result = validate_against_schema(&yaml);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Unsupported"));
+    }
+
+    fn refused(yaml_str: &str) -> String {
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
+        validate_against_schema(&yaml).unwrap_err().to_string()
+    }
+
+    #[test]
+    fn a_period_column_in_an_earlier_format_says_which_format_has_it() {
+        let model = "_forge_version: \"5.1.0\"\nt:\n  month:\n    start: \"2026-01\"\n    count: 12\n    unit: month\n";
+        assert_eq!(
+            refused(model),
+            "Validation error: 't.month' is a period column (start, count, unit), which model \
+             format 5.2.0 adds. Set `_forge_version: \"5.2.0\"` (this file says 5.1.0)"
+        );
+    }
+
+    #[test]
+    fn a_format_in_an_earlier_format_says_which_format_has_it() {
+        let top = "_forge_version: \"5.3.0\"\nprice:\n  value: 1\n  format: \"0.00\"\n";
+        let group = "_forge_version: \"5.3.0\"\ng:\n  a:\n    value: 1\n    format: \"0.00\"\n";
+        for (model, path) in [(top, "price"), (group, "g.a")] {
+            assert_eq!(
+                refused(model),
+                format!(
+                    "Validation error: '{path}' has a format:, which model format 5.4.0 adds \
+                     (ADR-061). Set `_forge_version: \"5.4.0\"` (this file says 5.3.0)"
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn a_date_scalar_in_an_earlier_format_says_which_format_has_it() {
+        assert_eq!(
+            refused("_forge_version: \"5.3.0\"\nstart: \"2026-01-31\"\n"),
+            "Validation error: 'start' is the date 2026-01-31, and a date as a scalar is in model \
+             format 5.4.0 (ADR-060). Set `_forge_version: \"5.4.0\"` (this file says 5.3.0)"
+        );
+        // In 5.4.0 an impossible date is refused with what is wanted
+        let reason = refused("_forge_version: \"5.4.0\"\nstart: \"2026-02-30\"\n");
+        assert!(
+            reason.contains("'start' is not a date: 2026-02-30"),
+            "{reason}"
+        );
+    }
+
+    #[test]
+    fn a_schema_that_cannot_be_read_refuses_the_model_and_says_why() {
+        let yaml: Value = yaml_serde::from_str("a: 1\n").unwrap();
+        for (text, why) in [
+            ("not json", "/: not JSON ("),
+            (
+                "{\"const\": 1}",
+                "the keyword 'const', which Forge does not read",
+            ),
+        ] {
+            let reason = validate_with(&yaml, "5.1.0", &Schema::from_text(text))
+                .unwrap_err()
+                .to_string();
+            assert!(
+                reason
+                    .starts_with("Validation error: The model does not fit model format 5.1.0:\n")
+                    && reason.contains("(a bug in Forge)")
+                    && reason.contains(why),
+                "{reason}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_model_that_is_not_text_keyed_cannot_become_json() {
+        let reason = refused("_forge_version: \"5.1.0\"\n? [1, 2]\n: x\n");
+        assert!(
+            reason.starts_with("Validation error: Failed to convert YAML to JSON: "),
+            "{reason}"
+        );
+    }
+
+    #[test]
+    fn a_table_in_a_1_0_0_model_is_refused_before_the_schema_speaks() {
+        let reason = refused("_forge_version: \"1.0.0\"\nt:\n  x: [1, 2]\n");
+        assert!(
+            reason.contains("v1.0.0 models do not support tables/arrays"),
+            "{reason}"
+        );
+    }
+
+    #[test]
+    fn what_is_not_a_mapping_or_not_text_keyed_has_no_scalars_to_check() {
+        let list: Value = yaml_serde::from_str("- 1\n").unwrap();
+        assert_eq!(date_scalars(&list), Vec::<(String, String)>::new());
+        assert!(check_formats(&list, "5.0.0").is_ok());
+        assert!(check_short_form(&list, "5.0.0").is_ok());
+        let keys: Value =
+            yaml_serde::from_str("1: \"2026-10-31\"\ng:\n  1: \"2026-10-31\"\n").unwrap();
+        assert_eq!(date_scalars(&keys), Vec::<(String, String)>::new());
+        assert!(check_formats(&keys, "5.0.0").is_ok());
+    }
+
+    fn v1(yaml_str: &str) -> ForgeResult<()> {
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
+        validate_v1_0_0_no_tables(&yaml)
+    }
+
+    #[test]
+    fn a_table_in_a_v1_model_is_refused_by_its_column() {
+        let reason = v1("t:\n  x: [1, 2]\n").unwrap_err().to_string();
+        assert!(
+            reason.contains("Found table 't' with array column 'x'.\n"),
+            "{reason}"
+        );
+        let reason = v1("t:\n  x:\n    value: [1, 2]\n").unwrap_err().to_string();
+        assert!(
+            reason.contains("Found table 't' with array column 'x' (rich format)."),
+            "{reason}"
+        );
+        let reason = v1("t:\n  x: \"=1 + 2\"\n").unwrap_err().to_string();
+        assert!(
+            reason.contains("Found table 't' with formula column 'x'."),
+            "{reason}"
+        );
+    }
+
+    #[test]
+    fn scalars_and_text_in_a_v1_model_are_not_tables() {
+        assert!(v1("price: 5\ng:\n  a: 1\n  note: hello\n  b:\n    value: 2\n").is_ok());
+        assert!(v1("- 1\n").is_ok());
     }
 }

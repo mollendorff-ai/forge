@@ -12,6 +12,7 @@ const SCHEMA_V5_1: &str = include_str!("../../../schema/forge-v5.1.0.schema.json
 const SCHEMA_V5_2: &str = include_str!("../../../schema/forge-v5.2.0.schema.json");
 const SCHEMA_V5_3: &str = include_str!("../../../schema/forge-v5.3.0.schema.json");
 const SCHEMA_V5_4: &str = include_str!("../../../schema/forge-v5.4.0.schema.json");
+const SCHEMA_V5_5: &str = include_str!("../../../schema/forge-v5.5.0.schema.json");
 
 /// Return a JSON schema as a string (no printing).
 ///
@@ -26,8 +27,9 @@ pub fn schema_core(version: Option<&str>) -> ForgeResult<String> {
         Some("v5.2" | "v5.2.0" | "5.2" | "5.2.0") => Ok(SCHEMA_V5_2.to_string()),
         Some("v5.3" | "v5.3.0" | "5.3" | "5.3.0") => Ok(SCHEMA_V5_3.to_string()),
         Some("v5.4" | "v5.4.0" | "5.4" | "5.4.0") => Ok(SCHEMA_V5_4.to_string()),
+        Some("v5.5" | "v5.5.0" | "5.5" | "5.5.0") => Ok(SCHEMA_V5_5.to_string()),
         Some(v) => Err(ForgeError::Validation(format!(
-            "Unknown model format '{v}'. Use 'v1', 'v5', 'v5.1', 'v5.2', 'v5.3' or 'v5.4'."
+            "Unknown model format '{v}'. Use 'v1', 'v5', 'v5.1', 'v5.2', 'v5.3', 'v5.4' or 'v5.5'."
         ))),
         None => {
             // Return list of available versions as JSON
@@ -38,7 +40,8 @@ pub fn schema_core(version: Option<&str>) -> ForgeResult<String> {
                     {"version": "v5.1.0", "description": "5.0.0 plus the short form (`price: 16`, `{formula: ...}` without nulls); use this for new models"},
                     {"version": "v5.2.0", "description": "5.1.0 plus the period column (`month: {start: 2026-12, count: 300, unit: month}`); needed only for a table with one"},
                     {"version": "v5.3.0", "description": "5.2.0 plus the empty cell (`actual: [985, 1032, null]`, ADR-059); needed only for a column with one"},
-                    {"version": "v5.4.0", "description": "5.3.0 plus a date as a scalar (`last_actual: 2026-10-31`, ADR-060) and `format:`, an Excel number format beside `unit:` (ADR-061); needed only for a date scalar or a `format:`"}
+                    {"version": "v5.4.0", "description": "5.3.0 plus a date as a scalar (`last_actual: 2026-10-31`, ADR-060) and `format:`, an Excel number format beside `unit:` (ADR-061); needed only for a date scalar or a `format:`"},
+                    {"version": "v5.5.0", "description": "5.4.0 plus `games:`, games whose payoffs are formulas over the model, with their dominated strategies and equilibria as results (ADR-068); needed only for a game"}
                 ],
                 "note": "These are model format versions (_forge_version), not Forge tool versions"
             })
@@ -65,9 +68,10 @@ pub fn schema(c: &mut Console<'_>, version: Option<&str>, list: bool) -> ForgeRe
         "v5.2" | "v5.2.0" | "5.2" | "5.2.0" => SCHEMA_V5_2,
         "v5.3" | "v5.3.0" | "5.3" | "5.3.0" => SCHEMA_V5_3,
         "v5.4" | "v5.4.0" | "5.4" | "5.4.0" => SCHEMA_V5_4,
+        "v5.5" | "v5.5.0" | "5.5" | "5.5.0" => SCHEMA_V5_5,
         v => {
             return Err(ForgeError::Validation(format!(
-                "Unknown model format '{v}'. Use 'v1', 'v5', 'v5.1', 'v5.2', 'v5.3' or 'v5.4'.\n\n\
+                "Unknown model format '{v}'. Use 'v1', 'v5', 'v5.1', 'v5.2', 'v5.3', 'v5.4' or 'v5.5'.\n\n\
                  Run {} to see available versions.",
                 "forge schema --list".yellow()
             )));
@@ -79,7 +83,7 @@ pub fn schema(c: &mut Console<'_>, version: Option<&str>, list: bool) -> ForgeRe
 }
 
 /// Each model format: its version, what it is, and what it adds.
-const FORMATS: [(&str, &str, &[&str]); 6] = [
+const FORMATS: [(&str, &str, &[&str]); 7] = [
     (
         "v1.0.0",
         "Scalar-only models (simple key-value pairs)",
@@ -132,6 +136,15 @@ const FORMATS: [(&str, &str, &[&str]); 6] = [
             "last_actual: 2026-10-31: a date, read as a date column's cell is",
             "price: {value: 16, format: \"$#,##0.00\"}: how a number is shown, never its value",
             "Needed only for a scalar written as a date or a format:",
+        ],
+    ),
+    (
+        "v5.5.0",
+        "5.4.0 plus games (ADR-068)",
+        &[
+            "games: players, strategies and payoffs that are formulas over the model",
+            "forge game: dominated strategies and equilibria, as scalars too",
+            "Needed only for a model with a game",
         ],
     ),
 ];
@@ -210,7 +223,9 @@ mod tests {
                 "{}",
                 printed.out
             );
-            for format in ["v1.0.0", "v5.0.0", "v5.1.0", "v5.2.0", "v5.3.0", "v5.4.0"] {
+            for format in [
+                "v1.0.0", "v5.0.0", "v5.1.0", "v5.2.0", "v5.3.0", "v5.4.0", "v5.5.0",
+            ] {
                 assert!(printed.out.contains(format), "{format}: {}", printed.out);
             }
             assert!(printed
@@ -228,7 +243,13 @@ mod tests {
             (["v5.2", "v5.2.0", "5.2", "5.2.0"], SCHEMA_V5_2),
             (["v5.3", "v5.3.0", "5.3", "5.3.0"], SCHEMA_V5_3),
             (["v5.4", "v5.4.0", "5.4", "5.4.0"], SCHEMA_V5_4),
+            (["v5.5", "v5.5.0", "5.5", "5.5.0"], SCHEMA_V5_5),
         ];
+        for (names, expected) in &formats {
+            for name in names {
+                assert_eq!(&schema_core(Some(name)).unwrap(), expected, "{name}");
+            }
+        }
         for (names, expected) in formats {
             for name in names {
                 let (result, printed) = capture(|c| schema(c, Some(name), false));
@@ -243,7 +264,10 @@ mod tests {
         let (result, printed) = capture(|c| schema(c, Some("v9"), false));
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Unknown model format 'v9'"), "{err}");
-        assert!(err.contains("'v5.4'"), "{err}");
+        assert!(err.contains("'v5.5'"), "{err}");
+        let core = schema_core(Some("v9")).unwrap_err().to_string();
+        assert!(core.contains("'v5.4' or 'v5.5'."), "{core}");
+        assert!(schema_core(None).unwrap().contains("v5.5.0"));
         assert!(err.contains("forge schema --list"), "{err}");
         assert_eq!(printed.both(), "");
     }
