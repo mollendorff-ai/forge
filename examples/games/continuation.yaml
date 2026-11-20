@@ -1,0 +1,45 @@
+# When Cooperation Holds
+# ======================
+# Run in the examples folder: forge game games/continuation.yaml
+#   forge sensitivity games/continuation.yaml --vary w --range 0.3,0.7,0.05 --output long_run.stable.grim
+#
+# A match that ends at random: after each round it goes on with the chance
+# w. Against GrimTrigger, AlwaysDefect gets T once and then P, an average of
+# (1 - w) T + w P a round, while GrimTrigger gets R against itself. So once
+# w reaches (T - c - R) / (T - P), 0.5 here, nothing in the roster does
+# better against GrimTrigger than it does, and it is collectively stable.
+# kinship-protocol derives that threshold by formula; the sweep shows it.
+
+_forge_version: "5.5.0"
+
+w: 0.6    # the chance that a match goes on after a round
+c: 0      # the cost of a defection
+dilemma_payoffs:
+  T: 5
+  R: 3
+  P: 1
+
+games:
+  dilemma:
+    players: [me, you]
+    strategies: [cooperate, defect]
+    symmetric: true
+    payoffs:
+      cooperate: {cooperate: =R, defect: 0}
+      defect: {cooperate: =T - c, defect: =P - c}
+
+  long_run:
+    tournament:
+      round: dilemma
+      players:
+        grim: grim_trigger
+        tft: tit_for_tat
+        ad: always_defect
+      continuation: =w
+
+kinship:
+  threshold:
+    formula: "=(T - c - R) / (T - P)"
+    notes: The continuation from which GrimTrigger is stable against AlwaysDefect
+  grim_holds:
+    formula: "=long_run.stable.grim"

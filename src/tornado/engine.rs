@@ -203,7 +203,8 @@ impl TornadoEngine {
         let swing = output_at_high - output_at_low;
         let abs_swing = swing.abs();
         let note = output_at_high.total_cmp(&output_at_low).is_eq().then(|| {
-            "Changing this input does not change the output: the output's formula does not use it"
+            "Changing this input does not change the output: the output does not use it, or does \
+             not move over this range"
                 .to_string()
         });
 
@@ -255,7 +256,8 @@ fn resolve_scalar_name(model: &ParsedModel, name: &str) -> Result<String, String
     if name.starts_with('@') {
         return crate::cli::commands::input_name(model, name);
     }
-    if model.scalars.contains_key(name) {
+    // A game's result is calculated with the model, which says if it is not one
+    if model.scalars.contains_key(name) || model.names_game_result(name) {
         return Ok(name.to_string());
     }
     if name.contains('.') {
@@ -447,6 +449,74 @@ mod engine_tests {
 
         assert!(json.contains("\"output\""));
         assert!(json.contains("\"bars\""));
+    }
+
+    /// The inspection game of ADR-068: a harsher penalty lowers the audit
+    /// rate and not the cheating. nashpy 0.0.43 and the hand calculation:
+    /// the human audits with gain / (gain + penalty), the AI cheats with
+    /// audit cost / harm, whatever the penalty.
+    #[test]
+    fn a_tornado_on_a_games_result_varies_its_payoffs() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("inspection.yaml");
+        std::fs::write(
+            &path,
+            "_forge_version: \"5.5.0\"
+inputs: {gain: 2, penalty: 4, audit_cost: 1, harm: 3}
+games:
+  inspection:
+    players: [ai, human]
+    strategies: {ai: [comply, cheat], human: [audit, trust]}
+    payoffs:
+      comply: {audit: [0, =-inputs.audit_cost], trust: [0, 0]}
+      cheat: {audit: [=-inputs.penalty, =-inputs.audit_cost], trust: [=inputs.gain, =-inputs.harm]}
+",
+        )
+        .unwrap();
+        let model = crate::parser::parse_model(&path).unwrap();
+        let config = |output: &str| {
+            let mut config = TornadoConfig::new(output);
+            config
+                .inputs
+                .push(InputRange::new("inputs.penalty", 2.0, 8.0));
+            config.inputs.push(InputRange::new("inputs.gain", 1.0, 3.0));
+            config
+        };
+        let audit = TornadoEngine::new(
+            config("inspection.equilibrium_1.human.audit"),
+            model.clone(),
+        )
+        .unwrap()
+        .analyze()
+        .unwrap();
+        let bar = |result: &TornadoResult, name: &str| {
+            result
+                .bars
+                .iter()
+                .find(|b| b.input_name == name)
+                .unwrap()
+                .clone()
+        };
+        // Penalty 2: 2 / 4; penalty 8: 2 / 10. Gain 1: 1 / 5; gain 3: 3 / 7.
+        let penalty = bar(&audit, "inputs.penalty");
+        assert!((penalty.output_at_low - 0.5).abs() < 1e-12, "{penalty:?}");
+        assert!((penalty.output_at_high - 0.2).abs() < 1e-12, "{penalty:?}");
+        let gain = bar(&audit, "inputs.gain");
+        assert!((gain.output_at_low - 0.2).abs() < 1e-12, "{gain:?}");
+        assert!((gain.output_at_high - 3.0 / 7.0).abs() < 1e-12, "{gain:?}");
+        let cheat = TornadoEngine::new(config("inspection.equilibrium_1.ai.cheat"), model.clone())
+            .unwrap()
+            .analyze()
+            .unwrap();
+        for bar in &cheat.bars {
+            assert!((bar.output_at_low - 1.0 / 3.0).abs() < 1e-12, "{bar:?}");
+            assert!((bar.output_at_high - 1.0 / 3.0).abs() < 1e-12, "{bar:?}");
+        }
+        let err = TornadoEngine::new(config("inspection.equilibrium_2.human.audit"), model)
+            .unwrap()
+            .analyze()
+            .unwrap_err();
+        assert!(err.contains("it has 1 equilibrium"), "{err}");
     }
 
     /// Roadmap T1-VARY-INCLUDED: a tornado input of a file the model includes,

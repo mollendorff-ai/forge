@@ -20,6 +20,7 @@ COMMANDS:
   decision-tree - Sequential decisions with backward induction
   real-options  - Value defer/expand/abandon flexibility
   tornado       - One-at-a-time sensitivity diagrams
+  game          - Dominated strategies and equilibria of games
   bootstrap     - Non-parametric confidence intervals
   bayesian      - Bayesian network inference
   sensitivity   - One/two-variable data tables
@@ -69,6 +70,7 @@ Commands:
   decision-tree  Analyze decision trees with backward induction
   real-options   Value real options (defer/expand/abandon)
   tornado        Generate tornado sensitivity diagram
+  game           Find the equilibria of the games in a model, and play its tournaments
   bootstrap      Bootstrap resampling for confidence intervals
   bayesian       Bayesian network inference
   functions      List all supported Excel-compatible functions
@@ -772,6 +774,7 @@ The versions are model formats (_forge_version), not Forge versions:
            {start: 2026-12, count: 300, unit: month} (ADR-053)
   v5.3.0 - v5.2.0 plus the empty cell, null in a column of numbers (ADR-059)
   v5.4.0 - v5.3.0 plus a date as a scalar (ADR-060) and format: (ADR-061)
+  v5.5.0 - v5.4.0 plus games: payoff tables of formulas, and their equilibria (ADR-068)
 
 EXAMPLES:
   forge schema                # List available versions
@@ -782,7 +785,7 @@ Usage: forge schema [OPTIONS] [VERSION]
 
 Arguments:
   [VERSION]
-          Schema version to display (v1, v5, v5.1 ... v5.4, 1.0.0, 5.0.0, 5.1.0 ... 5.4.0)
+          Schema version to display (v1, v5, v5.1 ... v5.5, 1.0.0, 5.0.0, 5.1.0 ... 5.5.0)
 
 Options:
   -l, --list
@@ -847,9 +850,10 @@ TO 5.1.0 (default, ADR-051):
   - Edited in place: comments, quotes and layout are kept
   - Checked: the converted file must read as the same model, or it is not written
 
-TO 5.2.0, 5.3.0 OR 5.4.0 (ADR-053, ADR-059, ADR-060, ADR-061):
+TO 5.2.0, 5.3.0, 5.4.0 OR 5.5.0 (ADR-053, ADR-059, ADR-060, ADR-061, ADR-068):
   - As to 5.1.0, with the _forge_version a period column (5.2.0), an empty
-    cell (5.3.0), a date or a format: (5.4.0) needs. 5.1.0 changes that line.
+    cell (5.3.0), a date or a format: (5.4.0) or a game (5.5.0) needs. 5.1.0
+    changes that line.
 
 TO 5.0.0 (from 1.0.0):
   - Splits scalars into inputs/outputs by formula presence, keeping metadata
@@ -1232,6 +1236,23 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
+```
+
+## game
+
+```
+Find the equilibria of the games in a model, and play its tournaments
+
+Usage: forge game [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>  Path to YAML file with a games section
+
+Options:
+  -g, --game <GAME>          Only this game
+  -s, --scenario <SCENARIO>  Scenario name to apply (uses variable overrides from 'scenarios' section)
+  -o, --output <OUTPUT>      Output file (.yaml or .json)
+  -h, --help                 Print help
 ```
 
 ## bootstrap

@@ -30,6 +30,7 @@ mod examples;
 #[cfg(feature = "excel")]
 mod excel_io;
 mod functions;
+mod game;
 mod names;
 pub(crate) use names::{input_name, scalar};
 mod prediction;
@@ -55,6 +56,9 @@ pub use examples::examples;
 #[cfg(feature = "cli")]
 pub use excel_io::{export, import};
 pub use functions::functions;
+#[cfg(feature = "cli")]
+pub use game::GameArgs;
+pub use game::{game, game_core};
 pub use prediction::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
 pub use report::{report, ReportFormat, ReportOptions};
 pub use schema::schema;

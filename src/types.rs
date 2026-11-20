@@ -422,6 +422,10 @@ pub struct ParsedModel {
     #[serde(default)]
     pub documents: Vec<String>,
 
+    /// Games, by name, in the file's order (model format 5.5.0, ADR-068)
+    #[serde(default)]
+    pub games: IndexMap<String, crate::games::Game>,
+
     /// The file the model was read from, for messages that name it
     #[serde(skip)]
     pub source: Option<std::path::PathBuf>,
@@ -459,6 +463,7 @@ impl ParsedModel {
             includes: Vec::new(),
             resolved_includes: HashMap::new(),
             documents: Vec::new(),
+            games: IndexMap::new(),
         }
     }
 
@@ -544,6 +549,14 @@ impl ParsedModel {
         Err(format!(
             "Scenario override '{name}' does not name a scalar in the model.{hint}"
         ))
+    }
+
+    /// Whether `name` is under a game (`stag_hunt.equilibria`): a result the
+    /// game gives once calculated (ADR-068), which is not a scalar before.
+    #[must_use]
+    pub fn names_game_result(&self, name: &str) -> bool {
+        name.split_once('.')
+            .is_some_and(|(game, _)| self.games.contains_key(game))
     }
 
     /// The scalar whose name is closest to `name`, if one is close enough to

@@ -15,7 +15,7 @@ flowchart LR
 
     subgraph forge [Forge, one binary]
         cli[Command line]
-        mcp[MCP server, 20 tools]
+        mcp[MCP server, 21 tools]
         rest[REST API]
         studio[Studio in the browser, WebAssembly]
     end

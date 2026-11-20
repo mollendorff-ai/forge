@@ -99,7 +99,7 @@ function validate(docs) {
       failures.push(`${path.relative(root, copy)} differs from ${path.relative(root, source)}: copy it again`);
     }
   }
-  for (const needed of ['forge.schema.json', 'forge-v5.1.0.schema.json', 'forge-v5.2.0.schema.json', 'forge-v5.3.0.schema.json', 'forge-v5.4.0.schema.json']) {
+  for (const needed of ['forge.schema.json', 'forge-v5.1.0.schema.json', 'forge-v5.2.0.schema.json', 'forge-v5.3.0.schema.json', 'forge-v5.4.0.schema.json', 'forge-v5.5.0.schema.json']) {
     if (!schemas.includes(needed)) failures.push(`the extension does not bundle ${needed}`);
   }
   const files = examples(path.join(root, 'examples'));

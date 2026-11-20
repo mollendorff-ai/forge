@@ -1,6 +1,6 @@
 # ADR-068: Games: a Payoff Table, Its Equilibria, and Tournaments
 
-**Status:** Accepted (the three recommendations); not yet built
+**Status:** Accepted (the three recommendations). Built: sections 1 to 4, games played once and tournaments, with `forge game`, the `forge_game` MCP tool, `game` in forge-wasm and seven examples. Left: kinship-protocol's three models rewritten in its own repository, and the suite against outside engines (T2-GAME-THEORY-E2E)
 **Date:** 2026-11-19
 **Decided by:** the maintainer, who accepted the three recommendations (2026-11-19); the analysis and the recommendations are Claude's
 **For:** roadmap T2-GAME-THEORY. T2-GAME-THEORY-MORE is not part of this.
@@ -43,6 +43,12 @@ The order is the same, and so are the four `coop_wins` flags (0, 0, 1, 1). The c
 
 - *Inspection.* An AI complies or cheats, a human audits or trusts. Cheating gains the AI 2 if it is not caught and costs it the penalty (4) if it is. An audit costs the human 1, and undetected cheating costs the human 3. There is no pure equilibrium. In the mixed one the human audits with probability gain/(gain + penalty) = 1/3, and the AI cheats with probability audit cost/harm = 1/3. Double the penalty to 8 and the audit rate falls to 1/5, while the cheating stays at 1/3. This is the known result the roadmap asks the tornado to show.
 - *A tournament with noise.* AlwaysCooperate, AlwaysDefect, TitForTat, GrimTrigger, generous TitForTat, win-stay-lose-shift and TitForTwoTats play 200 rounds, and each move is flipped with probability 0.05. In a sample of 60 seeded runs per match with `axelrod`, TitForTat falls from tied first (without noise) to third, and TitForTwoTats is first. The margins in the sample are small (2.271 against 2.245), so the final roster is chosen when this is built, on the exact numbers, and checked against `axelrod` with more runs.
+
+### What the build found (2026-11-19)
+
+- **Every built-in strategy matches `axelrod`.** All 81 pairs of the nine strategies, with noise 0.05 over 200 rounds and with noise 0.02 and a continuation of 0.9, are within 2.4 standard errors of `axelrod`'s average over 400 seeded runs. The average is the expected total over the expected length (section 2), summed across runs; the mean of each run's payoff per round is a different number when a match ends at random, and it is not what the tournament reports.
+- **The noisy roster.** With the seven strategies listed above and noise 0.05, the exact ranking is win-stay-lose-shift first (2.277), TitForTwoTats second (2.266) and TitForTat third: the sample of 60 runs had the first two the other way round. The example uses AlwaysCooperate, AlwaysDefect, TitForTat, generous TitForTat and TitForTwoTats. Without noise TitForTat is first (2.599, TitForTwoTats 2.598); with noise 0.05 TitForTwoTats is first (2.518), generous TitForTat second (2.471) and TitForTat third (2.457). `axelrod`, 2,000 runs of each match, gives the same order (2.517, 2.471, 2.457), so the forgiving strategies win by more than the sampling error.
+- **kinship-protocol's crossover** is a formula over the results: each score falls by `c` times its share of defections, since no built-in strategy reacts to the payoffs, so the costs at which two scores meet is `c + (ad - ac) / (cooperation.ac - cooperation.ad)`, 0.108 at any `c`.
 
 ## The decision proposed
 

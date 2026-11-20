@@ -47,6 +47,22 @@ fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 continue;
             }
 
+            // Games (5.5.0, ADR-068); before 5.5.0 a group named `games`
+            // reads as a group (the schema check refused a game section)
+            if key_str == "games"
+                && super::schema::format_at_least(
+                    yaml.get("_forge_version")
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                    "5.5.0",
+                )
+            {
+                for game in crate::games::parse_games(value)? {
+                    model.games.insert(game.name().to_string(), game);
+                }
+                continue;
+            }
+
             // Parse _includes section (v4.0 cross-file references)
             if key_str == "_includes" {
                 if let Value::Sequence(includes_seq) = value {
@@ -124,11 +140,43 @@ fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
         }
     }
 
+    check_game_names(&model)?;
+
     // Note: Table column length validation is deferred to calculation time
     // This allows test files to have columns of different lengths when used independently
     // Row-wise operations will still validate at runtime in array_calculator
 
     Ok(model)
+}
+
+/// A game's results are scalars named under it (`stag_hunt.equilibria`), so
+/// its name cannot also be a table, a scalar or a group of scalars.
+///
+/// # Errors
+///
+/// Returns an error naming the first game whose name is taken.
+pub fn check_game_names(model: &ParsedModel) -> ForgeResult<()> {
+    for name in model.games.keys() {
+        let prefix = format!("{name}.");
+        let taken = if model.tables.contains_key(name) {
+            Some("a table".to_string())
+        } else if model.scalars.contains_key(name) {
+            Some("a scalar".to_string())
+        } else {
+            model
+                .scalars
+                .keys()
+                .find(|s| s.starts_with(&prefix))
+                .map(|s| format!("the group of scalar '{s}'"))
+        };
+        if let Some(what) = taken {
+            return Err(ForgeError::Parse(format!(
+                "game '{name}' has the name of {what}; its results are named under it \
+                 ({name}.equilibria), so rename one"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Parse nested scalar variables (e.g., summary.total, summary.average)
