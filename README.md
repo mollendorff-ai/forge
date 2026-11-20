@@ -95,7 +95,7 @@ It names the project exactly, since "Forge" is a crowded name; it installs the r
 
 It needs an AI that can run commands. Tried by the maintainer on 2026-11-15: it worked on Claude and on Grok, free tiers included; the free tiers of ChatGPT and Gemini had no sandbox to run it in. For those, the prompt's last lines ask the AI to say so rather than make numbers up, and to send you to [Forge Studio](https://forge.mollendorff.ai/), which needs nothing but a browser.
 
-**Five more prompts** in [docs/PROMPTS.md](docs/PROMPTS.md), each run by a fresh agent before it went in: build a model from a description, bring a workbook in from Excel and back, budget against actual, what-if (scenarios, break-even, goal seek, sensitivity), and risk and decisions (simulation, tornado, decision tree, real options). Each ends with the model's YAML, to open in Studio, and the page ends with what to keep in a prompt of your own.
+**Six more prompts** in [docs/PROMPTS.md](docs/PROMPTS.md), each run by a fresh agent before it went in: build a model from a description, bring a workbook in from Excel and back, budget against actual, what-if (scenarios, break-even, goal seek, sensitivity), risk and decisions (simulation, tornado, decision tree, real options), and games (what will the other side do?). Each ends with the model's YAML, to open in Studio, and the page ends with what to keep in a prompt of your own.
 
 ## Status and known limitations
 
