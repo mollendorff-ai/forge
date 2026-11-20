@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.30] - 2026-11-20
+
+Games. A `games:` section (format 5.5.0) finds each game's dominated strategies, pure and mixed equilibria and even-mix payoffs, and a `tournament:` plays repeated games between built-in strategies with exact expected values; `forge game`, `forge_game` (the 21st MCP tool) and forge-wasm read them, and seven examples ship in `examples/games`. The games are compared with Gambit, the axelrod library and R in CI, and no disagreement was found. Wrong answers fixed (`MAX` and `MIN` of dates, `XNPV` with a date before the first, `ROUND` at -309 and below, `HOUR`, `MINUTE` and `SECOND` past 9999-12-31, and more under Fixed), so by docs/STABILITY.md the two weeks start again from this release: no earlier than 2026-12-04. Forge Studio downloads 679 KB less.
+
 ### Changed
 - **The coverage floors in CI rise to 97.1% lines, 94.8% functions and 96.3% regions (roadmap T1-COVERAGE-GATE).** From 95.6, 92.6 and 94.6: CI's run on main after the tests of the Excel exporter and the formula translator measured 97.15%, 94.86% and 96.39%. Floors are set from CI's number, not a local run; they go on rising to 100. The test count in `README.md` and `VALIDATION.md` is "over 2,600", which the last merges passed (the repository check that compares them with the real count failed on main until now).
 - A tornado bar that does not move said "the output's formula does not use it", which was not always so (a game's equilibrium reads every payoff and can stay put; `=MAX(x, 100)` reads x). It now says "the output does not use it, or does not move over this range".

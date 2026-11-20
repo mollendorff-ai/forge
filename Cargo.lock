@@ -1212,7 +1212,7 @@ dependencies = [
 
 [[package]]
 name = "mollendorff-forge"
-version = "10.0.0-rc.29"
+version = "10.0.0-rc.30"
 dependencies = [
  "anstream",
  "anyhow",
