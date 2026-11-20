@@ -176,7 +176,7 @@ graph TB
     %% External Libraries
     subgraph ext["External Libraries"]
         xle[("Forge evaluator")]
-        graph[("petgraph")]
+        graph[("graph.rs (own)")]
         yaml[("yaml_serde")]
         xlsx_writer[("rust_xlsxwriter")]
         xlsx_reader[("calamine")]
@@ -223,7 +223,7 @@ graph TB
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| **petgraph** | 0.6 | Dependency graph, topological sort |
+| (none: `core/array_calculator/graph.rs`) | | Dependency graph, topological sort (petgraph until 2026-11-20) |
 | **serde** | 1.0 | Serialization framework |
 | **yaml_serde** | 0.10 | YAML parsing and serialization |
 | **rust_xlsxwriter** | 0.90 | Excel .xlsx file creation |
@@ -328,7 +328,7 @@ YAML Parser (yaml_serde)
     ↓
 Array Calculator
     ↓
-Dependency Resolution (petgraph)
+Dependency Resolution (core/array_calculator/graph.rs)
     ↓
 Formula Evaluation (src/core/array_calculator)
     ↓
