@@ -89,7 +89,7 @@ Not covered: more than two players (Gambit's mixed solvers are two-player here, 
 
 - The Bayesian comparison uses `bnlearn` 4.9.4 (the newest release that installs on R 4.3, which GitHub's Ubuntu 24.04 runner has) and sampling with a fixed seed, so it agrees with Forge within 2 to 5 percentage points, not exactly.
 - When the real options and Bayesian runners were added, 11 expected prices and 2 expected posteriors in the specs turned out to be wrong and were recomputed; Forge matched an independent calculation in every case.
-- The Gnumeric and R suites run on pull requests and merges to `main` that change the engine or a suite, and weekly; not on every push to a branch.
+- The Gnumeric, R and games suites run on pull requests and merges to `main` that change the engine or a suite, and weekly; not on every push to a branch.
 - The expected values in a spec were written by the author or by an AI assistant. Where R or Gnumeric disagreed with them, the disagreement was investigated, but a value on which both Forge and its expected value are wrong in the same way would pass.
 - Real-options switch and compound valuations are rough approximations.
 - `cargo audit` reports no vulnerabilities and no warnings.

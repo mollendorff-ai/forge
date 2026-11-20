@@ -6,8 +6,8 @@ description: >
   YAML financial modeling engine with Excel-style formulas, its own
   evaluator (203 functions), Monte Carlo and scenario analysis, Excel
   export/import, an MCP server and a REST API. Deterministic. Formulas
-  checked against Gnumeric and analytics against R by the two suites in
-  validation/ (forge-e2e-gnumeric and forge-e2e-r, ADR-057).
+  checked against Gnumeric and analytics against R, games against Gambit
+  and the axelrod library, by the suites in validation/ (ADR-057).
 
 stack:
   - rust (stable; CI lints with the newest stable, so pin nothing)

@@ -22,7 +22,7 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 | Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Paste one prompt into your AI and it installs Forge and runs the bagel example; or install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
 | [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Prompt for your AI →](#try-it-with-your-ai) · [Quick start](#quick-start) · [For AI agents](#for-ai-agents) |
 
-**Checked, not trusted.** 2,162 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+**Checked, not trusted.** 2,162 formula tests compare Forge with Gnumeric, the analytics are compared with R, the games' equilibria with Gambit and their tournaments with the axelrod library, and the suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
 ## Four ways to use Forge
 
@@ -308,7 +308,7 @@ See [docs/REPORT.md](docs/REPORT.md).
 
 ## How we know the numbers are right
 
-Forge's results are checked against engines it does not control, and none of the checks is complete. The unit tests run on every push. The two validation suites, in [`validation/`](validation/), run on every pull request and every merge to `main` that changes the engine or a suite, and every week. [VALIDATION.md](VALIDATION.md) lists what each one covers, its latest result and how to run it; [docs/STABILITY.md](docs/STABILITY.md) says what a stable release will promise, and what it will not.
+Forge's results are checked against engines it does not control, and none of the checks is complete. The unit tests run on every push. The validation suites, in [`validation/`](validation/), run on every pull request and every merge to `main` that changes the engine or a suite, and every week. [VALIDATION.md](VALIDATION.md) lists what each one covers, its latest result and how to run it; [docs/STABILITY.md](docs/STABILITY.md) says what a stable release will promise, and what it will not.
 
 | Check | What it covers | Latest result |
 | --- | --- | --- |

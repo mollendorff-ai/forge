@@ -9,12 +9,13 @@ What Forge promises once it leaves beta, and what it does not. Forge is at a rel
 3. **Commands and flags are kept.** The commands in the README (`validate`, `calculate`, `audit`, `export`, `import`, `report`, `sensitivity`, `goal-seek`, `break-even`, `variance`, `simulate`, `scenarios`, `decision-tree`, `real-options`, `tornado`, `bootstrap`, `bayesian`) and their documented flags are not removed or renamed within 10.x. Wording of messages and the order of lines in human-readable output may change.
 4. **Same input, same output.** Results and output order are deterministic. Simulations with a `seed` give the same numbers on every run on the same version.
 5. **Semantic versioning.** Patch releases fix bugs, minor releases add features, major releases may break the points above. Every release has a changelog entry.
-6. **Checks stay in CI.** The unit tests run on every change. The Gnumeric and R suites run weekly and on any change to the dependencies or the workflow; a failing suite blocks a stable release.
+6. **Checks stay in CI.** The unit tests run on every change. The Gnumeric, R and games suites run weekly and on any change to the dependencies or the workflow; a failing suite blocks a stable release.
 
 ## What stable does not promise
 
 - **Excel itself.** Formulas are compared with Gnumeric, LibreOffice and R, and the Excel export is recalculated by Gnumeric or LibreOffice, not by Excel. Real Excel was checked by hand in five rounds (18 financial and date results on 2026-11-06, 40 edge formulas on 2026-11-14, 10 more on 2026-11-15, 13 comparisons and 69 sums near zero on 2026-11-18; see [VALIDATION.md](../VALIDATION.md)); it is not repeated automatically. A number typed in a formula keeps every digit in Forge, where Excel keeps 15.
 - **Everything in the analytics is checked.** 70 of 77 analytics specs are compared with R; the exponential distribution, the elasticity command, one-point ranges and an input with equal low and high are not covered. Real options are compared on price only.
+- **A tournament to the last digit of a sample, or every equilibrium of a degenerate game.** A tournament's exact values are compared with the axelrod library's average of seeded matches, within 4.5 standard errors. In a game with a tie, the mixed equilibria listed may not be all of them; the report says so, and the games suite checks that it does.
 - **Numbers to the last digit.** Floating-point results can differ from other engines in the last digits; the suites use tolerances (listed in VALIDATION.md).
 - **Financial, legal or tax advice.** Check results that matter independently.
 - **Support.** Forge has one maintainer and no known current users (one outside contributor used it for a few weeks in 2026 and paused his project). Fixes are made as time allows.
@@ -23,5 +24,5 @@ What Forge promises once it leaves beta, and what it does not. Forge is at a rel
 ## What blocks the first stable release
 
 - A release candidate published for at least two weeks with no open report of a wrong answer. A new wrong answer found in that time is fixed, released as a new candidate, and the two weeks start again.
-- The Gnumeric and R suites green on the release commit.
+- The Gnumeric, R and games suites green on the release commit.
 - No open report of a wrong answer.
