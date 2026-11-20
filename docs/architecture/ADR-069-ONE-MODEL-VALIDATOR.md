@@ -11,7 +11,7 @@
 
 Every model Forge reads goes through one function, `parser::schema::validate_against_schema`, called from `parser::model` (`src/parser/model.rs:20`). The command line, the MCP server, the REST API and the browser (`forge-wasm`) all read a model that way. The function runs Forge's own checks first (`check_short_form`, `check_period_columns`, `check_empty_cells`, `check_date_scalars`, `check_formats`, `validate_v1_0_0_no_tables`), then the `jsonschema` crate against the schema file of the model's `_forge_version`, one of six built in with `include_str!`. `schema_errors.rs` turns what `jsonschema` reports into Forge's words.
 
-In the browser that check costs too much. Measured on main (538c8f5), 2026-11-19: it is 776 KB of the 1,973,854 bytes of the gzipped module, 39%. PR #296 made it 87 KB smaller by building its crates for size, and the module is now 1,887,038 bytes against a budget of 2,000,000 in `ci.yml`. In the browser build, 53 of 236 crates are reachable only through `jsonschema`: `jsonschema`, `jsonschema-regex`, `jsonschema-value`, `referencing`, `fancy-regex`, `fluent-uri`, `fraction`, `email_address`, `ahash` (and with it `getrandom` 0.3, which `Cargo.toml` adds for the browser only for `ahash`), and the whole `idna` and ICU stack that the `idna` feature brings in. The `regex` crate stays: the Excel formula translation uses it.
+In the browser that check costs too much. Measured on main (538c8f5), 2026-11-19: it is 776 KB of the 1,973,854 bytes of the gzipped module, 39%. PR #296 made it 87 KB smaller by building its crates for size, and the module is now 1,887,038 bytes against a budget of 2,000,000 in `ci.yml`. With the check off on the same commit it is 1,202,754 (2026-11-20), so the check now costs 684 KB. In the browser build, 53 of 236 crates are reachable only through `jsonschema`: `jsonschema`, `jsonschema-regex`, `jsonschema-value`, `referencing`, `fancy-regex`, `fluent-uri`, `fraction`, `email_address`, `ahash` (and with it `getrandom` 0.3, which `Cargo.toml` adds for the browser only for `ahash`), and the whole `idna` and ICU stack that the `idna` feature brings in. The `regex` crate stays: the Excel formula translation uses it.
 
 The check cannot be dropped in the browser. With it off, 21 of 2,334 library tests fail. Nine are the schema module's own. The other twelve catch mistakes nothing else catches: a misspelt `formula:` key (the scalar is never calculated), a table column that is not a list, a null in a numeric column, a format Forge does not read, a date where it cannot be, a misspelt scenario probability, unknown keys in general, and refusals in `forge upgrade`. A validator in the browser only would have to agree with `jsonschema` for ever, in a project whose promise is the same answer everywhere.
 
@@ -69,7 +69,7 @@ A function per definition per format version (`ScalarMapping`, `TableColumn`, `M
 ### Not options
 
 - **Keep `jsonschema` natively and use another validator in the browser:** two validators, which is what the roadmap item rules out.
-- **Make `jsonschema` smaller:** #296 built its crates for size (87 KB). It has no feature that leaves out its unused drafts, formats or ICU, so what is left is the crate itself.
+- **Make `jsonschema` smaller:** #296 built its crates for size (87 KB). Turning off its `idna` feature, which Forge enables and its schemas never need, saves 55 KB more (1,831,664 bytes, measured 2026-11-20). Both together are about 140 KB of the 684 KB the check costs; the rest is the crate, which has no feature that leaves out its other drafts and formats.
 
 ## Decision
 
@@ -85,7 +85,7 @@ A function per definition per format version (`ScalarMapping`, `TableColumn`, `M
 
 ## Consequences
 
-- The browser module loses the 53 crates and, by the measurement with the check off, about 700 KB gzipped. The acceptance is at least 500 KB, measured as in #296.
+- The browser module loses the 53 crates. The check off gives 1,202,754 bytes; the acceptance (at least 500 KB smaller, at most 1,387,038) leaves 184 KB for the reader and the messages, which by their size in lines should take a small part of it. Measured as in #296.
 - The command line, the MCP server, the REST API and the browser refuse the same models with the same words, because they run the same code. A model's acceptance does not change on any of them; point 4 is the test of that.
 - The schema files stay where they are and are still published (`forge schema`, `forge_schema`, `editors/vscode/schemas`). Changing one now changes what Forge enforces directly, through the reader. A change that uses a new keyword needs the reader extended first, and the test of point 2 says so.
 - The native binary loses `jsonschema` too, and with it about 50 crates from a release build.
