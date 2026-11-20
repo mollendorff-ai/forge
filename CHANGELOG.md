@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **The coverage floors in CI rise to 97.1% lines, 94.8% functions and 96.3% regions (roadmap T1-COVERAGE-GATE).** From 95.6, 92.6 and 94.6: CI's run on main after the tests of the Excel exporter and the formula translator measured 97.15%, 94.86% and 96.39%. Floors are set from CI's number, not a local run; they go on rising to 100. The test count in `README.md` and `VALIDATION.md` is "over 2,600", which the last merges passed (the repository check that compares them with the real count failed on main until now).
 - A tornado bar that does not move said "the output's formula does not use it", which was not always so (a game's equilibrium reads every payoff and can stay put; `=MAX(x, 100)` reads x). It now says "the output does not use it, or does not move over this range".
 
 ### Added
