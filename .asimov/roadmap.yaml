@@ -239,17 +239,18 @@ tier1:
   # Found 2026-11-19 while a dependency bump (jsonschema 0.61, +57 KB, PR #256)
   # failed the browser module's size budget. PR #296 bought 87 KB back by
   # building the schema crates for size; this is the larger fix.
-  # T1-ONE-VALIDATOR is done (2026-11-20, ADR-069): Forge reads its six
-  # schema files itself (src/parser/schema_reader.rs, 17 keywords; the
-  # patterns by its own matcher, src/parser/schema_pattern.rs, since regex
-  # alone was 277 KB of the browser module and nothing else there calls it),
-  # on the command line, in the MCP server, the REST API and the browser.
-  # jsonschema is a dev-dependency: every model a test reads, and 73,650
-  # models made from the examples, are refused alike by both, with the same
-  # lines. The browser module is 1,212,222 bytes gzipped (1,887,038 before);
-  # the budget in ci.yml is 1,313,000. 14 refused models in
-  # forge-wasm/tests/cases.json give the command line's message in the
-  # browser. Three messages that were jsonschema's words are Forge's.
+  # T1-ONE-VALIDATOR is done (2026-11-20, ADR-069): Forge reads its seven
+  # schema files itself (src/parser/schema_reader.rs and schema_check.rs, 18
+  # keywords; the patterns by its own matcher, src/parser/schema_pattern.rs,
+  # since regex alone was 277 KB of the browser module and nothing else there
+  # calls it), on the command line, in the MCP server, the REST API and the
+  # browser. jsonschema is a dev-dependency: every model a test reads, and
+  # 78,838 models made from the examples, are refused alike by both, with the
+  # same lines. The browser module is 1,261,203 bytes gzipped (1,939,940
+  # before, on main with the games); the budget in ci.yml is 1,362,000. 14
+  # refused models in forge-wasm/tests/cases.json give the command line's
+  # message in the browser. Four kinds of line that were jsonschema's words are
+  # Forge's.
 
   - id: T1-HUGE-STATS
     title: "The summary statistics of a simulation overflow above about 1e154"

@@ -57,6 +57,6 @@ cargo build -p forge-wasm --profile wasm --target wasm32-unknown-unknown
 wasm-bindgen --target web --out-dir pkg target/wasm32-unknown-unknown/wasm/forge_wasm.wasm
 ```
 
-The `wasm` profile (in the workspace `Cargo.toml`) builds for size, 20% smaller than with the release profile and as fast. The module is about 1.21 MB gzipped (2026-11-20), since Forge reads its model schemas itself instead of with the `jsonschema` crate (ADR-069). CI fails if it grows past 1,313,000 bytes gzipped.
+The `wasm` profile (in the workspace `Cargo.toml`) builds for size, 20% smaller than with the release profile and as fast. The module is about 1.26 MB gzipped (2026-11-20), since Forge reads its model schemas itself instead of with the `jsonschema` crate (ADR-069). CI fails if it grows past 1,362,000 bytes gzipped.
 
 `--target web` gives an ES module for a page, which Forge Studio uses (`studio/README.md`); the Node comparison uses `--target nodejs`.
