@@ -71,3 +71,71 @@ pub fn read_model_text(path: &Path) -> ForgeResult<String> {
 pub(super) fn with_current<R>(f: impl FnOnce(Option<&HashMap<String, String>>) -> R) -> R {
     FILES.with(|cell| f(cell.borrow().as_ref()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn files(entries: &[(&str, &str)]) -> HashMap<String, String> {
+        entries
+            .iter()
+            .map(|(path, text)| ((*path).to_string(), (*text).to_string()))
+            .collect()
+    }
+
+    /// Inside a call the files are the memory's, found by their normalized
+    /// path, and a file that is not among them is `NotFound`, not a disk read.
+    #[test]
+    fn files_are_read_from_memory_and_a_missing_one_is_not_found() {
+        assert!(!files_in_memory());
+        let (inside, text, dotted, missing) = with_files_in_memory(
+            files(&[("data/costs.yaml", "a: 1"), ("model.yaml", "b: 2")]),
+            || {
+                (
+                    files_in_memory(),
+                    read_model_text(Path::new("model.yaml")).unwrap(),
+                    read_model_text(Path::new("./data/../data/costs.yaml")).unwrap(),
+                    read_model_text(Path::new("other.yaml")),
+                )
+            },
+        );
+        assert!(inside);
+        assert_eq!(text, "b: 2");
+        assert_eq!(dotted, "a: 1");
+        let error = missing.unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "IO error: other.yaml is not among the files given"
+        );
+        assert!(!files_in_memory());
+    }
+
+    /// Outside a call the file is read from the disk; calls nest, and the
+    /// outer files come back when the inner call returns.
+    #[test]
+    fn outside_a_call_the_disk_is_read_and_calls_nest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("m.yaml");
+        std::fs::write(&path, "disk").unwrap();
+        assert_eq!(read_model_text(&path).unwrap(), "disk");
+        assert!(read_model_text(&dir.path().join("absent.yaml")).is_err());
+
+        let (inner, outer_again) = with_files_in_memory(files(&[("m.yaml", "outer")]), || {
+            let inner = with_files_in_memory(files(&[("m.yaml", "inner")]), || {
+                read_model_text(Path::new("m.yaml")).unwrap()
+            });
+            (inner, read_model_text(Path::new("m.yaml")).unwrap())
+        });
+        assert_eq!(inner, "inner");
+        assert_eq!(outer_again, "outer");
+    }
+
+    #[test]
+    fn with_current_hands_over_the_files_or_nothing() {
+        assert_eq!(with_current(|files| files.map(HashMap::len)), None);
+        let count = with_files_in_memory(files(&[("a.yaml", ""), ("b.yaml", "")]), || {
+            with_current(|files| files.map(HashMap::len))
+        });
+        assert_eq!(count, Some(2));
+    }
+}

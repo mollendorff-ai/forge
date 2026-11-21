@@ -95,10 +95,7 @@ impl ForgeMcpServer {
         }
         simulate_core(&path, options)
             .map_err(|e| format!("Simulation failed: {e}"))
-            .and_then(|r| {
-                r.to_json()
-                    .map_err(|e| format!("Serialization failed: {e}"))
-            })
+            .map(|r| r.to_json())
     }
 
     #[tool(

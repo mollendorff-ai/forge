@@ -349,7 +349,7 @@ fn import(args: &Map<String, Value>) -> Result<Value, String> {
 
 fn simulate(main: &Path, args: &Map<String, Value>) -> Result<Value, String> {
     let result = simulate_core(main, simulate_options(args)?).map_err(|e| e.to_string())?;
-    serde_json::from_str(&result.to_json().map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+    serde_json::from_str(&result.to_json()).map_err(|e| e.to_string())
 }
 
 fn probability_seek(main: &Path, args: &Map<String, Value>) -> Result<Value, String> {

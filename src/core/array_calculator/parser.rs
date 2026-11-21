@@ -373,7 +373,9 @@ impl Parser {
                         self.position,
                     ));
                 }
-                self.enter()?;
+                // The index was parsed one level down, so there is room
+                // for this link: the limit was checked then
+                self.depth += 1;
                 links += 1;
                 expr = Expr::ArrayIndex {
                     array: Box::new(expr),
@@ -1008,7 +1010,8 @@ mod tests {
     /// trying one past it
     fn at_the_limit(build: impl Fn(usize) -> String, n: usize) {
         assert!(!refused(&build(n)), "{n} should be accepted");
-        assert!(refused(&build(n + 1)), "{} should be refused", n + 1);
+        let one_more = n + 1;
+        assert!(refused(&build(one_more)), "{one_more} should be refused");
     }
 
     fn depth_of(expr: &Expr) -> usize {
@@ -1294,5 +1297,116 @@ mod tests {
             let again = calculate_core(&back, true, None).unwrap().scalars;
             assert_eq!(first, again);
         }
+    }
+
+    /// A formula that does not parse says where and why, in one message.
+    #[test]
+    fn a_malformed_formula_is_an_error_with_its_position() {
+        for (formula, message) in [
+            (
+                "1 2",
+                "Parse error at position 1: Unexpected token after expression: Some(Number(2.0))",
+            ),
+            (
+                "(1",
+                "Parse error at position 2: Expected ')' after expression",
+            ),
+            (
+                "1 +",
+                "Parse error at position 2: Unexpected end of expression",
+            ),
+            (
+                "MAX(1",
+                "Parse error at position 3: Expected ')' after function arguments",
+            ),
+        ] {
+            let error = parse_formula(formula).unwrap_err();
+            assert_eq!(error.to_string(), message, "{formula}");
+        }
+    }
+
+    /// `depth_of` counts the levels of each kind of node, so the limit tests
+    /// above count what they mean to.
+    #[test]
+    fn the_depth_of_each_kind_of_node() {
+        for (formula, depth) in [
+            ("1", 1),
+            ("{1, 2, 3}", 2),
+            ("a[0]", 2),
+            ("a[b[0]]", 3),
+            ("SUM(1, 2)", 2),
+            ("LAMBDA(q, q)(1)", 3),
+            ("1 + -2", 3),
+            ("t.a:t.b", 2),
+        ] {
+            assert_eq!(
+                depth_of(&parse_formula(formula).unwrap()),
+                depth,
+                "{formula}"
+            );
+        }
+    }
+
+    /// An operand that is missing or broken is the error of the operator
+    /// before it, wherever it is.
+    #[test]
+    fn a_missing_operand_is_an_error_at_each_level_of_the_grammar() {
+        for (formula, message) in [
+            (
+                "1 &",
+                "Parse error at position 2: Unexpected end of expression",
+            ),
+            (
+                "1 +",
+                "Parse error at position 2: Unexpected end of expression",
+            ),
+            (
+                "2 ^",
+                "Parse error at position 2: Unexpected end of expression",
+            ),
+            (
+                "1 =",
+                "Parse error at position 2: Unexpected end of expression",
+            ),
+            (
+                "2 *",
+                "Parse error at position 2: Unexpected end of expression",
+            ),
+            (
+                "a:",
+                "Parse error at position 2: Unexpected end of expression",
+            ),
+            (
+                "SUM(1, )",
+                "Parse error at position 4: Unexpected token: CloseParen",
+            ),
+        ] {
+            let error = parse_formula(formula).unwrap_err();
+            assert_eq!(error.to_string(), message, "{formula}");
+        }
+    }
+
+    #[test]
+    fn a_formula_the_tokenizer_refuses_is_refused_with_its_position() {
+        let error = parse_formula("\"abc").unwrap_err();
+        assert!(
+            error.to_string().starts_with("Parse error at position "),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn advance_at_the_end_stays_on_the_last_token() {
+        let mut parser = Parser::new(vec![Token::Number(1.0)]);
+        assert_eq!(parser.advance(), Some(&Token::Number(1.0)));
+        assert_eq!(parser.advance(), Some(&Token::Number(1.0)));
+        assert_eq!(parser.position, 1);
+    }
+
+    #[test]
+    fn links_with_nothing_inside_stop_at_the_limit() {
+        at_the_limit(|n| format!("LAMBDA(q, q){}", "()".repeat(n)), MAX_DEPTH - 1);
+        at_the_limit(|n| format!("a{}", "[0]".repeat(n)), MAX_DEPTH - 1);
+        at_the_limit(|n| vec!["a"; n + 1].join(":"), MAX_DEPTH - 1);
     }
 }

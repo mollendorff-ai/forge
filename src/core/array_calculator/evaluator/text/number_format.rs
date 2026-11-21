@@ -127,7 +127,6 @@ fn pieces(format: &str) -> Result<Vec<Piece>, EvalError> {
                 }
                 i += end + 1;
             },
-            ';' => return Err(unsupported(format, "more than three sections")),
             '?' | ']' | '@' => return Err(unsupported(format, &format!("{c} is not read"))),
             'h' | 'H' | 's' | 'S' | 'a' | 'A' | 'p' | 'P' => {
                 return Err(unsupported(
@@ -145,6 +144,28 @@ fn pieces(format: &str) -> Result<Vec<Piece>, EvalError> {
         i += 1;
     }
     Ok(out)
+}
+
+/// What a piece writes in a section that has no digits, or `None` for a piece
+/// that is a digit, a percent, an exponent or a date.
+fn literal_text(piece: &Piece) -> Option<&str> {
+    match piece {
+        Piece::Literal(text) => Some(text),
+        Piece::Point => Some("."),
+        Piece::Comma => Some(","),
+        _ => None,
+    }
+}
+
+/// A piece that is written as it is in the number, apart from its digits: the
+/// text and the percent sign. A comma, a point and an exponent write nothing
+/// of their own here.
+fn write_decoration(out: &mut String, piece: &Piece) {
+    match piece {
+        Piece::Literal(text) => out.push_str(text),
+        Piece::Percent => out.push('%'),
+        _ => {},
+    }
 }
 
 /// Excel's colours in a format: `[Red]`, and `[Color1]` to `[Color56]`.
@@ -276,28 +297,13 @@ pub fn format_value(value: &Value, format: &str) -> Result<String, EvalError> {
     let (section, number) = match (sections.as_slice(), number) {
         ([_, negative, ..], n) if n < 0.0 => (*negative, -n),
         ([_, _, zero], n) if n == 0.0 => (*zero, n),
-        ([first, ..], n) => (*first, n),
-        ([], n) => (format, n),
+        _ => (sections[0], number),
     };
     let pieces = pieces(section)?;
     let kind = kind_of(&pieces).ok_or_else(|| unsupported(format, "it mixes a date and digits"))?;
     // A section of text only (`"-"` for zero) is that text
-    let is_text = !pieces.iter().any(|p| {
-        matches!(
-            p,
-            Piece::Digit(_) | Piece::Percent | Piece::Exponent { .. } | Piece::Date(..)
-        )
-    });
-    if is_text {
-        return Ok(pieces
-            .iter()
-            .map(|p| match p {
-                Piece::Literal(text) => text.clone(),
-                Piece::Point => ".".to_string(),
-                Piece::Comma => ",".to_string(),
-                _ => String::new(),
-            })
-            .collect());
+    if let Some(texts) = pieces.iter().map(literal_text).collect::<Option<Vec<_>>>() {
+        return Ok(texts.concat());
     }
     if kind == FormatKind::Date {
         write_date(number, &pieces, format)
@@ -366,11 +372,13 @@ fn write_date(serial: f64, pieces: &[Piece], format: &str) -> Result<String, Eva
             },
             Piece::Date('d', 3) => out.push_str(&weekday[..3]),
             Piece::Date('d', _) => out.push_str(weekday),
-            Piece::Date(..) => return Err(unsupported(format, "more than five m")),
             Piece::Literal(text) => out.push_str(text),
             Piece::Point => out.push('.'),
             Piece::Comma => out.push(','),
-            Piece::Digit(_) | Piece::Percent | Piece::Exponent { .. } => {},
+            // Digits beside a date never get here: `kind_of` refuses them
+            Piece::Date(..) | Piece::Digit(_) | Piece::Percent | Piece::Exponent { .. } => {
+                return Err(unsupported(format, "more than five m, or digits"));
+            },
         }
     }
     Ok(out)
@@ -556,12 +564,12 @@ fn write_grouped(
     format: &str,
 ) -> Result<(), EvalError> {
     let (first_digit, last_digit) = digit_bounds(whole_pieces);
-    let between_literal = match (first_digit, last_digit) {
-        (Some(a), Some(b)) => whole_pieces[a..b]
+    // Grouping needs a comma between two digits, so both ends are there
+    let between_literal = first_digit.zip(last_digit).is_some_and(|(a, b)| {
+        whole_pieces[a..b]
             .iter()
-            .any(|p| matches!(p, Piece::Literal(_))),
-        _ => false,
-    };
+            .any(|p| matches!(p, Piece::Literal(_)))
+    });
     if between_literal {
         return Err(unsupported(format, "text between digits that are grouped"));
     }
@@ -577,13 +585,11 @@ fn write_grouped(
     let mut written = false;
     for piece in whole_pieces {
         match piece {
-            Piece::Literal(text) => out.push_str(text),
-            Piece::Percent => out.push('%'),
             Piece::Digit(_) if !written => {
                 out.push_str(&grouped);
                 written = true;
             },
-            _ => {},
+            other => write_decoration(out, other),
         }
     }
     Ok(())
@@ -617,13 +623,11 @@ fn write_slots(out: &mut String, whole_pieces: &[Piece], whole_slots: &[char], d
     let mut slot = 0;
     for piece in whole_pieces {
         match piece {
-            Piece::Literal(text) => out.push_str(text),
-            Piece::Percent => out.push('%'),
             Piece::Digit(_) => {
                 out.push_str(&filled[slot]);
                 slot += 1;
             },
-            _ => {},
+            other => write_decoration(out, other),
         }
     }
     if slots == 0 {
@@ -657,11 +661,25 @@ fn write_fraction(
                 }
                 slot += 1;
             },
-            Piece::Literal(text) => out.push_str(text),
-            Piece::Percent => out.push('%'),
-            _ => {},
+            other => write_decoration(out, other),
         }
     }
+}
+
+/// What follows the exponent of a scientific format: text and a percent sign.
+fn write_after_exponent(out: &mut String, after: &[Piece], format: &str) -> Result<(), EvalError> {
+    for piece in after.iter().skip(1) {
+        match piece {
+            Piece::Digit(_) | Piece::Exponent { .. } => {
+                return Err(unsupported(
+                    format,
+                    "digits or a second exponent after the exponent",
+                ));
+            },
+            other => write_decoration(out, other),
+        }
+    }
+    Ok(())
 }
 
 fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, EvalError> {
@@ -763,13 +781,7 @@ fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, Ev
     }
     if exponent_at.is_some() {
         out.push_str(&exponent_text);
-        for piece in after.iter().skip(1) {
-            match piece {
-                Piece::Literal(text) => out.push_str(text),
-                Piece::Percent => out.push('%'),
-                _ => {},
-            }
-        }
+        write_after_exponent(&mut out, after, format)?;
     }
     Ok(out)
 }
@@ -954,6 +966,11 @@ mod tests {
             .contains("fourth section"));
         assert!(check_format("0;mmm").unwrap_err().contains("mixes a date"));
         assert!(check_format("@").is_err());
+        assert!(check_format("yyyy 0").unwrap_err().contains("mixes a date"));
+        assert!(check_format("0.0.0")
+            .unwrap_err()
+            .contains("two decimal points"));
+        assert_eq!(text(5.0, "[Color5]0"), "5");
     }
 
     #[test]
@@ -973,5 +990,61 @@ mod tests {
         h::fails_with("TEXT(2958466, \"yyyy\")", "is not a date");
         h::fails_with("TEXT(-0.5, \"yyyy\")", "is not a date");
         h::fails_with("TEXT(1E+20, \"yyyy\")", "is not a date");
+    }
+
+    /// Each of these formats is refused with the reason it gives, not
+    /// written as a wrong string.
+    #[test]
+    fn a_format_that_is_cut_short_or_muddled_is_refused_with_its_reason() {
+        for (format, why) in [
+            ("0.0E+", "E+ or E- needs 0s after it"),
+            ("0_", "nothing follows the _"),
+            ("0*", "nothing follows the *"),
+            ("0,0-0", "text between digits that are grouped"),
+            ("0E+00.0", "the point follows the exponent"),
+            (
+                "0.0E+00 0",
+                "digits or a second exponent after the exponent",
+            ),
+            ("0E+0E+0", "digits or a second exponent after the exponent"),
+            ("0\"abc", "a quote is not closed"),
+            ("0\\", "nothing follows the \\"),
+            ("0E", "write the text E in quotes"),
+            ("[Red", "a [ is not closed"),
+            ("[Colorful]0", "only a colour"),
+            ("[Color99]0", "only a colour"),
+        ] {
+            let error = format_value(&Value::Number(1.0), format)
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains(why), "{format}: {error}");
+        }
+        let error = format_value(&Value::Number(46053.0), "mmmmmm")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("more than five m"), "{error}");
+    }
+
+    #[test]
+    fn a_section_of_text_alone_is_that_text_and_a_number_that_is_not_finite_is_refused() {
+        assert_eq!(text(0.0, "0;0;."), ".");
+        assert_eq!(text(0.0, "0;0;,"), ",");
+        assert_eq!(text(0.0, "0;0;\"none\""), "none");
+        let nan = write_number(f64::NAN, &[Piece::Digit('0')], "0")
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            nan,
+            "Eval error: #NUM!: TEXT of a number that is not finite"
+        );
+    }
+
+    #[test]
+    fn scientific_formats_write_zero_signs_and_what_follows_the_exponent() {
+        assert_eq!(text(0.0, "0.00E+00"), "0.00E+00");
+        assert_eq!(text(123_456.0, "0.0E-0"), "1.2E5");
+        assert_eq!(text(0.5, "#,##0%"), "50%");
+        assert_eq!(text(1.0, "0.0E+00%"), "1.0E+02%");
+        assert_eq!(text(1.0, "0.0E+00\" x\""), "1.0E+00 x");
     }
 }
