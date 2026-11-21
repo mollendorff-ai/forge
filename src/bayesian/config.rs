@@ -551,4 +551,149 @@ mod config_tests {
         assert_eq!(roots.len(), 1);
         assert!(roots.contains(&"economic_conditions"));
     }
+
+    #[test]
+    fn a_discrete_node_without_states_is_refused() {
+        assert_eq!(
+            BayesianNode::discrete(vec![]).validate("n"),
+            Err("Node 'n': discrete node must have states".to_string())
+        );
+    }
+
+    #[test]
+    fn a_root_node_needs_a_prior_as_long_as_its_states_that_sums_to_one() {
+        assert_eq!(
+            BayesianNode::discrete(vec!["a", "b"]).validate("n"),
+            Err("Node 'n': root node must have prior probabilities".to_string())
+        );
+        assert_eq!(
+            BayesianNode::discrete(vec!["a", "b"])
+                .with_prior(vec![1.0])
+                .validate("n"),
+            Err("Node 'n': prior length (1) must match states (2)".to_string())
+        );
+        assert_eq!(
+            BayesianNode::discrete(vec!["a", "b"])
+                .with_prior(vec![0.5, 0.25])
+                .validate("n"),
+            Err("Node 'n': prior probabilities must sum to 1.0, got 0.75".to_string())
+        );
+        assert_eq!(
+            BayesianNode::discrete(vec!["a", "b"])
+                .with_prior(vec![0.25, 0.75])
+                .validate("n"),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn a_child_node_needs_cpt_rows_as_long_as_its_states_that_sum_to_one() {
+        let child = || BayesianNode::discrete(vec!["a", "b"]).with_parents(vec!["p"]);
+        assert_eq!(
+            child().validate("n"),
+            Err("Node 'n': child node must have CPT".to_string())
+        );
+        assert_eq!(
+            child().with_cpt_entry("x", vec![1.0]).validate("n"),
+            Err("Node 'n': CPT entry 'x' length (1) must match states (2)".to_string())
+        );
+        assert_eq!(
+            child().with_cpt_entry("x", vec![0.5, 0.25]).validate("n"),
+            Err("Node 'n': CPT entry 'x' must sum to 1.0, got 0.75".to_string())
+        );
+        assert_eq!(
+            child().with_cpt_entry("x", vec![0.25, 0.75]).validate("n"),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn a_continuous_node_is_refused_with_what_to_write_instead() {
+        assert_eq!(
+            BayesianNode::continuous(0.0, 1.0).validate("c"),
+            Err(
+                "Node 'c': continuous nodes are not supported yet; Bayesian networks in Forge \
+                 are discrete. Give the node states and probabilities instead, such as \
+                 states: [low, medium, high]"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn get_probability_reads_the_prior_of_a_root_and_the_cpt_row_of_a_child() {
+        let root = BayesianNode::discrete(vec!["a", "b"]).with_prior(vec![0.25, 0.75]);
+        assert!((root.get_probability(1, None) - 0.75).abs() < f64::EPSILON);
+        assert!(root.get_probability(2, None).abs() < f64::EPSILON);
+
+        let child = BayesianNode::discrete(vec!["a", "b"])
+            .with_parents(vec!["p", "q"])
+            .with_cpt_entry("x, y", vec![0.125, 0.875]);
+        assert!((child.get_probability(1, Some("x,y")) - 0.875).abs() < f64::EPSILON);
+        assert!(child.get_probability(0, Some("x,z")).abs() < f64::EPSILON);
+        assert!(child.get_probability(0, None).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn a_parent_that_is_not_a_node_is_left_to_validate_to_name() {
+        let child = BayesianNode::discrete(vec!["x"])
+            .with_parents(vec!["ghost"])
+            .with_cpt_entry("x", vec![1.0]);
+        let config = BayesianConfig::new("n").with_node("child", child.clone());
+        assert_eq!(config.check_cpt_matches_parents("child", &child), Ok(()));
+        assert_eq!(
+            config.validate(),
+            Err("Node 'child' references non-existent parent 'ghost'".to_string())
+        );
+        assert_eq!(
+            config.topological_order(),
+            vec!["ghost".to_string(), "child".to_string()]
+        );
+        let mut visited = std::collections::HashSet::new();
+        let mut stack = std::collections::HashSet::new();
+        assert_eq!(
+            config.dfs_cycle_check("ghost", &mut visited, &mut stack),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn a_parent_state_with_a_comma_is_refused_when_a_node_has_several_parents() {
+        let config = BayesianConfig::new("n")
+            .with_node(
+                "p",
+                BayesianNode::discrete(vec!["a,b", "c"]).with_prior(vec![0.5, 0.5]),
+            )
+            .with_node("q", BayesianNode::discrete(vec!["d"]).with_prior(vec![1.0]))
+            .with_node(
+                "k",
+                BayesianNode::discrete(vec!["s"])
+                    .with_parents(vec!["p", "q"])
+                    .with_cpt_entry("c, d", vec![1.0]),
+            );
+        assert_eq!(
+            config.validate(),
+            Err(
+                "Node 'k': state 'a,b' of parent 'p' contains a comma, which separates parent \
+                 states in CPT entries"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn a_cycle_is_refused_naming_a_node_on_it() {
+        let node = |parent: &str| {
+            BayesianNode::discrete(vec!["x"])
+                .with_parents(vec![parent])
+                .with_cpt_entry("x", vec![1.0])
+        };
+        let config = BayesianConfig::new("n")
+            .with_node("a", node("b"))
+            .with_node("b", node("a"));
+        assert_eq!(
+            config.validate(),
+            Err("Cycle detected involving node 'a'".to_string())
+        );
+    }
 }
