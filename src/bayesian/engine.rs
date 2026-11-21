@@ -48,8 +48,9 @@ impl BayesianResult {
     /// Export results to YAML format
     #[must_use]
     pub fn to_yaml(&self) -> String {
-        yaml_serde::to_string(&crate::core::precision::Rounded(self))
-            .unwrap_or_else(|_| "# Error serializing results".to_string())
+        yaml_or_comment(yaml_serde::to_string(&crate::core::precision::Rounded(
+            self,
+        )))
     }
 
     /// Export results to JSON format
@@ -60,6 +61,11 @@ impl BayesianResult {
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(&crate::core::precision::Rounded(self))
     }
+}
+
+/// The YAML text, or a comment saying it could not be written
+fn yaml_or_comment(yaml: Result<String, yaml_serde::Error>) -> String {
+    yaml.unwrap_or_else(|e| format!("# Error serializing results: {e}"))
 }
 
 /// Bayesian Network Engine
@@ -85,27 +91,7 @@ impl BayesianEngine {
     ///
     /// Returns an error if the target variable is not found in the network.
     pub fn query(&self, target: &str) -> Result<VariableResult, String> {
-        let probs = self.bp.query(target)?;
-
-        let node = self
-            .config
-            .nodes
-            .get(target)
-            .ok_or_else(|| format!("Variable '{target}' not found"))?;
-
-        let (max_idx, max_prob) = probs
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.total_cmp(b))
-            .map_or((0, 0.0), |(i, p)| (i, *p));
-
-        Ok(VariableResult {
-            name: target.to_string(),
-            states: node.states.clone(),
-            probabilities: probs,
-            most_likely: node.states.get(max_idx).cloned().unwrap_or_default(),
-            max_probability: max_prob,
-        })
+        self.query_with_evidence(target, &HashMap::new())
     }
 
     /// Query with evidence
@@ -136,13 +122,12 @@ impl BayesianEngine {
             evidence_indices.insert(var.clone(), idx);
         }
 
-        let probs = self.bp.query_with_evidence(target, &evidence_indices)?;
-
         let node = self
             .config
             .nodes
             .get(target)
-            .ok_or_else(|| format!("Variable '{target}' not found"))?;
+            .ok_or_else(|| format!("Variable '{target}' not found in network"))?;
+        let probs = self.bp.query_with_evidence(target, &evidence_indices)?;
 
         let (max_idx, max_prob) = probs
             .iter()
@@ -423,5 +408,55 @@ mod engine_tests {
 
         assert!(json.contains("\"queries\""));
         assert!(json.contains("\"economic_conditions\""));
+    }
+
+    #[test]
+    fn evidence_and_targets_that_are_not_in_the_network_are_refused() {
+        let engine = BayesianEngine::new(slow_week([0, 1, 2])).unwrap();
+        let message = |r: Result<VariableResult, String>| r.err().unwrap_or_default();
+        assert_eq!(
+            message(engine.query("ghost")),
+            "Variable 'ghost' not found in network"
+        );
+        assert_eq!(
+            message(engine.query_with_evidence("ghost", &HashMap::new())),
+            "Variable 'ghost' not found in network"
+        );
+        assert_eq!(
+            message(
+                engine.query_with_evidence("sales", &HashMap::from([("ghost".to_string(), "x")]))
+            ),
+            "Evidence variable 'ghost' not found"
+        );
+        assert_eq!(
+            message(
+                engine.query_with_evidence(
+                    "sales",
+                    &HashMap::from([("weather".to_string(), "snowy")])
+                )
+            ),
+            "State 'snowy' not found for variable 'weather'"
+        );
+        assert_eq!(
+            engine
+                .query_all_with_evidence(&HashMap::from([("ghost".to_string(), "x")]))
+                .err()
+                .unwrap_or_default(),
+            "Evidence variable 'ghost' not found"
+        );
+    }
+
+    #[test]
+    fn the_engine_hands_back_its_configuration() {
+        let engine = BayesianEngine::new(slow_week([0, 1, 2])).unwrap();
+        assert_eq!(engine.config().name, "slow week");
+        assert_eq!(engine.config().nodes.len(), 3);
+    }
+
+    #[test]
+    fn a_yaml_that_cannot_be_written_is_a_comment() {
+        let error = <yaml_serde::Error as serde::ser::Error>::custom("broken");
+        assert!(yaml_or_comment(Err(error)).starts_with("# Error serializing results: "));
+        assert_eq!(yaml_or_comment(Ok("a: 1\n".to_string())), "a: 1\n");
     }
 }
