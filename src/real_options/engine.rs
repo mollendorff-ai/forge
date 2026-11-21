@@ -72,10 +72,14 @@ pub struct UnderlyingResult {
 
 impl OptionsResult {
     /// Export results to YAML format
+    ///
+    /// # Panics
+    ///
+    /// Cannot panic: the result is text and numbers, which YAML holds.
     #[must_use]
     pub fn to_yaml(&self) -> String {
         yaml_serde::to_string(&crate::core::precision::Rounded(self))
-            .unwrap_or_else(|_| "# Error serializing results".to_string())
+            .expect("an options result is text and numbers")
     }
 
     /// Export results to JSON format
@@ -118,6 +122,10 @@ impl RealOptionsEngine {
     }
 
     /// Analyze all options
+    ///
+    /// # Panics
+    ///
+    /// Cannot panic: `new` refuses a configuration without options.
     #[must_use]
     pub fn analyze(&self) -> OptionsResult {
         let mut option_results = std::collections::BTreeMap::new();
@@ -144,15 +152,16 @@ impl RealOptionsEngine {
         if needs_npv {
             best = None;
         }
-        let decision = match (&best, needs_npv) {
-            (_, true) => "UNDECIDED: set traditional_npv to value expand, abandon, contract, switch or compound options".to_string(),
-            (Some((name, value)), false) if *value > 0.0 => format!("ACCEPT (with {name})"),
-            (Some(_), false) => "REJECT".to_string(),
-            (None, false) => match self.traditional_npv {
-                Some(npv) if npv > 0.0 => "ACCEPT".to_string(),
-                Some(_) => "REJECT".to_string(),
-                None => "UNDECIDED: no options and no traditional_npv".to_string(),
-            },
+        let decision = if needs_npv {
+            "UNDECIDED: set traditional_npv to value expand, abandon, contract, switch or compound options".to_string()
+        } else {
+            // `validate` asks for an option, and each has a project value here
+            let (name, value) = best.as_ref().expect("an option with a project value");
+            if *value > 0.0 {
+                format!("ACCEPT (with {name})")
+            } else {
+                "REJECT".to_string()
+            }
         };
 
         let recommendation = self.generate_recommendation(&option_results, best.as_ref());
@@ -178,8 +187,12 @@ impl RealOptionsEngine {
     fn value_option(&self, option: &OptionDefinition) -> OptionResult {
         let value = match self.config.method {
             ValuationMethod::BlackScholes => self.value_with_black_scholes(option),
-            ValuationMethod::Binomial => self.value_with_binomial(option),
-            ValuationMethod::MonteCarlo => self.value_with_monte_carlo(option),
+            ValuationMethod::Binomial => {
+                self.value_with_binomial(option, self.config.binomial_steps)
+            },
+            // Not a simulation yet: a binomial tree of 200 steps, whatever
+            // `binomial_steps` says (`monte_carlo_iterations` is not used)
+            ValuationMethod::MonteCarlo => self.value_with_binomial(option, 200),
         };
 
         let trigger = self.determine_trigger(option);
@@ -256,15 +269,14 @@ impl RealOptionsEngine {
             },
             OptionType::Switch | OptionType::Compound => {
                 // Complex options - fallback to binomial
-                self.value_with_binomial(option)
+                self.value_with_binomial(option, self.config.binomial_steps)
             },
         }
     }
 
-    /// Value option using binomial tree
-    fn value_with_binomial(&self, option: &OptionDefinition) -> f64 {
+    /// Value option using a binomial tree of `steps` steps
+    fn value_with_binomial(&self, option: &OptionDefinition, steps: u16) -> f64 {
         let u = &self.config.underlying;
-        let steps = self.config.binomial_steps;
 
         let tree = BinomialTree::new(
             u.current_value,
@@ -299,19 +311,6 @@ impl RealOptionsEngine {
                 expand.mul_add(0.5, defer)
             },
         }
-    }
-
-    /// Value option using Monte Carlo simulation
-    fn value_with_monte_carlo(&self, option: &OptionDefinition) -> f64 {
-        // Simplified LSM (Longstaff-Schwartz) approximation
-        // For full implementation, would use path simulation
-        // Falls back to binomial for now with more steps
-        let mut config = self.config.clone();
-        config.binomial_steps = 200; // More accurate
-        let engine = Self::new(config).unwrap();
-
-        // Use binomial with more steps as approximation
-        engine.value_with_binomial(option)
     }
 
     /// Determine optimal trigger condition
@@ -519,5 +518,131 @@ mod engine_tests {
 
         assert!(json.contains("\"project_value_with_options\""));
         assert!(json.contains("\"options\""));
+    }
+
+    /// A project of 10M with 30% volatility, 5% rates, 3 years and a 1%
+    /// dividend yield
+    fn underlying() -> UnderlyingConfig {
+        UnderlyingConfig::new(10_000_000.0, 0.30, 0.05, 3.0).with_dividend_yield(0.01)
+    }
+
+    fn analyze(method: ValuationMethod, option: OptionDefinition, npv: f64) -> OptionsResult {
+        let config = RealOptionsConfig::new("p", underlying())
+            .with_method(method)
+            .with_option(option)
+            .with_binomial_steps(50);
+        RealOptionsEngine::new(config)
+            .unwrap()
+            .with_traditional_npv(npv)
+            .analyze()
+    }
+
+    /// Black-Scholes with a dividend yield (Merton), against mpmath at 40
+    /// digits, to within 1e-12 of the project's value: expanding by half
+    /// is a call on 5M at 4M, abandoning for 3M a put on 10M at 3M, and
+    /// contracting by a fifth for savings of 1M a put on 2M at 1M
+    #[test]
+    fn black_scholes_values_each_option_as_its_call_or_put() {
+        for (option, want) in [
+            (
+                OptionDefinition::expand("e", 1.5, 4_000_000.0),
+                1_727_720.784_089_318_4,
+            ),
+            (
+                OptionDefinition::abandon("a", 3_000_000.0),
+                4_363.531_923_619_636,
+            ),
+            (
+                OptionDefinition::contract("c", 0.8, 1_000_000.0),
+                16_534.191_782_498_034,
+            ),
+        ] {
+            let name = option.name.clone();
+            let value = analyze(ValuationMethod::BlackScholes, option, 0.0).options[&name].value;
+            assert!(
+                (value - want).abs() <= 1e-12 * 10_000_000.0,
+                "{name}: {value}"
+            );
+        }
+    }
+
+    /// Switch and compound options have no closed form here: under
+    /// Black-Scholes they are valued on the binomial tree. A switch is the
+    /// larger of expanding by a fifth and contracting by a fifth (whatever its
+    /// own factors), and a compound option half an expansion plus waiting a
+    /// year at half the cost: approximations, stated here as they are.
+    #[test]
+    fn switch_and_compound_are_approximated_on_the_tree() {
+        let u = underlying();
+        let tree = BinomialTree::new(10_000_000.0, 10_000_000.0, 0.05, 0.30, 3.0, 50)
+            .with_dividend_yield(u.dividend_yield);
+        let base = OptionDefinition::expand("x", 1.5, 2_000_000.0);
+        let switch = OptionDefinition {
+            option_type: OptionType::Switch,
+            ..base.clone()
+        };
+        let compound = OptionDefinition {
+            option_type: OptionType::Compound,
+            ..base
+        };
+        let switch_value = tree
+            .expand_option_value(1.2, 2_000_000.0)
+            .max(tree.contract_option_value(0.8, 2_000_000.0));
+        let compound_value = tree
+            .expand_option_value(1.5, 2_000_000.0)
+            .mul_add(0.5, tree.defer_option_value(1.0, 1_000_000.0));
+        for (method, option, want) in [
+            (ValuationMethod::BlackScholes, switch.clone(), switch_value),
+            (ValuationMethod::Binomial, switch, switch_value),
+            (ValuationMethod::Binomial, compound, compound_value),
+        ] {
+            let value = analyze(method, option, 0.0).options["x"].value;
+            assert_eq!(
+                value.to_bits(),
+                want.to_bits(),
+                "{method:?}: {value} {want}"
+            );
+        }
+    }
+
+    /// `method: monte_carlo` is not a simulation yet: it is the binomial tree
+    /// with 200 steps
+    #[test]
+    fn monte_carlo_is_the_binomial_tree_with_200_steps() {
+        let option = OptionDefinition::defer("d", 2.0, 8_000_000.0);
+        let config = |method, steps| {
+            RealOptionsConfig::new("p", underlying())
+                .with_method(method)
+                .with_option(option.clone())
+                .with_binomial_steps(steps)
+        };
+        let value = |method, steps| {
+            RealOptionsEngine::new(config(method, steps))
+                .unwrap()
+                .analyze()
+                .options["d"]
+                .value
+        };
+        assert_eq!(
+            value(ValuationMethod::MonteCarlo, 50).to_bits(),
+            value(ValuationMethod::Binomial, 200).to_bits()
+        );
+    }
+
+    /// Of two options worth as much, the first by name is the best; a project
+    /// worth less than nothing with its best option is rejected
+    #[test]
+    fn a_tie_goes_to_the_first_name_and_a_losing_project_is_rejected() {
+        let config = RealOptionsConfig::new("p", underlying())
+            .with_option(OptionDefinition::abandon("b", 3_000_000.0))
+            .with_option(OptionDefinition::abandon("a", 3_000_000.0));
+        let result = RealOptionsEngine::new(config)
+            .unwrap()
+            .with_traditional_npv(-1_000_000_000.0)
+            .analyze();
+        assert_eq!(
+            (result.best_option.as_deref(), result.decision.as_str()),
+            (Some("a"), "REJECT")
+        );
     }
 }
