@@ -13,6 +13,8 @@ use calamine::{open_workbook, Data, Reader, Xlsx};
 use std::io::{Cursor, Read, Seek};
 use std::path::Path;
 
+mod layout;
+mod runs;
 mod scalars;
 mod sheet;
 mod table;
@@ -83,20 +85,33 @@ impl ExcelImporter {
     pub fn import_with_warnings(&self) -> ForgeResult<(ParsedModel, Vec<String>)> {
         let fail =
             |e: calamine::XlsxError| ForgeError::IO(format!("Failed to open Excel file: {e}"));
-        let sheets = match &self.source {
+        let (sheets, defined) = match &self.source {
             Source::Path(path) => Self::sheets(open_workbook(path).map_err(fail)?),
             Source::Bytes(bytes) => {
                 Self::sheets(Xlsx::new(Cursor::new(bytes.as_slice())).map_err(fail)?)
             },
         };
 
-        let refs = Self::layout(&sheets);
+        let mut refs = Self::layout(&sheets);
+        // A workbook's names stand for what they name (`_xlnm.` names are Excel's own)
+        refs.names = defined
+            .into_iter()
+            .filter(|(name, _)| !name.starts_with("_xlnm."))
+            .map(|(name, target)| (name.to_lowercase(), target))
+            .collect();
         let names = Self::names(&sheets, &refs);
         let read = (&refs, &names);
         let namespaces = Self::namespaces(&sheets);
         let mut model = ParsedModel::new();
         let mut warnings = Vec::new();
         for sheet in &sheets {
+            if sheet.holds_data(0) {
+                warnings.push(format!(
+                    "{}: its first row holds a value or a formula, and is read as the header, \
+                     so that row is not in the model; give the sheet a header or a title row",
+                    sheet.name
+                ));
+            }
             if let Some(namespace) = Self::include_namespace(sheet) {
                 Self::import_include(sheet, &namespace, read, &mut model, &mut warnings);
             } else if sheet.is_scalar_sheet() {
@@ -113,25 +128,24 @@ impl ExcelImporter {
         Ok((model, warnings))
     }
 
-    /// Every worksheet with something in it.
-    fn sheets<R: Read + Seek>(mut workbook: Xlsx<R>) -> Vec<Sheet> {
+    /// Every worksheet with something in it, and the workbook's names.
+    fn sheets<R: Read + Seek>(mut workbook: Xlsx<R>) -> (Vec<Sheet>, Vec<(String, String)>) {
         let mut sheets = Vec::new();
         for name in workbook.sheet_names() {
             // A sheet that cannot be read is skipped, as an empty one is
-            let values = workbook.worksheet_range(&name).unwrap_or_default();
+            let values = sheet::finite_cells(workbook.worksheet_range(&name).unwrap_or_default());
             if values.is_empty() {
                 continue;
             }
             let formulas = workbook.worksheet_formula(&name).ok();
             let styles = workbook.worksheet_style(&name).ok();
-            sheets.push(Sheet {
-                name,
-                values,
-                formulas,
-                styles,
-            });
+            let merged = workbook
+                .merge_cells_by_sheet_name(&name)
+                .unwrap_or_default();
+            let sheet = Sheet::new(name, values, formulas, styles);
+            sheets.push(layout::tidy(sheet, &merged));
         }
-        sheets
+        (sheets, workbook.defined_names().to_vec())
     }
 
     /// The cells of a table's column, below the header.
@@ -156,9 +170,8 @@ impl ExcelImporter {
             match &refs.sheets[&sheet.name] {
                 SheetKind::Table { name, include, .. } => {
                     let (_, width) = sheet.values.get_size();
-                    let columns: Vec<String> = (0..width)
-                        .map(|col| sheet.header(col).unwrap_or_else(|| format!("col_{col}")))
-                        .collect();
+                    let columns: Vec<String> =
+                        (0..width).map(|col| sheet.column_name(col)).collect();
                     let letters = |columns: &[String]| {
                         columns
                             .iter()
@@ -393,7 +406,7 @@ impl ExcelImporter {
                 None => {
                     let columns = (0..width)
                         .map(|col| {
-                            let name = sheet.header(col).unwrap_or_else(|| format!("col_{col}"));
+                            let name = sheet.column_name(col);
                             (sheet.letter(col), name)
                         })
                         .collect();
@@ -402,9 +415,12 @@ impl ExcelImporter {
                         None => (None, Self::sanitize_table_name(&sheet.name)),
                     };
                     SheetKind::Table {
-                        name,
                         columns,
                         include,
+                        rows: sheet.data_rows(),
+                        ends: sheet.column_ends(),
+                        total: sheet.total_group(&name),
+                        name,
                     }
                 },
             };
@@ -415,15 +431,10 @@ impl ExcelImporter {
 
     /// Excel row and name of each scalar on a `Name` / `Value` sheet.
     fn scalar_names(sheet: &Sheet) -> impl Iterator<Item = (u32, String)> + '_ {
-        let (height, _) = sheet.values.get_size();
-        (1..height).filter_map(|row| {
-            let name = sheet
-                .values
-                .get((row, 0))
-                .map(ToString::to_string)
-                .unwrap_or_default();
-            (!name.is_empty()).then(|| (sheet.excel_row(row), name))
-        })
+        sheet
+            .labels()
+            .into_iter()
+            .map(|(row, name)| (sheet.excel_row(row), name))
     }
 
     /// The namespaces of the included files whose sheets the workbook has.
@@ -735,6 +746,62 @@ mod tests {
             assert_eq!(share, [0.1, 0.2, 0.3, 0.4]);
         }
 
+        /// A range over part of a column is not the column: `SUM(A2:A3)` of 10,
+        /// 20, 30 and 40 is 30, and a running total `SUM($A$2:A3)` is 30 in
+        /// the second row. Both came in as the sum of the whole column, 100.
+        #[test]
+        fn a_range_over_part_of_a_column_is_not_the_column() {
+            let dir = tempfile::tempdir().unwrap();
+            let xlsx = dir.path().join("part.xlsx");
+            let mut workbook = Workbook::new();
+            let sheet = workbook.add_worksheet().set_name("sales").unwrap();
+            sheet.write_string(0, 0, "amount").unwrap();
+            sheet.write_string(0, 1, "so_far").unwrap();
+            let mut so_far = 0.0;
+            for (i, n) in [10.0, 20.0, 30.0, 40.0].iter().enumerate() {
+                let row = u32::try_from(i).unwrap() + 1;
+                so_far += n;
+                sheet.write_number(row, 0, *n).unwrap();
+                let running = Formula::new(format!("=SUM($A$2:A{})", row + 1))
+                    .set_result(format!("{so_far}"));
+                sheet.write_formula(row, 1, running).unwrap();
+            }
+            let scalars = workbook.add_worksheet().set_name("Scalars").unwrap();
+            scalars.write_string(0, 0, "Name").unwrap();
+            scalars.write_string(0, 1, "Value").unwrap();
+            scalars.write_string(1, 0, "first_two").unwrap();
+            let first_two = Formula::new("=SUM(sales!A2:A3)").set_result("30");
+            scalars.write_formula(1, 1, first_two).unwrap();
+            scalars.write_string(2, 0, "all").unwrap();
+            let all = Formula::new("=SUM(sales!A2:A5)").set_result("100");
+            scalars.write_formula(2, 1, all).unwrap();
+            workbook.save(&xlsx).unwrap();
+
+            let out = dir.path().join("part.yaml");
+            let imported = import_core(&xlsx, &out, false, false).unwrap();
+            let warnings = imported.warnings.join("\n");
+            assert!(
+                warnings.contains("sales.so_far: imported as values"),
+                "{warnings}"
+            );
+            assert!(
+                warnings.contains("first_two: imported as a value"),
+                "{warnings}"
+            );
+            assert!(warnings.contains("part of a column"), "{warnings}");
+            let result = calculate_core(&out, true, None).unwrap();
+            assert_eq!(result.scalars["first_two"], Some(30.0));
+            // The whole column is still the column
+            assert_eq!(result.scalars["all"], Some(100.0));
+            let yaml = std::fs::read_to_string(&out).unwrap();
+            assert!(yaml.contains("formula: =SUM(sales.amount)"), "{yaml}");
+            let so_far: Vec<f64> = result.tables["sales"].values["so_far"]
+                .iter()
+                .map(|v| v.as_f64().unwrap())
+                .collect();
+            assert_eq!(so_far, [10.0, 30.0, 60.0, 100.0]);
+        }
+
         /// ADR-059: an empty cell among numbers is imported as an empty cell (null,
         /// model format 5.3.0), so AVERAGE of 10, empty, 30, empty, 0 is 40/3, as in
         /// Excel (it was 8 when the empty cells came in as 0).
@@ -767,6 +834,53 @@ mod tests {
             assert_eq!(result.scalars["s.empty"], Some(2.0));
             // A column with a name and no value is a column of empty cells
             assert_eq!(result.scalars["s.none"], Some(5.0));
+        }
+    }
+
+    mod not_finite {
+        //! A workbook an older Forge exported can hold a formula whose cached
+        //! result is `NaN` (`=1E309 - 1E309` was written as `inf - inf`). It
+        //! was imported as `.nan`, which no model may hold; it is imported as
+        //! Excel's #NUM! is, and the model reads.
+
+        use crate::cli::import_core;
+        use rust_xlsxwriter::{Formula, Workbook};
+
+        #[test]
+        fn a_cached_nan_is_imported_as_an_error_cell() {
+            let dir = tempfile::tempdir().unwrap();
+            let xlsx = dir.path().join("old.xlsx");
+            let mut workbook = Workbook::new();
+            let scalars = workbook.add_worksheet().set_name("out").unwrap();
+            scalars.write_string(0, 0, "Name").unwrap();
+            scalars.write_string(0, 1, "Value").unwrap();
+            scalars.write_string(1, 0, "nanres").unwrap();
+            scalars
+                .write_formula(1, 1, Formula::new("=inf - inf").set_result("NaN"))
+                .unwrap();
+            let table = workbook.add_worksheet().set_name("t").unwrap();
+            table.write_string(0, 0, "x").unwrap();
+            table.write_number(1, 0, 3.0).unwrap();
+            table
+                .write_formula(2, 0, Formula::new("=A2 * 1E308 * 10").set_result("NaN"))
+                .unwrap();
+            workbook.save(&xlsx).unwrap();
+
+            let out = dir.path().join("old.yaml");
+            let imported = import_core(&xlsx, &out, false, false).unwrap();
+            let yaml = std::fs::read_to_string(&out).unwrap();
+            assert!(!yaml.contains(".nan") && !yaml.contains(".inf"), "{yaml}");
+            // The cell in the column of numbers is named, as any error cell is
+            assert!(
+                imported
+                    .warnings
+                    .iter()
+                    .any(|w| w.contains("t.x") && w.contains("A3 (#NUM!)")),
+                "{:?}",
+                imported.warnings
+            );
+            // and the model it wrote reads
+            crate::parser::parse_model(&out).unwrap();
         }
     }
 

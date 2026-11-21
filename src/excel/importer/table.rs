@@ -16,8 +16,8 @@ impl ExcelImporter {
         model: &mut ParsedModel,
         warnings: &mut Vec<String>,
     ) {
-        let (refs, names) = read;
-        let names = names.of(refs, &sheet.name);
+        let (refs, names_of_all) = read;
+        let names = names_of_all.of(refs, &sheet.name);
         let (height, width) = sheet.values.get_size();
         if height < 2 {
             return; // header only
@@ -33,7 +33,7 @@ impl ExcelImporter {
         let formula_rows = Self::formula_rows(sheet, height, width);
 
         for col in 0..width {
-            let col_name = sheet.header(col).unwrap_or_else(|| format!("col_{col}"));
+            let col_name = sheet.column_name(col);
             // Whether the column is one of dates in Forge (`Self::names`)
             let holds_dates = names
                 .date_columns
@@ -41,10 +41,12 @@ impl ExcelImporter {
 
             // A formula in the first data row makes this a calculated column,
             // if every row holds that same formula: a Forge row formula is one
-            // formula for the whole column
-            if let Some(excel) = sheet.formula(1, col) {
+            // formula for the whole column. A formula in a later row only, or
+            // rows that differ: one formula that picks by row, with a warning
+            if let Some(excel) = (1..height).find_map(|row| sheet.formula(row, col)) {
+                let column = (col, table_name.as_str(), holds_dates);
                 let whole_column =
-                    Self::row_formula(sheet, col, (refs, names), &table_name, holds_dates, &excel);
+                    Self::formula_column(sheet, column, (refs, names), &excel, warnings);
                 match whole_column {
                     Ok(forge) => {
                         let place = format!("{table_name}.{col_name}");
@@ -130,6 +132,32 @@ impl ExcelImporter {
         }
 
         model.add_table(table);
+        Self::import_total(sheet, (refs, names_of_all), model, warnings);
+    }
+
+    /// The one Forge formula of column `col` (with its table and whether it
+    /// holds dates), whose rows hold `excel` and maybe other formulas: the
+    /// row formula every row holds, or one that picks by row (`by_rows`,
+    /// which adds its warning); the reason when there is none.
+    fn formula_column(
+        sheet: &Sheet,
+        (col, table_name, holds_dates): (usize, &str, bool),
+        read: (&ReverseRefs, &WorkbookRefs),
+        excel: &str,
+        warnings: &mut Vec<String>,
+    ) -> Result<String, String> {
+        let whole_column = match sheet.formula(1, col) {
+            Some(_) => Self::row_formula(sheet, col, read, table_name, holds_dates, excel),
+            None => Err(format!("row {} holds no formula", sheet.excel_row(1))),
+        };
+        whole_column.or_else(|reason| {
+            Self::by_rows(sheet, col, read, table_name, holds_dates)
+                .map(|(forge, warning)| {
+                    warnings.push(warning);
+                    forge
+                })
+                .map_err(|_| reason)
+        })
     }
 
     /// The Forge row formula of a column whose first data row holds the
@@ -197,13 +225,18 @@ impl ExcelImporter {
                     table: table_name,
                     row: 2,
                 };
-                let holds = match cells_of(&mut Self::column_cells(sheet, col)) {
-                    Cells::Dates if holds_dates => Holds::Dates,
-                    Cells::Dates | Cells::Numbers => Holds::Numbers,
-                    _ => Holds::Other,
-                };
-                names.read_dates(&forge, ctx, holds)
+                names.read_dates(&forge, ctx, Self::holds(sheet, col, holds_dates))
             })
+    }
+
+    /// What the cells of column `col` hold, as a formula over them reads
+    /// them: dates only in a column of dates in Forge (`Self::names`).
+    pub(super) fn holds(sheet: &Sheet, col: usize, holds_dates: bool) -> Holds {
+        match cells_of(&mut Self::column_cells(sheet, col)) {
+            Cells::Dates if holds_dates => Holds::Dates,
+            Cells::Dates | Cells::Numbers => Holds::Numbers,
+            _ => Holds::Other,
+        }
     }
 
     /// The last data row of `sheet` that holds a formula (0 if none does)
@@ -387,12 +420,7 @@ mod tests {
         let mut cells = calamine::Range::new((0, 0), (1, 0));
         cells.set_value((0, 0), Data::String("n".to_string()));
         cells.set_value((1, 0), Data::Float(4.0));
-        let sheet = Sheet {
-            name: "My Sheet".to_string(),
-            values: cells,
-            formulas: None,
-            styles: None,
-        };
+        let sheet = Sheet::new("My Sheet".to_string(), cells, None, None);
         let (refs, names) = (ReverseRefs::default(), Names::default());
         let mut model = ParsedModel::new();
         ExcelImporter::import_table(&sheet, (&refs, &names), &mut model, &mut Vec::new());

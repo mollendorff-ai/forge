@@ -16,6 +16,9 @@ use super::variables::{is_nested_scalar_section, parse_scalar_variable, parse_ta
 ///
 /// Returns an error if the YAML fails schema validation or contains invalid table/scalar definitions.
 pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
+    // No NaN or infinity anywhere, before anything reads a number (the
+    // schema's message for `.nan` would call it empty)
+    super::finite::check_finite(yaml)?;
     // Validate against JSON Schema - this is mandatory
     validate_against_schema(yaml)?;
     read_model(yaml)

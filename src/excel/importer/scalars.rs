@@ -38,16 +38,11 @@ impl ExcelImporter {
         warnings: &mut Vec<String>,
     ) {
         let (refs, names) = read;
-        let (height, _) = sheet.values.get_size();
-        for row in 1..height {
-            let name = sheet
-                .values
-                .get((row, 0))
-                .map(ToString::to_string)
-                .unwrap_or_default();
-            if name.is_empty() {
-                continue;
-            }
+        let beside = Self::beside_values(sheet, warnings);
+        let older = sheet
+            .header(2)
+            .is_some_and(|h| h.eq_ignore_ascii_case("formula"));
+        for (row, name) in sheet.labels() {
             let path = group
                 .as_ref()
                 .map_or_else(|| name.clone(), |g| format!("{g}.{name}"));
@@ -63,8 +58,10 @@ impl ExcelImporter {
 
             let formula = sheet.formula(row, 1).map_or_else(
                 // Older workbooks: Forge formula as text in a third column
+                // headed `Formula` (another sheet's third column is a unit,
+                // notes or anything else)
                 || match sheet.values.get((row, 2)) {
-                    Some(Data::String(f)) if !f.is_empty() => Some(f.clone()),
+                    Some(Data::String(f)) if !f.is_empty() && older => Some(f.clone()),
                     _ => None,
                 },
                 |excel| match refs
@@ -90,8 +87,46 @@ impl ExcelImporter {
             let mut variable = Variable::new(path.clone(), value, formula);
             variable.is_date = is_date;
             variable.metadata.format = format;
+            for (col, unit) in &beside {
+                let text = sheet
+                    .values
+                    .get((row, *col))
+                    .map(ToString::to_string)
+                    .filter(|text| !text.is_empty());
+                if *unit {
+                    variable.metadata.unit = text;
+                } else {
+                    variable.metadata.notes = text;
+                }
+            }
             model.add_scalar(path, variable);
         }
+    }
+
+    /// The columns beside the values of a sheet of scalars that are kept: a
+    /// unit (`true`) or notes, by their header (`Unit`, `Notes` or
+    /// `Comment`). Any other column with something in it is named in a
+    /// warning; the `Formula` column of older workbooks is read as a formula.
+    fn beside_values(sheet: &Sheet, warnings: &mut Vec<String>) -> Vec<(usize, bool)> {
+        let (height, width) = sheet.values.get_size();
+        let mut kept = Vec::new();
+        for col in 2..width {
+            let header = sheet.header(col).unwrap_or_default().to_lowercase();
+            match header.as_str() {
+                "unit" | "units" => kept.push((col, true)),
+                "notes" | "note" | "comment" | "comments" => kept.push((col, false)),
+                "formula" => {},
+                _ if (1..height).any(|row| sheet.filled(row, col)) => warnings.push(format!(
+                    "{}: column {} ({}) is not imported: beside a value, a unit (Unit) and \
+                     notes (Notes or Comment) are kept",
+                    sheet.name,
+                    sheet.letter(col),
+                    sheet.header(col).unwrap_or_default()
+                )),
+                _ => {},
+            }
+        }
+        kept
     }
 
     /// Text, a boolean or an error among numbers is 0 in Forge: name the cells.

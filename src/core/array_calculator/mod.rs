@@ -738,47 +738,40 @@ mod aggregation_classifier_tests {
 
 #[cfg(test)]
 mod nan_inputs {
-    //! A NaN in the data (`.nan` in YAML) must give an answer or an error, never a panic.
+    //! A NaN in the data (`.nan` in YAML) is refused when the model is read,
+    //! so no function sees one. Before, MEDIAN, MIN, SMALL, QUARTILE and RANK
+    //! gave an answer that counted it as a value above the others (MEDIAN 2.5
+    //! of 3, NaN, 2 and 1, where the exported workbook gave 2) and MAX, LARGE,
+    //! PERCENTILE, SORT, MODE, STDEV and VAR an error.
 
-    use super::ArrayCalculator;
-    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+    use crate::parser::parse_model_text;
 
     #[test]
-    fn test_nan_in_a_column_never_panics() {
-        let functions = [
-            "MEDIAN",
-            "MIN",
-            "MAX",
-            "SMALL",
-            "LARGE",
-            "PERCENTILE",
-            "QUARTILE",
-            "RANK",
-            "SORT",
-            "MODE",
-            "STDEV",
-            "VAR",
-        ];
-        for name in functions {
-            let mut model = ParsedModel::new();
-            let mut table = Table::new("t".to_string());
-            table.add_column(Column::new(
-                "x".to_string(),
-                ColumnValue::Number(vec![3.0, f64::NAN, 2.0, 1.0]),
-            ));
-            model.add_table(table);
-            let formula = match name {
-                "SMALL" | "LARGE" | "PERCENTILE" | "QUARTILE" => format!("={name}(t.x, 1)"),
-                "RANK" => "=RANK(2, t.x)".to_string(),
-                "SORT" => "=SUM(SORT(t.x))".to_string(),
-                _ => format!("={name}(t.x)"),
-            };
-            model.add_scalar(
-                "out.v".to_string(),
-                Variable::new("out.v".to_string(), None, Some(formula)),
+    fn a_nan_in_a_column_is_refused_whatever_reads_it() {
+        for formula in [
+            "MEDIAN(t.x)",
+            "MIN(t.x)",
+            "MAX(t.x)",
+            "SMALL(t.x, 1)",
+            "LARGE(t.x, 1)",
+            "PERCENTILE(t.x, 1)",
+            "QUARTILE(t.x, 1)",
+            "RANK(2, t.x)",
+            "SUM(SORT(t.x))",
+            "MODE(t.x)",
+            "STDEV(t.x)",
+            "VAR(t.x)",
+        ] {
+            let yaml = format!(
+                "_forge_version: \"5.0.0\"\nt:\n  x: [3, .nan, 2, 1]\nout:\n  v:\n    formula: ={formula}\n"
             );
-            // Ok or Err are both fine; a panic fails the test.
-            let _ = ArrayCalculator::new(model).calculate_all();
+            let error = parse_model_text("m.yaml", &yaml, &std::collections::HashMap::new())
+                .unwrap_err()
+                .to_string();
+            assert!(
+                error.contains("'t.x row 2' is .nan, which is not a number"),
+                "{formula}: {error}"
+            );
         }
     }
 }

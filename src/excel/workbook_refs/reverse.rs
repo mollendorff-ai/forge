@@ -12,10 +12,22 @@ pub enum SheetKind {
     /// the sheet holds a table of an included file (`{namespace}.{table}`):
     /// `name` is then the file's own name for it, and the main model reads
     /// its columns as `@{namespace}.{name}.{column}`.
+    ///
+    /// `rows` are the Excel rows of the table's data, in order (a sheet
+    /// someone else wrote may have rows above its header, a blank row inside
+    /// the table, or a total row below it), and `ends` the Excel row of each
+    /// column's last cell with something in it, by letter, where that is above
+    /// the table's last row. A range is the column only from its first row to
+    /// its end; any other range is part of it.
     Table {
         name: String,
         columns: HashMap<String, String>,
         include: Option<String>,
+        rows: Vec<u32>,
+        ends: HashMap<String, u32>,
+        /// A total row under the table: its Excel row, and the group its
+        /// cells are scalars of (`monthly_total.revenue`)
+        total: Option<(u32, String)>,
     },
     /// A scalar sheet (`Name` / `Value`): Excel row -> scalar path.
     ///
@@ -42,6 +54,9 @@ impl SheetKind {
 pub struct ReverseRefs {
     /// Sheet name -> what it holds
     pub sheets: HashMap<String, SheetKind>,
+    /// The workbook's names (in lower case, as Excel compares them) -> what
+    /// each stands for (`list_price` -> `Assumptions!$B$7`)
+    pub names: HashMap<String, String>,
 }
 
 /// One piece of an Excel formula.
@@ -267,6 +282,20 @@ impl ReverseRefs {
         self.translate_back(formula, sheet, row, true)
     }
 
+    /// [`ReverseRefs::to_forge`] for a cell of a total row under a table on
+    /// `sheet`: a scalar, which reads the table's columns by their names.
+    ///
+    /// # Errors
+    ///
+    /// Returns the reason when the formula cannot be expressed in Forge.
+    pub fn total_to_forge(&self, formula: &str, sheet: &str) -> Result<String, String> {
+        let scalar = SheetKind::Scalars {
+            rows: HashMap::new(),
+            include: None,
+        };
+        self.translate_on(&scalar, formula, sheet, (0, false))
+    }
+
     fn translate_back(
         &self,
         formula: &str,
@@ -278,9 +307,56 @@ impl ReverseRefs {
             .sheets
             .get(sheet)
             .ok_or_else(|| format!("unknown sheet '{sheet}'"))?;
+        self.translate_on(current, formula, sheet, (row, above))
+    }
+
+    /// A workbook's names in `formula` replaced by what they stand for.
+    fn expand_names(&self, formula: &str) -> String {
+        let chars: Vec<char> = formula.chars().collect();
+        let mut out = String::new();
+        let mut i = 0;
+        while i < chars.len() {
+            let c = chars[i];
+            if c == '"' || c == '\'' {
+                let start = i;
+                let _ = read_quoted(&chars, &mut i, c);
+                out.extend(&chars[start..i.min(chars.len())]);
+                continue;
+            }
+            if !(c.is_alphabetic() || c == '_') {
+                out.push(c);
+                i += 1;
+                continue;
+            }
+            let start = i;
+            while i < chars.len() && (chars[i].is_alphanumeric() || matches!(chars[i], '_' | '.')) {
+                i += 1;
+            }
+            let word: String = chars[start..i].iter().collect();
+            let part_of_a_reference = start > 0 && matches!(chars[start - 1], '$' | '!' | ':');
+            let called = matches!(chars.get(i), Some('(' | '!'));
+            match self.names.get(&word.to_lowercase()) {
+                Some(target) if !part_of_a_reference && !called => out.push_str(target),
+                _ => out.push_str(&word),
+            }
+        }
+        out
+    }
+
+    fn translate_on(
+        &self,
+        current: &SheetKind,
+        formula: &str,
+        sheet: &str,
+        (row, above): (u32, bool),
+    ) -> Result<String, String> {
+        let table_rows = match current {
+            SheetKind::Table { rows, .. } => Some(rows.as_slice()),
+            SheetKind::Scalars { .. } => None,
+        };
         let mut out = String::from("=");
         let mut after_value = false;
-        let tokens = excel_tokens(formula)?;
+        let tokens = excel_tokens(&self.expand_names(formula))?;
         let mut skip = 0;
         let mut only_in_count_unique = false;
         // Open parentheses, as in `translate` (ADR-058)
@@ -303,10 +379,10 @@ impl ReverseRefs {
                 // Excel's ROW() is the sheet's row; a table starts in row 2
                 XlToken::Function(name)
                     if name.eq_ignore_ascii_case("ROW")
-                        && matches!(current, SheetKind::Table { .. })
+                        && table_rows.is_some()
                         && tokens.get(i + 1..i + 3) == Some(&[XlToken::Open, XlToken::Close]) =>
                 {
-                    out.push_str("(ROW() + 1)");
+                    out.push_str(&Self::excel_row_function(table_rows.unwrap_or_default())?);
                     skip = 2;
                     after_value = true;
                     continue;
@@ -411,6 +487,40 @@ impl ReverseRefs {
         Ok(())
     }
 
+    /// Excel's `ROW()` in a table as Forge's: the table's first data row is
+    /// Forge's row 1. A table with a gap in its rows has no such formula.
+    fn excel_row_function(rows: &[u32]) -> Result<String, String> {
+        let start = rows.first().copied().unwrap_or(2);
+        let gap = rows.windows(2).any(|pair| pair[1] != pair[0] + 1);
+        if gap {
+            return Err("ROW() in a table with a gap in its rows".to_string());
+        }
+        Ok(format!("(ROW() + {})", start - 1))
+    }
+
+    /// A range of a table's column is the column, as Forge reads `table.column`,
+    /// only when it runs from the table's first data row to the column's last
+    /// cell with something in it, or further down to the table's last row.
+    fn check_column_range(
+        rows: &[u32],
+        end: Option<&u32>,
+        first: &Cell,
+        last: &Cell,
+    ) -> Result<(), String> {
+        let (top, bottom) = (first.row.min(last.row), first.row.max(last.row));
+        let (Some(start), Some(stop)) = (rows.first(), rows.last()) else {
+            return Err("a range in a table with no data rows".to_string());
+        };
+        let end = end.copied().unwrap_or(*stop);
+        if top == *start && (end..=*stop).contains(&bottom) {
+            return Ok(());
+        }
+        Err(format!(
+            "a range over part of a column: rows {top} to {bottom} of a table in rows \
+             {start} to {stop}"
+        ))
+    }
+
     /// Forge name for a cell or range on `kind`, seen from `current`.
     fn name_for(
         current: &SheetKind,
@@ -448,11 +558,25 @@ impl ReverseRefs {
                 name,
                 columns,
                 include,
+                rows,
+                ends,
+                total,
             } => {
+                // A cell of the total row is a scalar of its group
+                if let Some((_, group)) = total.as_ref().filter(|(r, _)| *r == first.row) {
+                    let column = columns
+                        .get(&first.column)
+                        .ok_or_else(|| format!("no column {} in '{name}'", first.column))?;
+                    if last.is_some() {
+                        return Err("a range in a total row".to_string());
+                    }
+                    return Ok(format!("{group}.{column}"));
+                }
                 if let Some(last) = last {
                     if last.column != first.column {
                         return Err("range over several columns".to_string());
                     }
+                    Self::check_column_range(rows, ends.get(&first.column), first, last)?;
                 }
                 let column = columns
                     .get(&first.column)
@@ -468,15 +592,20 @@ impl ReverseRefs {
                 } else {
                     format!("{qualified}.{column}")
                 };
+                // How many data rows above the formula's row the cell is
+                let back = rows
+                    .iter()
+                    .position(|r| *r == row)
+                    .zip(rows.iter().position(|r| *r == first.row))
+                    .and_then(|(here, there)| here.checked_sub(there))
+                    .filter(|back| *back > 0);
                 match (current, last) {
                     // A single cell in a row formula is in the same row, or
                     // (where the caller reads it so) in a data row above
-                    (SheetKind::Table { .. }, None) if above && (2..row).contains(&first.row) => {
-                        Ok(match row - first.row {
-                            1 => format!("PREV({name}, 0)"),
-                            back => format!("PREV({name}, 0, {back})"),
-                        })
-                    },
+                    (SheetKind::Table { .. }, None) if above && back.is_some() => Ok(match back {
+                        Some(1) => format!("PREV({name}, 0)"),
+                        back => format!("PREV({name}, 0, {})", back.unwrap_or_default()),
+                    }),
                     (SheetKind::Table { .. }, None) if first.row != row => {
                         Err("reference to another row".to_string())
                     },
@@ -560,6 +689,9 @@ mod tests {
                     name: table.clone(),
                     columns,
                     include: None,
+                    rows: (2..2 + u32::try_from(refs.rows[table]).unwrap()).collect(),
+                    ends: HashMap::new(),
+                    total: None,
                 },
             );
         }
@@ -574,7 +706,10 @@ mod tests {
                 rows.insert(*row, path.clone());
             }
         }
-        ReverseRefs { sheets }
+        ReverseRefs {
+            sheets,
+            names: HashMap::new(),
+        }
     }
 
     fn layout() -> WorkbookRefs {
@@ -741,5 +876,75 @@ mod tests {
             back.to_forge("=\"a\"\"b\"", "v", 0).unwrap_err(),
             "text with a double quote"
         );
+    }
+
+    /// A range of a table that has a header and no rows is not its column,
+    /// and a range must start at the table's first row.
+    #[test]
+    fn a_range_is_the_column_only_from_its_first_row_to_its_end() {
+        let table = |rows: Vec<u32>, ends: HashMap<String, u32>| SheetKind::Table {
+            name: "t".to_string(),
+            columns: HashMap::from([("A".to_string(), "x".to_string())]),
+            include: None,
+            rows,
+            ends,
+            total: None,
+        };
+        let refs = |kind: SheetKind| ReverseRefs {
+            sheets: HashMap::from([
+                ("t".to_string(), kind),
+                (
+                    "s".to_string(),
+                    SheetKind::Scalars {
+                        rows: HashMap::new(),
+                        include: None,
+                    },
+                ),
+            ]),
+            names: HashMap::new(),
+        };
+        let empty = refs(table(Vec::new(), HashMap::new()));
+        assert!(empty
+            .to_forge("=SUM(t!A2:A3)", "s", 0)
+            .unwrap_err()
+            .contains("no data rows"));
+        // Rows 2 to 6, column A filled to row 4: A2:A4 to A2:A6 are the column
+        let short = refs(table(
+            (2..=6).collect(),
+            HashMap::from([("A".to_string(), 4)]),
+        ));
+        for whole in ["=SUM(t!A2:A4)", "=SUM(t!A2:A6)", "=SUM(t!A5:A2)"] {
+            let forge = short.to_forge(whole, "s", 0);
+            assert_eq!(forge.as_deref(), Ok("=SUM(t.x)"), "{whole}");
+        }
+        for part in ["=SUM(t!A2:A3)", "=SUM(t!A3:A6)", "=SUM(t!A2:A7)"] {
+            let err = short.to_forge(part, "s", 0).unwrap_err();
+            assert!(err.contains("part of a column"), "{part}: {err}");
+        }
+    }
+
+    #[test]
+    fn a_workbook_name_is_what_it_names() {
+        let back = ReverseRefs {
+            sheets: HashMap::from([(
+                "a".to_string(),
+                SheetKind::Scalars {
+                    rows: HashMap::from([(2, "a.price".to_string())]),
+                    include: None,
+                },
+            )]),
+            names: HashMap::from([("list_price".to_string(), "a!$B$2".to_string())]),
+        };
+        assert_eq!(
+            back.to_forge("=LIST_PRICE * 2", "a", 0).as_deref(),
+            Ok("=a.price * 2")
+        );
+        // Not inside text, not a function of the same name, not a sheet
+        assert_eq!(
+            back.expand_names(r#"=IF(x = "list_price", list_price(1), 'list_price'!B2)"#),
+            r#"=IF(x = "list_price", list_price(1), 'list_price'!B2)"#
+        );
+        assert_eq!(back.expand_names("=a!list_price"), "=a!list_price");
+        assert_eq!(back.expand_names("=\"open"), "=\"open");
     }
 }

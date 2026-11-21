@@ -301,18 +301,15 @@ mod tests {
     }
 
     /// Past 40 standard deviations the density is below the smallest double,
-    /// 0, and the distribution function is 1; what is not a number has no
-    /// result
+    /// 0, and the distribution function is 1; a z that is not a number gives
+    /// one that is not (no formula can pass one: a literal past the largest
+    /// double is refused, and infinity over infinity cannot arise)
     #[test]
     fn past_the_tails_and_not_a_number() {
-        use super::super::tests::{fails_with, is_exactly};
+        use super::super::tests::is_exactly;
         is_exactly("NORM.S.DIST(50, FALSE)", 0.0);
         is_exactly("NORM.S.DIST(50, TRUE)", 1.0);
-        // 1E309 is past the largest double: infinity over infinity
-        fails_with(
-            "NORM.DIST(1E309, 0, 1E309, TRUE)",
-            "#NUM!: NORM.DIST has no result for these arguments",
-        );
+        assert!(super::standard_cdf(f64::NAN).is_nan());
     }
 
     /// An error in any argument is passed on, and text is refused with the

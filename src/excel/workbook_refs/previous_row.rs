@@ -177,8 +177,12 @@ mod tests {
                         .map(|(l, n)| ((*l).to_string(), (*n).to_string()))
                         .collect(),
                     include: None,
+                    rows: (2..=5).collect(),
+                    ends: HashMap::new(),
+                    total: None,
                 },
             )]),
+            names: HashMap::new(),
         };
         assert_eq!(
             back.to_forge("=(ROW() - 1) * A3", "t", 3).unwrap(),

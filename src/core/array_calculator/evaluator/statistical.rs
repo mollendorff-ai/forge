@@ -792,4 +792,16 @@ mod tests {
         is_exactly("PERCENTILE({5}, 0.3)", 5.0);
         is_exactly("QUARTILE({5}, 1)", 5.0);
     }
+
+    /// A function that gives NaN is #NUM!, whose argument no formula can
+    /// make one: the correlation of values whose squares overflow is infinity
+    /// over infinity
+    #[test]
+    fn a_function_with_no_result_is_num() {
+        use super::super::tests::fails_with;
+        fails_with(
+            "CORREL({1E308, -1E308, 5}, {1E308, -1E308, 7})",
+            "#NUM!: CORREL has no result for these arguments",
+        );
+    }
 }

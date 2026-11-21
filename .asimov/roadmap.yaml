@@ -255,6 +255,13 @@ tier1:
   # Of the audit's T1-LINT-GATE, the scope.rs doc comment was fixed in
   # d335791 and the ten test sites (float_cmp, missing_const_for_fn) on
   # 2026-11-16; its release attestations (T1-SUPPLY-CHAIN) are in d335791.
+  # Not finite anywhere (2026-11-21): a model with `.nan`, `.inf` or `-.inf` is
+  # refused as it is read (src/parser/finite.rs, every file and command; a
+  # formula's stored value is skipped, as it is calculated again), a literal
+  # past the largest double is #NUM! (tokenizer), arithmetic that is not a
+  # number is #NUM! (operators), and an imported cell that is not finite is
+  # #NUM! (importer). Found while making test_nan_in_a_column_never_panics
+  # assert: MEDIAN counted a NaN, export wrote it as text, import as 0.
   # T1-NONFINITE is done (2026-11-16): every distribution argument, max - min
   # and the draws at both ends must be finite (distributions.rs,
   # src/monte_carlo/distributions.rs (its refused_everywhere tests)); it found T1-HUGE-STATS and T1-DISCRETE.
@@ -341,8 +348,9 @@ tier1:
   # example; forge audit had no story example's README, so the bagel README
   # shows it on year.profit (15 inputs and 2 data columns, asserted in
   # audit.rs). Still uncovered: forge watch (interactive, no example needed),
-  # LAMBDA and VLOOKUP (no story example uses them; the lowest-value gap),
-  # and a model that starts from a workbook (T1-EXAMPLE-EXCEL-ROUNDTRIP, open).
+  # LAMBDA and VLOOKUP (no story example uses them; the lowest-value gap).
+  # A model that starts from a workbook is examples/inherited-budget
+  # (T1-EXAMPLE-EXCEL-ROUNDTRIP, done 2026-11-21).
 
   # T1-VARY-INCLUDED is done (2026-11-18): tornado, goal-seek, break-even
   # and sensitivity find `@alias.name` in the included file (names.rs) and
@@ -434,12 +442,31 @@ tier1:
   # section 5, sixth round). The error is #NUM!:
   # ERROR.TYPE of Excel's XNPV is 6 (measured the same day).
 
-  - id: T1-EXAMPLE-EXCEL-ROUNDTRIP
-    title: "An example that starts from a messy workbook: import, audit, change, export"
-    run_with: "Opus 5.5, high effort: forge import has never met a realistic workbook, and judging what it should do with one takes care"
-    why: "Every example starts in YAML. forge import (src/cli/commands/excel_io/import.rs) and forge audit are tested on small cases only; rc.20 fixed two wrong answers in import (an empty cell imported as 0, a range read as the row's value), found by accident. The way many people would actually start is with a workbook they inherited"
-    how: "examples/inherited-budget/ with a .xlsx an FP&A analyst might inherit: a few sheets (assumptions, a monthly table, a summary), cross-sheet references, a named range, a hard-coded number where a formula should be, a merged header, a blank row inside a table, number formats. The workbook must not be written by forge export (that would check Forge against itself): write it with openpyxl or by hand in a spreadsheet, and record its calculated values from LibreOffice or Gnumeric (or Excel, when the maintainer has it at hand). Then: forge import, forge audit (the README says what it should flag, the hard-coded number at least), change one assumption with forge update or in the YAML, forge calculate, forge export, and recalculate the exported workbook outside Forge. Whatever import gets wrong or drops is the point of the item: each gets a failing test, then a fix or a written-down limit in docs"
-    acceptance: "The workbook and the script or steps that made it are in the example; forge import of it calculates to the spreadsheet's own values, asserted in inline tests; forge audit's findings on it are asserted; the exported workbook after the change recalculates outside Forge to Forge's numbers; each limit found is fixed or written down in the README and the docs"
+  # T1-EXAMPLE-EXCEL-ROUNDTRIP is done (2026-11-21): examples/inherited-budget,
+  # Kestrel Coffee Roasters' FY2027 budget, a workbook written by openpyxl
+  # (make_workbook.py) and calculated by LibreOffice 24.2, never by Forge:
+  # titles, merged headings, a blank row between the half-years, a total row,
+  # a named range, units and comments, and October's staff cost typed in.
+  # Before, forge import dropped every formula of it without a warning and read
+  # the numbers as text. What it found, each test-first:
+  #  - a wrong answer in any workbook: a range over part of a column
+  #    (SUM(A2:A3), a running total SUM($A$2:A5)) was read as the whole
+  #    column. Now imported as values with a warning (CHANGELOG Fixed), so the
+  #    two weeks before the stable release start again;
+  #  - a third column of a scalar sheet was read as an old Formula column;
+  #  - titles, merged headings, blank rows inside a table, a total row
+  #    (scalars `{table}_total`), sheets of labels and values with Unit and
+  #    Notes, headers that are not names, named ranges, and a column whose
+  #    formula changes once or has a number typed over it (one IF on ROW(),
+  #    with a warning) are now read (src/excel/importer/layout.rs, runs.rs).
+  # The import calculates to every number LibreOffice stored (inherited_budget
+  # in excel_io/mod.rs, and the MCP and REST import tests); forge audit follows
+  # net income to the typed 21,000; a pay rise to 22,500 with both flagged
+  # items put back gives 642,935.46; check_export.py has LibreOffice
+  # recalculate the export on load: 120 numbers, 0 different. What import
+  # still does not read is in the example's README and docs/FEATURES.md.
+  # Proposed, not built: forge audit could list numbers typed into formulas
+  # (the import names them today; audit shows them in the tree).
 
   # T1-INTERFACE-PARITY is done (2026-11-18): every one of the 20 MCP tools and
   # the 5 REST endpoints has an inline test that runs a story example and asserts
@@ -455,8 +482,9 @@ tier1:
   # Fixed). Over REST, export and import take file paths only, so their bagel
   # tests name files; the other three take the model as text. A failed operation
   # answers HTTP 200 with success: true and the flag false (docs/FEATURES.md says so).
-  # The new examples still to come (T1-EXAMPLE-EXCEL-ROUNDTRIP, examples/fund when
-  # it merges) get their matching tool's test when they land.
+  # The new examples still to come (examples/fund when it merges) get their
+  # matching tool's test when they land; examples/inherited-budget has its
+  # forge_import and /api/v1/import tests (2026-11-21).
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)

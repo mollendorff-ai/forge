@@ -13,17 +13,43 @@ pub(super) struct Sheet {
     pub(super) formulas: Option<Range<String>>,
     /// Each cell's style, for its number format (ADR-061)
     pub(super) styles: Option<calamine::StyleRange>,
+    /// The worksheet row (0-based) of each row of `values`: the rows in
+    /// order, unless `layout::tidy` took out titles, blank rows or a total
+    pub(super) rows: Vec<u32>,
+    /// A total row under a table (`layout::tidy`): its worksheet row and cells
+    pub(super) total: Option<(u32, Vec<Data>)>,
 }
 
 impl Sheet {
+    /// A worksheet as read, every row of its used range in place.
+    pub(super) fn new(
+        name: String,
+        values: Range<Data>,
+        formulas: Option<Range<String>>,
+        styles: Option<calamine::StyleRange>,
+    ) -> Self {
+        let (height, _) = values.get_size();
+        let r0 = values.start().map_or(0, |(r, _)| r);
+        let rows = (0..height)
+            .map(|row| r0.saturating_add(u32::try_from(row).unwrap_or(u32::MAX)))
+            .collect();
+        Self {
+            name,
+            values,
+            formulas,
+            styles,
+            rows,
+            total: None,
+        }
+    }
+
     /// The position in the worksheet of the cell at a 0-based `row` and `col`
     /// of the used range of values.
-    fn at(&self, row: usize, col: usize) -> (u32, u32) {
-        let (r0, c0) = self.values.start().unwrap_or((0, 0));
-        let offset = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
+    pub(super) fn at(&self, row: usize, col: usize) -> (u32, u32) {
+        let c0 = self.values.start().map_or(0, |(_, c)| c);
         (
-            r0.saturating_add(offset(row)),
-            c0.saturating_add(offset(col)),
+            self.rows.get(row).copied().unwrap_or(u32::MAX),
+            c0.saturating_add(u32::try_from(col).unwrap_or(u32::MAX)),
         )
     }
 
@@ -110,12 +136,17 @@ impl Sheet {
             || self
                 .header(2)
                 .is_some_and(|h| h.eq_ignore_ascii_case("formula"));
-        name && value && third
+        (name && value && third) || self.is_label_sheet()
     }
 
     /// Formula of the cell at a 0-based position relative to the value range.
     pub(super) fn formula(&self, row: usize, col: usize) -> Option<String> {
-        let f = self.formulas.as_ref()?.get_value(self.at(row, col))?;
+        self.formula_at(self.at(row, col))
+    }
+
+    /// Formula of the cell at a position in the worksheet.
+    pub(super) fn formula_at(&self, at: (u32, u32)) -> Option<String> {
+        let f = self.formulas.as_ref()?.get_value(at)?;
         if f.is_empty() {
             None
         } else if f.starts_with('=') {
@@ -127,15 +158,54 @@ impl Sheet {
 
     /// Excel row number (1-based) of a 0-based row in the value range.
     pub(super) fn excel_row(&self, row: usize) -> u32 {
-        let start = self.values.start().map_or(0, |(r, _)| r);
-        start + u32::try_from(row).unwrap_or(0) + 1
+        self.at(row, 0).0.saturating_add(1)
     }
 
     /// Excel column letter of a 0-based column in the value range.
+    /// The Excel rows of a table's data: every row below the header.
+    pub(super) fn data_rows(&self) -> Vec<u32> {
+        let (height, _) = self.values.get_size();
+        (1..height).map(|row| self.excel_row(row)).collect()
+    }
+
+    /// The Excel row of each column's last data cell with a value or a
+    /// formula in it, by column letter, for a column that ends above the
+    /// table's last row (a shorter column, ADR-059).
+    pub(super) fn column_ends(&self) -> std::collections::HashMap<String, u32> {
+        let (height, width) = self.values.get_size();
+        (0..width)
+            .filter_map(|col| {
+                let filled = |row: &usize| {
+                    self.formula(*row, col).is_some()
+                        || !matches!(self.values.get((*row, col)), None | Some(Data::Empty))
+                };
+                let last = (1..height).rev().find(filled)?;
+                (last + 1 < height).then(|| (self.letter(col), self.excel_row(last)))
+            })
+            .collect()
+    }
+
     pub(super) fn letter(&self, col: usize) -> String {
         let start = self.values.start().map_or(0, |(_, c)| c as usize);
         column_letter(start + col)
     }
+}
+
+/// The cells, with a number that is not finite (NaN or an infinity) as Excel's
+/// `#NUM!`. Excel never writes one, but a workbook an older Forge exported can
+/// hold a cached `NaN`, which was imported as `.nan`: now it is imported as an
+/// error cell is, and a model holds no number that is not finite.
+pub(super) fn finite_cells(mut values: Range<Data>) -> Range<Data> {
+    let (height, width) = values.get_size();
+    for row in 0..height {
+        for col in 0..width {
+            let cell = &mut values[(row, col)];
+            if number_of(cell).is_some_and(|n| !n.is_finite()) {
+                *cell = Data::Error(calamine::CellErrorType::Num);
+            }
+        }
+    }
+    values
 }
 
 /// What the cells of a column hold.
@@ -207,10 +277,35 @@ mod tests {
     /// The sheets of a workbook as the importer reads them
     fn read(mut book: Workbook) -> Vec<Sheet> {
         let bytes = book.save_to_buffer().unwrap();
-        ExcelImporter::sheets(Xlsx::new(Cursor::new(bytes)).unwrap())
+        ExcelImporter::sheets(Xlsx::new(Cursor::new(bytes)).unwrap()).0
     }
 
     /// A sheet built by hand: `cells` from A1, and no formulas or styles
+    /// A cell that holds NaN or an infinity, which only a workbook Forge
+    /// exported can, becomes Excel's #NUM!; every other cell is kept
+    #[test]
+    fn a_number_that_is_not_finite_is_num() {
+        let cells = [
+            Data::Float(f64::NAN),
+            Data::Float(f64::INFINITY),
+            Data::Float(1.5),
+            Data::String("NaN".to_string()),
+        ];
+        let sheet = by_hand(&[&cells]);
+        let num = Data::Error(calamine::CellErrorType::Num);
+        let finite = finite_cells(sheet.values);
+        let read: Vec<Data> = finite.cells().map(|(_, _, cell)| cell.clone()).collect();
+        assert_eq!(
+            read,
+            [
+                num.clone(),
+                num,
+                Data::Float(1.5),
+                Data::String("NaN".to_string())
+            ]
+        );
+    }
+
     fn by_hand(cells: &[&[Data]]) -> Sheet {
         let rows = u32::try_from(cells.len()).unwrap();
         let cols = u32::try_from(cells[0].len()).unwrap();
@@ -223,12 +318,7 @@ mod tests {
                 );
             }
         }
-        Sheet {
-            name: "hand".to_string(),
-            values,
-            formulas: None,
-            styles: None,
-        }
+        Sheet::new("hand".to_string(), values, None, None)
     }
 
     #[test]
