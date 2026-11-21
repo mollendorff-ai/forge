@@ -391,4 +391,42 @@ mod tests {
         h::is_exactly("DATEDIF(\"2020-01-31\", \"2020-03-01\", \"M\")", 1.0);
         h::is_exactly("DATEDIF(\"2020-01-30\", \"2021-01-01\", \"YM\")", 11.0);
     }
+
+    /// An error in an argument is passed on, text that is no date is
+    /// refused, and the start must not be after the end
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::{each_argument, fails_with};
+        each_argument(
+            "DATEDIF",
+            &[
+                ("\"2020-01-01\"", Some("Invalid date format")),
+                ("\"2021-06-01\"", Some("Invalid date format")),
+                ("\"D\"", None),
+            ],
+        );
+        fails_with(
+            "DATEDIF(\"2021-01-01\", \"2020-01-01\", \"D\")",
+            "#NUM!: DATEDIF: the start date is after the end date",
+        );
+    }
+
+    /// Before the anniversary a year is not complete, and the days since
+    /// the last anniversary or the last month's day count across the turn
+    /// of a year (`LibreOffice` Calc 24.2 gives each of these). From 29
+    /// February the anniversary in a year without one is 28 February, as in
+    /// Excel (`edge_excel_checks.yaml`), where `LibreOffice` takes 1 March
+    #[test]
+    fn anniversaries() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let datedif = |start: &str, end: &str, unit: &str| {
+            h::number(&format!("DATEDIF(\"{start}\", \"{end}\", \"{unit}\")"))
+        };
+        assert_exact!(datedif("2020-06-15", "2023-03-01", "Y"), 2.0);
+        assert_exact!(datedif("2022-12-20", "2023-01-05", "MD"), 16.0);
+        assert_exact!(datedif("2020-03-10", "2023-03-15", "YD"), 5.0);
+        assert_exact!(datedif("2020-06-15", "2023-03-01", "YD"), 259.0);
+        assert_exact!(datedif("2020-02-29", "2024-03-01", "YD"), 1.0);
+        assert_exact!(datedif("2020-02-29", "2023-03-01", "YD"), 1.0);
+    }
 }

@@ -334,4 +334,24 @@ mod tests {
             h::is_exactly("MOD(7, -3)", -2.0);
         }
     }
+
+    /// An error in any argument is passed on, and text where a number is
+    /// needed is refused; PI and E take no argument
+    #[test]
+    fn each_argument_is_checked() {
+        use super::super::super::tests::{each_argument, fails_with};
+        for (name, message) in [
+            ("ABS", "ABS requires a number"),
+            ("SQRT", "SQRT requires a number"),
+            ("SIGN", "SIGN requires a number"),
+        ] {
+            each_argument(name, &[("4", Some(message))]);
+        }
+        for name in ["MOD", "POWER", "POW"] {
+            let message = format!("{name} requires numbers");
+            each_argument(name, &[("7", Some(&message)), ("2", Some(&message))]);
+        }
+        fails_with("PI(1)", "PI requires 0 argument(s), got 1");
+        fails_with("E(1)", "E requires 0 argument(s), got 1");
+    }
 }

@@ -119,13 +119,12 @@ mod tests {
         );
         let model_result = result.unwrap();
         let table = model_result.tables.get("data").unwrap();
-        if let Some(col) = table.columns.get("chosen") {
-            let vals = col.values.numbers().unwrap();
-            let vals = vals.as_ref();
-            assert_exact!(vals[0], 10.0);
-            assert_exact!(vals[1], 20.0);
-            assert_exact!(vals[2], 30.0);
-        }
+        let col = table.columns.get("chosen").unwrap();
+        let vals = col.values.numbers().unwrap();
+        let vals = vals.as_ref();
+        assert_exact!(vals[0], 10.0);
+        assert_exact!(vals[1], 20.0);
+        assert_exact!(vals[2], 30.0);
     }
 
     #[test]

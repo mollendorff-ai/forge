@@ -241,14 +241,10 @@ mod tests {
         let result_table = result.tables.get("sales").unwrap();
 
         let product_name = result_table.columns.get("product_name").unwrap();
-        match &product_name.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "Widget B");
-                assert_eq!(texts[1], "Widget C");
-                assert_eq!(texts[2], "Widget A");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = product_name.values.texts().unwrap();
+        assert_eq!(texts[0], "Widget B");
+        assert_eq!(texts[1], "Widget C");
+        assert_eq!(texts[2], "Widget A");
     }
 
     #[test]
@@ -289,14 +285,10 @@ mod tests {
         let result_table = result.tables.get("sales").unwrap();
 
         let product_name = result_table.columns.get("product_name").unwrap();
-        match &product_name.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "Widget B");
-                assert_eq!(texts[1], "Not Found");
-                assert_eq!(texts[2], "Widget A");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = product_name.values.texts().unwrap();
+        assert_eq!(texts[0], "Widget B");
+        assert_eq!(texts[1], "Not Found");
+        assert_eq!(texts[2], "Widget A");
     }
 
     /// A whole table is not a value in Forge: VLOOKUP over one is refused by
@@ -394,11 +386,10 @@ mod tests {
         assert!(result.is_ok());
         let model = result.unwrap();
         let table = model.tables.get("data").unwrap();
-        if let Some(col) = table.columns.get("emp_salary") {
-            let vals = col.values.numbers().unwrap();
-            let vals = vals.as_ref();
-            assert_exact!(vals[0], 60000.0);
-        }
+        let col = table.columns.get("emp_salary").unwrap();
+        let vals = col.values.numbers().unwrap();
+        let vals = vals.as_ref();
+        assert_exact!(vals[0], 60000.0);
     }
 
     #[test]
@@ -432,11 +423,10 @@ mod tests {
         assert!(result.is_ok());
         let model = result.unwrap();
         let table = model.tables.get("data").unwrap();
-        if let Some(col) = table.columns.get("emp_salary") {
-            let vals = col.values.numbers().unwrap();
-            let vals = vals.as_ref();
-            assert_exact!(vals[0], -1.0);
-        }
+        let col = table.columns.get("emp_salary").unwrap();
+        let vals = col.values.numbers().unwrap();
+        let vals = vals.as_ref();
+        assert_exact!(vals[0], -1.0);
     }
 
     #[test]
@@ -774,5 +764,54 @@ mod tests {
             h::error_in("HLOOKUP(1, t.v, \"x\")", &ctx).contains("row_index must be a number"),
             "HLOOKUP(1, t.v, \"x\")"
         );
+    }
+
+    /// An error in any argument is passed on, text for VLOOKUP's and
+    /// HLOOKUP's index is refused, and what is looked in and returned from
+    /// must be arrays of one length
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::{each_argument, fails_with};
+        each_argument(
+            "XLOOKUP",
+            &[
+                ("2", None),
+                ("{1, 2, 3}", None),
+                ("{10, 20, 30}", None),
+                ("0", None),
+                ("0", None),
+                ("1", None),
+            ],
+        );
+        for name in ["VLOOKUP", "HLOOKUP"] {
+            let index = if name == "VLOOKUP" {
+                "col_index"
+            } else {
+                "row_index"
+            };
+            let message = format!("#VALUE!: {name}: {index} must be a number");
+            each_argument(
+                name,
+                &[
+                    ("2", None),
+                    ("{1, 2, 3}", None),
+                    ("1", Some(&message)),
+                    ("FALSE", None),
+                ],
+            );
+        }
+        fails_with(
+            "XLOOKUP(1, 5, {1})",
+            "XLOOKUP lookup_array must be an array",
+        );
+        fails_with(
+            "XLOOKUP(1, {1}, 5)",
+            "XLOOKUP return_array must be an array",
+        );
+        fails_with(
+            "XLOOKUP(1, {1, 2}, {1})",
+            "XLOOKUP: lookup_array (2) and return_array (1) must have same length",
+        );
+        fails_with("XLOOKUP(1, {1}, {1}, 0, 5)", "XLOOKUP");
     }
 }

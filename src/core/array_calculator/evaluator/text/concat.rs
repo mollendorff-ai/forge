@@ -105,14 +105,10 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let combined = result_table.columns.get("combined").unwrap();
-        match &combined.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "Hello World");
-                assert_eq!(texts[1], "Good Day");
-                assert_eq!(texts[2], "Nice Work");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = combined.values.texts().unwrap();
+        assert_eq!(texts[0], "Hello World");
+        assert_eq!(texts[1], "Good Day");
+        assert_eq!(texts[2], "Nice Work");
     }
 
     #[test]
@@ -491,5 +487,26 @@ mod tests {
             assert_eq!(h::sweep_text("CONCAT(1E+20)"), "1E+20");
             assert_exact!(h::sweep_number("LEN(2 / 3)"), 17.0);
         }
+    }
+
+    /// An error in any argument is passed on; REPT refuses a text longer
+    /// than Excel holds; TEXTJOIN reads a number as its ignore-empty flag
+    #[test]
+    fn errors_lengths_and_flags() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        for formula in [
+            "CONCAT(nope)",
+            "REPT(nope, 2)",
+            "TEXTJOIN(nope, TRUE, \"a\")",
+            "TEXTJOIN(\",\", nope, \"a\")",
+            "TEXTJOIN(\",\", TRUE, nope)",
+        ] {
+            h::fails_with(formula, "Unknown variable: nope");
+        }
+        h::fails_with(
+            "REPT(\"ab\", 20000)",
+            "#VALUE!: REPT: the result would be longer than 32,767 characters",
+        );
+        assert_eq!(h::text("TEXTJOIN(\",\", 1, \"a\", \"\", \"b\")"), "a,b");
     }
 }

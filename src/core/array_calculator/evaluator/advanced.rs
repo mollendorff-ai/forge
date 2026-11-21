@@ -900,4 +900,25 @@ mod edge_case_tests {
         assert!(h::error_in("PREV(t.x, 0, 1.5)", &ctx).contains("whole number"));
         assert!(h::error_in("PREV(t.x, 0, 1E+10)", &ctx).contains("whole number"));
     }
+
+    /// A LAMBDA's parameters and a LET's names must be names; an error in
+    /// any part of LET or SWITCH is passed on; SWITCH with no match and no
+    /// default is #N/A
+    #[test]
+    fn names_errors_and_no_match() {
+        use crate::core::array_calculator::evaluator::tests::fails_with;
+        fails_with("LAMBDA(1, 2)", "LAMBDA parameter 1 must be an identifier");
+        fails_with("LET(1, 2, 3)", "LET variable name must be an identifier");
+        for formula in [
+            "LET(x, nope, x)",
+            "LET(x, 1, nope)",
+            "SWITCH(nope, 1, 2)",
+            "SWITCH(1, nope, 2)",
+            "SWITCH(1, 1, nope)",
+            "SWITCH(1, 2, 3, nope)",
+        ] {
+            fails_with(formula, "Unknown variable: nope");
+        }
+        fails_with("SWITCH(1, 2, 3)", "#N/A: SWITCH: no match found");
+    }
 }

@@ -89,14 +89,10 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let length = result_table.columns.get("length").unwrap();
-        match &length.values {
-            ColumnValue::Number(nums) => {
-                assert_exact!(nums[0], 5.0);
-                assert_exact!(nums[1], 2.0);
-                assert_exact!(nums[2], 7.0);
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = length.values.numbers().unwrap();
+        assert_exact!(nums[0], 5.0);
+        assert_exact!(nums[1], 2.0);
+        assert_exact!(nums[2], 7.0);
     }
 
     #[test]
@@ -123,24 +119,16 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let mid_2_3 = result_table.columns.get("mid_2_3").unwrap();
-        match &mid_2_3.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "ell");
-                assert_eq!(texts[1], "orl");
-                assert_eq!(texts[2], "est");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = mid_2_3.values.texts().unwrap();
+        assert_eq!(texts[0], "ell");
+        assert_eq!(texts[1], "orl");
+        assert_eq!(texts[2], "est");
 
         let mid_1_2 = result_table.columns.get("mid_1_2").unwrap();
-        match &mid_1_2.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "he");
-                assert_eq!(texts[1], "wo");
-                assert_eq!(texts[2], "te");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = mid_1_2.values.texts().unwrap();
+        assert_eq!(texts[0], "he");
+        assert_eq!(texts[1], "wo");
+        assert_eq!(texts[2], "te");
     }
 
     #[test]

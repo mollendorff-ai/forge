@@ -572,6 +572,93 @@ mod tests {
     /// Excel. Each result here is what Gnumeric and `LibreOffice` give for the
     /// exported formula over a real date (forge-e2e-gnumeric,
     /// `edge_real_dates.yaml`).
+    /// What is not a number on either side of an arithmetic or comparing
+    /// operator, or after a minus, is refused; an operator the parser does
+    /// not make is unknown; and the last `+` of a cell passes an error on
+    #[test]
+    fn operands_that_are_not_numbers() {
+        let refused = |formula: &str| eval(formula, &EvalContext::new()).unwrap_err().message;
+        for op in ["-", "*", "/", "^", "<"] {
+            assert_eq!(
+                refused(&format!("\"x\" {op} 1")),
+                "Left operand must be a number",
+                "{op}"
+            );
+            assert_eq!(
+                refused(&format!("1 {op} \"x\"")),
+                "Right operand must be a number",
+                "{op}"
+            );
+        }
+        assert_eq!(refused("-\"x\""), "Operand must be a number");
+        let one = Value::Number(1.0);
+        assert_eq!(
+            evaluate_binary_op("%", &one, &one).unwrap_err().message,
+            "Unknown operator: %"
+        );
+        assert_eq!(
+            evaluate_unary_op("+", &one).unwrap_err().message,
+            "Unknown unary operator: +"
+        );
+        assert_eq!(
+            evaluate_final_op("+", &Value::Text("x".into()), &one)
+                .unwrap_err()
+                .message,
+            "#VALUE!: + adds numbers; use & or CONCAT to join text"
+        );
+    }
+
+    /// An array of one value on the left applies to each value on the right
+    #[test]
+    fn one_value_on_the_left_applies_to_each_on_the_right() {
+        let numbers = |values: &[f64]| {
+            Value::Array(
+                values
+                    .iter()
+                    .map(|v| Value::Number(*v))
+                    .collect::<Vec<_>>()
+                    .into(),
+            )
+        };
+        assert_eq!(
+            eval("{5} + {1, 2}", &EvalContext::new()),
+            Ok(numbers(&[6.0, 7.0]))
+        );
+    }
+
+    /// An empty cell equals empty text and another empty cell
+    #[test]
+    fn an_empty_cell_equals_empty_text_and_itself() {
+        use crate::core::array_calculator::evaluator::tests::empty_cells;
+        let ctx = empty_cells();
+        assert_eq!(eval("blank = \"\"", &ctx), Ok(Value::Boolean(true)));
+        assert_eq!(
+            eval("SWITCH(blank, blank, 1, 2)", &ctx),
+            Ok(Value::Number(1.0))
+        );
+    }
+
+    /// SWITCH compares as `=` does: TRUE with TRUE, arrays of the same
+    /// length element by element, and an array of one value as that value
+    #[test]
+    fn switch_compares_as_equals_does() {
+        let ctx = EvalContext::new();
+        for (formula, expected) in [
+            ("SWITCH(TRUE, TRUE, 1, 2)", 1.0),
+            ("SWITCH({1, 2}, {1, 2}, 1, 2)", 1.0),
+            ("SWITCH({1, 2}, {1, 3}, 1, 2)", 2.0),
+            ("SWITCH({1, 2}, {1, 2, 3}, 1, 2)", 2.0),
+            ("SWITCH({1}, 1, 1, 2)", 1.0),
+            ("SWITCH(1, {1}, 1, 2)", 1.0),
+        ] {
+            assert_eq!(
+                eval(formula, &ctx),
+                Ok(Value::Number(expected)),
+                "{formula}"
+            );
+        }
+    }
+
     mod dates_as_dates {
         use crate::core::array_calculator::evaluator::tests as h;
         use crate::core::array_calculator::evaluator::EvalContext;

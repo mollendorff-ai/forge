@@ -114,10 +114,6 @@ fn eval_percentile_etc(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<V
         return Err(EvalError::new("PERCENTILE k must be between 0 and 1"));
     }
     values.sort_by(f64::total_cmp);
-    let n = values.len();
-    if n == 1 {
-        return Ok(Value::Number(values[0]));
-    }
     Ok(Value::Number(inclusive(&values, k)))
 }
 
@@ -137,10 +133,6 @@ fn eval_quartile_etc(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
     }
     values.sort_by(f64::total_cmp);
     let k = quart / 4.0;
-    let n = values.len();
-    if n == 1 {
-        return Ok(Value::Number(values[0]));
-    }
     Ok(Value::Number(inclusive(&values, k)))
 }
 
@@ -709,5 +701,95 @@ mod tests {
             h::error_in("RANK(2, t.v, 1/0)", &ctx).contains(""),
             "RANK(2, t.v, 1/0)"
         );
+    }
+
+    /// An error in an argument is passed on, and text where a number is
+    /// needed is refused
+    #[test]
+    fn each_argument_is_checked() {
+        use super::super::tests::each_argument;
+        let flows = "{1, 2, 3, 5}";
+        for name in ["VAR", "VAR.P", "STDEV", "STDEV.P", "MODE", "GEOMEAN"] {
+            each_argument(name, &[("{1, 2, 2, 5}", None)]);
+        }
+        each_argument(
+            "PERCENTILE",
+            &[
+                (flows, None),
+                ("0.3", Some("PERCENTILE k must be a number")),
+            ],
+        );
+        each_argument(
+            "QUARTILE",
+            &[
+                (flows, None),
+                ("1", Some("QUARTILE quart must be a number")),
+            ],
+        );
+        each_argument(
+            "PERCENTILE.EXC",
+            &[
+                (flows, None),
+                (
+                    "0.3",
+                    Some("PERCENTILE.EXC: the second argument must be a number"),
+                ),
+            ],
+        );
+        each_argument("CORREL", &[(flows, None), ("{2, 4, 5, 9}", None)]);
+        each_argument(
+            "LARGE",
+            &[(flows, None), ("2", Some("LARGE: k must be a number"))],
+        );
+        each_argument(
+            "SMALL",
+            &[(flows, None), ("2", Some("SMALL: k must be a number"))],
+        );
+        each_argument(
+            "RANK",
+            &[
+                ("2", Some("RANK: number must be a number")),
+                (flows, None),
+                ("0", None),
+            ],
+        );
+    }
+
+    /// No numbers to take a percentile, quartile, rank or correlation of,
+    /// and a percentile outside 0 to 1, are refused
+    #[test]
+    fn statistics_of_nothing_are_refused() {
+        use super::super::tests::fails_with;
+        let none = "{\"a\", \"b\"}";
+        fails_with(
+            &format!("PERCENTILE({none}, 0.5)"),
+            "PERCENTILE of empty set",
+        );
+        fails_with(&format!("QUARTILE({none}, 1)"), "QUARTILE of empty set");
+        fails_with(
+            &format!("PERCENTILE.EXC({none}, 0.5)"),
+            "PERCENTILE.EXC of empty set",
+        );
+        fails_with(&format!("LARGE({none}, 1)"), "LARGE: array is empty");
+        fails_with(&format!("SMALL({none}, 1)"), "SMALL: array is empty");
+        fails_with(&format!("RANK(1, {none})"), "RANK: array is empty");
+        fails_with(
+            "PERCENTILE({1, 2}, 1.5)",
+            "PERCENTILE k must be between 0 and 1",
+        );
+        fails_with(
+            "CORREL({1}, {2})",
+            "CORREL requires two arrays of equal length >= 2",
+        );
+        fails_with("CORREL({1, 1}, {1, 2})", "CORREL: zero variance");
+    }
+
+    /// The percentile or quartile of one value is that value (`LibreOffice`
+    /// 24.2: PERCENTILE({5}; 0.3) and QUARTILE({5}; 1) are 5)
+    #[test]
+    fn one_value_is_every_percentile() {
+        use super::super::tests::is_exactly;
+        is_exactly("PERCENTILE({5}, 0.3)", 5.0);
+        is_exactly("QUARTILE({5}, 1)", 5.0);
     }
 }

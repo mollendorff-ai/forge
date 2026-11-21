@@ -842,7 +842,7 @@ mod tests {
         );
     }
 
-    /// Each argument of `name(args)`, a call that gives a number: an unknown
+    /// Each argument of `name(args)`, a call that gives an answer: an unknown
     /// name in its place is reported as unknown, the error passed on as it
     /// is, and where the argument has a message, text in its place is
     /// refused with an error that starts with that message
@@ -855,10 +855,7 @@ mod tests {
             format!("{name}({})", given.join(", "))
         };
         let whole = call(usize::MAX, "");
-        assert!(
-            matches!(eval(&whole, &EvalContext::new()), Ok(Value::Number(_))),
-            "{whole} gives no number"
-        );
+        assert!(eval(&whole, &EvalContext::new()).is_ok(), "{whole} fails");
         for (at, (_, refused)) in (0..).zip(args) {
             let unknown = call(at, "nope");
             assert_eq!(

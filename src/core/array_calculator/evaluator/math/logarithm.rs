@@ -199,4 +199,25 @@ mod tests {
         assert!((result.scalars.get("lne").unwrap().value.unwrap() - 1.0).abs() < 0.01);
         assert!((result.scalars.get("log1000").unwrap().value.unwrap() - 3.0).abs() < 0.001);
     }
+
+    /// An error in any argument is passed on, and text where a number is
+    /// needed is refused
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        for (name, message) in [
+            ("EXP", "EXP requires a number"),
+            ("LN", "LN requires a number"),
+            ("LOG10", "LOG10 requires a number"),
+        ] {
+            each_argument(name, &[("2", Some(message))]);
+        }
+        each_argument(
+            "LOG",
+            &[
+                ("8", Some("LOG requires a number")),
+                ("2", Some("LOG base must be a number")),
+            ],
+        );
+    }
 }

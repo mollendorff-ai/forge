@@ -54,14 +54,10 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let upper = result_table.columns.get("upper").unwrap();
-        match &upper.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "HELLO");
-                assert_eq!(texts[1], "WORLD");
-                assert_eq!(texts[2], "TEST");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = upper.values.texts().unwrap();
+        assert_eq!(texts[0], "HELLO");
+        assert_eq!(texts[1], "WORLD");
+        assert_eq!(texts[2], "TEST");
     }
 
     #[test]
@@ -87,14 +83,10 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let lower = result_table.columns.get("lower").unwrap();
-        match &lower.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "hello");
-                assert_eq!(texts[1], "world");
-                assert_eq!(texts[2], "test");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = lower.values.texts().unwrap();
+        assert_eq!(texts[0], "hello");
+        assert_eq!(texts[1], "world");
+        assert_eq!(texts[2], "test");
     }
 
     #[test]
@@ -120,14 +112,10 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let trimmed = result_table.columns.get("trimmed").unwrap();
-        match &trimmed.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "Hello");
-                assert_eq!(texts[1], "World");
-                assert_eq!(texts[2], "Test");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = trimmed.values.texts().unwrap();
+        assert_eq!(texts[0], "Hello");
+        assert_eq!(texts[1], "World");
+        assert_eq!(texts[2], "Test");
     }
 
     #[test]
@@ -149,13 +137,9 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let processed = result_table.columns.get("processed").unwrap();
-        match &processed.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "HELLO");
-                assert_eq!(texts[1], "WORLD");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = processed.values.texts().unwrap();
+        assert_eq!(texts[0], "HELLO");
+        assert_eq!(texts[1], "WORLD");
     }
 
     #[test]
@@ -555,23 +539,15 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let rounded = result_table.columns.get("rounded").unwrap();
-        match &rounded.values {
-            ColumnValue::Number(nums) => {
-                assert_exact!(nums[0], 1.2);
-                assert_exact!(nums[1], 5.7);
-                assert_exact!(nums[2], 9.0);
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = rounded.values.numbers().unwrap();
+        assert_exact!(nums[0], 1.2);
+        assert_exact!(nums[1], 5.7);
+        assert_exact!(nums[2], 9.0);
 
         let upper_labels = result_table.columns.get("upper_labels").unwrap();
-        match &upper_labels.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "ITEM");
-                assert_eq!(texts[1], "DATA");
-                assert_eq!(texts[2], "TEST");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = upper_labels.values.texts().unwrap();
+        assert_eq!(texts[0], "ITEM");
+        assert_eq!(texts[1], "DATA");
+        assert_eq!(texts[2], "TEST");
     }
 }

@@ -106,7 +106,11 @@ fn read_number(text: &str) -> Option<f64> {
     let whole = whole.replace(',', "");
     let whole = if whole.is_empty() { "0" } else { &whole };
     let fraction = if fraction.is_empty() { "0" } else { fraction };
-    let mut n: f64 = format!("{whole}.{fraction}e{exponent}").parse().ok()?;
+    // Digits, a point, digits and a whole exponent: always a number's text
+    // (were it not, NaN, which is refused below)
+    let mut n: f64 = format!("{whole}.{fraction}e{exponent}")
+        .parse()
+        .unwrap_or(f64::NAN);
     if percent {
         n /= 100.0;
     }
@@ -335,6 +339,57 @@ mod tests {
             for bad in ["inf", "nan", "1,2,3", "", "TRUE", "1.2.3"] {
                 h::sweep_fails(&format!("VALUE(\"{bad}\")"), "#VALUE!");
             }
+        }
+    }
+
+    /// An error in an argument is passed on
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        each_argument("TEXT", &[("1", None), ("\"0\"", None)]);
+        each_argument("VALUE", &[("\"5\"", None)]);
+    }
+
+    /// An array of one value is that value, and an empty cell is 0, to TEXT
+    /// and to VALUE; a number is itself to VALUE
+    #[test]
+    fn one_value_an_empty_cell_and_a_number() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert_eq!(h::text("TEXT({5}, \"0\")"), "5");
+        let ctx = h::empty_cells();
+        assert_eq!(h::text_in("TEXT(blank, \"0\")", &ctx), "0");
+        h::is_exactly_in("VALUE(blank)", &ctx, 0.0);
+        h::is_exactly("VALUE(5)", 5.0);
+    }
+
+    /// Signs, points, exponents and times VALUE reads, and the ones it
+    /// refuses as #VALUE!
+    #[test]
+    fn value_reads_and_refuses() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("VALUE(\"+5\")", 5.0);
+        h::is_exactly("VALUE(\".5\")", 0.5);
+        h::is_exactly("VALUE(\"1e5\")", 100_000.0);
+        assert!(h::near(
+            h::number("VALUE(\"12:30:15.5\")"),
+            45_015.5 / 86_400.0
+        ));
+        for text in [
+            "--5",
+            "(-5)",
+            ".",
+            "1e",
+            "1ex",
+            "1e99999999999",
+            ".:30",
+            "1:.",
+            "1:30:.",
+            "1:60",
+        ] {
+            h::fails_with(
+                &format!("VALUE(\"{text}\")"),
+                &format!("#VALUE!: VALUE: '{text}' is not a number"),
+            );
         }
     }
 }

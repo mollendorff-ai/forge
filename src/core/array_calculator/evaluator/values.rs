@@ -125,14 +125,15 @@ mod tests {
 
         #[test]
         fn a_number_as_text_rounds_its_shortest_form() {
-            match h::eval("CONCAT(-985667.1985084685)", &EvalContext::new()).unwrap() {
-                Value::Text(t) => assert_eq!(t, "-985667.198508469"),
-                other => panic!("{other:?}"),
-            }
-            match h::eval("CONCAT(9.99999999999999999)", &EvalContext::new()).unwrap() {
-                Value::Text(t) => assert_eq!(t, "10"),
-                other => panic!("{other:?}"),
-            }
+            let ctx = EvalContext::new();
+            assert_eq!(
+                h::eval("CONCAT(-985667.1985084685)", &ctx),
+                Ok(Value::Text("-985667.198508469".to_string()))
+            );
+            assert_eq!(
+                h::eval("CONCAT(9.99999999999999999)", &ctx),
+                Ok(Value::Text("10".to_string()))
+            );
         }
     }
 
@@ -147,5 +148,32 @@ mod tests {
         );
         assert_eq!(super::number_text(-123.0), "-123");
         assert_eq!(super::number_text(-0.0), "0");
+    }
+
+    /// A number that is not finite is written as Rust writes it; fifteen
+    /// nines and more round up to the next power of ten; a large number
+    /// with a fraction is written in the E form, and one of fifteen digits
+    /// in full
+    #[test]
+    fn number_text_at_its_edges() {
+        use super::number_text;
+        assert_eq!(number_text(f64::INFINITY), "inf");
+        assert_eq!(number_text(f64::NAN), "NaN");
+        assert_eq!(number_text(0.999_999_999_999_999_9), "1");
+        assert_eq!(number_text(1.5e20), "1.5E+20");
+        assert_eq!(number_text(123_456_789_012_345.67), "123456789012346");
+    }
+
+    /// Pairs are left out where either side is not a number, and an error
+    /// in either range is passed on
+    #[test]
+    fn pairs_of_numbers() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert!(h::near(
+            h::number("CORREL({1, \"a\", 3, 5}, {2, 4, \"b\", 9})"),
+            1.0
+        ));
+        h::fails_with("CORREL(nope, {1, 2})", "Unknown variable: nope");
+        h::fails_with("CORREL({1, 2}, nope)", "Unknown variable: nope");
     }
 }

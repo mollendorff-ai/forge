@@ -426,11 +426,10 @@ mod tests {
         assert!(result.is_ok());
         let model = result.unwrap();
         let table = model.tables.get("data").unwrap();
-        if let Some(col) = table.columns.get("position") {
-            let vals = col.values.numbers().unwrap();
-            let vals = vals.as_ref();
-            assert_exact!(vals[0], 2.0);
-        }
+        let col = table.columns.get("position").unwrap();
+        let vals = col.values.numbers().unwrap();
+        let vals = vals.as_ref();
+        assert_exact!(vals[0], 2.0);
     }
 
     #[test]
@@ -487,11 +486,10 @@ mod tests {
         assert!(result.is_ok());
         let model = result.unwrap();
         let table = model.tables.get("data").unwrap();
-        if let Some(col) = table.columns.get("position") {
-            let vals = col.values.numbers().unwrap();
-            let vals = vals.as_ref();
-            assert_exact!(vals[0], 2.0);
-        }
+        let col = table.columns.get("position").unwrap();
+        let vals = col.values.numbers().unwrap();
+        let vals = vals.as_ref();
+        assert_exact!(vals[0], 2.0);
     }
 
     #[test]
@@ -521,11 +519,10 @@ mod tests {
         assert!(result.is_ok());
         let model = result.unwrap();
         let table = model.tables.get("data").unwrap();
-        if let Some(col) = table.columns.get("position") {
-            let vals = col.values.numbers().unwrap();
-            let vals = vals.as_ref();
-            assert_exact!(vals[0], 2.0);
-        }
+        let col = table.columns.get("position").unwrap();
+        let vals = col.values.numbers().unwrap();
+        let vals = vals.as_ref();
+        assert_exact!(vals[0], 2.0);
     }
 
     #[test]
@@ -552,9 +549,11 @@ mod tests {
         model.add_table(data);
 
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
-        let ColumnValue::Number(vals) = &result.tables["data"].columns["position"].values else {
-            panic!("position is not a column of numbers");
-        };
+        let vals = result.tables["data"].columns["position"]
+            .values
+            .numbers()
+            .unwrap();
+        let vals = vals.as_ref();
         // 15 is past 10 and before 20: position 1
         assert_eq!(vals, &vec![1.0]);
     }
@@ -806,5 +805,41 @@ mod tests {
         assert!(h::error_in("XMATCH(20, t.v, 1E+20)", &ctx).contains("match_mode"));
         assert!(h::error_in("XMATCH(20, t.v, 0, 1E+20)", &ctx).contains("search_mode"));
         assert!(h::error_in("XMATCH(20, t.v, 0, 0.5)", &ctx).contains("not 0.5"));
+    }
+
+    /// An error in any argument is passed on; what is looked in must be an
+    /// array
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::{each_argument, fails_with};
+        each_argument("MATCH", &[("3", None), ("{1, 3, 5}", None), ("0", None)]);
+        each_argument(
+            "XMATCH",
+            &[("3", None), ("{1, 3, 5}", None), ("0", None), ("1", None)],
+        );
+        fails_with("MATCH(1, 5)", "MATCH requires an array");
+        fails_with("XMATCH(1, 5)", "XMATCH requires an array");
+    }
+
+    /// MATCH's type is 1 when it is not given; TRUE and FALSE are matched
+    /// among themselves, and an empty cell takes no part
+    #[test]
+    fn match_types_and_kinds() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("MATCH(3, {1, 3, 5})", 2.0);
+        h::is_exactly("MATCH(4, {1, 3, 5})", 2.0);
+        h::is_exactly("MATCH(TRUE, {FALSE, TRUE}, 1)", 2.0);
+        let ctx = h::table(&[(
+            "x",
+            vec![Value::Number(10.0), Value::Null, Value::Number(30.0)],
+        )]);
+        h::is_exactly_in("MATCH(30, t.x, 1)", &ctx, 3.0);
+    }
+
+    /// XMATCH's next larger number passes over what is not a number
+    #[test]
+    fn xmatch_next_larger_passes_over_text() {
+        use crate::core::array_calculator::evaluator::tests::is_exactly;
+        is_exactly("XMATCH(4, {1, \"a\", 5}, 1)", 3.0);
     }
 }
