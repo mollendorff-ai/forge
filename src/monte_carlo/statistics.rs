@@ -122,42 +122,11 @@ impl Statistics {
     pub fn percentile(&self, p: u8) -> Option<f64> {
         self.percentiles.get(&p).copied()
     }
-
-    /// Calculate probability of exceeding a threshold
-    #[must_use]
-    pub fn probability_greater_than(&self, samples: &[f64], threshold: f64) -> f64 {
-        if samples.is_empty() {
-            return 0.0;
-        }
-        let count = samples.iter().filter(|&&x| x > threshold).count();
-        precision::count(count) / precision::count(samples.len())
-    }
-
-    /// Calculate probability of being less than a threshold
-    #[must_use]
-    pub fn probability_less_than(&self, samples: &[f64], threshold: f64) -> f64 {
-        if samples.is_empty() {
-            return 0.0;
-        }
-        let count = samples.iter().filter(|&&x| x < threshold).count();
-        precision::count(count) / precision::count(samples.len())
-    }
-
-    /// Get specific percentiles by list
-    #[must_use]
-    pub fn get_percentiles(&self, percentile_list: &[u8]) -> BTreeMap<u8, f64> {
-        percentile_list
-            .iter()
-            .filter_map(|&p| self.percentiles.get(&p).map(|v| (p, *v)))
-            .collect()
-    }
 }
 
-/// Calculate percentile from sorted array (linear interpolation)
+/// Calculate percentile from sorted array (linear interpolation). Both
+/// callers return early for no samples, so `sorted` has at least one.
 fn percentile_sorted(sorted: &[f64], p: f64) -> f64 {
-    if sorted.is_empty() {
-        return 0.0;
-    }
     if sorted.len() == 1 {
         return sorted[0];
     }
@@ -256,18 +225,6 @@ impl Histogram {
             counts,
             frequencies,
         }
-    }
-
-    /// Get bin centers for plotting
-    #[must_use]
-    pub fn bin_centers(&self) -> Vec<f64> {
-        if self.bin_edges.len() < 2 {
-            return vec![];
-        }
-        self.bin_edges
-            .windows(2)
-            .map(|w| f64::midpoint(w[0], w[1]))
-            .collect()
     }
 }
 
@@ -370,22 +327,6 @@ mod tests {
         assert!((p90 - 90.0).abs() < 2.0);
     }
 
-    // p_gt_50/p_lt_25 — standard probability notation (P(X>t), P(X<t))
-    #[allow(clippy::similar_names)]
-    #[test]
-    fn test_probability_threshold() {
-        let samples: Vec<f64> = (1..=100).map(f64::from).collect();
-        let stats = Statistics::from_samples(&samples);
-
-        // P(X > 50) should be approximately 0.5
-        let p_gt_50 = stats.probability_greater_than(&samples, 50.0);
-        assert!((p_gt_50 - 0.5).abs() < 0.01);
-
-        // P(X < 25) should be approximately 0.24
-        let p_lt_25 = stats.probability_less_than(&samples, 25.0);
-        assert!((p_lt_25 - 0.24).abs() < 0.01);
-    }
-
     #[test]
     fn test_histogram() {
         let samples: Vec<f64> = (0..100).map(f64::from).collect();
@@ -419,6 +360,10 @@ mod tests {
         assert_exact!(val, -50.5);
 
         assert!(parse_threshold("invalid").is_err());
+        assert_eq!(
+            parse_threshold("> ten"),
+            Err("Invalid threshold value: ten".to_string())
+        );
     }
 
     #[test]
@@ -429,6 +374,40 @@ mod tests {
         assert_exact!(evaluate_threshold(&samples, ">=", 3.0), 0.6); // 3, 4, 5
         assert_exact!(evaluate_threshold(&samples, "<", 3.0), 0.4); // 1, 2
         assert_exact!(evaluate_threshold(&samples, "<=", 3.0), 0.6); // 1, 2, 3
+        assert_exact!(evaluate_threshold(&samples, "=", 3.0), 0.2); // 3
+        assert_exact!(evaluate_threshold(&samples, "=", 3.000_000_000_01), 0.2); // within 1e-10
+        assert_exact!(evaluate_threshold(&samples, "=", 3.1), 0.0);
+        // An operator parse_threshold does not give counts nothing
+        assert_exact!(evaluate_threshold(&samples, "!=", 3.0), 0.0);
+        // No samples: no probability
+        assert_exact!(evaluate_threshold(&[], ">", 3.0), 0.0);
+    }
+
+    /// No samples, or no bins, give an empty histogram; samples all equal
+    /// give one bin from half below to half above them.
+    #[test]
+    fn a_histogram_of_nothing_is_empty_and_of_one_value_is_a_unit_wide() {
+        for (samples, bins) in [(&[][..], 10), (&[1.0, 2.0][..], 0)] {
+            let hist = Histogram::from_samples(samples, bins);
+            assert_eq!(
+                (hist.bin_edges, hist.counts, hist.frequencies),
+                (vec![], vec![], vec![])
+            );
+        }
+        let hist = Histogram::from_samples(&[7.0, 7.0, 7.0], 2);
+        assert_eq!(
+            (hist.bin_edges, hist.counts, hist.frequencies),
+            (vec![6.5, 7.0, 7.5], vec![0, 3], vec![0.0, 1.0])
+        );
+    }
+
+    #[test]
+    fn percentiles_of_no_samples_are_none() {
+        assert_eq!(calculate_percentiles(&[], &[50, 90]), BTreeMap::new());
+        assert_eq!(
+            calculate_percentiles(&[4.0, 1.0, 3.0, 2.0], &[0, 50, 100]),
+            BTreeMap::from([(0, 1.0), (50, 2.5), (100, 4.0)])
+        );
     }
 
     #[test]

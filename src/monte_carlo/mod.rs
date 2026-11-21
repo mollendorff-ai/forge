@@ -600,7 +600,7 @@ mod tests {
                 assert!(
                     (value - expected).abs() < 1e-6,
                     "{} at {p}: {value}",
-                    dist.dist_type
+                    dist.dist_type()
                 );
             }
             let discrete =

@@ -647,9 +647,9 @@ scalars:
             };
             at(&profit["at_plan"], 72_140.0, "at plan");
             at(&profit["mean"], 42_889.015_893, "mean");
-            at(&profit["median"], 39_680.667_474, "P50");
+            at(&profit["median"], 39_680.667_472, "P50");
             at(&profit["percentiles"]["p5"], -58_926.619_114, "P5");
-            at(&profit["percentiles"]["p95"], 153_625.617_063, "P95");
+            at(&profit["percentiles"]["p95"], 153_625.617_060, "P95");
             at(&profit["thresholds"]["< 0"], 0.2555, "loss");
             at(
                 &profit["expected_shortfall"][0]["mean"],

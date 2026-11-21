@@ -69,7 +69,7 @@ fn erfc_scaled(x: f64) -> f64 {
 /// loses digits far out.
 /// A z that is not a number gives one that is not either (every comparison
 /// below is false for it), which the evaluator reports as #NUM!.
-fn standard_cdf(z: f64) -> f64 {
+pub fn standard_cdf(z: f64) -> f64 {
     let x = z.abs() / std::f64::consts::SQRT_2;
     if x < 0.5 {
         return 0.5f64.mul_add(erf_small(z / std::f64::consts::SQRT_2), 0.5);

@@ -17,11 +17,7 @@ use std::time::Instant;
 /// (wasm32-unknown-unknown) has no clock behind `Instant`, which panics
 /// there; it reports 0 ms (ADR-055).
 fn stopwatch() -> Option<Instant> {
-    if cfg!(all(target_arch = "wasm32", target_os = "unknown")) {
-        None
-    } else {
-        Some(Instant::now())
-    }
+    (!cfg!(all(target_arch = "wasm32", target_os = "unknown"))).then(Instant::now)
 }
 
 /// Milliseconds since [`stopwatch`], or 0 without a clock (and `u64::MAX`
@@ -120,9 +116,9 @@ fn summarize(
     let threshold_probabilities = output_config
         .all_thresholds()
         .into_iter()
-        .filter_map(|t| {
-            let (op, value) = parse_threshold(t).ok()?;
-            Some((t.to_string(), evaluate_threshold(&samples, &op, value)))
+        .map(|t| {
+            let (op, value) = parse_threshold(t).expect("validate parsed every threshold");
+            (t.to_string(), evaluate_threshold(&samples, &op, value))
         })
         .collect();
 
@@ -151,11 +147,9 @@ fn summarize(
 
 /// The mean of the worst `percent`% of `samples`: the lowest, or the highest
 /// when `higher_is_worse`. The worst ceil(n × percent / 100) samples are
-/// averaged, so there is always at least one.
+/// averaged, so there is always at least one. `samples` is never empty:
+/// `validate` asks for at least one iteration.
 fn expected_shortfall(samples: &[f64], percent: u8, higher_is_worse: bool) -> f64 {
-    if samples.is_empty() {
-        return f64::NAN;
-    }
     let mut sorted = samples.to_vec();
     sorted.sort_by(f64::total_cmp);
     if higher_is_worse {
@@ -209,10 +203,15 @@ impl MonteCarloEngine {
     /// # Errors
     ///
     /// Returns an error if the configuration is invalid (see [`MonteCarloConfig::validate`]).
+    ///
+    /// # Panics
+    ///
+    /// Cannot panic: `validate` accepts only sampling methods `from_str` reads.
     pub fn new(config: MonteCarloConfig) -> Result<Self, String> {
         config.validate()?;
 
-        let method = SamplingMethod::from_str(&config.sampling)?;
+        let method = SamplingMethod::from_str(&config.sampling)
+            .expect("validate accepts only monte_carlo and latin_hypercube");
         let sampler = Sampler::new(method, config.seed);
 
         Ok(Self {
@@ -276,10 +275,7 @@ impl MonteCarloEngine {
                 let dist =
                     parse_distribution(content).map_err(|e| format!("{table}.{column}: {e}"))?;
                 for row in 0..rows {
-                    let one = Distribution {
-                        dist_type: dist.dist_type.clone(),
-                    };
-                    self.add_distribution(&row_input_name(&table, column, row), one);
+                    self.add_distribution(&row_input_name(&table, column, row), dist.clone());
                 }
             }
         }
@@ -493,8 +489,13 @@ impl MonteCarloEngine {
         let columns: Vec<usize> = matrix
             .variables
             .iter()
-            .map(|var| resolve_variable(names, var))
-            .collect::<Result<_, _>>()?;
+            .map(|var| {
+                names
+                    .iter()
+                    .position(|name| name == var)
+                    .expect("the matrix's variables are names of distributions")
+            })
+            .collect();
 
         let n = uniforms.first().map_or(0, Vec::len);
         let mut scores = vec![0.0; columns.len()];
@@ -504,23 +505,14 @@ impl MonteCarloEngine {
             for (score, &column) in scores.iter_mut().zip(&columns) {
                 *score = standard_normal_quantile(uniforms[column][i]);
             }
-            let correlated = matrix.correlate(&scores)?;
+            let correlated = matrix
+                .correlate(&scores)
+                .expect("one score for each variable of the matrix, which has its factor");
             for (value, &column) in correlated.iter().zip(&columns) {
                 uniforms[column][i] = standard_normal_cdf(*value);
             }
         }
         Ok(())
-    }
-
-    /// Get the sampler
-    #[must_use]
-    pub const fn sampler(&self) -> &Sampler {
-        &self.sampler
-    }
-
-    /// Get mutable sampler
-    pub const fn sampler_mut(&mut self) -> &mut Sampler {
-        &mut self.sampler
     }
 }
 
@@ -912,6 +904,193 @@ mod tests {
         let samples1 = &result1.input_samples["revenue"];
         let samples2 = &result2.input_samples["revenue"];
         assert_eq!(samples1, samples2);
+    }
+
+    fn output(variable: &str) -> OutputConfig {
+        OutputConfig {
+            variable: variable.to_string(),
+            percentiles: vec![],
+            threshold: None,
+            thresholds: vec![],
+            expected_shortfall: vec![],
+            higher_is_worse: false,
+            row: None,
+            label: None,
+        }
+    }
+
+    fn config(outputs: Vec<OutputConfig>) -> MonteCarloConfig {
+        MonteCarloConfig {
+            enabled: true,
+            iterations: 4,
+            sampling: "monte_carlo".to_string(),
+            seed: None,
+            outputs,
+            correlations: vec![],
+        }
+    }
+
+    #[test]
+    fn an_invalid_config_is_refused() {
+        let mut bad = config(vec![]);
+        bad.iterations = 0;
+        assert_eq!(
+            MonteCarloEngine::new(bad).err(),
+            Some("iterations must be > 0".to_string())
+        );
+    }
+
+    /// A distribution in an included file that does not parse names the file
+    #[test]
+    fn a_bad_distribution_in_an_include_names_the_include() {
+        let mut included = ParsedModel::new();
+        included.add_scalar(
+            "growth".to_string(),
+            crate::types::Variable::new(
+                "growth".to_string(),
+                None,
+                Some("=MC.Uniform(2, 1)".to_string()),
+            ),
+        );
+        let mut model = ParsedModel::new();
+        model.resolved_includes.insert(
+            "ext".to_string(),
+            crate::types::ResolvedInclude {
+                include: crate::types::Include::new("ext.yaml".to_string(), "ext".to_string()),
+                resolved_path: std::path::PathBuf::from("ext.yaml"),
+                model: included,
+            },
+        );
+        let mut engine = MonteCarloEngine::new(config(vec![])).unwrap();
+        assert_eq!(
+            engine.parse_distributions_from_model(&model).err(),
+            Some(
+                "@ext.growth: Uniform distribution requires min < max (in the file included as 'ext')"
+                    .to_string()
+            )
+        );
+    }
+
+    /// Without an evaluator an output is an input, found by its own name or
+    /// by its name under `scalars.`; any other is refused.
+    #[test]
+    fn without_an_evaluator_an_output_must_be_an_input() {
+        let mut engine = MonteCarloEngine::new(config(vec![output("x")])).unwrap();
+        engine.add_distribution("scalars.x", Distribution::uniform(1.0, 2.0).unwrap());
+        let result = engine.run().unwrap();
+        let x = &result.outputs["x"];
+        assert_eq!(
+            (x.samples.len(), x.at_plan),
+            (4, Some(1.5)),
+            "the midpoint is the plan of a uniform"
+        );
+
+        let mut engine = MonteCarloEngine::new(config(vec![output("y")])).unwrap();
+        engine.add_distribution("x", Distribution::uniform(1.0, 2.0).unwrap());
+        assert_eq!(
+            engine.run().err(),
+            Some(
+                "output 'y' is not an MC.* input; use run_with_evaluator to calculate it"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn an_evaluator_that_leaves_out_an_output_stops_the_run() {
+        let mut engine = MonteCarloEngine::new(config(vec![output("profit")])).unwrap();
+        engine.add_distribution("x", Distribution::uniform(1.0, 2.0).unwrap());
+        let result = engine.run_with_evaluator(|_| Ok(HashMap::from([("loss".to_string(), 1.0)])));
+        assert_eq!(
+            result.err(),
+            Some("Iteration 1: no value for output 'profit'".to_string())
+        );
+    }
+
+    /// A correlation names a distribution by its whole name or by the last
+    /// part of only one; the errors name the distributions there are.
+    #[test]
+    fn a_correlation_variable_must_name_one_distribution() {
+        let names = ["a.growth", "b.growth", "c.price"].map(String::from);
+        assert_eq!(resolve_variable(&names, "b.growth"), Ok(1));
+        assert_eq!(resolve_variable(&names, "price"), Ok(2));
+        assert_eq!(
+            resolve_variable(&names, "growth"),
+            Err(
+                "correlation variable 'growth' is ambiguous: a.growth, b.growth. Use the full name."
+                    .to_string()
+            )
+        );
+        let mut corr = config(vec![]);
+        corr.correlations = vec![crate::monte_carlo::config::CorrelationConfig {
+            variables: vec!["cost".to_string(), "price".to_string()],
+            coefficient: 0.5,
+        }];
+        let mut engine = MonteCarloEngine::new(corr).unwrap();
+        engine.add_distribution("c.price", Distribution::uniform(1.0, 2.0).unwrap());
+        assert_eq!(
+            engine.run().err(),
+            Some(
+                "correlation variable 'cost' has no MC.* distribution. Distributions: c.price"
+                    .to_string()
+            )
+        );
+    }
+
+    /// Inputs that move the output as strongly, one each way, are in name order
+    #[test]
+    fn drivers_of_equal_strength_are_in_name_order() {
+        let inputs = HashMap::from([
+            ("b".to_string(), vec![3.0, 2.0, 1.0]),
+            ("a".to_string(), vec![1.0, 2.0, 3.0]),
+        ]);
+        let ranked = drivers(&[10.0, 20.0, 30.0], &inputs);
+        assert_eq!(
+            ranked,
+            vec![
+                Driver {
+                    input: "a".to_string(),
+                    rank_correlation: 1.0
+                },
+                Driver {
+                    input: "b".to_string(),
+                    rank_correlation: -1.0
+                },
+            ]
+        );
+    }
+
+    /// An output that does not vary has no drivers; without a seed or
+    /// thresholds those lines are left out, and the expected shortfall is
+    /// shown in YAML and JSON.
+    #[test]
+    fn a_result_shows_only_what_it_has() {
+        let mut out = output("profit");
+        out.expected_shortfall = vec![25];
+        let mut engine = MonteCarloEngine::new(config(vec![out])).unwrap();
+        engine.add_distribution("x", Distribution::uniform(1.0, 2.0).unwrap());
+        let mut result = engine
+            .run_with_evaluator(|_| Ok(HashMap::from([("profit".to_string(), 7.0)])))
+            .unwrap();
+        result.execution_time_ms = 0;
+        assert_eq!(
+            result.to_yaml(),
+            "monte_carlo_results:\n  iterations: 4\n  execution_time_ms: 0\n  sampling: monte_carlo\n\n  outputs:\n    profit:\n      mean: 7.0000\n      at_plan: 7.0000\n      median: 7.0000\n      std_dev: 0.0000\n      min: 7.0000\n      max: 7.0000\n      percentiles:\n        p5: 7.0000\n        p10: 7.0000\n        p25: 7.0000\n        p50: 7.0000\n        p75: 7.0000\n        p90: 7.0000\n        p95: 7.0000\n      expected_shortfall:\n        worst_25_percent: 7.0000\n"
+        );
+        let json: serde_json::Value = serde_json::from_str(&result.to_json().unwrap()).unwrap();
+        let profit = &json["monte_carlo_results"]["outputs"]["profit"];
+        assert_eq!(
+            (
+                &profit["expected_shortfall"],
+                &profit["drivers"],
+                &json["monte_carlo_results"]["seed"]
+            ),
+            (
+                &serde_json::json!([{"percent": 25, "mean": 7.0}]),
+                &serde_json::json!([]),
+                &serde_json::Value::Null
+            )
+        );
     }
 
     mod uncertain_rows {

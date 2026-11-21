@@ -57,9 +57,12 @@ impl BlackScholes {
     }
 
     /// Standard normal CDF (cumulative distribution function)
+    /// The standard normal CDF that NORM.S.DIST uses, right to about 3 units
+    /// in the last place. The Numerical Recipes approximation of `erf` used
+    /// before was off by up to 1.2e-7, which moved a price on a $5M project by
+    /// about $0.09; `statrs`'s is right to only 11 digits.
     fn norm_cdf(x: f64) -> f64 {
-        // Approximation using error function
-        f64::midpoint(1.0, erf(x / 2.0_f64.sqrt()))
+        crate::core::array_calculator::evaluator::standard_cdf(x)
     }
 
     /// Calculate European call option price
@@ -145,49 +148,81 @@ impl BlackScholes {
     }
 }
 
-/// Error function approximation (for normal CDF)
-fn erf(x: f64) -> f64 {
-    // Abramowitz and Stegun approximation
-    let t = 1.0 / 0.5f64.mul_add(x.abs(), 1.0);
-
-    let tau = t * 0.170_872_77_f64
-        .mul_add(
-            t.powi(9),
-            0.822_152_23_f64.mul_add(
-                -t.powi(8),
-                1.488_515_87_f64.mul_add(
-                    t.powi(7),
-                    1.135_203_98_f64.mul_add(
-                        -t.powi(6),
-                        0.278_868_07_f64.mul_add(
-                            t.powi(5),
-                            0.186_288_06_f64.mul_add(
-                                -t.powi(4),
-                                0.096_784_18_f64.mul_add(
-                                    t.powi(3),
-                                    0.374_091_96_f64.mul_add(
-                                        t.powi(2),
-                                        1.000_023_68_f64.mul_add(t, -x.powi(2) - 1.265_512_23),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        )
-        .exp();
-
-    if x >= 0.0 {
-        1.0 - tau
-    } else {
-        tau - 1.0
-    }
-}
-
 #[cfg(test)]
 mod black_scholes_tests {
     use super::*;
+
+    /// Theta and rho of a call against mpmath at 40 digits, where they equal
+    /// the derivatives of the price in time and in the rate: S = K = 100,
+    /// r = 5%, volatility 20%, one year, a 2% dividend yield
+    #[test]
+    fn theta_and_rho_are_the_derivatives_of_the_price() {
+        let bs = BlackScholes::new(100.0, 100.0, 0.05, 0.2, 1.0).with_dividend_yield(0.02);
+        let (theta, rho) = (bs.theta_call(), bs.rho_call());
+        assert_eq!(
+            (
+                (theta + 5.089_318_913_998_332).abs() <= 1e-12,
+                (rho - 49.458_109_105_322_35).abs() <= 1e-12
+            ),
+            (true, true),
+            "{theta} {rho}"
+        );
+    }
+
+    /// Calls and puts against scipy 1.18.1 (`norm.cdf` in the Merton
+    /// formula with a dividend yield), to within 1e-12 of the spot. The
+    /// approximation of `erf` used before was off by up to 4.6e-8 of it.
+    #[test]
+    fn prices_are_scipys() {
+        let cases = [
+            (
+                (100.0, 100.0, 0.05, 0.2, 1.0, 0.0),
+                10.450_583_572_185_565,
+                5.573_526_022_256_971,
+            ),
+            (
+                (150.0, 100.0, 0.05, 0.2, 1.0, 0.0),
+                54.970_140_137_999_195,
+                0.093_082_588_070_597_44,
+            ),
+            (
+                (50.0, 100.0, 0.05, 0.2, 1.0, 0.0),
+                0.002_399_417_553_309_732_3,
+                45.125_341_867_624_72,
+            ),
+            (
+                (100.0, 100.0, 0.05, 0.2, 1.0, 0.02),
+                9.227_005_508_154_036,
+                6.330_080_627_549_918,
+            ),
+            (
+                (5e6, 4e6, 0.05, 0.3, 3.0, 0.0),
+                1_850_180.738_209_715_6,
+                293_012.643_909_946_8,
+            ),
+            (
+                (1e7, 3e6, 0.05, 0.3, 3.0, 0.0),
+                7_421_565.413_701_064,
+                3_689.342_976_236_708_6,
+            ),
+            (
+                (2e6, 1e6, 0.05, 0.3, 3.0, 0.01),
+                1_096_717.282_454_456_7,
+                16_534.191_782_498_05,
+            ),
+        ];
+        for ((spot, strike, rate, vol, years, dividend), call, put) in cases {
+            let bs =
+                BlackScholes::new(spot, strike, rate, vol, years).with_dividend_yield(dividend);
+            let (c, p) = (bs.call_price(), bs.put_price());
+            let close = |got: f64, want: f64| (got - want).abs() <= 1e-12 * spot;
+            assert_eq!(
+                (close(c, call), close(p, put)),
+                (true, true),
+                "{spot} {strike}: {c} {p}"
+            );
+        }
+    }
 
     /// Test against known Black-Scholes values
     /// Checked against a `QuantLib` reference value

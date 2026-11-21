@@ -83,7 +83,9 @@ FORGE=../../target/release/forge python3 -I run.py --seed 1 --games 300 --runs 2
 
 A disagreement fails the run unless Forge reports the game as degenerate, and a degenerate report has to be proved by the suite (a pure strategy with two best replies, or an equilibrium of Gambit's with a spare best reply), so it cannot excuse one it does not describe. Result on 2026-11-20: a pull request's run (seed 1, 300 games, 200 runs a match) takes 30 s and has 0 failures; the weekly run's size (seed 202647, 3,000 games with 8,759 equilibria, 1,000 runs a match, 3,000 2 x 2 games of which 702 have a mixed equilibrium) has 0 failures. In the generated games Gambit finds equilibria Forge does not list only in games Forge reports as degenerate (a line of equilibria, of which Gambit lists the corners). Each check was also tried on a deliberately wrong report and failed it.
 
-Not covered: more than two players (Gambit's mixed solvers are two-player here, and so is Forge's), and Forge's tournament strategies against any library but axelrod.
+Symmetric games of three to five players in the count form (ADR-073): the public goods game of five players below, at and above r = n, and seeded games of two or three strategies, each table expanded again by the suite and compared with Forge's cell by cell, and its pure equilibria with Gambit's `enumpure_solve` (`counted.py`; 303 games and 3,376 pure equilibria, 0 failed, seed 202611, on 2026-11-21).
+
+Not covered: mixed equilibria of more than two players (Forge does not look for them), and Forge's tournament strategies against any library but axelrod.
 
 ## Known limits
 

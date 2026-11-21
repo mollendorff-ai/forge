@@ -22,6 +22,7 @@ const EXAMPLE_NOISY_TOURNAMENT: &str =
 const EXAMPLE_BATTLE_OF_THE_SEXES: &str =
     include_str!("../../../../examples/games/battle-of-the-sexes.yaml");
 const EXAMPLE_CONTINUATION: &str = include_str!("../../../../examples/games/continuation.yaml");
+const EXAMPLE_PUBLIC_GOODS: &str = include_str!("../../../../examples/games/public-goods.yaml");
 
 /// Example metadata
 pub(super) struct Example {
@@ -134,5 +135,11 @@ pub(super) const EXAMPLES: &[Example] = &[
         description: "The continuation at which cooperation holds",
         command: "forge game",
         content: EXAMPLE_CONTINUATION,
+    },
+    Example {
+        name: "public-goods",
+        description: "Five players contribute or keep: a symmetric game of many players",
+        command: "forge game",
+        content: EXAMPLE_PUBLIC_GOODS,
     },
 ];
