@@ -764,6 +764,35 @@ games:
         }
 
         #[test]
+        fn the_public_goods_game_keeps_below_five_and_contributes_above() {
+            // By hand (the file's comment): keeping pays 10 (1 - r / 5) more
+            // whatever the others do, so one equilibrium below r = 5 (all
+            // keep, 10 each) and above it (all contribute, 6 x 10 = 60
+            // each), and all 2^5 = 32 profiles at r = 5; Gambit's
+            // enumpure_solve agrees in validation/games. Against an even mix
+            // two of the others contribute: 1.6 x 10 x 3 / 5 = 9.6 against
+            // 10 + 1.6 x 10 x 2 / 5 = 16.4
+            let file = "examples/games/public-goods.yaml";
+            let model = calculated(file, None);
+            assert!(close(value(&model, "pg.pure_equilibria"), 1.0));
+            assert!(close(value(&model, "pg.equilibrium_1.a3.keep"), 1.0));
+            assert!(close(value(&model, "dilemma.all_keep"), 10.0));
+            assert!(close(value(&model, "dilemma.all_contribute"), 16.0));
+            assert!(close(value(&model, "dilemma.cost_of_keeping"), -6.8));
+            assert!(close(value(&model, "pg.even_mix.a5.contribute"), 9.6));
+            let even = calculated(file, Some("break_even"));
+            assert!(close(value(&even, "pg.pure_equilibria"), 32.0));
+            assert!(close(value(&even, "dilemma.cost_of_keeping"), 0.0));
+            let generous = calculated(file, Some("generous"));
+            assert!(close(value(&generous, "pg.pure_equilibria"), 1.0));
+            assert!(close(
+                value(&generous, "pg.equilibrium_1.a2.contribute"),
+                1.0
+            ));
+            assert!(close(value(&generous, "dilemma.all_keep"), 60.0));
+        }
+
+        #[test]
         fn noise_drops_tit_for_tat_from_first_to_third() {
             // Exact, and the same order as axelrod's 2,000 seeded runs
             let model = calculated("examples/games/noisy-tournament.yaml", None);

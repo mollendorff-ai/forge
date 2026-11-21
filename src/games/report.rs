@@ -251,7 +251,13 @@ impl TableReport {
             .strip_prefix(&format!("{}.", self.game))
             .unwrap_or(name);
         let mut reason = format!("'{name}' is not a result of game '{}'", self.game);
-        if rest.starts_with("equilibrium_") {
+        if rest.starts_with("others.") {
+            reason = format!(
+                "{reason}: it is how many of the other players play a strategy, which only \
+                 the payoffs of game '{}' can read",
+                self.game
+            );
+        } else if rest.starts_with("equilibrium_") {
             let word = if count == 1 {
                 "equilibrium"
             } else {

@@ -1,0 +1,54 @@
+# A Public Goods Game of Five Players
+# ===================================
+# Run in the examples folder: forge game games/public-goods.yaml
+#   forge game games/public-goods.yaml --scenario generous
+#
+# Five AIs each hold 10. Each either contributes it to a common pot or keeps
+# it. The pot is multiplied by r and shared equally among all five, whoever
+# paid in. kinship-protocol's public_goods.yaml is this game.
+#
+# The game is symmetric, so it is written with one payoff for each strategy,
+# over how many of the other four contribute (pg.others.contribute), and not
+# as the 32 cells of the table (ADR-073). By hand, with k of the others
+# contributing:
+#   contribute: r * 10 * (k + 1) / 5
+#   keep:       10 + r * 10 * k / 5
+# Keeping pays 10 * (1 - r / 5) more than contributing, whatever the others
+# do. So with r = 1.6 everyone keeps and gets 10, although all contributing
+# would give each 16: the dilemma. At r = 5 every player is indifferent and
+# all 32 profiles are equilibria; above it, everyone contributes. Gambit's
+# enumpure_solve gives the same equilibria (validation/games).
+
+_forge_version: "5.5.0"
+
+endowment: 10   # what each player holds
+r: 1.6          # what the pot is multiplied by
+
+games:
+  pg:
+    description: Contribute to the pot, or keep the endowment
+    players: [a1, a2, a3, a4, a5]
+    strategies: [contribute, keep]
+    symmetric: true
+    payoffs:                        # one player's payoff, for its own strategy
+      contribute: =r * endowment * (pg.others.contribute + 1) / 5
+      keep: =endowment + r * endowment * pg.others.contribute / 5
+
+dilemma:
+  all_keep:
+    formula: "=pg.equilibrium_1.a1.payoff"
+    notes: What each gets in the equilibrium (10 while r is under 5)
+  all_contribute:
+    formula: "=r * endowment"
+    notes: What each would get if all five contributed (16 at r = 1.6)
+  cost_of_keeping:
+    formula: "=pg.even_mix.a1.contribute - pg.even_mix.a1.keep"
+    notes: What contributing gains a player against an even mix, 10 (r / 5 - 1), -6.8 at r = 1.6
+
+scenarios:
+  break_even:
+    description: The pot returns exactly what goes in; every profile is an equilibrium
+    scalars: {r: 5}
+  generous:
+    description: A multiplier above the number of players; everyone contributes
+    scalars: {r: 6}

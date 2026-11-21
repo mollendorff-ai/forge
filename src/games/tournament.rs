@@ -223,6 +223,7 @@ pub(super) fn parse(name: &str, game: &Mapping) -> ForgeResult<Tournament> {
             .map(|payoff| Cell {
                 payoff,
                 at: place.clone(),
+                others: Vec::new(),
             })
             .ok_or_else(|| {
                 error(format!(
@@ -250,6 +251,7 @@ pub(super) fn parse(name: &str, game: &Mapping) -> ForgeResult<Tournament> {
             Ok(Cell {
                 payoff: Payoff::Number(0.0),
                 at: format!("{at}.noise"),
+                others: Vec::new(),
             })
         },
         |noise| setting("noise", noise),
@@ -360,6 +362,7 @@ fn parse_entrant(at: &str, name: &str, value: &Value) -> ForgeResult<Entrant> {
                     ))
                 })?,
                 at: place,
+                others: Vec::new(),
             })
         },
         None => None,
@@ -457,7 +460,8 @@ axelrod:
             t.entrants[1].chance,
             Some(Cell {
                 payoff: Payoff::Formula("=forgive".into()),
-                at: "games.axelrod.tournament.players.gen.forgive".into()
+                at: "games.axelrod.tournament.players.gen.forgive".into(),
+                others: Vec::new(),
             })
         );
         assert_eq!(t.formulas(), ["=w", "=w / 10", "=forgive"]);
