@@ -5,6 +5,8 @@
 **Decided by:** the maintainer (one hand-written validator on every platform, `jsonschema` kept only to check it, the schema files still published), who chose option 1 on 2026-11-20; the analysis and the recommendation are Claude's
 **Closes:** roadmap T1-ONE-VALIDATOR
 
+> **Note (2026-11-21):** ADR-070 replaced the 2,000,000-byte budget this ADR weighs `jsonschema` against with a 3,000,000-byte ceiling from a load-time target, and says size alone is no reason to replace a library with code of our own. The size argument below no longer binds; the others (one validator, the same messages on every surface, the crates `jsonschema` brought) still stand. Whether to keep the reader is roadmap T1-REVISIT-VALIDATOR.
+
 ---
 
 ## Context
