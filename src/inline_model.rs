@@ -76,7 +76,7 @@ fn resolve_inline_includes(
     dir: &Path,
 ) -> Result<(), String> {
     let parsed: yaml_serde::Value =
-        yaml_serde::from_str(yaml).map_err(|e| format!("Invalid YAML: {e}"))?;
+        crate::parser::read_yaml(yaml).map_err(|e| format!("Invalid YAML: {e}"))?;
     if parsed.get("_includes").is_none() {
         return Ok(());
     }
@@ -151,7 +151,7 @@ fn write_includes(
             .map_err(|e| format!("Failed to write include '{file}': {e}"))?;
 
         // Content that does not parse is left for the parser to report
-        if let Ok(inner) = yaml_serde::from_str::<yaml_serde::Value>(include_content) {
+        if let Ok(inner) = crate::parser::read_yaml(include_content) {
             let folder = relative.parent().unwrap_or_else(|| Path::new(""));
             write_includes(&inner, map, dir, folder, written)?;
         }

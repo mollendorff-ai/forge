@@ -18,6 +18,8 @@
   {"name": "bayesian slow week", "tool": "bayesian", "dir": "bagel", "files": ["slow_week.yaml"], "main": "slow_week.yaml", "args": {"query": "roadwork", "evidence": ["sales=slow", "weather=rainy"]}},
   {"name": "model bagel price war", "tool": "model", "dir": "bagel", "files": ["price_war.yaml", "bagel.yaml", "costs.yaml"], "main": "price_war.yaml"},
   {"name": "game bagel price war", "tool": "game", "dir": "bagel", "files": ["price_war.yaml", "bagel.yaml", "costs.yaml"], "main": "price_war.yaml"},
+  {"name": "game acquisition sealed bids", "tool": "game", "dir": "acquisition", "files": ["deal_game.yaml", "deal.yaml", "buyer.yaml", "target.yaml"], "main": "deal_game.yaml"},
+  {"name": "game acquisition sealed bids, cost cuts only", "tool": "game", "dir": "acquisition", "files": ["deal_game.yaml", "deal.yaml", "buyer.yaml", "target.yaml"], "main": "deal_game.yaml", "args": {"scenario": "thornvale_cost_only"}},
   {"name": "game axelrod", "tool": "game", "dir": "games", "files": ["axelrod.yaml"], "main": "axelrod.yaml", "args": {"scenario": "c2"}},
   {"name": "calculate mortgage", "tool": "calculate", "dir": "mortgage", "files": ["mortgage.yaml"], "main": "mortgage.yaml"},
   {"name": "goal seek mortgage extra", "tool": "goal_seek", "dir": "mortgage", "files": ["mortgage.yaml"], "main": "mortgage.yaml", "args": {"target": "saved.interest", "value": 80000, "vary": "loan.extra_per_month"}},

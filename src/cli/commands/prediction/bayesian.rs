@@ -25,7 +25,7 @@ pub fn bayesian_core(
 ) -> ForgeResult<crate::bayesian::BayesianResult> {
     let yaml_content = parser::read_model_text(file)?;
 
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
+    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: BayesianConfig = if let Some(bn_value) = value.get("bayesian_network") {
@@ -126,7 +126,7 @@ pub fn bayesian(
     let yaml_content = parser::read_model_text(file)?;
 
     // Parse bayesian_network config
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
+    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: BayesianConfig = if let Some(bn_value) = value.get("bayesian_network") {

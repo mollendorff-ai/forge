@@ -86,10 +86,15 @@ pub fn power(base: f64, exponent: f64) -> Result<Value, EvalError> {
     finite(result)
 }
 
-/// Excel returns #NUM! when arithmetic overflows; an f64 would quietly become inf.
+/// Excel returns #NUM! when arithmetic overflows; an f64 would quietly become
+/// inf. A result that is not a number (infinity minus infinity) is #NUM! too:
+/// written to a model it would be `.nan`, and to a workbook a cell Excel
+/// cannot read.
 fn finite(result: f64) -> Result<Value, EvalError> {
     if result.is_infinite() {
         Err(EvalError::new("#NUM!: result is too large"))
+    } else if result.is_nan() {
+        Err(EvalError::new("#NUM!: the result is not a number"))
     } else {
         Ok(Value::Number(result))
     }
@@ -572,6 +577,115 @@ mod tests {
     /// Excel. Each result here is what Gnumeric and `LibreOffice` give for the
     /// exported formula over a real date (forge-e2e-gnumeric,
     /// `edge_real_dates.yaml`).
+    /// What is not a number on either side of an arithmetic or comparing
+    /// operator, or after a minus, is refused; an operator the parser does
+    /// not make is unknown; and the last `+` of a cell passes an error on
+    #[test]
+    fn operands_that_are_not_numbers() {
+        let refused = |formula: &str| eval(formula, &EvalContext::new()).unwrap_err().message;
+        for op in ["-", "*", "/", "^", "<"] {
+            assert_eq!(
+                refused(&format!("\"x\" {op} 1")),
+                "Left operand must be a number",
+                "{op}"
+            );
+            assert_eq!(
+                refused(&format!("1 {op} \"x\"")),
+                "Right operand must be a number",
+                "{op}"
+            );
+        }
+        assert_eq!(refused("-\"x\""), "Operand must be a number");
+        let one = Value::Number(1.0);
+        assert_eq!(
+            evaluate_binary_op("%", &one, &one).unwrap_err().message,
+            "Unknown operator: %"
+        );
+        assert_eq!(
+            evaluate_unary_op("+", &one).unwrap_err().message,
+            "Unknown unary operator: +"
+        );
+        assert_eq!(
+            evaluate_final_op("+", &Value::Text("x".into()), &one)
+                .unwrap_err()
+                .message,
+            "#VALUE!: + adds numbers; use & or CONCAT to join text"
+        );
+    }
+
+    /// An array of one value on the left applies to each value on the right
+    #[test]
+    fn one_value_on_the_left_applies_to_each_on_the_right() {
+        let numbers = |values: &[f64]| {
+            Value::Array(
+                values
+                    .iter()
+                    .map(|v| Value::Number(*v))
+                    .collect::<Vec<_>>()
+                    .into(),
+            )
+        };
+        assert_eq!(
+            eval("{5} + {1, 2}", &EvalContext::new()),
+            Ok(numbers(&[6.0, 7.0]))
+        );
+    }
+
+    /// An empty cell equals empty text and another empty cell
+    #[test]
+    fn an_empty_cell_equals_empty_text_and_itself() {
+        use crate::core::array_calculator::evaluator::tests::empty_cells;
+        let ctx = empty_cells();
+        assert_eq!(eval("blank = \"\"", &ctx), Ok(Value::Boolean(true)));
+        assert_eq!(
+            eval("SWITCH(blank, blank, 1, 2)", &ctx),
+            Ok(Value::Number(1.0))
+        );
+    }
+
+    /// SWITCH compares as `=` does: TRUE with TRUE, arrays of the same
+    /// length element by element, and an array of one value as that value
+    #[test]
+    fn switch_compares_as_equals_does() {
+        let ctx = EvalContext::new();
+        for (formula, expected) in [
+            ("SWITCH(TRUE, TRUE, 1, 2)", 1.0),
+            ("SWITCH({1, 2}, {1, 2}, 1, 2)", 1.0),
+            ("SWITCH({1, 2}, {1, 3}, 1, 2)", 2.0),
+            ("SWITCH({1, 2}, {1, 2, 3}, 1, 2)", 2.0),
+            ("SWITCH({1}, 1, 1, 2)", 1.0),
+            ("SWITCH(1, {1}, 1, 2)", 1.0),
+        ] {
+            assert_eq!(
+                eval(formula, &ctx),
+                Ok(Value::Number(expected)),
+                "{formula}"
+            );
+        }
+    }
+
+    /// What overflows, or is not a number, is #NUM!: an infinite operand can
+    /// come only from outside a formula, as a literal past the largest double
+    /// is refused
+    #[test]
+    fn a_result_that_is_not_finite_is_num() {
+        let infinity = Value::Number(f64::INFINITY);
+        let refused =
+            |op: &str, l: &Value, r: &Value| evaluate_binary_op(op, l, r).unwrap_err().message;
+        assert_eq!(
+            refused("-", &infinity, &infinity),
+            "#NUM!: the result is not a number"
+        );
+        assert_eq!(
+            refused("*", &Value::Number(0.0), &infinity),
+            "#NUM!: the result is not a number"
+        );
+        assert_eq!(
+            refused("+", &infinity, &Value::Number(1.0)),
+            "#NUM!: result is too large"
+        );
+    }
+
     mod dates_as_dates {
         use crate::core::array_calculator::evaluator::tests as h;
         use crate::core::array_calculator::evaluator::EvalContext;

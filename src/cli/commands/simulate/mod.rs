@@ -359,7 +359,7 @@ pub fn simulate(
 /// Parse `monte_carlo` config from YAML content
 fn parse_monte_carlo_config(yaml_content: &str) -> ForgeResult<MonteCarloConfig> {
     // Try to parse the monte_carlo section from the YAML
-    let value: yaml_serde::Value = yaml_serde::from_str(yaml_content)
+    let value: yaml_serde::Value = parser::read_yaml(yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     if let Some(mc_value) = value.get("monte_carlo") {

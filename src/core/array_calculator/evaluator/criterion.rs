@@ -177,4 +177,26 @@ mod tests {
             h::is_exactly_in(formula, &ctx, count);
         }
     }
+
+    /// A text criterion compares text with text, ignoring case; a number
+    /// never meets it (`LibreOffice` Calc 24.2 counts 4, 3, 4, 1 and 0)
+    #[test]
+    fn text_compares_with_text() {
+        use crate::core::array_calculator::evaluator::tests::{
+            is_exactly_in, sweep_number, sweep_table,
+        };
+        for (criterion, count) in [
+            (">b", 4.0),
+            (">=banana", 3.0),
+            ("<c", 4.0),
+            ("<=apple", 1.0),
+        ] {
+            assert_exact!(
+                sweep_number(&format!("COUNTIF(t.nm, \"{criterion}\")")),
+                count,
+                "{criterion}"
+            );
+        }
+        is_exactly_in("COUNTIF(t.pr, \">b\")", &sweep_table(), 0.0);
+    }
 }

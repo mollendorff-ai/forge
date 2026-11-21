@@ -48,6 +48,21 @@ def inspection(penalty, example):
                 (f"{EXAMPLES}/inspection.yaml", "inspection", None) if example else None)
 
 
+def sealed_bids(thornvale_synergies, scenario):
+    # examples/acquisition/deal_game.yaml: Valdane's value created at 30% and
+    # its synergies are deal.yaml's, as Forge calculates them (checked in
+    # Python in src/cli/commands/prediction/scenarios.rs); a point of premium
+    # costs 24 x 50 x 1.02 / 100; the loser has spent 12; a tie is half each
+    v30, synergies, point, lose = F("224.50793341829"), F("603.149775584427"), F("12.24"), F(12)
+    v40 = v30 - 10 * point
+    t30, t40 = v30 - synergies + thornvale_synergies, v40 - synergies + thornvale_synergies
+    a = [[(v30 - lose) / 2, -lose], [v40, (v40 - lose) / 2]]
+    b = [[(t30 - lose) / 2, t40], [-lose, (t40 - lose) / 2]]
+    return Spec(f"sealed bids, Thornvale's synergies {thornvale_synergies}", a, b,
+                ["bid_30", "bid_40"], ["bid_30", "bid_40"],
+                (f"{EXAMPLES}/../acquisition/deal_game.yaml", "sealed_bids", scenario))
+
+
 SPECS = [
     stag_hunt(F(0), None), stag_hunt(F(1, 2), "c1"), stag_hunt(F(1), "c2"), stag_hunt(F(3, 2), "c3"),
     chicken(F(0), None), chicken(F(1, 4), "c1"), chicken(F(1, 2), "c2"), chicken(F(1), "c3"),
@@ -56,6 +71,7 @@ SPECS = [
     Spec("battle of the sexes", [[F(3), F(0)], [F(0), F(2)]], [[F(2), F(0)], [F(0), F(3)]],
          ["opera", "football"], ["opera", "football"],
          (f"{EXAMPLES}/battle-of-the-sexes.yaml", "evening", None)),
+    sealed_bids(F(530), None), sealed_bids(F(400), "thornvale_cost_only"),
     Spec("matching pennies", [[F(1), F(-1)], [F(-1), F(1)]], [[F(-1), F(1)], [F(1), F(-1)]]),
     Spec("rock, paper, scissors",
          [[F(0), F(-1), F(1)], [F(1), F(0), F(-1)], [F(-1), F(1), F(0)]],

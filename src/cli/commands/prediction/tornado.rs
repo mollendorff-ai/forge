@@ -18,7 +18,7 @@ fn load(file: &Path, output_var: Option<&str>) -> ForgeResult<(TornadoConfig, Pa
     let model = parser::parse_model(file)?;
 
     // The text is YAML: the model was just read from it
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content).unwrap_or_default();
+    let value: yaml_serde::Value = parser::read_yaml(&yaml_content).unwrap_or_default();
 
     let mut config: TornadoConfig = if let Some(tornado_value) = value.get("tornado") {
         yaml_serde::from_value(tornado_value.clone())

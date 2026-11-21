@@ -340,13 +340,15 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let full_date = result_table.columns.get("full_date").unwrap();
-        // A column of DATE is a column of dates (ADR-060)
-        match &full_date.values {
-            ColumnValue::Text(dates) | ColumnValue::Date(dates) => {
-                assert_eq!(dates, &["2025-01-15", "2024-06-20", "2023-12-31"]);
-            },
-            other => panic!("Expected dates, got {other:?}"),
-        }
+        // A column of DATE is a column of dates, written as text (ADR-060)
+        assert_eq!(
+            full_date.values,
+            ColumnValue::Text(
+                ["2025-01-15", "2024-06-20", "2023-12-31"]
+                    .map(String::from)
+                    .to_vec()
+            )
+        );
     }
 
     #[test]
@@ -372,14 +374,10 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let year_val = result_table.columns.get("year_val").unwrap();
-        match &year_val.values {
-            ColumnValue::Number(nums) => {
-                assert_exact!(nums[0], 2025.0);
-                assert_exact!(nums[1], 2024.0);
-                assert_exact!(nums[2], 2023.0);
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = year_val.values.numbers().unwrap();
+        assert_exact!(nums[0], 2025.0);
+        assert_exact!(nums[1], 2024.0);
+        assert_exact!(nums[2], 2023.0);
     }
 
     #[test]
@@ -387,11 +385,7 @@ mod tests {
         let ctx = EvalContext::new();
         // Leap year: DATE(2024, 2, 29) should be valid
         let result = eval("DATE(2024, 2, 29)", &ctx).unwrap();
-        if let Some(serial) = result.as_number() {
-            assert_exact!(serial, 45351.0);
-        } else {
-            panic!("Expected Number from DATE");
-        }
+        assert_exact!(result.as_number().unwrap(), 45351.0);
     }
 
     #[test]
@@ -399,11 +393,7 @@ mod tests {
         let ctx = EvalContext::new();
         // Non-leap year: DATE(2023, 2, 29) should roll to March 1
         let result = eval("DATE(2023, 2, 29)", &ctx).unwrap();
-        if let Some(serial) = result.as_number() {
-            assert_exact!(serial, 44986.0);
-        } else {
-            panic!("Expected Number from DATE");
-        }
+        assert_exact!(result.as_number().unwrap(), 44986.0);
     }
 
     #[test]
@@ -411,11 +401,7 @@ mod tests {
         let ctx = EvalContext::new();
         // Month zero: DATE(2024, 0, 1) should go to previous year December
         let result = eval("DATE(2024, 0, 1)", &ctx).unwrap();
-        if let Some(serial) = result.as_number() {
-            assert_exact!(serial, 45261.0);
-        } else {
-            panic!("Expected Number from DATE");
-        }
+        assert_exact!(result.as_number().unwrap(), 45261.0);
     }
 
     #[test]
@@ -423,11 +409,7 @@ mod tests {
         let ctx = EvalContext::new();
         // Day zero: DATE(2024, 1, 0) should go to previous month's last day
         let result = eval("DATE(2024, 1, 0)", &ctx).unwrap();
-        if let Some(serial) = result.as_number() {
-            assert_exact!(serial, 45291.0);
-        } else {
-            panic!("Expected Number from DATE");
-        }
+        assert_exact!(result.as_number().unwrap(), 45291.0);
     }
 
     #[test]
@@ -489,5 +471,51 @@ mod tests {
         h::fails_with("DATE(2020, 1, \"x\")", "day must be a number");
         h::fails_with("EDATE(\"2020-01-31\", \"x\")", "months as number");
         h::fails_with("EOMONTH(\"2020-01-31\", \"x\")", "months as number");
+    }
+
+    /// An error in any argument is passed on, and what is neither a date nor
+    /// a number is refused
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        let date = ("\"2024-01-31\"", Some("Invalid date format"));
+        for name in ["YEAR", "MONTH", "DAY"] {
+            each_argument(name, &[date]);
+        }
+        each_argument("DAYS", &[date, date]);
+        each_argument(
+            "DATE",
+            &[
+                ("2024", Some("DATE: year must be a number")),
+                ("1", Some("DATE: month must be a number")),
+                ("31", Some("DATE: day must be a number")),
+            ],
+        );
+        each_argument(
+            "EDATE",
+            &[date, ("1", Some("EDATE requires months as number"))],
+        );
+        each_argument(
+            "EOMONTH",
+            &[date, ("1", Some("EOMONTH requires months as number"))],
+        );
+    }
+
+    /// A date past 9999-12-31 is #NUM! from DATE, and the end of a month
+    /// past the last date there is cannot be found
+    #[test]
+    fn past_the_last_date() {
+        use crate::core::array_calculator::evaluator::tests::fails_with;
+        use chrono::NaiveDate;
+        fails_with(
+            "DATE(9999, 13, 1)",
+            "#NUM!: DATE gives +10000-01-01, after 9999-12-31, the last date Excel holds",
+        );
+        let base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
+        let last = (NaiveDate::MAX - base).num_days();
+        fails_with(
+            &format!("EOMONTH({last}, 0)"),
+            "EOMONTH: Invalid date result",
+        );
     }
 }

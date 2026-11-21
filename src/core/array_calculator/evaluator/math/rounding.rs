@@ -246,7 +246,7 @@ mod tests {
         table.add_row_formula("r".to_string(), "=ROUND(v, 1)".to_string());
         model.add_table(table);
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
-        if let ColumnValue::Number(nums) = &result
+        let nums = result
             .tables
             .get("data")
             .unwrap()
@@ -254,9 +254,10 @@ mod tests {
             .get("r")
             .unwrap()
             .values
-        {
-            assert_eq!(nums, &[1.5, 2.8, 3.1]);
-        }
+            .numbers()
+            .unwrap();
+        let nums = nums.as_ref();
+        assert_eq!(nums, &[1.5, 2.8, 3.1]);
     }
 
     #[test]
@@ -271,7 +272,7 @@ mod tests {
         table.add_row_formula("f".to_string(), "=FLOOR(v, 1)".to_string());
         model.add_table(table);
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
-        if let ColumnValue::Number(nums) = &result
+        let nums = result
             .tables
             .get("data")
             .unwrap()
@@ -279,10 +280,11 @@ mod tests {
             .get("c")
             .unwrap()
             .values
-        {
-            assert_eq!(nums, &[2.0, 3.0, 5.0]);
-        }
-        if let ColumnValue::Number(nums) = &result
+            .numbers()
+            .unwrap();
+        let nums = nums.as_ref();
+        assert_eq!(nums, &[2.0, 3.0, 5.0]);
+        let nums = result
             .tables
             .get("data")
             .unwrap()
@@ -290,9 +292,10 @@ mod tests {
             .get("f")
             .unwrap()
             .values
-        {
-            assert_eq!(nums, &[1.0, 2.0, 4.0]);
-        }
+            .numbers()
+            .unwrap();
+        let nums = nums.as_ref();
+        assert_eq!(nums, &[1.0, 2.0, 4.0]);
     }
 
     #[test]
@@ -441,5 +444,32 @@ mod tests {
         // Rounded up, a number is a whole unit: 1E+400, which no double holds
         let ctx = crate::core::array_calculator::evaluator::EvalContext::new();
         assert!(h::error_in("ROUNDUP(12345.6, -400)", &ctx).contains("no result"));
+    }
+
+    /// An error in any argument is passed on, and text where a number is
+    /// needed is refused
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        for name in ["ROUND", "ROUNDUP", "ROUNDDOWN", "FLOOR", "CEILING", "TRUNC"] {
+            let message = format!("{name} requires a number");
+            each_argument(name, &[("2.5", Some(&message)), ("1", None)]);
+        }
+        each_argument("INT", &[("2.5", Some("INT requires a number"))]);
+        each_argument(
+            "MROUND",
+            &[
+                ("2.5", Some("MROUND requires a number")),
+                ("2", Some("MROUND requires a multiple")),
+            ],
+        );
+    }
+
+    /// FLOOR of 0 is 0, whatever the significance
+    #[test]
+    fn floor_of_zero() {
+        use crate::core::array_calculator::evaluator::tests::is_exactly;
+        is_exactly("FLOOR(0, 0)", 0.0);
+        is_exactly("FLOOR(0, -1)", 0.0);
     }
 }

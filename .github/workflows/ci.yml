@@ -296,18 +296,19 @@ jobs:
             target/wasm32-unknown-unknown/wasm/forge_wasm.wasm
           node studio/build.mjs forge-wasm/pkg-web studio-site
 
-      # What a person downloads to open Studio. The budget is checked with gzip,
-      # as GitHub Pages serves it. It is the module's size plus 100 KB: 1,261,203
-      # bytes on 2026-11-20, when Forge's own schema reader replaced the
-      # jsonschema crate (ADR-069; the module was 1,939,940 before, on main
-      # with the games).
-      - name: The WebAssembly module is within its size budget (1.36 MB gzipped)
+      # What a person downloads to open Studio (ADR-070): usable within 3
+      # seconds on a 10 Mbps connection on a first visit, so at most 3,000,000
+      # bytes gzipped, as GitHub Pages serves it. Under that, growth of more
+      # than 100 KB in one pull request is said in its description and the
+      # CHANGELOG, and size alone is no reason to replace a library with code
+      # of our own. The module was 1,261,203 bytes on 2026-11-20 (ADR-069).
+      - name: The WebAssembly module is within its size budget (3 MB gzipped, ADR-070)
         run: |
           raw=$(stat -c %s forge-wasm/pkg-web/forge_wasm_bg.wasm)
           gz=$(gzip -9 -c forge-wasm/pkg-web/forge_wasm_bg.wasm | wc -c)
-          echo "forge_wasm_bg.wasm: $raw bytes, $gz gzipped" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "$gz" -gt 1362000 ]; then
-            echo "::error::The WebAssembly module is $gz bytes gzipped, over the 1,362,000-byte budget. Find what grew, or raise the budget in ci.yml with the reason."
+          echo "forge_wasm_bg.wasm: $raw bytes, $gz gzipped (ceiling 3,000,000, ADR-070)" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$gz" -gt 3000000 ]; then
+            echo "::error::The WebAssembly module is $gz bytes gzipped, over the 3,000,000-byte ceiling of ADR-070 (Studio usable within 3 seconds on 10 Mbps). Find what grew, build it smaller, or decide the target again in ADR-070."
             exit 1
           fi
 
@@ -568,11 +569,13 @@ jobs:
       # 94.64%), rounded down to a tenth: from CI's number, never a local one.
       # Raised 2026-11-20 from CI's run on main after PR #303 and #304 (97.15%,
       # 94.86%, 96.39%), the same way.
+      # Raised 2026-11-21 from CI's run on main after PR #326 (98.21%, 96.88%,
+      # 97.91%), the same way.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "97.1"
-          FLOOR_FUNCTIONS: "94.8"
-          FLOOR_REGIONS: "96.3"
+          FLOOR_LINES: "98.2"
+          FLOOR_FUNCTIONS: "96.8"
+          FLOOR_REGIONS: "97.9"
         run: |
           fail=0
           for kind in lines functions regions; do

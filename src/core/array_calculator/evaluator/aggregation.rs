@@ -803,9 +803,8 @@ mod integration_tests {
         let result = calculator.calculate_all();
         assert!(result.is_ok());
         let model = result.unwrap();
-        if let Some(scalar) = model.scalars.get("med") {
-            assert_exact!(scalar.value.unwrap(), 5.0);
-        }
+        let scalar = model.scalars.get("med").unwrap();
+        assert_exact!(scalar.value.unwrap(), 5.0);
     }
 
     #[test]
@@ -832,9 +831,8 @@ mod integration_tests {
         let result = calculator.calculate_all();
         assert!(result.is_ok());
         let model = result.unwrap();
-        if let Some(scalar) = model.scalars.get("med") {
-            assert_exact!(scalar.value.unwrap(), 2.5); // (2+3)/2
-        }
+        let scalar = model.scalars.get("med").unwrap();
+        assert_exact!(scalar.value.unwrap(), 2.5); // (2+3)/2
     }
 
     #[test]
@@ -960,21 +958,12 @@ mod integration_tests {
             ),
         );
 
-        let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all();
-
-        // Empty array median: verify behavior is consistent
-        // Either it errors (mathematically undefined) OR returns 0
-        if let Ok(model) = result {
-            let median = model.scalars.get("med").unwrap().value;
-            // If it succeeds, median of empty array should be 0 or None
-            assert!(
-                median.is_none() || median == Some(0.0),
-                "Empty array median should be None or 0, got {median:?}"
-            );
-        } else {
-            // Error is acceptable for empty array median (undefined)
-        }
+        // The median of nothing is an error, as Excel's #NUM!
+        let error = ArrayCalculator::new(model)
+            .calculate_all()
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("MEDIAN of empty set"), "{error}");
     }
 
     #[test]
@@ -1295,5 +1284,40 @@ mod integration_tests {
             result.scalars.get("min_east_q2").unwrap().value.unwrap(),
             150.0
         );
+    }
+
+    /// An error in an argument is passed on
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        for name in [
+            "SUM",
+            "AVERAGE",
+            "MIN",
+            "MAX",
+            "COUNT",
+            "AVG",
+            "PRODUCT",
+            "COUNTA",
+            "MEDIAN",
+            "SUMPRODUCT",
+            "COUNTBLANK",
+        ] {
+            each_argument(name, &[("{1, 2, 3}", None)]);
+        }
+    }
+
+    /// One value given on its own: a blank is counted by COUNTBLANK and not
+    /// by COUNTA, any other value the other way round, and SUMPRODUCT takes a
+    /// number as an array of one and anything else as 0
+    #[test]
+    fn single_values() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("COUNTBLANK(\"\")", 1.0);
+        h::is_exactly("COUNTBLANK(5)", 0.0);
+        h::is_exactly("COUNTA(5, \"a\")", 2.0);
+        h::is_exactly_in("COUNTA(blank)", &h::empty_cells(), 0.0);
+        h::is_exactly("SUMPRODUCT(5, 2)", 10.0);
+        h::is_exactly("SUMPRODUCT(\"a\")", 0.0);
     }
 }

@@ -13,7 +13,9 @@
 //   opened from the Files tab, is Forge's: each cell, each equilibrium with
 //   its chances, each ranking, stable list and match; the stag hunt's scenario
 //   c3 and a cost typed on its card move the mixed equilibrium as Forge does,
-//   from 3/4 stag to (3 - c) / 4.
+//   from 3/4 stag to (3 - c) / 4;
+// - the acquisition's sealed bids (deal_game.yaml) are Forge's, with both
+//   bidding 30% and both 40% marked, and only 30% in its scenario.
 //
 //   node studio/tests/games.mjs <built Studio dir or address>
 
@@ -228,6 +230,36 @@ for (const file of files) {
   await p.close();
 }
 if (gamesSeen < files.length) fail(`only ${gamesSeen} games in the ${files.length} files of the Games set`);
+
+// The acquisition's sealed bids, opened from the Files tab: two pure
+// equilibria and a mixed one, worked out by hand in src/cli/commands/game.rs;
+// the scenario leaves both bidding 30%
+{
+  const p = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  p.on("pageerror", (e) => fail(`deal_game.yaml: ${e.message}`));
+  page = p;
+  await p.goto(`${base}/?example=acquisition`);
+  await ready(p);
+  await p.click('.tab[data-tab="files"]');
+  await p.click('[data-main="deal_game.yaml"]');
+  await ready(p);
+  await p.click('.tab[data-tab="model"]');
+  await p.waitForSelector('[data-game="sealed_bids"] table');
+  await drawn(p);
+  const bids = await checkAll("deal_game.yaml", "acquisition", "deal_game.yaml", null);
+  const pure = bids.sealed_bids ? pureCells(bids.sealed_bids).join(";") : "";
+  if (pure !== "bid_30,bid_30;bid_40,bid_40") fail(`deal_game.yaml: the pure equilibria are ${pure}`);
+  const marked = await p.$$eval('[data-game="sealed_bids"] [data-eq]', (tds) => tds.map((td) => td.dataset.cell).join(";"));
+  if (marked !== "bid_30,bid_30;bid_40,bid_40") fail(`deal_game.yaml: the cells marked are ${marked}`);
+  const before = await generation(p);
+  await p.click('[data-scn="thornvale_cost_only"]');
+  await settle(p, before);
+  await drawn(p);
+  const only = await checkAll("deal_game.yaml (thornvale_cost_only)", "acquisition", "deal_game.yaml", "thornvale_cost_only");
+  const one = only.sealed_bids ? pureCells(only.sealed_bids).join(";") : "";
+  if (one !== "bid_30,bid_30") fail(`deal_game.yaml (thornvale_cost_only): the pure equilibria are ${one}`);
+  await p.close();
+}
 
 await browser.close();
 if (!remote) server.close();

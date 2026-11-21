@@ -255,6 +255,13 @@ tier1:
   # Of the audit's T1-LINT-GATE, the scope.rs doc comment was fixed in
   # d335791 and the ten test sites (float_cmp, missing_const_for_fn) on
   # 2026-11-16; its release attestations (T1-SUPPLY-CHAIN) are in d335791.
+  # Not finite anywhere (2026-11-21): a model with `.nan`, `.inf` or `-.inf` is
+  # refused as it is read (src/parser/finite.rs, every file and command; a
+  # formula's stored value is skipped, as it is calculated again), a literal
+  # past the largest double is #NUM! (tokenizer), arithmetic that is not a
+  # number is #NUM! (operators), and an imported cell that is not finite is
+  # #NUM! (importer). Found while making test_nan_in_a_column_never_panics
+  # assert: MEDIAN counted a NaN, export wrote it as text, import as 0.
   # T1-NONFINITE is done (2026-11-16): every distribution argument, max - min
   # and the draws at both ends must be finite (distributions.rs,
   # src/monte_carlo/distributions.rs (its refused_everywhere tests)); it found T1-HUGE-STATS and T1-DISCRETE.
@@ -273,7 +280,7 @@ tier1:
   # browser. jsonschema is a dev-dependency: every model a test reads, and
   # 78,838 models made from the examples, are refused alike by both, with the
   # same lines. The browser module is 1,261,203 bytes gzipped (1,939,940
-  # before, on main with the games); the budget in ci.yml is 1,362,000. 14
+  # before, on main with the games); the budget in ci.yml was 1,362,000 (3,000,000 since ADR-070). 14
   # refused models in forge-wasm/tests/cases.json give the command line's
   # message in the browser. Four kinds of line that were jsonschema's words are
   # Forge's.
@@ -311,6 +318,21 @@ tier1:
     how: "Check in Excel where the cut applies (a number in a formula, a typed value in a cell, a value read from a workbook), and whether it rounds or truncates; then follow it in the parser and the importer, or write it down in VALIDATION.md"
     acceptance: "Excel's answers for at least 5 placements are in an edge case file; the difference is fixed test-first or written down"
 
+  # Found 2026-11-21 building kinship-protocol's v0.6.0 models on rc.31;
+  # both reproduce on main (66f7fed).
+
+  # T1-SCENARIO-FALSE-ERRORS is done (2026-11-21): when no form of a section
+  # fits, the reported form is the one under which the fewest of its entries
+  # fail, then the deepest (schema_errors.rs, entries_failing), so one bad
+  # scenario is named alone (CHANGELOG [Unreleased], Fixed).
+
+  # T1-YAML-MERGE-KEYS is done (2026-11-21, ADR-071): a merge key is refused
+  # with one message naming its place, wherever it is written. Every model
+  # text becomes YAML through parser::read_yaml (merge_keys.rs), in the
+  # parser, forge upgrade, MCP inline models and the commands that read their
+  # own section; a scalar `y: {<<: *x}`, accepted silently before, is refused
+  # too (CHANGELOG [Unreleased], Fixed).
+
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"
     why: "Checked on f77fa0a. Release attestations are done (d335791). Left: six of seven workflows have no top-level permissions: block (pages.yml has one); actions are pinned by tag or branch (actions/checkout@v7, dtolnay/rust-toolchain@stable and @master, taiki-e/install-action@cargo-llvm-cov), not by commit; studio/ has a package.json but no lockfile and CI and pages.yml run npm install; .cargo/audit.toml ignores RUSTSEC-2024-0436 (paste), but Cargo.lock has pastey, not paste, so the ignore is stale"
@@ -325,6 +347,25 @@ tier1:
   # and are asserted beside each command (acquisition_example). It needed no
   # engine change; what it made hard is the three items below
   # (T1-VARY-INCLUDED done since).
+  #
+  # Since (2026-11-21): examples/acquisition/deal_game.yaml plays the
+  # contest with Thornvale as a game (forge game): sealed best and final
+  # offers at 30% or 40%, each bidder's payoff its value created from
+  # deal.yaml, Thornvale's synergies a round 530. Two pure equilibria (both
+  # 30%, both 40%) and a mixed one; with cost cuts worth 400, both bid 30%.
+  # Worked out by hand and with nashpy 0.0.43, asserted in game.rs
+  # (the_sealed_bids_are_a_trap_both_can_fall_into), checked against Gambit
+  # in validation/games (two specs), opened in Studio's acquisition set and
+  # checked by studio/tests/games.mjs. The bidding tree keeps its typed-in
+  # chances; the README says what each leaves out.
+  #
+  # Examples review (2026-11-21): every analytics command runs on a story
+  # example; forge audit had no story example's README, so the bagel README
+  # shows it on year.profit (15 inputs and 2 data columns, asserted in
+  # audit.rs). Still uncovered: forge watch (interactive, no example needed),
+  # LAMBDA and VLOOKUP (no story example uses them; the lowest-value gap).
+  # A model that starts from a workbook is examples/inherited-budget
+  # (T1-EXAMPLE-EXCEL-ROUNDTRIP, done 2026-11-21).
 
   # T1-VARY-INCLUDED is done (2026-11-18): tornado, goal-seek, break-even
   # and sensitivity find `@alias.name` in the included file (names.rs) and
@@ -416,12 +457,45 @@ tier1:
   # section 5, sixth round). The error is #NUM!:
   # ERROR.TYPE of Excel's XNPV is 6 (measured the same day).
 
-  - id: T1-EXAMPLE-EXCEL-ROUNDTRIP
-    title: "An example that starts from a messy workbook: import, audit, change, export"
-    run_with: "Opus 5.5, high effort: forge import has never met a realistic workbook, and judging what it should do with one takes care"
-    why: "Every example starts in YAML. forge import (src/cli/commands/excel_io/import.rs) and forge audit are tested on small cases only; rc.20 fixed two wrong answers in import (an empty cell imported as 0, a range read as the row's value), found by accident. The way many people would actually start is with a workbook they inherited"
-    how: "examples/inherited-budget/ with a .xlsx an FP&A analyst might inherit: a few sheets (assumptions, a monthly table, a summary), cross-sheet references, a named range, a hard-coded number where a formula should be, a merged header, a blank row inside a table, number formats. The workbook must not be written by forge export (that would check Forge against itself): write it with openpyxl or by hand in a spreadsheet, and record its calculated values from LibreOffice or Gnumeric (or Excel, when the maintainer has it at hand). Then: forge import, forge audit (the README says what it should flag, the hard-coded number at least), change one assumption with forge update or in the YAML, forge calculate, forge export, and recalculate the exported workbook outside Forge. Whatever import gets wrong or drops is the point of the item: each gets a failing test, then a fix or a written-down limit in docs"
-    acceptance: "The workbook and the script or steps that made it are in the example; forge import of it calculates to the spreadsheet's own values, asserted in inline tests; forge audit's findings on it are asserted; the exported workbook after the change recalculates outside Forge to Forge's numbers; each limit found is fixed or written down in the README and the docs"
+  # T1-EXAMPLE-EXCEL-ROUNDTRIP is done (2026-11-21): examples/inherited-budget,
+  # Kestrel Coffee Roasters' FY2027 budget, a workbook written by openpyxl
+  # (make_workbook.py) and calculated by LibreOffice 24.2, never by Forge:
+  # titles, merged headings, a blank row between the half-years, a total row,
+  # a named range, units and comments, and October's staff cost typed in.
+  # Before, forge import dropped every formula of it without a warning and read
+  # the numbers as text. What it found, each test-first:
+  #  - a wrong answer in any workbook: a range over part of a column
+  #    (SUM(A2:A3), a running total SUM($A$2:A5)) was read as the whole
+  #    column. Now imported as values with a warning (CHANGELOG Fixed), so the
+  #    two weeks before the stable release start again;
+  #  - a third column of a scalar sheet was read as an old Formula column;
+  #  - titles, merged headings, blank rows inside a table, a total row
+  #    (scalars `{table}_total`), sheets of labels and values with Unit and
+  #    Notes, headers that are not names, named ranges, and a column whose
+  #    formula changes once or has a number typed over it (one IF on ROW(),
+  #    with a warning) are now read (src/excel/importer/layout.rs, runs.rs).
+  # The import calculates to every number LibreOffice stored (inherited_budget
+  # in excel_io/mod.rs, and the MCP and REST import tests); forge audit follows
+  # net income to the typed 21,000; a pay rise to 22,500 with both flagged
+  # items put back gives 642,935.46; check_export.py has LibreOffice
+  # recalculate the export on load: 120 numbers, 0 different. What import
+  # still does not read is in the example's README and docs/FEATURES.md.
+  # Proposed, not built: forge audit could list numbers typed into formulas
+  # (the import names them today; audit shows them in the tree).
+
+  - id: T1-REVISIT-VALIDATOR
+    title: "Decide again between Forge's own schema reader and jsonschema, now that size does not decide"
+    run_with: "Opus 5.5, high effort: the model validator decides which files every surface accepts, and a wrong choice either way is a wrong refusal or a missed one"
+    why: "ADR-069 replaced the jsonschema crate with about 2,000 lines of Forge's own (schema_reader.rs, schema_check.rs, schema_pattern.rs), largely because jsonschema was 684 KB of a browser module held to 2,000,000 bytes. ADR-070 (2026-11-21) sets the ceiling at 3,000,000 from a load-time target and says size alone is no reason to replace a library: 1.29 MB plus 0.68 MB fits. The maintainer was uncomfortable with the removal. The reasons that remain are ADR-069's others: one validator with the same messages on the command line, MCP, REST and the browser (jsonschema ran in the browser before, so one validator is possible either way), Forge's words in the messages (schema_errors.rs rewrote jsonschema's before), and the 53 crates it brought (ICU and idna for formats Forge never uses; its idna feature can be turned off, 55 KB)"
+    how: "Measure jsonschema 0.60 or later in the browser build with its unneeded features off, and whether it brings back a second version of any crate (CLAUDE.md allows none but syn). Compare, on the 78,838 generated models and every test model the reader is already checked on: the same refusals, and how the messages read. Then an ADR amending ADR-069 with the choice and its reasons, none of them size alone"
+    acceptance: "An ADR that keeps the reader or returns to jsonschema, with the browser size measured, the crates counted and the messages compared; whichever stays, the other is kept as the check against it in the tests"
+
+  - id: T1-IMPORT-OTHER-LANGUAGES
+    title: "forge import reads a sheet of scalars headed in French, Chinese or any language"
+    run_with: "Opus 5.5, medium effort: a heuristic in the importer, where a wrong guess makes a table of what were scalars"
+    why: "Found 2026-11-21. Forge's names are Unicode, and a model in French or Chinese calculates and survives export and import. But the rule that makes a sheet of labels a sheet of scalars (T1-EXAMPLE-EXCEL-ROUNDTRIP) looks for English words over the columns: Value, Unit, Notes, Comment. A French drivers sheet headed Hypothèse, Valeur, Unité comes in as a table; formulas that read its cells come in as values, with warnings. Not a wrong answer, but the import loses every formula that reads an assumption"
+    how: "A rule that does not depend on the language, by preference: a sheet whose cells other sheets read one at a time ($B$7) and never as a range is a sheet of scalars. Otherwise a short list of the header words in French (Valeur, Unité, Commentaire), the languages of the people Studio is for"
+    acceptance: "A French and a Chinese drivers sheet, written outside Forge, import as scalars and the formulas that read them stay formulas, asserted in inline tests; the rule is in docs/FEATURES.md"
 
   # T1-INTERFACE-PARITY is done (2026-11-18): every one of the 20 MCP tools and
   # the 5 REST endpoints has an inline test that runs a story example and asserts
@@ -437,8 +511,9 @@ tier1:
   # Fixed). Over REST, export and import take file paths only, so their bagel
   # tests name files; the other three take the model as text. A failed operation
   # answers HTTP 200 with success: true and the flag false (docs/FEATURES.md says so).
-  # The new examples still to come (T1-EXAMPLE-EXCEL-ROUNDTRIP, examples/fund when
-  # it merges) get their matching tool's test when they land.
+  # The new examples still to come (examples/fund when it merges) get their
+  # matching tool's test when they land; examples/inherited-budget has its
+  # forge_import and /api/v1/import tests (2026-11-21).
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
@@ -454,7 +529,7 @@ tier2:
   - id: T2-GAME-THEORY
     title: "Games: a payoff table, and which strategies are an equilibrium"
     why: "Parked as P-GAME until a user asked; the maintainer asked on 2026-11-16, for his own kinship-protocol (github.com/mollendorff-ai/kinship-protocol), which calls Forge its game-theory calculator and wants more games. Read from its 13 models: a game is written by hand as scalars, one formula per strategy per parameter step (stag_hunt.yaml: c0_coop, c0_defect, c0_coop_wins, then c1_, c2_, c3_), a 'wins' flag is an IF the author writes, and the Axelrod tournament's average payoffs are numbers typed in (grim_base 2.622), calculated somewhere else. Forge works out a payoff and cannot say which strategy is dominated or where the equilibrium is. The second use is the one behind T1-MA-EXAMPLE: a bidding contest or a price answer, where the other side reacts"
-    how: "ADR-068 (accepted 2026-11-19): a games: section in model format 5.5.0, exact expected values for tournaments, results readable by formulas. The maintainer asked for it before the stable release (2026-11-19). Built: the section and its parser, schema 5.5.0, a game as a cell of the calculation, dominated strategies, pure equilibria for any number of players, mixed ones for two (checked against nashpy 0.0.43 and by hand), tornado, simulate, sensitivity and goal-seek on a game result, and a warning from forge export that names the games (Excel cannot find an equilibrium; the payoff formulas are not written and the results are numbers as of the export). Then (PR #299): the forge game command; tournaments (exact match values as joint Markov chains, noise, continuation, collectively stable strategies; every pair of the nine strategies within 2.4 standard errors of the axelrod library's seeded average); the forge_game MCP tool (21 tools) and game in forge-wasm; seven examples in examples/games with their numbers asserted (stag hunt, chicken and Axelrod from kinship-protocol, inspection with its tornado, a noisy tournament, battle of the sexes, the continuation sweep). Left: kinship-protocol's three models rewritten in its own repository from examples/games. The e2e suite is T2-GAME-THEORY-E2E. The ADR says what is left out (more than two players in mixed strategies, extensive-form games, auctions)."
+    how: "ADR-068 (accepted 2026-11-19): a games: section in model format 5.5.0, exact expected values for tournaments, results readable by formulas. The maintainer asked for it before the stable release (2026-11-19). Built: the section and its parser, schema 5.5.0, a game as a cell of the calculation, dominated strategies, pure equilibria for any number of players, mixed ones for two (checked against nashpy 0.0.43 and by hand), tornado, simulate, sensitivity and goal-seek on a game result, and a warning from forge export that names the games (Excel cannot find an equilibrium; the payoff formulas are not written and the results are numbers as of the export). Then (PR #299): the forge game command; tournaments (exact match values as joint Markov chains, noise, continuation, collectively stable strategies; every pair of the nine strategies within 2.4 standard errors of the axelrod library's seeded average); the forge_game MCP tool (21 tools) and game in forge-wasm; seven examples in examples/games with their numbers asserted (stag hunt, chicken and Axelrod from kinship-protocol, inspection with its tornado, a noisy tournament, battle of the sexes, the continuation sweep). kinship-protocol's three models are rewritten in its own repository (its v0.5.0, 2026-11-20), with the four further games; one went against this item's acceptance text: in its noisy tournament generous TitForTat came 5th at 5% noise and TitForTwoTats won at 1%, so 'a forgiving strategy wins' holds only while mistakes are rare (its docs/MORE_GAMES.md). The e2e suite is T2-GAME-THEORY-E2E. The ADR says what is left out (more than two players in mixed strategies, extensive-form games, auctions)."
     acceptance: "kinship-protocol's stag hunt, chicken and Axelrod tournament are rewritten as game sections and give the results its models store today, or the difference is explained; the tournament's average payoffs are calculated by Forge and no longer typed in; every equilibrium in the tests is checked against the outside tool or a hand calculation. Two more games, chosen because the three above do not cover them: an inspection game (an AI complies or cheats, a human audits or trusts; it has no pure equilibrium, so it tests the mixed path, and a tornado on the penalty shows the known result that a harsher penalty lowers the audit rate and not the cheating), and a tournament with noise (each move is mistaken with a small seeded probability, so tit-for-tat falls apart and a forgiving strategy wins), each with its equilibrium or ranking checked the same way. Optional, same checks: a battle of the sexes (two pure equilibria and one mixed), and a sweep of the continuation probability that shows cooperation taking over near the threshold kinship-protocol derives by formula"
 
   - id: T2-GAME-THEORY-E2E
@@ -466,7 +541,7 @@ tier2:
 
   - id: T2-GAME-THEORY-MORE
     title: "Games with more than two players, and strategies that spread"
-    why: "Proposed 2026-11-16 beside T2-GAME-THEORY, from the maintainer's list of games for kinship-protocol. A five-player public goods game is the project's own setup (five AIs), and replicator dynamics (strategy shares changing by generation) would sit beside its predator_prey.yaml. T2-GAME-THEORY leaves both out on purpose: mixed strategies beyond two players, and any dynamics. Parked so the idea is kept, not planned"
+    why: "Proposed 2026-11-16 beside T2-GAME-THEORY, from the maintainer's list of games for kinship-protocol. A five-player public goods game is the project's own setup (five AIs), and replicator dynamics (strategy shares changing by generation) would sit beside its predator_prey.yaml. T2-GAME-THEORY leaves both out on purpose: mixed strategies beyond two players, and any dynamics. Parked so the idea is kept, not planned. Used 2026-11-21 on rc.31: kinship-protocol v0.6.0 has the five-player public goods game (models/public_goods.yaml), and Forge's pure equilibria for five players agree with Gambit (pygambit 16.7, enumpure_solve) and a hand enumeration in all five of its scenarios: 1, 1, 32, 1 and 1 equilibria, the 32 being the degenerate case where every profile is one. What it lacked: symmetric: true takes exactly two players (`games.pg is symmetric, which needs two players with the same strategies`), so a game whose five players have the same payoffs is 32 cells written out by a script, where a player's own strategy and how many others play each would do; a tournament's round must be a symmetric two-player game, so the repeated public goods game cannot be written; and replicator dynamics, as above"
     how: "After T2-GAME-THEORY is built and used. An ADR first, deciding whether pure equilibria for n players are enough for the public goods game, and whether replicator dynamics belong in a game section or in the existing time-series model. Extensive-form games such as the ultimatum game stay out"
     acceptance: "A five-player public goods game whose pure equilibria are checked against the outside tool or a hand calculation, and the ADR says what was left out"
 

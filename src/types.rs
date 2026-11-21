@@ -64,6 +64,15 @@ impl ColumnValue {
             _ => None,
         }
     }
+
+    /// The texts of a column of text; `None` for a column of another type
+    #[must_use]
+    pub fn texts(&self) -> Option<&[String]> {
+        match self {
+            Self::Text(v) => Some(v),
+            _ => None,
+        }
+    }
 }
 
 /// A column in a table (v4.0 enhanced with metadata)
@@ -764,6 +773,14 @@ pub fn parse_row_input_name(name: &str) -> Option<(&str, &str, usize)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The texts of a column of text, and none of a column of numbers
+    #[test]
+    fn texts_of_a_column() {
+        let names = ColumnValue::Text(vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(names.texts(), Some(&["a".to_string(), "b".to_string()][..]));
+        assert_eq!(ColumnValue::Number(vec![1.0]).texts(), None);
+    }
 
     // =========================================================================
     // Metadata Tests (v4.0)

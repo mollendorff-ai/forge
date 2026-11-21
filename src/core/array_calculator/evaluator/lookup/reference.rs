@@ -18,15 +18,12 @@ pub fn eval_indirect(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
     if let Some(val) = ctx.get_scalar(&ref_str) {
         return Ok(val.clone());
     }
-    if ref_str.contains('.') {
-        let parts: Vec<&str> = ref_str.splitn(2, '.').collect();
-        if parts.len() == 2 {
-            if let Some(table) = ctx.tables.get(parts[0]) {
-                if let Some(col) = table.get(parts[1]) {
-                    return Ok(Value::Array(col.clone()));
-                }
-            }
-        }
+    // `table.column`, the column split off at the first dot
+    let column = ref_str
+        .split_once('.')
+        .and_then(|(table, column)| ctx.tables.get(table)?.get(column));
+    if let Some(col) = column {
+        return Ok(Value::Array(col.clone()));
     }
     Err(EvalError::new(format!(
         "INDIRECT: cannot resolve '{ref_str}'"
@@ -899,5 +896,62 @@ mod tests {
             h::error_in("ADDRESS(1, 1, 1/0)", &ctx).contains(""),
             "ADDRESS(1, 1, 1/0)"
         );
+    }
+
+    /// An error in any argument is passed on, and text where a number is
+    /// needed is refused
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        crate::core::array_calculator::evaluator::tests::fails_with(
+            "INDIRECT(nope)",
+            "Unknown variable: nope",
+        );
+        each_argument(
+            "OFFSET",
+            &[
+                ("{1, 2, 3}", None),
+                ("1", Some("OFFSET: rows must be a number")),
+                ("0", Some("OFFSET: cols must be a number")),
+            ],
+        );
+        each_argument(
+            "ADDRESS",
+            &[
+                ("1", Some("ADDRESS: row must be a number")),
+                ("1", Some("ADDRESS: column must be a number")),
+                ("1", None),
+                ("TRUE", None),
+                ("\"S\"", None),
+            ],
+        );
+        each_argument("ROWS", &[("{1, 2}", None)]);
+    }
+
+    /// INDIRECT finds a scalar or a table's column, and nothing else
+    #[test]
+    fn indirect_finds_a_scalar_or_a_column() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let mut ctx = h::table(&[("col", h::numbers(&[1.0, 2.0]))]);
+        ctx.scalars.insert("rate".into(), Value::Number(0.5));
+        h::is_exactly_in("INDIRECT(\"rate\")", &ctx, 0.5);
+        h::is_exactly_in("SUM(INDIRECT(\"t.col\"))", &ctx, 3.0);
+        for missing in ["t.nope", "nope.col", "nope"] {
+            h::fails_in(
+                &format!("INDIRECT(\"{missing}\")"),
+                &ctx,
+                &format!("INDIRECT: cannot resolve '{missing}'"),
+            );
+        }
+    }
+
+    /// R1C1 with `abs_num` 1 is absolute both ways; ROWS of one value is 1;
+    /// COLUMNS of a table is its number of columns
+    #[test]
+    fn r1c1_rows_and_columns() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert_eq!(h::text("ADDRESS(2, 3, 1, FALSE)"), "R2C3");
+        h::is_exactly("ROWS(5)", 1.0);
+        h::is_exactly_in("COLUMNS(t)", &h::sweep_table(), 4.0);
     }
 }

@@ -83,7 +83,15 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text(
+                "SUBSTITUTE(\"hello\", \"l\", \"L\")"
+            ),
+            "heLLo"
+        );
     }
 
     #[test]
@@ -98,7 +106,15 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text(
+                "SUBSTITUTE(\"aaa\", \"a\", \"b\")"
+            ),
+            "bbb"
+        );
     }
 
     #[test]
@@ -113,7 +129,15 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text(
+                "SUBSTITUTE(\"hello\", \"x\", \"y\")"
+            ),
+            "hello"
+        );
     }
 
     #[test]
