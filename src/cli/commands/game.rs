@@ -6,6 +6,7 @@ use super::prediction::serialize_for_file;
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
+use crate::games::dynamics::DynamicsReport;
 use crate::games::report::{Dominated, NamedEquilibrium};
 use crate::games::{GameReport, TableReport, TournamentReport};
 use crate::parser;
@@ -159,7 +160,60 @@ fn print_table(c: &mut Console<'_>, r: &TableReport) {
             .collect();
         outln!(c, "      {player}: {}", line.join(", "));
     }
+    if let Some(dynamics) = &r.dynamics {
+        print_dynamics(c, dynamics);
+    }
     outln!(c);
+}
+
+/// Every generation of the dynamics, then the shares at the end.
+fn print_dynamics(c: &mut Console<'_>, d: &DynamicsReport) {
+    let end = d.end();
+    let word = if d.generations == 1 {
+        "generation"
+    } else {
+        "generations"
+    };
+    outln!(
+        c,
+        "   {}",
+        format!(
+            "Dynamics, {} {word} (baseline {}):",
+            d.generations,
+            display_number(d.baseline)
+        )
+        .bold()
+    );
+    let row = |cells: Vec<String>| {
+        let cells: Vec<String> = cells.iter().map(|cell| format!("{cell:>10}")).collect();
+        format!("      {}", cells.join(" "))
+    };
+    let mut heading = vec!["generation".to_string()];
+    heading.extend(end.shares.keys().cloned());
+    heading.push("payoff".to_string());
+    outln!(c, "{}", row(heading));
+    for (k, generation) in d.path.iter().enumerate() {
+        let mut cells = vec![k.to_string()];
+        cells.extend(
+            generation
+                .shares
+                .values()
+                .map(|share| format!("{share:.6}")),
+        );
+        cells.push(display_number(generation.payoff));
+        outln!(c, "{}", row(cells));
+    }
+    let shares: Vec<String> = end
+        .shares
+        .iter()
+        .map(|(strategy, share)| format!("{strategy} {share:.6}"))
+        .collect();
+    outln!(
+        c,
+        "   After the last generation: {}, average payoff {}",
+        shares.join(", "),
+        display_number(end.payoff)
+    );
 }
 
 fn print_tournament(c: &mut Console<'_>, r: &TournamentReport) {
@@ -289,6 +343,12 @@ REPORTS, PER GAME:
     (support enumeration); a tie that makes the list possibly incomplete
     is named as degenerate
   - Each strategy's payoff against an even mix of the others' strategies
+  - In a symmetric game of two strategies, the mixes in which all play
+    alike, for any number of players, and whether a population returns
+    to each equilibrium in which all play alike (stable)
+  - With a dynamics: key, in a symmetric game, the share of each strategy
+    generation by generation (the discrete replicator equation), from a
+    start, with a baseline added to every payoff
 
 A tournament plays a symmetric game of two strategies (cooperate, defect)
 round after round, between built-in strategies: always_cooperate,
@@ -307,8 +367,9 @@ REPORTS, PER TOURNAMENT:
 
 The same numbers are scalars named under the game, which formulas and the
 other commands can read: stag_hunt.equilibrium_1.me.stag, stag_hunt.equilibria,
-stag_hunt.even_mix.me.hare, axelrod.score.tft, axelrod.match.tft.ad,
-axelrod.stable.grim, and so on.
+stag_hunt.even_mix.me.hare, stag_hunt.equilibrium_3.stable,
+hawk_dove.dynamics.share.hawk, hawk_dove.dynamics.payoff, axelrod.score.tft,
+axelrod.match.tft.ad, axelrod.stable.grim, and so on.
 
 EXAMPLES:
   forge game model.yaml                       # Every game in the model
@@ -479,6 +540,72 @@ games:
         // Each of the three gains 1 by choosing u, whatever the others do:
         // u is dominant and (u, u, u) is the only equilibrium
         assert!(out.contains("1 pure equilibrium:"), "{out}");
+    }
+
+    /// A game with dynamics of one generation, from shares given by
+    /// formulas.
+    const SPREADING: &str = r#"_forge_version: "5.5.0"
+x: 0.75
+games:
+  hunt:
+    players: [me, you]
+    strategies: [stag, hare]
+    symmetric: true
+    payoffs:
+      stag: {stag: 4, hare: 0}
+      hare: {stag: 3, hare: 3}
+    dynamics:
+      start: {stag: =x + 0.05, hare: =0.2}
+      generations: =1
+      baseline: =x - 0.75
+"#;
+
+    #[test]
+    fn the_path_of_the_dynamics_is_printed_and_written() {
+        // By hand from a stag share of 0.8: stag pays 3.2, hare 3, the
+        // average is 3.16, so the share becomes 0.8 * 3.2 / 3.16 = 0.810127
+        let dir = tempfile::tempdir().unwrap();
+        let file = write(&dir, SPREADING);
+        let json = dir.path().join("r.json");
+        let out = forge(&["game", &file, "-o", json.to_str().unwrap()]).printed();
+        assert!(
+            out.contains("Dynamics, 1 generation (baseline 0.00):"),
+            "{out}"
+        );
+        assert!(out.contains("1   0.810127   0.189873"), "{out}");
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&json).unwrap()).unwrap();
+        let dynamics = &written[0]["dynamics"];
+        assert_eq!(dynamics["generations"], 1);
+        assert_eq!(dynamics["path"].as_array().unwrap().len(), 2);
+        assert_eq!(dynamics["path"][0]["shares"]["stag"], 0.8);
+        let stag = dynamics["path"][1]["shares"]["stag"].as_f64().unwrap();
+        assert!((stag - 0.8 * 3.2 / 3.16).abs() < 1e-15, "{stag}");
+        assert!((dynamics["path"][0]["payoff"].as_f64().unwrap() - 3.16).abs() < 1e-15);
+        // A game without dynamics writes none
+        let plain = write(&dir, MODEL);
+        let out = forge(&["game", &plain, "-o", json.to_str().unwrap()]).printed();
+        assert!(!out.contains("Dynamics"), "{out}");
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&json).unwrap()).unwrap();
+        assert_eq!(written[0]["dynamics"], serde_json::Value::Null);
+        // A baseline too low for a payoff is named, with what would do
+        let low = write(
+            &dir,
+            &SPREADING
+                .replace("=x + 0.05, hare: =0.2", "0, hare: 1")
+                .replace("=x - 0.75", "-3"),
+        );
+        let ran = forge(&["game", &low]);
+        assert!(!ran.success());
+        let err = ran.both();
+        assert!(
+            err.contains(
+                "game 'hunt': in generation 0 (0 is the start), hare pays 3 and the baseline is \
+                 -3, so hare's payoff plus the baseline is 0, not above 0"
+            ) && err.contains("a baseline above 0 is enough in every generation"),
+            "{err}"
+        );
     }
 
     #[test]
@@ -815,6 +942,71 @@ games:
                 1.0
             ));
             assert!(close(value(&generous, "dilemma.all_keep"), 60.0));
+        }
+
+        #[test]
+        fn hawks_spread_to_v_over_c_and_stag_hunters_to_one_side() {
+            // By hand: with a share x of hawks, hawk pays 4 - 5x and dove
+            // 2 (1 - x), equal at V / C = 2/3. The path is the equation
+            // iterated in Python 3.12 (x' = x (f + 5) / (average + 5), 200
+            // times from 0.1): 0.6666666666552279, average payoff
+            // 0.6666666667124218; at C = 8 and 12, 1/2 and 1/3. egttools
+            // 0.2.1 checks every generation (validation/games/dynamics.py).
+            let file = "examples/games/hawk-dove.yaml";
+            let model = calculated(file, None);
+            assert!((value(&model, "population.hawks") - 0.666_666_666_655_228).abs() < 1e-12);
+            assert!((value(&model, "population.payoff") - 0.666_666_666_712_422).abs() < 1e-12);
+            assert!((value(&model, "hawk_dove.dynamics.share.dove") - 1.0 / 3.0).abs() < 1e-10);
+            assert!(close(
+                value(&model, "hawk_dove.equilibrium_3.me.hawk"),
+                2.0 / 3.0
+            ));
+            assert!(close(value(&model, "hawk_dove.equilibrium_3.stable"), 1.0));
+            for (scenario, share) in [("costly", 0.5), ("deadly", 1.0 / 3.0)] {
+                let moved = calculated(file, Some(scenario));
+                let hawks = value(&moved, "population.hawks");
+                assert!((hawks - share).abs() < 1e-14, "{scenario}: {hawks}");
+                assert!(close(value(&moved, "population.by_hand"), share));
+            }
+            let out = forge(&["game", file]).printed();
+            assert!(
+                out.contains("Dynamics, 200 generations (baseline 5.00):"),
+                "{out}"
+            );
+            assert!(
+                out.contains("generation       hawk       dove     payoff"),
+                "{out}"
+            );
+            // The first step by hand: hawk pays 3.5, dove 1.8, the average
+            // is 1.97, so 0.1 * 8.5 / 6.97 = 0.121951
+            assert!(out.contains("0   0.100000   0.900000       1.97"), "{out}");
+            assert!(out.contains("1   0.121951   0.878049       1.96"), "{out}");
+            assert!(
+                out.contains("200   0.666667   0.333333     0.6667"),
+                "{out}"
+            );
+            assert!(
+                out.contains(
+                    "After the last generation: hawk 0.666667, dove 0.333333, average payoff 0.6667"
+                ),
+                "{out}"
+            );
+
+            // The stag hunt at c = 0: stag pays 4x and hare 3, so from 0.8
+            // stag spreads and from 0.7 it dies out; with c = 1.5 hare pays
+            // 1.5 and stag spreads from above 3/8 (Python 3.12, 100 times:
+            // 0.9999999999995072, 0 and 1)
+            let file = "examples/games/stag-hunt.yaml";
+            let up = calculated(file, None);
+            let stags = value(&up, "kinship.stags_at_the_end");
+            assert!((stags - 0.999_999_999_999_507_2).abs() < 1e-14, "{stags}");
+            assert!((value(&up, "stag_hunt.dynamics.payoff") - 4.0).abs() < 1e-11);
+            let down = calculated(file, Some("few_stags"));
+            assert_eq!(value(&down, "kinship.stags_at_the_end").to_bits(), 0);
+            assert!(close(value(&down, "stag_hunt.dynamics.share.hare"), 1.0));
+            assert!(close(value(&down, "stag_hunt.dynamics.payoff"), 3.0));
+            let costly = calculated(file, Some("c3"));
+            assert!(close(value(&costly, "kinship.stags_at_the_end"), 1.0));
         }
 
         #[test]

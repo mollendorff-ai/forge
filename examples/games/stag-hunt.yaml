@@ -13,10 +13,19 @@
 # Against a hunter who plays each half the time, stag pays 2 and hare 3 - c,
 # so stag wins once c passes 1. The scenarios are kinship's other costs:
 #   forge game games/stag-hunt.yaml --scenario c3
+#
+# Which equilibrium does a population of hunters reach? The dynamics follow
+# the share of stag hunters from one generation to the next. With a share x,
+# stag pays 4x and hare 3 - c, so at c = 0 the stag hunters spread from a
+# start above 3/4 and die out from one below. From 0.8 every hunter goes for
+# the stag within 100 generations; the scenario few_stags starts at 0.7, and
+# every hunter ends up hunting hare (by hand, and by egttools, every
+# generation). With c = 1.5 (c3), stag spreads from any start above 3/8.
 
 _forge_version: "5.5.0"
 
 c: 0      # the cost of a defection (hunting hare)
+start_stag: 0.8   # the share of stag hunters in the first generation
 
 games:
   stag_hunt:
@@ -27,6 +36,9 @@ games:
     payoffs:
       stag: {stag: 4, hare: 0}
       hare: {stag: =3 - c, hare: =3 - c}
+    dynamics:
+      start: {stag: =start_stag, hare: =1 - start_stag}
+      generations: 100
 
 kinship:
   coop_wins:
@@ -38,6 +50,9 @@ kinship:
   stag_share:
     formula: "=stag_hunt.equilibrium_3.me.stag"
     notes: How often each hunter goes for the stag in the mixed equilibrium
+  stags_at_the_end:
+    formula: "=stag_hunt.dynamics.share.stag"
+    notes: The share of stag hunters after 100 generations
 
 scenarios:
   c1:
@@ -49,3 +64,6 @@ scenarios:
   c3:
     description: A cost at which cooperation wins
     scalars: {c: 1.5}
+  few_stags:
+    description: A population that starts below 3/4 stag hunters
+    scalars: {start_stag: 0.7}
