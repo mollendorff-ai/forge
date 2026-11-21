@@ -4,6 +4,7 @@
 //! formulas. Read from the YAML here; calculated into a [`Table`] by the
 //! calculator.
 
+use super::counts;
 use super::table::Table;
 use super::tournament::{self, Tournament};
 use crate::error::{ForgeError, ForgeResult};
@@ -12,9 +13,10 @@ use yaml_serde::{Mapping, Value};
 /// A table may have at most this many cells (profiles).
 pub const MOST_CELLS: usize = 10_000;
 
-/// A name a strategy may not have: it is the last part of a result name
-/// (`<game>.equilibrium_1.<player>.payoff`).
-const RESERVED_STRATEGY: &str = "payoff";
+/// Names a strategy may not have: `payoff` is the last part of a result
+/// name (`<game>.equilibrium_1.<player>.payoff`), and `others` is the count
+/// a payoff of the count form reads (`<game>.others.<strategy>`, ADR-073).
+const RESERVED_STRATEGIES: [&str; 2] = ["payoff", "others"];
 
 /// A payoff as written: a number, or a formula over the model.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -29,6 +31,11 @@ pub struct Cell {
     pub payoff: Payoff,
     /// `you's payoff in stag_hunt.payoffs.hare.stag`
     pub at: String,
+    /// In the count form (ADR-073), the values its formula reads by name:
+    /// how many of the other players play each strategy in this cell
+    /// (`pg.others.contribute`). Empty in a table written out.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub others: Vec<(String, f64)>,
 }
 
 /// A game in `games:`: played once, or a tournament of repeated play.
@@ -95,23 +102,38 @@ impl TableGame {
     }
 
     /// The table with every payoff worked out by `value`, which is given
-    /// each formula and where it is written (`me's payoff in ...`); the first
-    /// error stops it.
+    /// each formula, where it is written (`me's payoff in ...`) and the
+    /// counts it reads in the count form; the first error stops it. A
+    /// formula is worked out once for each set of counts it reads.
     ///
     /// # Errors
     ///
     /// Returns the error `value` gives for the first formula that fails.
     pub fn table<E>(
         &self,
-        mut value: impl FnMut(&str, &str) -> Result<f64, E>,
+        mut value: impl FnMut(&str, &str, &[(String, f64)]) -> Result<f64, E>,
     ) -> Result<Table, E> {
+        let mut known: std::collections::HashMap<(&str, Vec<u64>), f64> =
+            std::collections::HashMap::new();
         let mut payoffs = Vec::with_capacity(self.cells.len());
         for cells in &self.cells {
             let mut row = Vec::with_capacity(cells.len());
             for cell in cells {
                 row.push(match &cell.payoff {
                     Payoff::Number(n) => *n,
-                    Payoff::Formula(f) => value(f, &cell.at)?,
+                    Payoff::Formula(f) => {
+                        let key = (
+                            f.as_str(),
+                            cell.others.iter().map(|o| o.1.to_bits()).collect(),
+                        );
+                        if let Some(n) = known.get(&key) {
+                            *n
+                        } else {
+                            let n = value(f, &cell.at, &cell.others)?;
+                            known.insert(key, n);
+                            n
+                        }
+                    },
                 });
             }
             payoffs.push(row);
@@ -279,9 +301,9 @@ fn parse_table_game(name: &str, map: &Mapping) -> ForgeResult<TableGame> {
             )))
         },
     };
-    if symmetric && (players.len() != 2 || strategies[0] != strategies[1]) {
+    if symmetric && strategies.iter().any(|list| *list != strategies[0]) {
         return Err(error(format!(
-            "games.{name} is symmetric, which needs two players with the same strategies"
+            "games.{name} is symmetric, which needs every player to have the same strategies"
         )));
     }
     let count: usize = strategies.iter().map(Vec::len).product();
@@ -297,11 +319,16 @@ fn parse_table_game(name: &str, map: &Mapping) -> ForgeResult<TableGame> {
         symmetric,
         cells: Vec::with_capacity(count),
     };
-    let written = read_cells(&game, field("payoffs")?)?;
-    game.cells = if symmetric {
-        mirror(&game, &written)
+    let payoffs = field("payoffs")?;
+    let counted = counts::count_form(payoffs).filter(|_| symmetric);
+    game.cells = if let Some(map) = counted {
+        counts::read(&game, map)?
+    } else if symmetric && game.players.len() > 2 {
+        return Err(counts::not_written_out(&game));
+    } else if symmetric {
+        mirror(&game, &read_cells(&game, payoffs)?)
     } else {
-        written
+        read_cells(&game, payoffs)?
     };
     Ok(game)
 }
@@ -343,10 +370,17 @@ fn parse_strategies(
         },
     };
     for (player, list) in players.iter().zip(&lists) {
-        if list.iter().any(|s| s == RESERVED_STRATEGY) {
+        if let Some(reserved) = list
+            .iter()
+            .find(|s| RESERVED_STRATEGIES.contains(&s.as_str()))
+        {
+            let use_ = if reserved == "payoff" {
+                format!("results use (<game>.equilibrium_1.{player}.payoff)")
+            } else {
+                "a payoff reads (<game>.others.<strategy>)".to_string()
+            };
             return Err(error(format!(
-                "'{at}': {player} has a strategy named {RESERVED_STRATEGY}, a name results \
-                 use (<game>.equilibrium_1.{player}.payoff); rename it"
+                "'{at}': {player} has a strategy named {reserved}, a name {use_}; rename it"
             )));
         }
     }
@@ -390,7 +424,12 @@ fn read_level(
 }
 
 /// Each of `strategies` is a key of `map`, and nothing else is.
-fn check_keys(map: &Mapping, strategies: &[String], player: &str, path: &str) -> ForgeResult<()> {
+pub(super) fn check_keys(
+    map: &Mapping,
+    strategies: &[String],
+    player: &str,
+    path: &str,
+) -> ForgeResult<()> {
     for key in map.keys() {
         if !key
             .as_str()
@@ -454,7 +493,11 @@ fn read_leaf(game: &TableGame, value: &Value, path: &str) -> ForgeResult<Vec<Cel
                     describe(value)
                 ))
             })?;
-            Ok(Cell { payoff, at })
+            Ok(Cell {
+                payoff,
+                at,
+                others: Vec::new(),
+            })
         })
         .collect()
 }
@@ -482,6 +525,7 @@ fn mirror(game: &TableGame, written: &[Vec<Cell>]) -> Vec<Vec<Cell>> {
             cells[i * n + j].push(Cell {
                 payoff: source.payoff.clone(),
                 at: source.at.clone(),
+                others: Vec::new(),
             });
         }
     }
@@ -529,7 +573,7 @@ stag_hunt:
         );
         assert_eq!(game.formulas(), vec!["=3 - c"]);
         let table = game
-            .table(|f, _| {
+            .table(|f, _, _| {
                 assert_eq!(f, "=3 - c");
                 Ok::<f64, String>(2.5)
             })
@@ -548,7 +592,7 @@ stag_hunt:
     #[test]
     fn a_formula_that_fails_names_its_cell() {
         let err = one(STAG_HUNT)
-            .table(|_, at| Err::<f64, String>(format!("{at}: Unknown variable: c")))
+            .table(|_, at, _| Err::<f64, String>(format!("{at}: Unknown variable: c")))
             .unwrap_err();
         assert_eq!(
             err,
@@ -663,7 +707,7 @@ g:
             ),
             (
                 "g: {players: [a, b], strategies: {a: [x], b: [y]}, symmetric: true}",
-                "games.g is symmetric, which needs two players with the same strategies",
+                "games.g is symmetric, which needs every player to have the same strategies",
             ),
             (
                 "g: {players: [a, b], strategies: [x]}",

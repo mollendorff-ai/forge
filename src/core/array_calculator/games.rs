@@ -28,8 +28,14 @@ impl ArrayCalculator {
         if let Game::Tournament(t) = game {
             deps.push(Cell::Game(t.round.clone()));
         }
+        // The counts a payoff of the count form reads are the game's own
+        // (`pg.others.contribute`), not a result it waits for
+        let counts = format!("{name}.others.");
         for formula in game.formulas() {
-            for word in formula_words(formula) {
+            for word in formula_words(formula)
+                .into_iter()
+                .filter(|w| !w.starts_with(&counts))
+            {
                 let dep = self
                     .qualified_column(&word)
                     .or_else(|| self.game_of(&word))
@@ -90,19 +96,19 @@ impl ArrayCalculator {
     /// Calculate game `name`: work out each payoff, find the equilibria (or
     /// play the tournament), and store every result as a scalar.
     pub(super) fn calculate_game(&mut self, name: &str) -> ForgeResult<()> {
-        let value = |calc: &mut Self, formula: &str, at: &str| {
-            calc.payoff_value(formula)
+        let value = |calc: &mut Self, formula: &str, at: &str, others: &[(String, f64)]| {
+            calc.payoff_value(formula, others)
                 .map_err(|e| locate_error(e, &format!("game '{name}': {at}"), formula))
         };
         let report = match self.model.games[name].clone() {
             Game::Table(game) => {
-                let table = game.table(|formula, at| value(self, formula, at))?;
+                let table = game.table(|formula, at, others| value(self, formula, at, others))?;
                 let report = analyse(name, &table);
                 self.game_tables.insert(name.to_string(), table);
                 GameReport::Table(report)
             },
             Game::Tournament(tournament) => {
-                let worked = tournament.work_out(|formula, at| value(self, formula, at))?;
+                let worked = tournament.work_out(|formula, at| value(self, formula, at, &[]))?;
                 // The round is a dependency, so it was calculated first
                 let round = &self.game_tables[&tournament.round];
                 GameReport::Tournament(standings(&tournament, round, &worked))
@@ -121,14 +127,24 @@ impl ArrayCalculator {
         Ok(())
     }
 
-    /// The number a payoff formula gives, read as a top-level formula reads.
-    fn payoff_value(&mut self, formula: &str) -> ForgeResult<f64> {
+    /// The number a payoff formula gives, read as a top-level formula reads,
+    /// with `others` (the counts of the count form, ADR-073) readable by
+    /// name for this formula only.
+    fn payoff_value(&mut self, formula: &str, others: &[(String, f64)]) -> ForgeResult<f64> {
         let ast = self.parsed_by_text(formula)?;
         let empty = Table::new("_scalar_context".to_string());
         self.check_ambiguous_names_by_text(formula, None, &empty)?;
         let result = self
             .evaluate_in_context(None, None, |ctx| {
-                evaluator::evaluate_cell(&ast, formula, ctx)
+                for (name, count) in others {
+                    ctx.scalars
+                        .insert(name.clone(), evaluator::Value::Number(*count));
+                }
+                let result = evaluator::evaluate_cell(&ast, formula, ctx);
+                for (name, _) in others {
+                    ctx.scalars.remove(name);
+                }
+                result
             })
             .map_err(|e| ForgeError::Eval(e.message))?;
         let single = match &result {
@@ -242,6 +258,70 @@ flags:
             assert!((value(&model, "stag_hunt.pure_equilibria") - 2.0).abs() < 1e-12);
             assert!((value(&model, "stag_hunt.equilibria") - 3.0).abs() < 1e-12);
         }
+    }
+
+    /// The public goods game of five players in the count form (ADR-073).
+    fn public_goods(r: f64, extra: &str) -> String {
+        format!(
+            "_forge_version: \"5.5.0\"
+endowment: 10
+r: {r}
+games:
+  pg:
+    players: [a, b, c, d, e]
+    strategies: [contribute, keep]
+    symmetric: true
+    payoffs:
+      contribute: =r * endowment * (pg.others.contribute + 1) / 5
+      keep: =endowment + r * endowment * pg.others.contribute / 5
+{extra}"
+        )
+    }
+
+    #[test]
+    fn the_public_goods_game_of_five_players() {
+        // By hand: keeping minus contributing is e (1 - r / n) whatever the
+        // others do, so below r = n = 5 everyone keeps, above it everyone
+        // contributes, and at r = 5 all 2^5 = 32 profiles are equilibria
+        // (kinship-protocol's 1, 32 and 1, which Gambit's enumpure_solve
+        // gave on rc.31 with the 32 cells written out)
+        let below = calculate(&public_goods(1.6, "")).unwrap();
+        assert!((value(&below, "pg.pure_equilibria") - 1.0).abs() < 1e-12);
+        assert!((value(&below, "pg.equilibrium_1.a.keep") - 1.0).abs() < 1e-12);
+        assert!((value(&below, "pg.equilibrium_1.e.keep") - 1.0).abs() < 1e-12);
+        assert!((value(&below, "pg.equilibrium_1.c.payoff") - 10.0).abs() < 1e-12);
+        assert!((value(&below, "pg.dominated.b.contribute") - 1.0).abs() < 1e-12);
+        // Against an even mix two of the four others contribute on average,
+        // and both payoffs are linear in that count: contributing gives
+        // 1.6 * 10 * 3 / 5 = 9.6, keeping 10 + 1.6 * 10 * 2 / 5 = 16.4
+        assert!((value(&below, "pg.even_mix.a.contribute") - 9.6).abs() < 1e-12);
+        assert!((value(&below, "pg.even_mix.a.keep") - 16.4).abs() < 1e-12);
+
+        let at = calculate(&public_goods(5.0, "")).unwrap();
+        assert!((value(&at, "pg.pure_equilibria") - 32.0).abs() < 1e-12);
+
+        let above = calculate(&public_goods(6.0, "")).unwrap();
+        assert!((value(&above, "pg.pure_equilibria") - 1.0).abs() < 1e-12);
+        assert!((value(&above, "pg.equilibrium_1.d.contribute") - 1.0).abs() < 1e-12);
+        // Everyone contributes: 6 * 10 * 5 / 5 = 60 each
+        assert!((value(&above, "pg.equilibrium_1.d.payoff") - 60.0).abs() < 1e-12);
+        assert!((value(&above, "pg.dominated.e.keep") - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn a_formula_reads_the_games_results_but_not_its_counts() {
+        let flag = "kept:\n  formula: \"=pg.equilibrium_1.a.keep * 2\"\n";
+        let model = calculate(&public_goods(1.6, flag)).unwrap();
+        assert!((value(&model, "kept") - 2.0).abs() < 1e-12);
+        let counts = "seen:\n  formula: \"=pg.others.keep\"\n";
+        let err = calculate(&public_goods(1.6, counts)).unwrap_err();
+        assert!(
+            err.contains(
+                "'pg.others.keep' is not a result of game 'pg': it is how many of the other \
+                 players play a strategy, which only the payoffs of game 'pg' can read"
+            ),
+            "{err}"
+        );
     }
 
     #[test]

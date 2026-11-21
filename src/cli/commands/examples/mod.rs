@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_example_count() {
-        assert_eq!(EXAMPLES.len(), 17, "Should have exactly 17 examples");
+        assert_eq!(EXAMPLES.len(), 18, "Should have exactly 18 examples");
     }
 
     #[test]
