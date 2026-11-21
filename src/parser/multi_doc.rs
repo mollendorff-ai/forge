@@ -48,7 +48,7 @@ pub(super) fn parse_single_document_from(
     let content = content.trim_start();
     let content = content.strip_prefix("---").map_or(content, str::trim_start);
 
-    let yaml: Value = yaml_serde::from_str(content)?;
+    let yaml: Value = super::read_yaml(content)?;
 
     let mut model = parse_v1_model(&yaml)?;
 
@@ -99,7 +99,7 @@ pub(super) fn parse_multi_document_from(
         }
         doc_index += 1;
 
-        let yaml: Value = yaml_serde::from_str(doc_content)
+        let yaml: Value = super::read_yaml(doc_content)
             .map_err(|e| ForgeError::Parse(format!("Failed to parse document {doc_index}: {e}")))?;
         let doc_model = parse_v1_model(&yaml)?;
         let doc_name = if let Some(Value::String(name)) = yaml.get("_name") {

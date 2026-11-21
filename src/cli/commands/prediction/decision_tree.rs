@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 pub fn decision_tree_core(file: &Path) -> ForgeResult<crate::decision_trees::TreeResult> {
     let yaml_content = parser::read_model_text(file)?;
 
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
+    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: DecisionTreeConfig = if let Some(dt_value) = value.get("decision_tree") {
@@ -58,7 +58,7 @@ pub fn decision_tree(
     let yaml_content = parser::read_model_text(file)?;
 
     // Parse decision_tree config
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
+    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: DecisionTreeConfig = if let Some(dt_value) = value.get("decision_tree") {
