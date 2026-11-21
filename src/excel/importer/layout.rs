@@ -306,15 +306,43 @@ fn is_total_row(sheet: &Sheet, row: usize) -> bool {
 }
 
 /// Whether `formula` holds a range of the column `letter` on its own sheet
-/// (`D4:D16`, `$D$4:$D$16`).
+/// (`D4:D16`, `$D$4:$D$16`): not one after a sheet's `!`, nor inside a name.
 fn reads_own_column(formula: &str, letter: &str) -> bool {
-    let ranges =
-        regex::Regex::new(r"(^|[^!A-Za-z0-9_.$])\$?([A-Z]{1,3})\$?\d+:\$?([A-Z]{1,3})\$?\d+")
-            .expect("a valid pattern");
-    let found = ranges
-        .captures_iter(formula)
-        .any(|c| &c[2] == letter && &c[3] == letter);
-    found
+    let chars: Vec<char> = formula.chars().collect();
+    (0..chars.len()).any(|at| {
+        let after_a_name = at > 0 && {
+            let before = chars[at - 1];
+            before.is_ascii_alphanumeric() || matches!(before, '!' | '_' | '.' | '$')
+        };
+        !after_a_name && range_column(&chars[at..]).is_some_and(|column| column == letter)
+    })
+}
+
+/// The letters of a cell (`$D$4`, `AB12`) at the start of `chars`, and how
+/// many characters it takes.
+fn cell_column(chars: &[char]) -> Option<(String, usize)> {
+    let dollar = |at: usize| usize::from(chars.get(at) == Some(&'$'));
+    let start = dollar(0);
+    let letters = chars[start..]
+        .iter()
+        .take_while(|c| c.is_ascii_uppercase())
+        .count();
+    let row = start + letters + dollar(start + letters);
+    let digits = chars[row..]
+        .iter()
+        .take_while(|c| c.is_ascii_digit())
+        .count();
+    ((1..=3).contains(&letters) && digits > 0)
+        .then(|| (chars[start..start + letters].iter().collect(), row + digits))
+}
+
+/// The column of a range `D4:D16` at the start of `chars`, when both ends
+/// are in the same column.
+fn range_column(chars: &[char]) -> Option<String> {
+    let (first, taken) = cell_column(chars)?;
+    (chars.get(taken) == Some(&':')).then_some(())?;
+    let (last, _) = cell_column(&chars[taken + 1..])?;
+    (first == last).then_some(first)
 }
 
 #[cfg(test)]
@@ -460,6 +488,14 @@ mod tests {
         assert!(!reads_own_column("=SUM(E4:E16)", "D"));
         assert!(!reads_own_column("=SUM(Other!D4:D16)", "D"));
         assert!(!reads_own_column("=D4+D16", "D"));
+        // Two columns, no row, no letters, four letters, a name that ends like a cell
+        assert!(!reads_own_column("=SUM(D4:E16)", "D"));
+        assert!(!reads_own_column("=SUM(D:D)", "D"));
+        assert!(!reads_own_column("=SUM(D4:16)", "D"));
+        assert!(!reads_own_column("=SUM(4:D5)", "D"));
+        assert!(!reads_own_column("=SUM(ABCD4:ABCD9)", "ABCD"));
+        assert!(!reads_own_column("=SUM(x_D4:D9)", "D"));
+        assert!(reads_own_column("=SUM(AB4:AB9)+1", "AB"));
     }
 
     #[test]
