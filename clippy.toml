@@ -5,7 +5,7 @@ msrv = "1.97.0"
 # The crates allowed in two versions (multiple_crate_versions), counted in
 # validation/repo/src/no_skipping.rs.
 #
-# getrandom 0.3 and 0.4, since 2026-11-21 (ADR-071): jsonschema,
+# getrandom 0.3 and 0.4, since 2026-11-21 (ADR-072): jsonschema,
 # jsonschema-value and referencing take ahash with its default features,
 # which bring getrandom 0.3; Forge, rand and zip are on 0.4. The maintainer
 # decided that the rule against duplicates does not compete with keeping a

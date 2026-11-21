@@ -6,7 +6,7 @@
 //! # Submodules
 //! - `arrays`: Array/column type parsing (Number, Text, Date, Boolean)
 //! - `schema`: validation against the schema of the model's format
-//! - `schema_reader`: the model formats' JSON schemas, checked by `jsonschema` (ADR-071)
+//! - `schema_reader`: the model formats' JSON schemas, checked by `jsonschema` (ADR-072)
 //! - `schema_errors`: what does not fit a schema, in words
 //! - `multi_doc`: Multi-document YAML parsing (v4.4.2)
 //! - `includes`: Cross-file include resolution (v4.0)
@@ -17,6 +17,7 @@ mod arrays;
 mod finite;
 mod includes;
 mod memory;
+mod merge_keys;
 pub(crate) mod model;
 mod multi_doc;
 pub(crate) mod periods;
@@ -29,6 +30,7 @@ mod variables;
 pub use arrays::{detect_array_type, is_valid_date_format, parse_array_value, type_name};
 pub use includes::{parse_includes, resolve_includes};
 pub use memory::{files_in_memory, read_model_text, with_files_in_memory};
+pub use merge_keys::read_yaml;
 pub use model::{parse_nested_scalars, parse_scenarios, parse_v1_model};
 pub use multi_doc::{
     detect_multi_document, parse_multi_document_yaml, parse_single_document_yaml,

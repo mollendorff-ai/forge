@@ -154,7 +154,7 @@ pub(super) fn resolve_includes_from<S: BuildHasher>(
 
         // Parse the included file
         let content = source.read(&include_path)?;
-        let yaml: Value = yaml_serde::from_str(&content)?;
+        let yaml: Value = super::read_yaml(&content)?;
         let mut included_model = parse_v1_model(&yaml)?;
 
         // Recursively resolve includes in the included file

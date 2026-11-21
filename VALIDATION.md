@@ -8,7 +8,7 @@ Forge is a release candidate and an R&D prototype. These checks reduce the chanc
 
 | Check | Compares Forge with | Result |
 | --- | --- | --- |
-| Unit tests (this repo) | Expected values written in the tests | over 2,700 tests and 2 doctests pass |
+| Unit tests (this repo) | Expected values written in the tests | over 2,750 tests and 2 doctests pass |
 | [forge-e2e-gnumeric](validation/gnumeric) | Gnumeric, a separate spreadsheet engine, and LibreOffice for 175 cases Gnumeric cannot read | 2,162 formula cases; 2,137 of the 2,138 before ADR-066 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); the 13 of ADR-066 pass where Gnumeric judges them (2026-11-18), and CI judges the 7 by LibreOffice; the 5 of `edge_fund_cash_flows.yaml` pass in Gnumeric (2026-11-18); the 4 of the ROUND and HOUR fixes pass in Gnumeric (2026-11-18); the 2 of XNPV and XIRR before the first date are checked against Forge only (2026-11-19); CI runs them all on every pull request |
 | [forge-e2e-r](validation/r), formulas | R, with Excel rules where R differs | 136 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 70 of 77 specs pass against R in the Validation workflow; 7 skipped |

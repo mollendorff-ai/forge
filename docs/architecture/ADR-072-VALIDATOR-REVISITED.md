@@ -1,4 +1,4 @@
-# ADR-071: jsonschema Checks Every Model Again
+# ADR-072: jsonschema Checks Every Model Again
 
 **Status:** Accepted; built
 **Date:** 2026-11-21

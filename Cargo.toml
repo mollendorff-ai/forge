@@ -88,7 +88,7 @@ required-features = ["cli"]
 
 
 [dependencies]
-# Every model is checked against its format's JSON schema (ADR-071): on the
+# Every model is checked against its format's JSON schema (ADR-072): on the
 # command line, the servers and the browser. No default features: the
 # schemas are built in, so nothing is fetched or read from a file, and their
 # only format is `date`, so the idna stack is not needed
