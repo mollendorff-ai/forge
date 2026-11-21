@@ -1,5 +1,5 @@
 //! The model formats' JSON schemas, checked by the `jsonschema` crate
-//! (ADR-071, which returned to it after ADR-069 had replaced it with a reader
+//! (ADR-072, which returned to it after ADR-069 had replaced it with a reader
 //! of Forge's own).
 //!
 //! The seven schema files in `schema/` are the statement of each model

@@ -12,7 +12,7 @@ description: >
 stack:
   - rust (stable; CI lints with the newest stable, so pin nothing)
   - clap (CLI)
-  - yaml_serde + serde (model files; their schemas in schema/, checked by jsonschema, ADR-071)
+  - yaml_serde + serde (model files; their schemas in schema/, checked by jsonschema, ADR-072)
   - petgraph (dependency graph of formula cells)
   - axum + tokio + tower-http (REST API)
   - rmcp (MCP server, stdio)

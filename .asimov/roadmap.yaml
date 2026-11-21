@@ -482,7 +482,7 @@ tier1:
   # Proposed, not built: forge audit could list numbers typed into formulas
   # (the import names them today; audit shows them in the tree).
 
-  # T1-REVISIT-VALIDATOR is done (2026-11-21, ADR-071): jsonschema 0.60 checks
+  # T1-REVISIT-VALIDATOR is done (2026-11-21, ADR-072): jsonschema 0.60 checks
   # every model again, on every surface, read as draft 07; schema_reader.rs
   # turns its errors into the kinds schema_errors.rs words, so the messages
   # are unchanged. The maintainer's reasons: it is closer to the standard
