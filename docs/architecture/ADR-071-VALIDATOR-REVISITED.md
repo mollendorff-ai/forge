@@ -1,53 +1,47 @@
-# ADR-071: Forge's Schema Reader or jsonschema, Decided Without Size
+# ADR-071: jsonschema Checks Every Model Again
 
-**Status:** Proposed
+**Status:** Accepted; built
 **Date:** 2026-11-21
-**Decided by:** the maintainer (to decide); the measurements and the recommendation are Claude's
-**Amends:** ADR-069
+**Decided by:** the maintainer ("is jsonschema closer to the industry standard than our code, and more battle-proven? If so, let's bring it back"; and the rule against duplicate crates "must not compete with replacing a core stable library"); the measurements are Claude's
+**Supersedes:** ADR-069
 **Closes:** roadmap T1-REVISIT-VALIDATOR
 
 ---
 
 ## Context
 
-ADR-069 (2026-11-20) replaced the `jsonschema` crate with Forge's own reader of its schema files (`schema_reader.rs`, `schema_check.rs`, `schema_pattern.rs`). Its context weighed `jsonschema` mostly by its size in the browser module, against a budget that had no stated purpose. ADR-070 (2026-11-21) gave the budget one, a 3,000,000-byte ceiling from a load-time target, and ruled that size alone is no reason to replace a stable library with code of our own. The maintainer was uncomfortable with the removal. This ADR asks the question again on the other merits.
+ADR-069 (2026-11-20) replaced the `jsonschema` crate with a reader of Forge's own (`schema_reader.rs`, `schema_check.rs`, `schema_pattern.rs`, about 2,000 lines), weighed mostly by its size in the browser against a budget that had no stated purpose. ADR-070 (2026-11-21) gave the budget one, a 3,000,000-byte ceiling from a load-time target, and ruled that size alone is no reason to replace a stable library with code of our own. The maintainer was uncomfortable with the removal and asked the question on its merits.
 
-Measured on 2026-11-21, on main (`ac9b919`) with `jsonschema` linked back into every build as it would be used, `default-features = false`, without `idna`, its crates built at `opt-level = "z"`:
+**The standard.** `jsonschema` (jsonschema-rs) implements JSON Schema drafts 4 to 2020-12 and is listed on Bowtie, the JSON Schema organisation's report that runs the official JSON Schema Test Suite against each implementation; its own CI runs that suite. It has years of releases and users outside Forge. Forge's reader read only the twenty or so keywords Forge's seven schema files use, had no test against the official suite, and was one day old: its correctness was borrowed from agreeing with `jsonschema` on Forge's models.
 
-| | Forge's reader (main) | `jsonschema` 0.60 |
+**What changes for a user.** Nothing in what is accepted or said. While the reader was in place, every model any test read went through both, and they had to refuse the same models with the same message lines, as did 78,838 models generated from the examples. The messages are Forge's either way: `schema_errors.rs` writes them from the errors, whoever found them.
+
+**The cost, measured 2026-11-21:**
+
+| | Forge's reader | `jsonschema` 0.60 |
 | --- | --- | --- |
-| Browser module, gzipped, before wasm-bindgen | 1,355,065 bytes | 1,964,618 bytes (+609 KB, +45%) |
-| At 10 Mbps (ADR-070) | about 1.1 s | about 1.6 s |
-| Under the 3,000,000-byte ceiling | yes | yes |
-| Crates in two versions, besides those main already has (`memchr`, `serde_core`, `serde_json`, `syn`) | none | `getrandom` 0.3 beside 0.4, in every build: the command line, the servers and the browser |
-| Messages | the same lines (asserted) | the same lines |
-| Unicode names (`hypothèses.coût_unitaire`, `假设.单价`) | accepted | accepted (and by Python's `jsonschema` 4.26, a third implementation) |
-| Code to keep | 2,879 lines with the message layer, which both need (893 of them `schema_errors.rs`) | the message layer, and keeping up with the crate's error types |
+| Browser module, gzipped, before wasm-bindgen | 1,355,065 bytes | 2,037,051 bytes (+682 KB) |
+| At 10 Mbps (ADR-070) | about 1.1 s | about 1.6 s, under the 3,000,000-byte ceiling |
+| Crates in two versions | `syn` | `syn`, and `getrandom` 0.3 beside 0.4 with its `r-efi` 5 beside 6 |
+| Code of our own | about 2,000 lines | the conversion of its errors (`schema_reader.rs`), and the messages both need |
 
-What the numbers rest on:
+`jsonschema`, `jsonschema-value` and `referencing` (0.60 and 0.62, the latest) take `ahash` with its default features, whose `runtime-rng` brings `getrandom` 0.3; Forge, `rand` and `zip` are on 0.4. `ahash` uses it only to seed its hash maps; a model's numbers never pass through it.
 
-- **Same answers.** In every test run, every model any test reads goes through both, and they must refuse the same models with the same message lines (`schema_reader::tests::agrees_with_jsonschema`, called from `validate_against_schema` under `cfg(test)`), and so must 78,838 models generated from the examples, over 30,000 of them refused. Messages are Forge's either way: `schema_errors.rs` writes them from the errors, whichever validator found them.
-- **What the schemas need.** About twenty keywords (`type`, `$ref` to `#/definitions/`, `properties`, `additionalProperties`, `required`, `anyOf`, `oneOf`, `allOf`, `not`, `if`/`then`/`else`, `enum`, `items`, `minItems`, `maxItems`, `minimum`, `maximum`, `minProperties`, `pattern`, `format: date`), and six patterns, all dates and `^=`. The reader refuses every model when a schema uses a keyword it does not read, so a new keyword cannot be passed over in silence.
-- **The second `getrandom`.** `jsonschema`, `jsonschema-value` and `referencing` (0.60 and 0.62, the latest) take `ahash` with its default features, whose `runtime-rng` brings `getrandom` 0.3; Forge uses 0.4. Forge cannot turn the feature off from its side. CLAUDE.md allows no second version of any crate but `syn`, and no lint allowance for it.
+## Decision
 
-## Decision (proposed)
+1. **`jsonschema` checks every model** on the command line, in the MCP server, the REST API and the browser, against the schema file of the model's format, read as draft 07 (the draft every file declares, in which `format: date` is a rule). It is a dependency again, with no default features: nothing is fetched or read from a file, and the `idna` stack is not needed for `format: date`.
+2. **Its errors are said in Forge's words**, as before: `schema_reader.rs` turns each into one of the kinds `schema_errors.rs` has words for. A kind no schema of Forge's gives (`const`, say) is reported as a bug in Forge, and a test makes sure every kind the schemas give has words, on every model made from the examples.
+3. **The reader is removed:** `schema_check.rs`, `schema_pattern.rs` and its keyword engine, and the `regex` dev-dependency that only checked its pattern matcher.
+4. **`getrandom` may be in two versions, and `r-efi` with it**, beside `syn` in `clippy.toml`'s `allowed-duplicate-crates`; the budget in `validation/repo` rises from 1 to 3. `getrandom` 0.3.4, the last 0.3, takes `r-efi` 5 for UEFI firmware where 0.4 takes `r-efi` 6, so the one cause brings two duplicates. The maintainer decided that the rule against duplicate crates does not compete with keeping a core, stable library. The exception goes when `jsonschema` no longer brings `getrandom` 0.3.
+5. **The browser module grows by 682 KB**, said in the CHANGELOG as ADR-070 asks; it stays under the ceiling.
 
-**Keep Forge's reader; keep `jsonschema` as the test it is checked against.** ADR-069 stands, for these reasons, none of them size:
+## Consequences
 
-1. **`jsonschema` breaks a rule that is not negotiable.** It brings `getrandom` 0.3 into every build, and CLAUDE.md allows no second version of a crate. Allowing it would raise a budget that may only fall (`validation/repo`).
-2. **Nothing is gained in what Forge accepts or says.** The two agree on every model the tests read and on 78,838 generated ones, with the same lines, and the schemas use a small, fixed part of JSON Schema.
-3. **The risk of code of our own is bounded and watched.** The reader refuses what it does not know, and `jsonschema` stays in `[dev-dependencies]` to check it on every test run. A test in `validation/repo` makes that permanent: it fails if `jsonschema` leaves the dev-dependencies or the comparison stops being called from `validate_against_schema`.
-
-The +609 KB would fit under ADR-070's ceiling, and ADR-070 says size alone would not decide; it does not decide here.
+- A change to a schema file can use any draft-07 keyword `jsonschema` supports. If it gives an error Forge has no words for, the message says it is a bug in Forge, and the test of every generated model fails first.
+- Upgrading `jsonschema` can change its error types; the conversion in `schema_reader.rs` and the message tests show where.
+- ADR-069 is superseded. Its other points stand where they did not depend on the reader: one validator on every surface, the same messages everywhere, and forge-wasm's refused models checked against the command line's message.
 
 ## When to decide again
 
-- `jsonschema` (or `ahash`) stops bringing a second `getrandom`, for example by taking `ahash` without default features or moving to a hasher on `getrandom` 0.4. Then the rule no longer decides, and the choice is the reader's 2,000 lines against the crate's upkeep.
-- A schema needs what is large to write well: references outside the file, `unevaluatedProperties`, other formats, a newer draft.
-- The comparison finds a difference the reader cannot fix simply.
-
-## Alternatives considered
-
-- **Return to `jsonschema` everywhere, the reader removed.** Same answers and messages, +609 KB, and a second `getrandom` against CLAUDE.md. Possible only with an allowance the rules forbid, or after an upstream change.
-- **`jsonschema` natively and the reader in the browser.** Two validators, which ADR-069 rules out: the same answer everywhere is the promise.
-- **Ask upstream to take `ahash` without default features.** Worth an issue: it would remove the reason above. `ahash` without `runtime-rng` uses fixed keys, which `jsonschema`'s maintainers may not want for a crate that hashes untrusted input, so it is not something to wait on.
+- `jsonschema` stops bringing `getrandom` 0.3: remove the two exceptions.
+- The browser module nears ADR-070's ceiling: first build `jsonschema`'s crates smaller (`opt-level = "z"` for them saved about 70 KB, PR #296), before anything else.

@@ -14,7 +14,7 @@ No exceptions and no skipping, in every crate (the main crate, `forge-wasm`, `va
 
 ## Libraries before code of our own
 
-Prefer a stable, well-maintained library to code of our own. Size alone is never the reason to replace one while Forge Studio's WebAssembly module is under the ceiling of ADR-070 (3,000,000 bytes gzipped); code of our own needs its own merits (more correct, simpler, or what the library cannot do). Forge's names are Unicode (`hypothèses.coût_unitaire`, `假设.单价`): whatever matches them must too.
+Prefer a stable, well-maintained library to code of our own. Size alone is never the reason to replace one while Forge Studio's WebAssembly module is under the ceiling of ADR-070 (3,000,000 bytes gzipped); code of our own needs its own merits (more correct, simpler, or what the library cannot do). Forge's names are Unicode (`hypothèses.coût_unitaire`, `假设.单价`): whatever matches them must too. The rule against crates in two versions does not compete with keeping a core, stable library: `getrandom` and its `r-efi` are allowed twice for `jsonschema` (ADR-071).
 
 ## Proposing the next step
 

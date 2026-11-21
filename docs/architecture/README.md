@@ -81,9 +81,9 @@ Technical documentation for Forge's architecture.
 | [ADR-066](ADR-066-A-LAST-SUM-NEAR-ZERO.md) | A Last Sum Near Zero Is Zero | Accepted by merging; measured in Excel (2026-11-18) |
 | [ADR-067](ADR-067-A-SCENARIO-WITHOUT-A-PROBABILITY.md) | A Scenario Without a Probability Is Compared, Not Weighted | Accepted (option 1); built |
 | [ADR-068](ADR-068-GAMES.md) | Games: a Payoff Table, Its Equilibria, and Tournaments | Accepted; games played once built, `forge game` and tournaments next |
-| [ADR-069](ADR-069-ONE-MODEL-VALIDATOR.md) | One Model Validator, Without a JSON Schema Engine | Accepted (option 1); built |
+| [ADR-069](ADR-069-ONE-MODEL-VALIDATOR.md) | One Model Validator, Without a JSON Schema Engine | Superseded by ADR-071 |
 | [ADR-070](ADR-070-STUDIO-DOWNLOAD-BUDGET.md) | What Forge Studio's Download Budget Is For | Accepted |
-| [ADR-071](ADR-071-VALIDATOR-REVISITED.md) | Forge's Schema Reader or jsonschema, Decided Without Size | Proposed |
+| [ADR-071](ADR-071-VALIDATOR-REVISITED.md) | jsonschema Checks Every Model Again | Accepted; built |
 
 ## Architecture Principles
 
