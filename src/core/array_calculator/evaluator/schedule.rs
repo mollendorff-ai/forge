@@ -379,4 +379,70 @@ mod tests {
             assert!(h::error_in("VDB(-1, 300, 10, 0, 1)", &ctx).contains("#NUM!"));
         }
     }
+
+    /// An error in any argument is passed on, and text where a number is
+    /// needed is refused with the argument's place
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        for (name, values) in [
+            ("CUMIPMT", vec!["0.05", "10", "1000", "1", "3", "0"]),
+            ("CUMPRINC", vec!["0.05", "10", "1000", "1", "3", "0"]),
+            ("VDB", vec!["2400", "300", "10", "1", "3"]),
+            ("RRI", vec!["10", "100", "200"]),
+            ("SYD", vec!["2400", "300", "10", "2"]),
+        ] {
+            let messages: Vec<String> = (1..=values.len())
+                .map(|i| format!("{name} needs a number as argument {i}"))
+                .collect();
+            let args: Vec<(&str, Option<&str>)> = values
+                .iter()
+                .zip(&messages)
+                .map(|(v, m)| (*v, Some(m.as_str())))
+                .collect();
+            each_argument(name, &args);
+        }
+        // VDB's factor and no-switch flag, which take what they are given
+        each_argument(
+            "VDB",
+            &[
+                ("2400", None),
+                ("300", None),
+                ("10", None),
+                ("1", None),
+                ("3", None),
+                ("1.5", None),
+                ("1", None),
+            ],
+        );
+    }
+
+    /// A factor of at least the life takes everything down to the salvage in
+    /// the first period and nothing after (`LibreOffice` Calc 24.2: 900 and 0),
+    /// and a number for VDB's no-switch flag is TRUE unless it is 0
+    #[test]
+    fn declining_balance_edges() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("DDB(1000, 100, 2, 1, 3)", 900.0);
+        h::is_exactly("DDB(1000, 100, 2, 2, 3)", 0.0);
+        assert_eq!(
+            h::number("VDB(2400, 300, 10, 1, 3, 2, 1)").to_bits(),
+            h::number("VDB(2400, 300, 10, 1, 3, 2, TRUE)").to_bits()
+        );
+    }
+
+    /// The principal of the first payment, made at the start, is the whole
+    /// payment (`LibreOffice`: -123.337690443292 for both)
+    #[test]
+    fn principal_of_the_first_payment_at_the_start() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert_eq!(
+            h::number("CUMPRINC(0.05, 10, 1000, 1, 1, 1)").to_bits(),
+            h::number("PMT(0.05, 10, 1000, 0, 1)").to_bits()
+        );
+        assert!(h::near(
+            h::number("CUMPRINC(0.05, 10, 1000, 1, 1, 1)"),
+            -123.337_690_443_292
+        ));
+    }
 }

@@ -2,11 +2,11 @@
 //! PPMT, IPMT, EFFECT, NOMINAL, PRICEDISC, YIELDDISC, ACCRINT
 
 mod dated;
+mod securities;
 
 use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
-use crate::core::array_calculator::evaluator::day_count::{self, Basis};
-use crate::core::array_calculator::evaluator::{number_or, parse_date_value};
+use crate::core::array_calculator::evaluator::number_or;
 use crate::core::precision;
 use num_traits::ToPrimitive;
 
@@ -104,10 +104,10 @@ pub(super) fn solve_rate(
         for _ in 0..200 {
             let mid = f64::midpoint(low, high);
             let mid_npv = npv_at(mid);
-            if !mid_npv.is_finite() {
-                break;
-            }
-            if mid_npv.abs() <= tolerance || (high - low).abs() <= 1e-14 {
+            // Both ends have a finite NPV, and so does every rate between
+            // them for the NPVs solved here; were one not finite, it would
+            // not be returned and would move the high end down
+            if mid_npv.abs() <= tolerance || (mid_npv.is_finite() && (high - low).abs() <= 1e-14) {
                 return Ok(mid);
             }
             if mid_npv.signum() == low_npv.signum() {
@@ -192,21 +192,6 @@ pub(super) fn annuity_ipmt(rate: f64, per: f64, nper: f64, pv: f64, fv: f64, due
     }
 }
 
-/// A date argument given as an Excel serial number or a date string
-fn date_arg(arg: &Expr, ctx: &EvalContext, what: &str) -> Result<chrono::NaiveDate, EvalError> {
-    parse_date_value(&evaluate(arg, ctx)?)
-        .map_err(|e| EvalError::new(format!("{what}: {}", e.message)))
-}
-
-fn basis_arg(
-    args: &[Expr],
-    index: usize,
-    ctx: &EvalContext,
-    name: &str,
-) -> Result<Basis, EvalError> {
-    Basis::from_number(optional_number(args, index, ctx, 0.0)?, name)
-}
-
 /// Try to evaluate a financial function. Returns None if function not recognized.
 pub fn try_evaluate(
     name: &str,
@@ -231,9 +216,9 @@ pub fn try_evaluate(
         "IPMT" => eval_ipmt(name, args, ctx)?,
         "EFFECT" => eval_effect(name, args, ctx)?,
         "NOMINAL" => eval_nominal(name, args, ctx)?,
-        "PRICEDISC" => eval_pricedisc(name, args, ctx)?,
-        "YIELDDISC" => eval_yielddisc(name, args, ctx)?,
-        "ACCRINT" => eval_accrint(name, args, ctx)?,
+        "PRICEDISC" => securities::eval_pricedisc(name, args, ctx)?,
+        "YIELDDISC" => securities::eval_yielddisc(name, args, ctx)?,
+        "ACCRINT" => securities::eval_accrint(name, args, ctx)?,
         _ => return Ok(None),
     };
 
@@ -314,14 +299,15 @@ fn eval_irr(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
         Some(arg) => evaluate(arg, ctx)?,
         None => return Err(EvalError::new("IRR requires cash flows")),
     };
-    let has_guess = args.len() == 2 && matches!(&first, Value::Array(a) if a.len() > 1);
-    let (values, guess) = if has_guess {
-        let guess = evaluate(&args[1], ctx)?
-            .as_cell_number()
-            .ok_or_else(|| EvalError::new("IRR guess must be a number"))?;
-        (collect_numeric_values(&args[..1], ctx)?, guess)
-    } else {
-        (collect_numeric_values(args, ctx)?, 0.1)
+    // The flows are read from the first argument as it is, not evaluated again
+    let (values, guess) = match (&first, args) {
+        (Value::Array(flows), [_, guess]) if flows.len() > 1 => {
+            let guess = evaluate(guess, ctx)?
+                .as_cell_number()
+                .ok_or_else(|| EvalError::new("IRR guess must be a number"))?;
+            (flows.iter().filter_map(Value::as_number).collect(), guess)
+        },
+        _ => (collect_numeric_values(args, ctx)?, 0.1),
     };
     if values.is_empty() {
         return Err(EvalError::new("IRR requires cash flows"));
@@ -686,94 +672,6 @@ fn eval_nominal(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, E
     Ok(Value::Number(nominal))
 }
 
-/// Evaluate `PRICEDISC`.
-fn eval_pricedisc(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    // PRICEDISC(settlement, maturity, discount, redemption, [basis])
-    require_args_range(name, args, 4, 5)?;
-    let settlement = date_arg(&args[0], ctx, "PRICEDISC settlement")?;
-    let maturity = date_arg(&args[1], ctx, "PRICEDISC maturity")?;
-    let discount = number_or(&args[2], ctx, 0.0)?;
-    let redemption = number_or(&args[3], ctx, 0.0)?;
-    let basis = basis_arg(args, 4, ctx, name)?;
-    if settlement >= maturity {
-        return Err(EvalError::new(
-            "#NUM!: PRICEDISC settlement must be before maturity",
-        ));
-    }
-    if discount <= 0.0 || redemption <= 0.0 {
-        return Err(EvalError::new(
-            "#NUM!: PRICEDISC discount and redemption must be positive",
-        ));
-    }
-    // DSM / B, computed as YEARFRAC does (as LibreOffice does too)
-    let fraction = day_count::year_fraction(settlement, maturity, basis);
-    Ok(Value::Number(
-        (discount * redemption).mul_add(-fraction, redemption),
-    ))
-}
-
-/// Evaluate `YIELDDISC`.
-fn eval_yielddisc(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    // YIELDDISC(settlement, maturity, price, redemption, [basis])
-    require_args_range(name, args, 4, 5)?;
-    let settlement = date_arg(&args[0], ctx, "YIELDDISC settlement")?;
-    let maturity = date_arg(&args[1], ctx, "YIELDDISC maturity")?;
-    let price = number_or(&args[2], ctx, 0.0)?;
-    let redemption = number_or(&args[3], ctx, 0.0)?;
-    let basis = basis_arg(args, 4, ctx, name)?;
-    if settlement >= maturity {
-        return Err(EvalError::new(
-            "#NUM!: YIELDDISC settlement must be before maturity",
-        ));
-    }
-    if price <= 0.0 || redemption <= 0.0 {
-        return Err(EvalError::new(
-            "#NUM!: YIELDDISC price and redemption must be positive",
-        ));
-    }
-    // DSM / B, computed as YEARFRAC does (as LibreOffice does too)
-    let fraction = day_count::year_fraction(settlement, maturity, basis);
-    Ok(Value::Number((redemption - price) / price / fraction))
-}
-
-/// Evaluate `ACCRINT`.
-fn eval_accrint(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    // ACCRINT(issue, first_interest, settlement, rate, par, frequency, [basis])
-    require_args_range(name, args, 6, 7)?;
-    let issue = date_arg(&args[0], ctx, "ACCRINT issue")?;
-    let first_interest = date_arg(&args[1], ctx, "ACCRINT first interest")?;
-    let settlement = date_arg(&args[2], ctx, "ACCRINT settlement")?;
-    let rate = number_or(&args[3], ctx, 0.0)?;
-    let par = number_or(&args[4], ctx, 0.0)?;
-    let frequency = number_or(&args[5], ctx, 0.0)?.trunc();
-    let basis = basis_arg(args, 6, ctx, name)?;
-    if issue >= settlement {
-        return Err(EvalError::new(
-            "#NUM!: ACCRINT issue date must be before settlement",
-        ));
-    }
-    if rate <= 0.0 || par <= 0.0 {
-        return Err(EvalError::new(
-            "#NUM!: ACCRINT rate and par value must be positive",
-        ));
-    }
-    let frequency = match frequency {
-        1.0 => 1,
-        2.0 => 2,
-        4.0 => 4,
-        _ => return Err(EvalError::new("#NUM!: ACCRINT frequency must be 1, 2 or 4")),
-    };
-    Ok(Value::Number(day_count::accrued_interest(
-        issue,
-        first_interest,
-        settlement,
-        rate,
-        par,
-        frequency,
-        basis,
-    )?))
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::tests::eval;
@@ -806,12 +704,7 @@ mod tests {
         assert!(matches!(irr, Value::Number(n) if (n - 0.178).abs() < 0.01));
     }
 
-    fn eval_number(formula: &str, ctx: &EvalContext) -> f64 {
-        match eval(formula, ctx).unwrap() {
-            Value::Number(n) => n,
-            other => panic!("{formula} returned {other:?}"),
-        }
-    }
+    use super::super::tests::number_in as eval_number;
 
     #[test]
     fn test_irr_matches_excel() {
@@ -1125,92 +1018,9 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_pricedisc() {
-        let ctx = EvalContext::new();
-        // PRICEDISC: $100 face value, 5% discount, 180 days
-        // Settlement=0, Maturity=180, Discount=0.05, Redemption=100
-        let result = eval("PRICEDISC(0, 180, 0.05, 100)", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(n) if n > 95.0 && n < 100.0));
-    }
-
-    #[test]
-    fn test_pricedisc_error_invalid_dates() {
-        let ctx = EvalContext::new();
-        // Settlement after maturity
-        let result = eval("PRICEDISC(180, 0, 0.05, 100)", &ctx);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_yielddisc() {
-        let ctx = EvalContext::new();
-        // YIELDDISC: $97.50 price for $100 redemption, 180 days
-        let result = eval("YIELDDISC(0, 180, 97.50, 100)", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(n) if n > 0.0));
-    }
-
-    #[test]
-    fn test_yielddisc_error_invalid_dates() {
-        let ctx = EvalContext::new();
-        let result = eval("YIELDDISC(180, 0, 97.50, 100)", &ctx);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_yielddisc_error_invalid_price() {
-        let ctx = EvalContext::new();
-        let result = eval("YIELDDISC(0, 180, 0, 100)", &ctx);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_accrint() {
-        let ctx = EvalContext::new();
-        // ACCRINT: $1000 par, 6% rate, 180 days, annual payment
-        // Issue=0, FirstInterest=365, Settlement=180, Rate=0.06, Par=1000, Frequency=1
-        let result = eval("ACCRINT(0, 365, 180, 0.06, 1000, 1)", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(n) if n > 0.0));
-    }
-
-    #[test]
-    fn test_accrint_error_invalid_dates() {
-        let ctx = EvalContext::new();
-        // Issue after settlement
-        let result = eval("ACCRINT(180, 365, 0, 0.06, 1000, 1)", &ctx);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_accrint_error_negative_rate() {
-        let ctx = EvalContext::new();
-        let result = eval("ACCRINT(0, 365, 180, -0.06, 1000, 1)", &ctx);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_accrint_error_invalid_par() {
-        let ctx = EvalContext::new();
-        let result = eval("ACCRINT(0, 365, 180, 0.06, 0, 1)", &ctx);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_accrint_error_invalid_frequency() {
-        let ctx = EvalContext::new();
-        // Frequency must be 1, 2, or 4
-        let result = eval("ACCRINT(0, 365, 180, 0.06, 1000, 3)", &ctx);
-        assert!(result.is_err());
-    }
-
-    /// Payments at the start of each period (Excel `type` = 1). Reference values from
-    /// numpy-financial 1.1.0, which follows Excel's definitions.
-    fn number(formula: &str) -> f64 {
-        match eval(formula, &EvalContext::new()).unwrap() {
-            Value::Number(n) => n,
-            other => panic!("{formula} gave {other:?}"),
-        }
-    }
+    // Payments at the start of each period (Excel `type` = 1). Reference values from
+    // numpy-financial 1.1.0, which follows Excel's definitions.
+    use super::super::tests::number;
 
     fn assert_close(formula: &str, expected: f64) {
         let got = number(formula);
@@ -1248,56 +1058,6 @@ mod tests {
         // A payment of 600 never covers 8% interest on 25,000
         let error = eval("NPER(0.08, -600, 25000)", &EvalContext::new()).unwrap_err();
         assert!(error.to_string().contains("#NUM!"), "{error}");
-    }
-
-    /// Security functions with real dates; values checked in Excel on 2026-11-06
-    #[test]
-    fn test_security_functions_match_excel() {
-        assert_close("PRICEDISC(36341, 39903, 0.05, 100, 0)", 51.25);
-        assert_close(
-            "PRICEDISC(43541, 43708, 0.05, 100, 4)",
-            97.736_111_111_111_11,
-        );
-        assert_close(
-            "PRICEDISC(38777, 49064, 0.05, 100, 1)",
-            -40.824_679_003_021_15,
-        );
-        assert_close(
-            "YIELDDISC(36885, 36950, 95, 100, 1)",
-            0.295_546_558_704_453_5,
-        );
-        assert_close(
-            "ACCRINT(34938, 35115, 39325, 0.06, 1000, 1, 0)",
-            720.666_666_666_666_6,
-        );
-        assert_close(
-            "ACCRINT(44296, 44548, 48337, 0.06, 1000, 2, 1)",
-            663.832_642_767_068_9,
-        );
-        // Dates may also be given as text
-        assert_close("PRICEDISC(\"2024-01-15\", \"2024-07-15\", 0.05, 100)", 97.5);
-    }
-
-    #[test]
-    fn test_security_functions_reject_bad_arguments() {
-        let ctx = EvalContext::new();
-        for formula in [
-            "PRICEDISC(45488, 45306, 0.05, 100)",
-            "PRICEDISC(45306, 45488, 0, 100)",
-            "PRICEDISC(45306, 45488, 0.05, 100, 5)",
-            "YIELDDISC(45488, 45306, 97, 100)",
-            "YIELDDISC(45306, 45488, 0, 100)",
-            "ACCRINT(45488, 45672, 45306, 0.06, 1000, 1)",
-            "ACCRINT(45306, 45672, 45488, 0, 1000, 1)",
-            "ACCRINT(45306, 45672, 45488, 0.06, 1000, 3)",
-            "ACCRINT(\"not a date\", 45672, 45488, 0.06, 1000, 1)",
-        ] {
-            let error = eval(formula, &ctx).unwrap_err();
-            assert!(
-                error.to_string().contains("#NUM!") || error.to_string().contains("date"),
-                "{formula}: {error}"
-            );
-        }
     }
 
     /// The five answers Excel gave differently from Forge when 40 formulas were
@@ -1370,5 +1130,164 @@ mod tests {
             h::number("MIRR({-100, -20, 50, 80}, 0.1, 0.12)"),
             0.047_923_099_669_167_3
         ));
+    }
+
+    /// An error in any argument is passed on, and text where a number is
+    /// needed is refused with the argument's name
+    #[test]
+    fn each_argument_is_checked() {
+        use super::super::tests::each_argument;
+        let none = None;
+        for name in ["PMT", "FV", "PV"] {
+            each_argument(
+                name,
+                &[
+                    ("0.05", none),
+                    ("10", none),
+                    ("-100", none),
+                    ("0", none),
+                    ("1", none),
+                ],
+            );
+        }
+        each_argument(
+            "NPV",
+            &[
+                ("0.1", Some("NPV rate must be a number")),
+                ("100", none),
+                ("200", none),
+            ],
+        );
+        each_argument(
+            "IRR",
+            &[
+                ("{-100, 60, 70}", none),
+                ("0.1", Some("IRR guess must be a number")),
+            ],
+        );
+        each_argument("IRR", &[("-100", none), ("60", none), ("70", none)]);
+        let needs = |name: &str, what: &[&str]| -> Vec<String> {
+            what.iter()
+                .map(|w| format!("{name} requires {w}"))
+                .collect()
+        };
+        let checked = |values: &[&'static str], messages: &[String], name: &str| {
+            let args: Vec<(&str, Option<&str>)> = values
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (*v, messages.get(i).map(String::as_str)))
+                .collect();
+            each_argument(name, &args);
+        };
+        checked(
+            &["0.05", "-100", "1000", "0", "1"],
+            &needs("NPER", &["rate", "payment", "present value"]),
+            "NPER",
+        );
+        checked(
+            &["10", "-100", "700", "0", "1", "0.1"],
+            &needs("RATE", &["nper", "payment", "present value"]),
+            "RATE",
+        );
+        checked(
+            &["10000", "1000", "5"],
+            &needs("SLN", &["cost", "salvage", "life"]),
+            "SLN",
+        );
+        for name in ["DB", "DDB"] {
+            checked(
+                &["10000", "1000", "5", "1", "6"],
+                &needs(name, &["cost", "salvage", "life", "period"]),
+                name,
+            );
+        }
+        each_argument(
+            "MIRR",
+            &[
+                ("{-100, 50, 60}", none),
+                ("0.1", Some("MIRR requires finance rate")),
+                ("0.12", Some("MIRR requires reinvest rate")),
+            ],
+        );
+        for name in ["PPMT", "IPMT"] {
+            checked(
+                &["0.05", "1", "10", "1000", "0", "1"],
+                &needs(name, &["rate", "period", "nper", "present value"]),
+                name,
+            );
+        }
+        checked(
+            &["0.05", "12"],
+            &needs("EFFECT", &["nominal rate", "periods per year"]),
+            "EFFECT",
+        );
+        checked(
+            &["0.05", "12"],
+            &needs("NOMINAL", &["effective rate", "periods per year"]),
+            "NOMINAL",
+        );
+    }
+
+    /// With no rate, FV and PV are the flows added up
+    #[test]
+    fn fv_and_pv_at_no_rate_add_the_flows() {
+        use super::super::tests::is_exactly;
+        is_exactly("FV(0, 10, -100, 50)", 950.0);
+        is_exactly("PV(0, 10, -100, 50)", 950.0);
+    }
+
+    /// NPV leaves out an argument that is neither a number nor a column
+    #[test]
+    fn npv_leaves_out_text() {
+        use super::super::tests::{near, number};
+        assert!(near(number("NPV(0.1, 110, \"x\")"), 100.0));
+    }
+
+    /// Cash flows with no number in them, a period outside the loan and
+    /// flows with no rate where the NPV is zero are each refused
+    #[test]
+    fn financial_functions_refuse_what_has_no_answer() {
+        use super::super::tests::fails_with;
+        fails_with("IRR({\"a\", \"b\"}, 0.1)", "IRR requires cash flows");
+        fails_with("MIRR({\"a\", \"b\"}, 0.1, 0.1)", "MIRR requires cash flows");
+        fails_with("IRR({-100, 50, -100})", "IRR did not converge");
+        fails_with(
+            "DDB(10000, 1000, 5, 6)",
+            "#NUM!: DDB period must be from 1 to the life",
+        );
+        fails_with(
+            "PPMT(0.05, 11, 10, 1000)",
+            "#NUM!: PPMT period must be from 1 to nper",
+        );
+        fails_with(
+            "IPMT(0.05, 0, 10, 1000)",
+            "#NUM!: IPMT period must be from 1 to nper",
+        );
+    }
+
+    /// A guess at or below -100% starts from 10%, the default; a guess that
+    /// is the root is the answer
+    #[test]
+    fn rate_guesses() {
+        use super::super::tests::{is_exactly, number};
+        assert_eq!(
+            number("RATE(10, -100, 700, 0, 0, -2)").to_bits(),
+            number("RATE(10, -100, 700)").to_bits()
+        );
+        is_exactly("RATE(10, -100, 1000, 0, 0, 0)", 0.0);
+    }
+
+    /// From a guess just above -100% the NPV of a long run of flows is not
+    /// a number (the discount factors run out of digits), so the roots are
+    /// bracketed instead, and of two the one nearer the guess is found:
+    /// these flows have roots at 12% and 40%
+    #[test]
+    fn irr_brackets_the_root_nearest_a_guess_with_no_npv() {
+        use super::super::tests::number;
+        let tail = ", 0".repeat(400);
+        let near = number(&format!("IRR({{-100, 252, -156.8{tail}}}, -0.9999999)"));
+        assert!((near - 0.12).abs() < 1e-7, "{near}");
+        let far = number(&format!("IRR({{-100, 252, -156.8{tail}}}, 1)"));
+        assert!((far - 0.4).abs() < 1e-9, "{far}");
     }
 }

@@ -102,12 +102,7 @@ mod tests {
     use super::super::super::tests::eval;
     use super::*;
 
-    fn eval_number(formula: &str, ctx: &EvalContext) -> f64 {
-        match eval(formula, ctx).unwrap() {
-            Value::Number(n) => n,
-            other => panic!("{formula} returned {other:?}"),
-        }
-    }
+    use super::super::super::tests::number_in as eval_number;
 
     // Excel, measured on iOS 2026-11-19: XNPV with a date before the first is an
     // error, while XIRR with the same flows gives its rate (0.23587), unlike what
@@ -144,6 +139,54 @@ mod tests {
             err.message.contains("positive and one negative"),
             "{}",
             err.message
+        );
+    }
+
+    /// An error in any argument is passed on, and text where a number is
+    /// needed is refused
+    #[test]
+    fn each_argument_is_checked() {
+        use super::super::super::tests::each_argument;
+        let (flows, dates) = ("{-100, 200}", "{44197, 44562}");
+        each_argument(
+            "XIRR",
+            &[
+                (flows, None),
+                (dates, Some("XIRR requires dates")),
+                ("0.1", Some("XIRR guess must be a number")),
+            ],
+        );
+        each_argument(
+            "XNPV",
+            &[
+                ("0.1", Some("XNPV requires rate")),
+                (flows, None),
+                (dates, Some("XNPV requires dates")),
+            ],
+        );
+    }
+
+    /// A flow or a date that is not a number is left out with its pair when
+    /// the two lists are as long as each other, and on its own when they are
+    /// not; what is left must pair up. 44197 is 2021-01-01 and 44562 is
+    /// 2022-01-01, a year of 365 days, so 100 that becomes 200 is 100%.
+    #[test]
+    fn flows_and_dates_that_are_not_numbers() {
+        use super::super::super::tests::{fails_with, is_exactly};
+        is_exactly("XIRR({-100, \"a\", 200}, {44197, 44300, 44562})", 1.0);
+        is_exactly("XIRR({-100, 50, 200}, {44197, \"x\", 44562})", 1.0);
+        is_exactly("XIRR({-100, \"a\", 200}, {44197, 44562})", 1.0);
+        fails_with(
+            "XIRR({-100, 200}, {44197, 44300, 44562})",
+            "XIRR: values and dates must have same length",
+        );
+        fails_with(
+            "XNPV(0.1, {-100, 200}, {44197, 44300, 44562})",
+            "XNPV: values and dates must have same length",
+        );
+        fails_with(
+            "XIRR({-100, 50, -100}, {44197, 44300, 44562})",
+            "XIRR did not converge",
         );
     }
 }
