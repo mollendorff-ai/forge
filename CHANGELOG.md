@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A lognormal distribution's theoretical variance is its stdev squared (a wrong answer).** `Distribution::lognormal(100, 50).theoretical_variance()` gave -0.32, a negative variance, where the draws, which take the mean and stdev as the distribution's own, have 2,500. Nothing in Forge's commands calls it, but it is public. The test `theoretical_moments_of_every_distribution` in `src/monte_carlo/distributions.rs` fails on 6e4a729 (with the test added to that code).
+- **A chance node at the root of a decision tree lists its outcomes in the optimal path (a wrong output).** `forge decision-tree` printed `Flip → (await outcome)` and then nothing, because the branches were looked up among the named nodes and the root is not one of them; a chance node anywhere else listed its branches. The test `a_terminal_node_ends_the_path_and_adds_no_outcome` in `src/decision_trees/engine.rs` fails on 6e4a729.
+
+### Changed
+- **More of Forge is covered by tests that assert a result (T1-COVERAGE-GATE).** The Monte Carlo distributions, the Bayesian engine, inference and command, the real options and decision tree engines and commands, Black-Scholes's greeks, and goal-seek and break-even now have no line, function or region without one (measured with `cargo llvm-cov --lib`). Code that validation already ruled out is gone: `query` and `query_with_evidence` were two copies of the same 60 lines, and goal-seek calculated each end of its interval twice. Goal-seek's answers are the same. The overrides of a model's inputs moved to `src/types/overrides.rs` (`types.rs` was 1,462 lines), and an override of a date in an included file now gives the message the scalar's gives when the name has nothing after the include. The test count in `README.md` and `VALIDATION.md` is "over 2,800". The floors in `ci.yml` are unchanged until CI measures this.
+
 ## [10.0.0-rc.32] - 2026-11-21
 
 Wrong answers fixed, and a stricter, standard validator. `forge import` read a range over part of a table's column as the whole column, SWITCH with two arguments gave an answer instead of an error, and a NaN or an infinity in a model gave different answers in Forge, in its workbook and after the round trip; all three are fixed. A YAML merge key (`<<`) is refused with one message wherever it is written (ADR-071), and the `jsonschema` crate checks every model again (ADR-072). `forge import` also reads workbooks it did not write, and there are two new examples: `inherited-budget` and the takeover's rival bidder as a game. Wrong answers were fixed, so the two weeks in docs/STABILITY.md start again from rc.32.
