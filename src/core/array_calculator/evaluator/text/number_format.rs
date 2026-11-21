@@ -43,10 +43,28 @@ enum Piece {
     Date(char, usize),
 }
 
+/// The text a piece writes as it is, whatever the number: a literal, a
+/// percent sign, a point or a comma. A digit, an exponent and a date part
+/// are written from the value, so they have none.
+const fn fixed_text(piece: &Piece) -> &str {
+    match piece {
+        Piece::Literal(text) => text.as_str(),
+        Piece::Percent => "%",
+        Piece::Point => ".",
+        Piece::Comma => ",",
+        Piece::Digit(_) | Piece::Exponent { .. } | Piece::Date(..) => "",
+    }
+}
+
 fn unsupported(format: &str, why: &str) -> EvalError {
     EvalError::new(format!(
         "TEXT: the format \"{format}\" is not one Forge reads ({why})"
     ))
+}
+
+/// A character that is none of a format's codes, to be written in quotes
+fn quote_it(format: &str, c: char) -> EvalError {
+    unsupported(format, &format!("write the text {c} in quotes"))
 }
 
 fn pieces(format: &str) -> Result<Vec<Piece>, EvalError> {
@@ -75,13 +93,16 @@ fn pieces(format: &str) -> Result<Vec<Piece>, EvalError> {
             '.' => out.push(Piece::Point),
             ',' => out.push(Piece::Comma),
             '%' => out.push(Piece::Percent),
-            'E' | 'e' if matches!(chars.get(i + 1), Some('+' | '-')) => {
+            'E' | 'e' => {
+                let Some(&sign) = chars.get(i + 1).filter(|s| matches!(s, '+' | '-')) else {
+                    return Err(quote_it(format, c));
+                };
                 let digits = chars[i + 2..].iter().take_while(|d| **d == '0').count();
                 if digits == 0 {
                     return Err(unsupported(format, "E+ or E- needs 0s after it"));
                 }
                 out.push(Piece::Exponent {
-                    plus: chars[i + 1] == '+',
+                    plus: sign == '+',
                     digits,
                 });
                 i += 1 + digits;
@@ -127,7 +148,6 @@ fn pieces(format: &str) -> Result<Vec<Piece>, EvalError> {
                 }
                 i += end + 1;
             },
-            ';' => return Err(unsupported(format, "more than three sections")),
             '?' | ']' | '@' => return Err(unsupported(format, &format!("{c} is not read"))),
             'h' | 'H' | 's' | 'S' | 'a' | 'A' | 'p' | 'P' => {
                 return Err(unsupported(
@@ -135,12 +155,7 @@ fn pieces(format: &str) -> Result<Vec<Piece>, EvalError> {
                     "times are not read; Forge has dates only",
                 ))
             },
-            _ => {
-                return Err(unsupported(
-                    format,
-                    &format!("write the text {c} in quotes"),
-                ))
-            },
+            _ => return Err(quote_it(format, c)),
         }
         i += 1;
     }
@@ -276,8 +291,8 @@ pub fn format_value(value: &Value, format: &str) -> Result<String, EvalError> {
     let (section, number) = match (sections.as_slice(), number) {
         ([_, negative, ..], n) if n < 0.0 => (*negative, -n),
         ([_, _, zero], n) if n == 0.0 => (*zero, n),
-        ([first, ..], n) => (*first, n),
-        ([], n) => (format, n),
+        // `sections` gives at least one
+        (_, n) => (sections[0], n),
     };
     let pieces = pieces(section)?;
     let kind = kind_of(&pieces).ok_or_else(|| unsupported(format, "it mixes a date and digits"))?;
@@ -289,15 +304,7 @@ pub fn format_value(value: &Value, format: &str) -> Result<String, EvalError> {
         )
     });
     if is_text {
-        return Ok(pieces
-            .iter()
-            .map(|p| match p {
-                Piece::Literal(text) => text.clone(),
-                Piece::Point => ".".to_string(),
-                Piece::Comma => ",".to_string(),
-                _ => String::new(),
-            })
-            .collect());
+        return Ok(pieces.iter().map(fixed_text).collect());
     }
     if kind == FormatKind::Date {
         write_date(number, &pieces, format)
@@ -367,10 +374,7 @@ fn write_date(serial: f64, pieces: &[Piece], format: &str) -> Result<String, Eva
             Piece::Date('d', 3) => out.push_str(&weekday[..3]),
             Piece::Date('d', _) => out.push_str(weekday),
             Piece::Date(..) => return Err(unsupported(format, "more than five m")),
-            Piece::Literal(text) => out.push_str(text),
-            Piece::Point => out.push('.'),
-            Piece::Comma => out.push(','),
-            Piece::Digit(_) | Piece::Percent | Piece::Exponent { .. } => {},
+            other => out.push_str(fixed_text(other)),
         }
     }
     Ok(out)
@@ -555,14 +559,15 @@ fn write_grouped(
     mut digits: Vec<char>,
     format: &str,
 ) -> Result<(), EvalError> {
+    // Grouping needs a comma between two digits, so there are digits
     let (first_digit, last_digit) = digit_bounds(whole_pieces);
-    let between_literal = match (first_digit, last_digit) {
-        (Some(a), Some(b)) => whole_pieces[a..b]
-            .iter()
-            .any(|p| matches!(p, Piece::Literal(_))),
-        _ => false,
-    };
-    if between_literal {
+    let (first, last) = first_digit
+        .zip(last_digit)
+        .expect("a grouped whole part has digits");
+    if whole_pieces[first..last]
+        .iter()
+        .any(|p| matches!(p, Piece::Literal(_)))
+    {
         return Err(unsupported(format, "text between digits that are grouped"));
     }
     // Zeros down to the leftmost `0` of the code
@@ -577,13 +582,13 @@ fn write_grouped(
     let mut written = false;
     for piece in whole_pieces {
         match piece {
-            Piece::Literal(text) => out.push_str(text),
-            Piece::Percent => out.push('%'),
             Piece::Digit(_) if !written => {
                 out.push_str(&grouped);
                 written = true;
             },
-            _ => {},
+            // The grouped digits carry their own commas
+            Piece::Digit(_) | Piece::Comma => {},
+            other => out.push_str(fixed_text(other)),
         }
     }
     Ok(())
@@ -617,13 +622,11 @@ fn write_slots(out: &mut String, whole_pieces: &[Piece], whole_slots: &[char], d
     let mut slot = 0;
     for piece in whole_pieces {
         match piece {
-            Piece::Literal(text) => out.push_str(text),
-            Piece::Percent => out.push('%'),
             Piece::Digit(_) => {
                 out.push_str(&filled[slot]);
                 slot += 1;
             },
-            _ => {},
+            other => out.push_str(fixed_text(other)),
         }
     }
     if slots == 0 {
@@ -657,9 +660,7 @@ fn write_fraction(
                 }
                 slot += 1;
             },
-            Piece::Literal(text) => out.push_str(text),
-            Piece::Percent => out.push('%'),
-            _ => {},
+            other => out.push_str(fixed_text(other)),
         }
     }
 }
@@ -764,11 +765,7 @@ fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, Ev
     if exponent_at.is_some() {
         out.push_str(&exponent_text);
         for piece in after.iter().skip(1) {
-            match piece {
-                Piece::Literal(text) => out.push_str(text),
-                Piece::Percent => out.push('%'),
-                _ => {},
-            }
+            out.push_str(fixed_text(piece));
         }
     }
     Ok(out)
@@ -777,6 +774,139 @@ fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, Ev
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Grouping, scientific formats and rounding up to a new power, as both
+    /// Gnumeric 1.12 and `LibreOffice` 24.2 write them (checked on 2026-11-21 by
+    /// recalculating a workbook of `TEXT` formulas): the commas of a grouped
+    /// number are its own, and `E-00` writes no plus.
+    #[test]
+    fn grouping_and_scientific_as_both_engines_write_them() {
+        for (value, format, expected) in [
+            (12.34, "#,##0%", "1,234%"),
+            (1_234_567.0, "#,##0%", "123,456,700%"),
+            (1234.5, "0.00E+00\" kr\"", "1.23E+03 kr"),
+            (0.0, "0.0E+00", "0.0E+00"),
+            (999_999.0, "0E+00", "1E+06"),
+            (1234.0, "0.0E-00", "1.2E03"),
+        ] {
+            assert_eq!(text(value, format), expected, "{format}");
+        }
+    }
+
+    /// A lowercase `e` is read as `E`. The engines disagree (Gnumeric refuses
+    /// it, `LibreOffice` writes it back in either case) and Excel was not
+    /// checked, so this pins what Forge does, not what Excel does.
+    #[test]
+    fn a_lowercase_e_is_read_as_an_exponent_and_written_as_e() {
+        assert_eq!(text(1234.5, "0.00e+00"), "1.23E+03");
+    }
+
+    /// A code with no digit (`"abc"`) is a number format that writes its text
+    #[test]
+    fn a_code_of_text_only_is_a_number_format() {
+        assert_eq!(check_format("\"abc\""), Ok(FormatKind::Number));
+    }
+
+    /// A code Forge does not read is refused with its reason, not written as
+    /// a guess (Excel reads some of these; the rule is Forge's own)
+    #[test]
+    fn a_code_that_is_not_complete_or_not_read_is_refused_with_its_reason() {
+        for (format, why) in [
+            ("0\"abc", "a quote is not closed"),
+            ("0\\", "nothing follows the \\"),
+            ("0E+", "E+ or E- needs 0s after it"),
+            ("0E", "write the text E in quotes"),
+            ("0_", "nothing follows the _"),
+            ("0*", "nothing follows the *"),
+            ("0[Red", "a [ is not closed"),
+            (
+                "0[Color57]",
+                "[Color57] is not read: only a colour, such as [Red]",
+            ),
+            (
+                "0[Color0]",
+                "[Color0] is not read: only a colour, such as [Red]",
+            ),
+            (
+                "0[Colorx]",
+                "[Colorx] is not read: only a colour, such as [Red]",
+            ),
+            ("mmmmmm", "more than five m"),
+            ("yyyy0", "it mixes a date and digits"),
+            ("#,##\"x\"0", "text between digits that are grouped"),
+            ("0E+00.0", "the point follows the exponent"),
+            (
+                "#,##0E+00",
+                "scientific formats are read with one digit before the point",
+            ),
+            (
+                "00E+00",
+                "scientific formats are read with one digit before the point",
+            ),
+            ("0.0.0", "it has two decimal points"),
+            (",0", "a comma that is not between digits"),
+        ] {
+            let message = format_value(&Value::Number(1.0), format)
+                .unwrap_err()
+                .message;
+            assert_eq!(
+                message,
+                format!("TEXT: the format \"{format}\" is not one Forge reads ({why})"),
+            );
+        }
+    }
+
+    /// `[Color1]` to `[Color56]` are colours, which add no text
+    #[test]
+    fn a_numbered_colour_adds_no_text() {
+        assert_eq!(text(1.0, "0[Color5]"), "1");
+    }
+
+    #[test]
+    fn check_format_refuses_what_text_refuses() {
+        for format in ["yyyy0", "0.0.0", ",0", "0\"x"] {
+            let message = check_format(format).unwrap_err();
+            assert_eq!(
+                message,
+                format_value(&Value::Number(1.0), format)
+                    .unwrap_err()
+                    .message,
+                "{format}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_number_that_is_not_finite_has_no_text() {
+        assert_eq!(
+            format_value(&Value::Number(f64::INFINITY), "0")
+                .unwrap_err()
+                .message,
+            "#NUM!: TEXT of a number that is not finite"
+        );
+    }
+
+    /// Only a literal, a percent sign, a point or a comma is written as it
+    /// is; a digit, an exponent or a date part is written from the value
+    #[test]
+    fn only_some_pieces_are_written_as_they_are() {
+        let pieces = [
+            Piece::Literal("kr".to_string()),
+            Piece::Percent,
+            Piece::Point,
+            Piece::Comma,
+            Piece::Digit('0'),
+            Piece::Exponent {
+                plus: true,
+                digits: 2,
+            },
+            Piece::Date('y', 4),
+        ];
+        assert_eq!(
+            pieces.iter().map(fixed_text).collect::<Vec<_>>(),
+            ["kr", "%", ".", ",", "", "", ""]
+        );
+    }
 
     fn text(value: f64, format: &str) -> String {
         format_value(&Value::Number(value), format).unwrap()
