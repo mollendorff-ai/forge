@@ -255,6 +255,13 @@ tier1:
   # Of the audit's T1-LINT-GATE, the scope.rs doc comment was fixed in
   # d335791 and the ten test sites (float_cmp, missing_const_for_fn) on
   # 2026-11-16; its release attestations (T1-SUPPLY-CHAIN) are in d335791.
+  # Not finite anywhere (2026-11-21): a model with `.nan`, `.inf` or `-.inf` is
+  # refused as it is read (src/parser/finite.rs, every file and command; a
+  # formula's stored value is skipped, as it is calculated again), a literal
+  # past the largest double is #NUM! (tokenizer), arithmetic that is not a
+  # number is #NUM! (operators), and an imported cell that is not finite is
+  # #NUM! (importer). Found while making test_nan_in_a_column_never_panics
+  # assert: MEDIAN counted a NaN, export wrote it as text, import as 0.
   # T1-NONFINITE is done (2026-11-16): every distribution argument, max - min
   # and the draws at both ends must be finite (distributions.rs,
   # src/monte_carlo/distributions.rs (its refused_everywhere tests)); it found T1-HUGE-STATS and T1-DISCRETE.
