@@ -1,6 +1,6 @@
 # ADR-069: One Model Validator, Without a JSON Schema Engine
 
-**Status:** Accepted (option 1); built
+**Status:** Superseded by ADR-072 (2026-11-21): `jsonschema` checks every model again
 **Date:** 2026-11-19, built 2026-11-20
 **Decided by:** the maintainer (one hand-written validator on every platform, `jsonschema` kept only to check it, the schema files still published), who chose option 1 on 2026-11-20; the analysis and the recommendation are Claude's
 **Closes:** roadmap T1-ONE-VALIDATOR

@@ -134,7 +134,10 @@ pub fn bayesian(
 
     if !evidence_map.is_empty() {
         outln!(c, "   {}", "Evidence:".bold());
-        for (var, val) in &evidence_map {
+        // In name order: the map's own order changes from run to run
+        let mut shown: Vec<_> = evidence_map.iter().collect();
+        shown.sort_unstable();
+        for (var, val) in shown {
             outln!(c, "      {} = {}", var.bright_blue(), val.cyan());
         }
         outln!(c);

@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-rc.31"
+version = "10.0.0-rc.32"
 edition = "2021"
 # The oldest Rust that builds Forge; CI builds on it (the MSRV job) and
 # clippy.toml has the same version. Raise both together, on purpose.
@@ -88,6 +88,11 @@ required-features = ["cli"]
 
 
 [dependencies]
+# Every model is checked against its format's JSON schema (ADR-072): on the
+# command line, the servers and the browser. No default features: the
+# schemas are built in, so nothing is fetched or read from a file, and their
+# only format is `date`, so the idna stack is not needed
+jsonschema = { version = "0.60", default-features = false }
 # Checked conversions from a float to an integer (`ToPrimitive`), which `as`
 # would saturate: already in the tree through statrs
 num-traits = "0.2.19"
@@ -171,6 +176,9 @@ libc = "0.2"
 # Both apply to that target only; other builds are unchanged.
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.4", features = ["wasm_js"] }
+# jsonschema's hash maps (ahash) take getrandom 0.3, which needs the browser's
+# crypto too; the one crate besides syn allowed in two versions (clippy.toml)
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 chrono = { version = "0.4", features = ["serde", "wasmbind"] }
 # A workbook's creation time from the browser's clock (std's clock panics
 # there); only when Excel is built in (feature `excel`)
@@ -189,11 +197,6 @@ assert_cmd = "2.0"  # CLI integration testing
 predicates = "3.1"  # CLI output assertions
 # Property tests: rules that must hold for any model (src/lib.rs (its properties tests))
 proptest = { version = "1", default-features = false, features = ["std"] }
-# The JSON Schema engine Forge's own reader of its schemas replaced (ADR-069):
-# every model a test reads is checked by both, and they must agree
-jsonschema = { version = "0.60", default-features = false }
-# What the schema patterns' own matcher must agree with (src/parser/schema_pattern.rs)
-regex = "1.12"
 # What the calculation order's own graph algorithms must agree with
 # (src/core/array_calculator/graph.rs)
 petgraph = "0.8"

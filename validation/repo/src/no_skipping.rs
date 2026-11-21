@@ -30,8 +30,11 @@ pub const BUDGET: [(&str, usize); 9] = [
     ("test modules in a file of their own", 0),
     // syn 2 and 3, since 2026-11-20 (roadmap T1-NO-SKIPPING): what pulls
     // syn 2 (tracing-attributes, zeroize_derive, windows-implement and
-    // windows-interface) has no release on syn 3
-    ("crates clippy.toml allows in two versions", 1),
+    // windows-interface) has no release on syn 3. getrandom 0.3 and 0.4,
+    // since 2026-11-21 (ADR-072): raised by the maintainer's decision that
+    // the rule against duplicates does not compete with keeping jsonschema,
+    // whose ahash brings getrandom 0.3, and with it r-efi 5 (UEFI only)
+    ("crates clippy.toml allows in two versions", 3),
 ];
 
 /// The crates: their manifest, and the folders of their Rust code
