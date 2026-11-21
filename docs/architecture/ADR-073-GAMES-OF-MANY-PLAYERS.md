@@ -1,8 +1,8 @@
 # ADR-073: Games of Many Players, and Strategies That Spread
 
-**Status:** Proposed. Four questions are for the maintainer (below); nothing is built
+**Status:** Accepted (2026-11-21). Questions 1 and 2 as recommended; questions 3 and 4 decided after a second look, as written. Nothing is built yet
 **Date:** 2026-11-21
-**Decided by:** the maintainer, once the four questions are answered; the analysis and the recommendations are Claude's
+**Decided by:** the maintainer (2026-11-21), who asked of questions 3 and 4 whether each is good for people who use Forge for game theory or is scope creep, and whether a library does it; the analysis is Claude's
 **For:** roadmap T2-GAME-THEORY-MORE. It extends ADR-068 and changes none of its decisions
 
 ---
@@ -36,11 +36,11 @@ Keeping minus contributing is *e* (1 − *r*/*n*) whatever the others do. So:
 
 These are the 1, 1, 32, 1, 1 the roadmap records. This hand calculation is the check for the example below, next to Gambit.
 
-## The four questions
+## The four questions, and what was decided
 
 ### 1. How a symmetric game of more than two players is written
 
-**Recommended: a payoff for each of a player's own strategies, written as a formula over how many of the other players play each strategy.**
+**Decided: a payoff for each of a player's own strategies, written as a formula over how many of the other players play each strategy.**
 
 ```yaml
 _forge_version: "5.5.0"
@@ -67,7 +67,7 @@ games:
 
 ### 2. A tournament whose round has more than two players
 
-**Recommended: left out.**
+**Decided: left out.**
 
 - The nine built-in strategies are defined against one other player (tit for tat answers *the* other player's last move). Against four others, each needs a rule that no outside library fixes: answer the majority, the minimum, or each player separately. Each rule is a new strategy with no outside check.
 - The `axelrod` library, which is the outside check for every tournament (ADR-068, section 5), plays two players only.
@@ -75,39 +75,66 @@ games:
 
 The repeated public goods game can be written today as a game played once whose payoffs are already the totals over the rounds, for strategies the author defines. That is how most papers report it. A tournament of many players waits for a model that needs it and an outside tool to check it.
 
-### 3. Replicator dynamics: in a game section, or in the time-series model?
+### 3. Strategies that spread: a `dynamics:` key on a symmetric game
 
-**Recommended: in the time-series model, as an example, with no new section.**
+**Decided: a `dynamics:` key, with the discrete replicator equation.**
 
-A strategy's share in generation *t* + 1 is its share in *t*, times its payoff against the population, over the average payoff (the discrete replicator equation). That is a row of a table that reads the row above, which is what `PREV` does (`=PREV(share * payoff / average, 0.5)`), and what `predator_prey.yaml` already does for populations. For a symmetric game of two strategies, the payoff against a population with share *x* is a short formula over the game's payoff cells, written as scalars that the game and the table both read.
+An equilibrium says which states are stable. It does not say which one a population reaches, or from where. In the stag hunt both all-stag and all-hare are equilibria, and which one a population ends in depends on whether its share of stag players starts above 3/4. Nothing Forge reports says that today. It is the question "strategies that spread" asks, and kinship-protocol asks it of five AIs.
 
-- **For:** no new section, result or calculation in the engine. The numbers are a table the model already knows how to calculate, export, chart in Studio and diff in git. A user sees every step of the dynamics as formulas.
-- **Against:** with many strategies or many players, the payoff against a population is a long formula, a sum over the ways of splitting the others, written by hand.
-- **The check:** an example in `examples/games` of the hawk-dove game (prize *V*, cost of a fight *C* > *V*), whose shares converge to the mixed equilibrium. The hand calculation is that hawk's share goes to *V*/*C*. Hawk against hawk pays (*V* − *C*)/2, which is negative, and the discrete equation needs positive payoffs, so the example adds a baseline fitness to every payoff. That moves the speed of convergence, not where it ends. A test compares 50 generations with the same recurrence written in Python.
+The first recommendation was a table in the time-series model with `PREV`, and no new key. It was set aside because the time series needs each strategy's payoff against the population written as a formula. For two players that is short. For *n* players it is a sum over every way of splitting the others among the strategies, Σ C(*n*−1, *k*) *x*^*k* (1−*x*)^(*n*−1−*k*) *f*(*s*, *k*) for two strategies, and longer with more. The count form (question 1) already gives Forge *f*(*s*, *k*), so Forge can do the sum and a user should not have to.
 
-*Instead:* a `dynamics:` key on a symmetric game (`generations: 50`, `start: {hawk: 0.1}`), with results `<game>.share.<generation>.<strategy>`. That handles many strategies with no formula to write, but it is a new kind of result, the first one that is a series, and each choice in it (discrete or continuous time, payoffs that can be negative) is a format decision kept for all of 10.x. Recommended only if the example shows the formulas cannot be written for a model someone needs.
+```yaml
+games:
+  hawk_dove:
+    players: [me, you]
+    strategies: [hawk, dove]
+    symmetric: true
+    payoffs:
+      hawk: {hawk: =(V - C) / 2, dove: =V}
+      dove: {hawk: 0,            dove: =V / 2}
+    dynamics:
+      start: {hawk: 0.1, dove: 0.9}   # every strategy, adding up to 1
+      generations: 50
+      baseline: 5                     # added to every payoff in the equation
+```
+
+- **Which games:** a symmetric game, of any number of players and strategies, in the table form or the count form. Anything else is refused with the reason.
+- **The equation:** generation by generation, *x*′ₛ = *x*ₛ (*f*ₛ + *b*) / (*f̄* + *b*). *f*ₛ is strategy *s*'s expected payoff against a population with shares *x*, over every way the other players' strategies can fall. *f̄* is the average payoff, and *b* is `baseline`, 0 if not given. It is exact arithmetic, with no step size and no solver, so no library is needed. Every *f*ₛ + *b* must be above 0, because a share cannot go below 0. A payoff that breaks this names the strategy, the generation and the baseline that would be enough.
+- **`start`, `generations` and `baseline` can be formulas**, as a payoff can, so a tornado or a scenario can move them. `generations` must be a whole number from 1 to 100,000.
+- **Results:** `<game>.dynamics.share.<strategy>` is the share after the last generation, and `<game>.dynamics.payoff` is the average payoff then. Only the end is a scalar. `forge game`, its `-o` output and Studio show every generation (the path), so a series never becomes thousands of scalars.
+- **Left out:** continuous time (the replicator equation as a differential equation). It needs an ODE solver. `ode_solvers` is the mature crate, but it brings `nalgebra` and `simba`, which Forge does not build today, into the browser module too. It also reaches the same rest points with the same stability as the discrete equation. Mutation and finite populations (the Moran process) are left out too, until a model asks.
+- **The checks:** `egttools`, a Python library for evolutionary game theory with a C++ core and the replicator equation for games of *n* players, in `validation/games`, every generation. By hand: hawk-dove with *V* = 4 and *C* = 6 goes to a hawk share of *V*/*C* = 2/3. The stag hunt goes to all stag from a start above 3/4, and to all hare from one below.
 
 ### 4. Mixed equilibria for more than two players
 
-**Recommended: still left out, as in ADR-068.**
+**Decided: the symmetric mixed equilibria of a symmetric game with two strategies, for any number of players. The general case stays out.**
 
-- The public goods game does not need them: one strategy dominates unless *r* = *n*.
-- In general they are the roots of polynomial systems, with no method that is both complete and simple. Gambit's `enumpoly` exists but is not one Forge could copy and check in a few hundred lines.
-- One narrow case has a closed form and a known use: the **symmetric** mixed equilibrium of a symmetric game with **two** strategies is a root of one polynomial in one share. The volunteer's dilemma, where one volunteer of *n* is enough, has it in closed form: each player does not volunteer with probability (*c*/*b*)^(1/(*n*−1)). If a model needs it, this case is the one to add, checked against that formula and Gambit's `enumpoly_solve`. It needs its own decision.
+In a symmetric game with strategies *A* and *B*, a population where every player plays *A* with probability *x* is an equilibrium when *A* and *B* pay the same against it:
 
-The report keeps saying that it did not look for mixed equilibria in a game of three or more players.
+*g*(*x*) = Σₖ C(*n*−1, *k*) *x*^*k* (1−*x*)^(*n*−1−*k*) [*f*(*A*, *k*) − *f*(*B*, *k*)] = 0, for *k* = 0 to *n* − 1 others playing *A*.
 
-## What would be built, if the recommendations are accepted
+This is the same *g* as in question 3: its roots in (0, 1) are the dynamics' rest points inside the simplex, and the sign of *g*′ at a root says whether the population returns to it. So both are built on one function.
 
-1. **The count form** (question 1), in `src/games/model.rs` and the 5.5.0 schema. The format version stays 5.5.0: a symmetric game of three or more players is refused today, so no model that works now reads differently (ADR-014, ADR-067). Tests: the expanded table equals the 32-cell table written by hand; the five scenarios give 1, 1, 32, 1, 1 equilibria (the hand calculation above); `others` read outside its game, a count form under a table form, a symmetric game of three players in the table form and a strategy named `others` are each refused with their place.
+- **Who needs it:** the volunteer's dilemma, the snowdrift game of many players, and threshold public goods (the collective-risk or climate game). In each, the mixed equilibrium is the answer, and no pure one says it.
+- **The library:** the `roots` crate (0.0.8, BSD-2-Clause, no dependencies, about four million downloads). Its `find_roots_sturm` uses Sturm sequences, which count the real roots in an interval. Forge can therefore prove the list complete, which its rule against an incomplete list shown as complete (ADR-068, section 2) needs. It has had no release since 2022. For a root finder with no dependencies, that reads as stable.
+- **A degenerate game:** if *g* is 0 everywhere (the public goods game at *r* = *n*), every mix is an equilibrium. Forge reports the game as degenerate, names the tie, and lists none of the continuum.
+- **Names:** the symmetric mixed equilibria follow the pure ones in `<game>.equilibrium_<k>`, by increasing *x*, with the same probabilities for every player. For a symmetric game of two strategies, of any number of players, `<game>.equilibrium_<k>.stable` is 1 when the dynamics return to that symmetric equilibrium after a small change in the shares, and 0 when they leave it. For other equilibria, and other games, the name does not exist, and a formula that reads it is told why.
+- **The checks:** the volunteer's dilemma closed form, where each player does not volunteer with probability (*c*/*b*)^(1/(*n*−1)), for *n* from 2 to 8. Gambit's `enumpoly_solve` on seeded symmetric games of three to five players with two strategies, keeping its symmetric equilibria. And for two players, Forge's existing support enumeration, which must find the same symmetric ones.
+- **Still left out: the general case.** Asymmetric mixed equilibria of three or more players, and symmetric ones with three or more strategies, are solutions of systems of polynomials. No method is both complete and simple. Gambit is the reference, and it is C++ that cannot run in the browser module. The one Rust crate that offers it, `game-theory-core`, is version 0.1.0, three months old, with 64 downloads, short of "stable, well-maintained" (CLAUDE.md). The report keeps saying what it did not look for.
+
+## What is built, in order
+
+1. **The count form** (question 1), in `src/games/model.rs` and the 5.5.0 schema. The format version stays 5.5.0: a symmetric game of three or more players is refused today, so no model that works now reads differently (ADR-014, ADR-067). Tests: the expanded table equals the 32-cell table written out; the five scenarios give 1, 1, 32, 1 and 1 equilibria (the hand calculation above); `others` read outside its game, a symmetric game of three players in the table form and a strategy named `others` are each refused with their place.
 2. **`examples/games/public-goods.yaml`**, five players, with scenarios for *r* below, at and above *n*, and a test that asserts the equilibria and the even-mix payoffs from the formulas above.
-3. **`validation/games`**: the public goods game and seeded symmetric games of three to five players with two or three strategies, written in the count form and compared with Gambit's `enumpure_solve` on the table the suite expands itself.
-4. **The hawk-dove dynamics example** (question 3), with its test against Python.
-5. **Docs:** docs/FEATURES.md, the game section of docs/cli, the CHANGELOG, the roadmap, and a dated note in ADR-068's "What is left out".
+3. **`validation/games`**: the public goods game and seeded symmetric games of three to five players with two or three strategies, in the count form, compared with Gambit's `enumpure_solve` on a table the suite expands itself.
+4. **The population function and its equilibria** (question 4): *g*, its roots by `roots`, the stability, the degenerate case, the volunteer's dilemma example, and the checks above.
+5. **The `dynamics:` key** (question 3): the equation, its results, `forge game` and its output, Studio's view of the path, the hawk-dove and stag-hunt examples, and `egttools` in `validation/games`.
+6. **Docs, each step:** docs/FEATURES.md, the game section of docs/cli, the CHANGELOG, the roadmap, and a dated note in ADR-068's "What is left out".
 
 ## Consequences
 
 - A symmetric game of many players is written in two lines of payoffs, not 2ⁿ cells. Every command that works on a game works on it, because it is the same table by the time anything reads it.
-- One name is reserved in a game, `others`, and one name is new inside a game's payoffs, `<game>.others.<strategy>`. Both are fixed once released (docs/STABILITY.md).
-- The solver does not change. A bug in the expansion would give a wrong table, and the tests compare the expanded table with one written out, cell by cell, so the expansion is where a wrong answer would show.
-- Tournaments of many players, mixed equilibria beyond two players (save the narrow case above) and a dynamics section stay out, each with the reason and with what would change the decision.
+- New names, fixed once released (docs/STABILITY.md): `others` is reserved in a game, `<game>.others.<strategy>` exists inside its payoffs, and `dynamics`, `start`, `generations`, `baseline`, `<game>.dynamics.share.<strategy>`, `<game>.dynamics.payoff` and `<game>.equilibrium_<k>.stable` are new.
+- One new dependency, `roots`, with no dependencies of its own.
+- The solver of ADR-068 does not change. The expansion is checked cell by cell against a table written out. The new equilibria and the dynamics are checked against Gambit, `egttools` and closed forms, each in CI.
+- Tournaments of many players, mixed equilibria of the general case, continuous time, mutation and finite populations stay out, each with its reason and what would change it.
