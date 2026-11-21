@@ -326,11 +326,12 @@ tier1:
   # fail, then the deepest (schema_errors.rs, entries_failing), so one bad
   # scenario is named alone (CHANGELOG [Unreleased], Fixed).
 
-  - id: T1-YAML-MERGE-KEYS
-    title: "Say what a YAML merge key (<<) does in a model"
-    why: "Anchors and aliases work (players: &roster, then players: *roster). A merge key, to reuse a block and add to it, is refused differently in each place: in a tournament's players, `'games.wide.tournament.players.<<' is not any of the forms allowed here (a mapping)`; in a payoff table, '<<' is read as a strategy (`has \"<<\", which is not a strategy of b`); in a scenario, `'scenarios.more.<<': there is no key '<<' here` (before T1-SCENARIO-FALSE-ERRORS was fixed, false errors for every scenario). YAML 1.2 dropped merge keys, so refusing them is a fair choice; the messages should say that is what happened"
-    how: "Decide: resolve merge keys before validation, or refuse them with one message wherever they appear (`a YAML merge key (<<) is not read; write the keys out`). Then a test in each place above, and a line in docs/FEATURES.md"
-    acceptance: "A merge key in a tournament's players, a payoff row and a scenario gives the decided result, the same in all three, each asserted in a test; FEATURES.md says it"
+  # T1-YAML-MERGE-KEYS is done (2026-11-21, ADR-071): a merge key is refused
+  # with one message naming its place, wherever it is written. Every model
+  # text becomes YAML through parser::read_yaml (merge_keys.rs), in the
+  # parser, forge upgrade, MCP inline models and the commands that read their
+  # own section; a scalar `y: {<<: *x}`, accepted silently before, is refused
+  # too (CHANGELOG [Unreleased], Fixed).
 
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"

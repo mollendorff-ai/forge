@@ -137,7 +137,7 @@ pub fn upgrade_file_recursive(
         .map_err(|e| ForgeError::IO(format!("Failed to read {}: {}", file.display(), e)))?;
 
     // Parse as YAML Value to manipulate
-    let mut yaml: yaml_serde::Value = yaml_serde::from_str(&content)
+    let mut yaml: yaml_serde::Value = crate::parser::read_yaml(&content)
         .map_err(|e| ForgeError::Parse(format!("Failed to parse {}: {}", file.display(), e)))?;
 
     // First, recursively upgrade any included files

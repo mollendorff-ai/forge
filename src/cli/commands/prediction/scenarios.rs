@@ -24,7 +24,7 @@ pub fn scenarios_core(
     let yaml_content = parser::read_model_text(file)?;
     let model = parser::parse_model(file)?;
 
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
+    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: ScenarioConfig = if let Some(scenarios_value) = value.get("scenarios") {

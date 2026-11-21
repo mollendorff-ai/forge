@@ -24,7 +24,7 @@ pub fn bootstrap_core(
 ) -> ForgeResult<crate::bootstrap::BootstrapResult> {
     let yaml_content = parser::read_model_text(file)?;
 
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
+    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let mut config: BootstrapConfig = if let Some(bs_value) = value.get("bootstrap") {
@@ -73,7 +73,7 @@ pub fn bootstrap(
     let yaml_content = parser::read_model_text(file)?;
 
     // Parse bootstrap config
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
+    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let mut config: BootstrapConfig = if let Some(bs_value) = value.get("bootstrap") {

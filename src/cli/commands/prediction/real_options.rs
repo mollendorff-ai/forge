@@ -15,7 +15,7 @@ fn load(file: &Path) -> ForgeResult<RealOptionsConfig> {
     let yaml_content = parser::read_model_text(file)?;
 
     // The section is read from YAML as it is, whatever else the file holds
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
+    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let Some(ro_value) = value.get("real_options") else {
