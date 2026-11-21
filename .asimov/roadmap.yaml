@@ -321,15 +321,14 @@ tier1:
   # Found 2026-11-21 building kinship-protocol's v0.6.0 models on rc.31;
   # both reproduce on main (66f7fed).
 
-  - id: T1-SCENARIO-FALSE-ERRORS
-    title: "One bad scenario makes every scenario look wrong"
-    why: "A model with two scenarios, one of them with a misspelled key (scalar: {c: 2}), gets the right message for it (`a scenario has no key 'scalar'. Did you mean 'scalars'?`) and two wrong ones for the scenario that is fine: `'scenarios.good.description' must be a date (YYYY-MM-DD), not the text \"fine\"` and `'scenarios.good.scalars' must be a number or text, not a mapping`. The validator seems to try another form of the section once one scenario fails, and reports the good ones against that form. Hit twice by an agent writing models: a comma inside a flow-style description, and a YAML merge key (below), each giving errors for every scenario in the file"
-    how: "Test-first in src/parser/schema_errors.rs: a model with one good and one bad scenario; only the bad one is named"
-    acceptance: "The model above gives one error, naming scenarios.bad and suggesting scalars; the test fails on 66f7fed and passes after"
+  # T1-SCENARIO-FALSE-ERRORS is done (2026-11-21): when no form of a section
+  # fits, the reported form is the one under which the fewest of its entries
+  # fail, then the deepest (schema_errors.rs, entries_failing), so one bad
+  # scenario is named alone (CHANGELOG [Unreleased], Fixed).
 
   - id: T1-YAML-MERGE-KEYS
     title: "Say what a YAML merge key (<<) does in a model"
-    why: "Anchors and aliases work (players: &roster, then players: *roster). A merge key, to reuse a block and add to it, is refused differently in each place: in a tournament's players, `'games.wide.tournament.players.<<' is not any of the forms allowed here (a mapping)`; in a payoff table, '<<' is read as a strategy (`has \"<<\", which is not a strategy of b`); in scenarios, the false errors of T1-SCENARIO-FALSE-ERRORS. YAML 1.2 dropped merge keys, so refusing them is a fair choice; the messages should say that is what happened"
+    why: "Anchors and aliases work (players: &roster, then players: *roster). A merge key, to reuse a block and add to it, is refused differently in each place: in a tournament's players, `'games.wide.tournament.players.<<' is not any of the forms allowed here (a mapping)`; in a payoff table, '<<' is read as a strategy (`has \"<<\", which is not a strategy of b`); in a scenario, `'scenarios.more.<<': there is no key '<<' here` (before T1-SCENARIO-FALSE-ERRORS was fixed, false errors for every scenario). YAML 1.2 dropped merge keys, so refusing them is a fair choice; the messages should say that is what happened"
     how: "Decide: resolve merge keys before validation, or refuse them with one message wherever they appear (`a YAML merge key (<<) is not read; write the keys out`). Then a test in each place above, and a line in docs/FEATURES.md"
     acceptance: "A merge key in a tournament's players, a payoff row and a scenario gives the decided result, the same in all three, each asserted in a test; FEATURES.md says it"
 
