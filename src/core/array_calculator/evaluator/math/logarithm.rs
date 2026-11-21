@@ -154,7 +154,7 @@ mod tests {
         let result = ArrayCalculator::new(model)
             .calculate_all()
             .expect("Should calculate");
-        if let ColumnValue::Number(vals) = &result
+        let vals = result
             .tables
             .get("data")
             .unwrap()
@@ -162,10 +162,11 @@ mod tests {
             .get("exp_x")
             .unwrap()
             .values
-        {
-            assert!((vals[0] - 1.0).abs() < 0.001);
-            assert!((vals[1] - std::f64::consts::E).abs() < 0.001);
-        }
+            .numbers()
+            .unwrap();
+        let vals = vals.as_ref();
+        assert!((vals[0] - 1.0).abs() < 0.001);
+        assert!((vals[1] - std::f64::consts::E).abs() < 0.001);
     }
 
     #[test]

@@ -427,9 +427,9 @@ mod tests {
         let model = result.unwrap();
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("position") {
-            if let ColumnValue::Number(vals) = &col.values {
-                assert_exact!(vals[0], 2.0);
-            }
+            let vals = col.values.numbers().unwrap();
+            let vals = vals.as_ref();
+            assert_exact!(vals[0], 2.0);
         }
     }
 
@@ -488,9 +488,9 @@ mod tests {
         let model = result.unwrap();
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("position") {
-            if let ColumnValue::Number(vals) = &col.values {
-                assert_exact!(vals[0], 2.0);
-            }
+            let vals = col.values.numbers().unwrap();
+            let vals = vals.as_ref();
+            assert_exact!(vals[0], 2.0);
         }
     }
 
@@ -522,9 +522,9 @@ mod tests {
         let model = result.unwrap();
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("position") {
-            if let ColumnValue::Number(vals) = &col.values {
-                assert_exact!(vals[0], 2.0);
-            }
+            let vals = col.values.numbers().unwrap();
+            let vals = vals.as_ref();
+            assert_exact!(vals[0], 2.0);
         }
     }
 

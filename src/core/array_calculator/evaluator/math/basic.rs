@@ -167,7 +167,7 @@ mod tests {
         table.add_row_formula("s".to_string(), "=SQRT(v)".to_string());
         model.add_table(table);
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
-        if let ColumnValue::Number(nums) = &result
+        let nums = result
             .tables
             .get("data")
             .unwrap()
@@ -175,9 +175,10 @@ mod tests {
             .get("s")
             .unwrap()
             .values
-        {
-            assert_eq!(nums, &[2.0, 3.0, 4.0]);
-        }
+            .numbers()
+            .unwrap();
+        let nums = nums.as_ref();
+        assert_eq!(nums, &[2.0, 3.0, 4.0]);
     }
 
     #[test]
@@ -191,7 +192,7 @@ mod tests {
         table.add_row_formula("a".to_string(), "=ABS(v)".to_string());
         model.add_table(table);
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
-        if let ColumnValue::Number(nums) = &result
+        let nums = result
             .tables
             .get("data")
             .unwrap()
@@ -199,9 +200,10 @@ mod tests {
             .get("a")
             .unwrap()
             .values
-        {
-            assert_eq!(nums, &[10.0, 5.0, 3.0]);
-        }
+            .numbers()
+            .unwrap();
+        let nums = nums.as_ref();
+        assert_eq!(nums, &[10.0, 5.0, 3.0]);
     }
 
     #[test]

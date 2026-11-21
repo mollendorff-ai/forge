@@ -402,11 +402,11 @@ mod integration_tests {
             .columns
             .get("result")
             .unwrap();
-        if let ColumnValue::Number(values) = &col.values {
-            assert_exact!(values[0], 25.0);
-            assert_exact!(values[1], 45.0);
-            assert_exact!(values[2], 65.0);
-        }
+        let values = col.values.numbers().unwrap();
+        let values = values.as_ref();
+        assert_exact!(values[0], 25.0);
+        assert_exact!(values[1], 45.0);
+        assert_exact!(values[2], 65.0);
     }
 
     #[test]
@@ -434,11 +434,11 @@ mod integration_tests {
             .columns
             .get("label")
             .unwrap();
-        if let ColumnValue::Number(values) = &col.values {
-            assert_exact!(values[0], 100.0);
-            assert_exact!(values[1], 200.0);
-            assert_exact!(values[2], 0.0);
-        }
+        let values = col.values.numbers().unwrap();
+        let values = values.as_ref();
+        assert_exact!(values[0], 100.0);
+        assert_exact!(values[1], 200.0);
+        assert_exact!(values[2], 0.0);
     }
 
     #[test]
@@ -470,12 +470,10 @@ mod integration_tests {
             .columns
             .get("product")
             .unwrap();
-        if let ColumnValue::Number(values) = &col.values {
-            assert_exact!(values[0], 6.0, "2 * 3 = 6");
-            assert_exact!(values[1], 12.0, "3 * 4 = 12");
-        } else {
-            panic!("Expected number column");
-        }
+        let values = col.values.numbers().unwrap();
+        let values = values.as_ref();
+        assert_exact!(values[0], 6.0, "2 * 3 = 6");
+        assert_exact!(values[1], 12.0, "3 * 4 = 12");
     }
 
     #[test]

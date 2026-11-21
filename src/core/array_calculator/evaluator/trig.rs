@@ -254,16 +254,12 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let sine = result_table.columns.get("sine").unwrap();
-        match &sine.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 0.0).abs() < 0.0001); // sin(0) = 0
-                assert!((nums[1] - 0.5).abs() < 0.0001); // sin(π/6) = 0.5
-                assert!((nums[2] - FRAC_1_SQRT_2).abs() < 0.001); // sin(π/4) = 1/√2
-                assert!((nums[3] - 0.866).abs() < 0.001); // sin(π/3) ≈ 0.866
-                assert!((nums[4] - 1.0).abs() < 0.0001); // sin(π/2) = 1
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = sine.values.numbers().unwrap();
+        assert!((nums[0] - 0.0).abs() < 0.0001); // sin(0) = 0
+        assert!((nums[1] - 0.5).abs() < 0.0001); // sin(π/6) = 0.5
+        assert!((nums[2] - FRAC_1_SQRT_2).abs() < 0.001); // sin(π/4) = 1/√2
+        assert!((nums[3] - 0.866).abs() < 0.001); // sin(π/3) ≈ 0.866
+        assert!((nums[4] - 1.0).abs() < 0.0001); // sin(π/2) = 1
     }
 
     #[test]
@@ -283,14 +279,10 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let sine = result_table.columns.get("sine").unwrap();
-        match &sine.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - (-1.0)).abs() < 0.0001); // sin(-π/2) = -1
-                assert!((nums[1] + FRAC_1_SQRT_2).abs() < 0.001); // sin(-π/4) = -1/√2
-                assert!((nums[2] - 0.0).abs() < 0.0001); // sin(0) = 0
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = sine.values.numbers().unwrap();
+        assert!((nums[0] - (-1.0)).abs() < 0.0001); // sin(-π/2) = -1
+        assert!((nums[1] + FRAC_1_SQRT_2).abs() < 0.001); // sin(-π/4) = -1/√2
+        assert!((nums[2] - 0.0).abs() < 0.0001); // sin(0) = 0
     }
 
     #[test]
@@ -329,16 +321,12 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let cosine = result_table.columns.get("cosine").unwrap();
-        match &cosine.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 1.0).abs() < 0.0001); // cos(0) = 1
-                assert!((nums[1] - 0.866).abs() < 0.001); // cos(π/6) ≈ 0.866
-                assert!((nums[2] - FRAC_1_SQRT_2).abs() < 0.001); // cos(π/4) = 1/√2
-                assert!((nums[3] - 0.5).abs() < 0.0001); // cos(π/3) = 0.5
-                assert!((nums[4] - 0.0).abs() < 0.0001); // cos(π/2) ≈ 0
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = cosine.values.numbers().unwrap();
+        assert!((nums[0] - 1.0).abs() < 0.0001); // cos(0) = 1
+        assert!((nums[1] - 0.866).abs() < 0.001); // cos(π/6) ≈ 0.866
+        assert!((nums[2] - FRAC_1_SQRT_2).abs() < 0.001); // cos(π/4) = 1/√2
+        assert!((nums[3] - 0.5).abs() < 0.0001); // cos(π/3) = 0.5
+        assert!((nums[4] - 0.0).abs() < 0.0001); // cos(π/2) ≈ 0
     }
 
     #[test]
@@ -377,15 +365,11 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let tangent = result_table.columns.get("tangent").unwrap();
-        match &tangent.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 0.0).abs() < 0.0001); // tan(0) = 0
-                assert!((nums[1] - 0.577).abs() < 0.001); // tan(π/6) ≈ 0.577
-                assert!((nums[2] - 1.0).abs() < 0.0001); // tan(π/4) = 1
-                assert!((nums[3] - 1.732).abs() < 0.001); // tan(π/3) ≈ 1.732
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = tangent.values.numbers().unwrap();
+        assert!((nums[0] - 0.0).abs() < 0.0001); // tan(0) = 0
+        assert!((nums[1] - 0.577).abs() < 0.001); // tan(π/6) ≈ 0.577
+        assert!((nums[2] - 1.0).abs() < 0.0001); // tan(π/4) = 1
+        assert!((nums[3] - 1.732).abs() < 0.001); // tan(π/3) ≈ 1.732
     }
 
     #[test]
@@ -424,16 +408,12 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let arcsine = result_table.columns.get("arcsine").unwrap();
-        match &arcsine.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 0.0).abs() < 0.0001); // asin(0) = 0
-                assert!((nums[1] - PI / 6.0).abs() < 0.0001); // asin(0.5) = π/6
-                assert!((nums[2] - PI / 2.0).abs() < 0.0001); // asin(1) = π/2
-                assert!((nums[3] - (-PI / 6.0)).abs() < 0.0001); // asin(-0.5) = -π/6
-                assert!((nums[4] - (-PI / 2.0)).abs() < 0.0001); // asin(-1) = -π/2
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = arcsine.values.numbers().unwrap();
+        assert!((nums[0] - 0.0).abs() < 0.0001); // asin(0) = 0
+        assert!((nums[1] - PI / 6.0).abs() < 0.0001); // asin(0.5) = π/6
+        assert!((nums[2] - PI / 2.0).abs() < 0.0001); // asin(1) = π/2
+        assert!((nums[3] - (-PI / 6.0)).abs() < 0.0001); // asin(-0.5) = -π/6
+        assert!((nums[4] - (-PI / 2.0)).abs() < 0.0001); // asin(-1) = -π/2
     }
 
     #[test]
@@ -468,16 +448,12 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let arccosine = result_table.columns.get("arccosine").unwrap();
-        match &arccosine.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 0.0).abs() < 0.0001); // acos(1) = 0
-                assert!((nums[1] - PI / 3.0).abs() < 0.0001); // acos(0.5) = π/3
-                assert!((nums[2] - PI / 2.0).abs() < 0.0001); // acos(0) = π/2
-                assert!((nums[3] - 2.0 * PI / 3.0).abs() < 0.0001); // acos(-0.5) = 2π/3
-                assert!((nums[4] - PI).abs() < 0.0001); // acos(-1) = π
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = arccosine.values.numbers().unwrap();
+        assert!((nums[0] - 0.0).abs() < 0.0001); // acos(1) = 0
+        assert!((nums[1] - PI / 3.0).abs() < 0.0001); // acos(0.5) = π/3
+        assert!((nums[2] - PI / 2.0).abs() < 0.0001); // acos(0) = π/2
+        assert!((nums[3] - 2.0 * PI / 3.0).abs() < 0.0001); // acos(-0.5) = 2π/3
+        assert!((nums[4] - PI).abs() < 0.0001); // acos(-1) = π
     }
 
     #[test]
@@ -512,16 +488,12 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let arctangent = result_table.columns.get("arctangent").unwrap();
-        match &arctangent.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 0.0).abs() < 0.0001); // atan(0) = 0
-                assert!((nums[1] - PI / 4.0).abs() < 0.0001); // atan(1) = π/4
-                assert!((nums[2] - (-PI / 4.0)).abs() < 0.0001); // atan(-1) = -π/4
-                assert!((nums[3] - PI / 2.0).abs() < 0.001); // atan(∞) ≈ π/2
-                assert!((nums[4] - (-PI / 2.0)).abs() < 0.001); // atan(-∞) ≈ -π/2
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = arctangent.values.numbers().unwrap();
+        assert!((nums[0] - 0.0).abs() < 0.0001); // atan(0) = 0
+        assert!((nums[1] - PI / 4.0).abs() < 0.0001); // atan(1) = π/4
+        assert!((nums[2] - (-PI / 4.0)).abs() < 0.0001); // atan(-1) = -π/4
+        assert!((nums[3] - PI / 2.0).abs() < 0.001); // atan(∞) ≈ π/2
+        assert!((nums[4] - (-PI / 2.0)).abs() < 0.001); // atan(-∞) ≈ -π/2
     }
 
     #[test]
@@ -556,15 +528,11 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let hyperbolic_sine = result_table.columns.get("hyperbolic_sine").unwrap();
-        match &hyperbolic_sine.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 0.0).abs() < 0.0001); // sinh(0) = 0
-                assert!((nums[1] - 1.1752).abs() < 0.001); // sinh(1) ≈ 1.1752
-                assert!((nums[2] - (-1.1752)).abs() < 0.001); // sinh(-1) ≈ -1.1752
-                assert!((nums[3] - 3.6269).abs() < 0.001); // sinh(2) ≈ 3.6269
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = hyperbolic_sine.values.numbers().unwrap();
+        assert!((nums[0] - 0.0).abs() < 0.0001); // sinh(0) = 0
+        assert!((nums[1] - 1.1752).abs() < 0.001); // sinh(1) ≈ 1.1752
+        assert!((nums[2] - (-1.1752)).abs() < 0.001); // sinh(-1) ≈ -1.1752
+        assert!((nums[3] - 3.6269).abs() < 0.001); // sinh(2) ≈ 3.6269
     }
 
     #[test]
@@ -599,15 +567,11 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let hyperbolic_cosine = result_table.columns.get("hyperbolic_cosine").unwrap();
-        match &hyperbolic_cosine.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 1.0).abs() < 0.0001); // cosh(0) = 1
-                assert!((nums[1] - 1.5431).abs() < 0.001); // cosh(1) ≈ 1.5431
-                assert!((nums[2] - 1.5431).abs() < 0.001); // cosh(-1) ≈ 1.5431 (even)
-                assert!((nums[3] - 3.7622).abs() < 0.001); // cosh(2) ≈ 3.7622
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = hyperbolic_cosine.values.numbers().unwrap();
+        assert!((nums[0] - 1.0).abs() < 0.0001); // cosh(0) = 1
+        assert!((nums[1] - 1.5431).abs() < 0.001); // cosh(1) ≈ 1.5431
+        assert!((nums[2] - 1.5431).abs() < 0.001); // cosh(-1) ≈ 1.5431 (even)
+        assert!((nums[3] - 3.7622).abs() < 0.001); // cosh(2) ≈ 3.7622
     }
 
     #[test]
@@ -645,15 +609,11 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let hyperbolic_tangent = result_table.columns.get("hyperbolic_tangent").unwrap();
-        match &hyperbolic_tangent.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 0.0).abs() < 0.0001); // tanh(0) = 0
-                assert!((nums[1] - 0.7616).abs() < 0.001); // tanh(1) ≈ 0.7616
-                assert!((nums[2] - (-0.7616)).abs() < 0.001); // tanh(-1) ≈ -0.7616
-                assert!((nums[3] - 1.0).abs() < 0.0001); // tanh(10) ≈ 1
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = hyperbolic_tangent.values.numbers().unwrap();
+        assert!((nums[0] - 0.0).abs() < 0.0001); // tanh(0) = 0
+        assert!((nums[1] - 0.7616).abs() < 0.001); // tanh(1) ≈ 0.7616
+        assert!((nums[2] - (-0.7616)).abs() < 0.001); // tanh(-1) ≈ -0.7616
+        assert!((nums[3] - 1.0).abs() < 0.0001); // tanh(10) ≈ 1
     }
 
     #[test]
@@ -688,16 +648,12 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let radians = result_table.columns.get("radians").unwrap();
-        match &radians.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 0.0).abs() < 0.0001); // 0° = 0 rad
-                assert!((nums[1] - PI / 4.0).abs() < 0.0001); // 45° = π/4 rad
-                assert!((nums[2] - PI / 2.0).abs() < 0.0001); // 90° = π/2 rad
-                assert!((nums[3] - PI).abs() < 0.0001); // 180° = π rad
-                assert!(2.0f64.mul_add(-PI, nums[4]).abs() < 0.0001); // 360° = 2π rad
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = radians.values.numbers().unwrap();
+        assert!((nums[0] - 0.0).abs() < 0.0001); // 0° = 0 rad
+        assert!((nums[1] - PI / 4.0).abs() < 0.0001); // 45° = π/4 rad
+        assert!((nums[2] - PI / 2.0).abs() < 0.0001); // 90° = π/2 rad
+        assert!((nums[3] - PI).abs() < 0.0001); // 180° = π rad
+        assert!(2.0f64.mul_add(-PI, nums[4]).abs() < 0.0001); // 360° = 2π rad
     }
 
     #[test]
@@ -757,16 +713,12 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let degrees = result_table.columns.get("degrees").unwrap();
-        match &degrees.values {
-            ColumnValue::Number(nums) => {
-                assert!((nums[0] - 0.0).abs() < 0.0001); // 0 rad = 0°
-                assert!((nums[1] - 45.0).abs() < 0.0001); // π/4 rad = 45°
-                assert!((nums[2] - 90.0).abs() < 0.0001); // π/2 rad = 90°
-                assert!((nums[3] - 180.0).abs() < 0.0001); // π rad = 180°
-                assert!((nums[4] - 360.0).abs() < 0.0001); // 2π rad = 360°
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = degrees.values.numbers().unwrap();
+        assert!((nums[0] - 0.0).abs() < 0.0001); // 0 rad = 0°
+        assert!((nums[1] - 45.0).abs() < 0.0001); // π/4 rad = 45°
+        assert!((nums[2] - 90.0).abs() < 0.0001); // π/2 rad = 90°
+        assert!((nums[3] - 180.0).abs() < 0.0001); // π rad = 180°
+        assert!((nums[4] - 360.0).abs() < 0.0001); // 2π rad = 360°
     }
 
     #[test]
@@ -900,5 +852,18 @@ mod tests {
 
         // cosh²(x) - sinh²(x) = 1
         assert!((result.scalars.get("identity").unwrap().value.unwrap() - 1.0).abs() < 0.0001);
+    }
+
+    /// An error in the argument is passed on, and text is refused
+    #[test]
+    fn each_argument_is_checked() {
+        use super::super::tests::each_argument;
+        for name in [
+            "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN", "SINH", "COSH", "TANH", "RADIANS",
+            "DEGREES",
+        ] {
+            let message = format!("{name} requires a number");
+            each_argument(name, &[("0.5", Some(&message))]);
+        }
     }
 }

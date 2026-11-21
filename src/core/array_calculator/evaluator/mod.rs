@@ -842,6 +842,38 @@ mod tests {
         );
     }
 
+    /// Each argument of `name(args)`, a call that gives a number: an unknown
+    /// name in its place is reported as unknown, the error passed on as it
+    /// is, and where the argument has a message, text in its place is
+    /// refused with an error that starts with that message
+    pub fn each_argument(name: &str, args: &[(&str, Option<&str>)]) {
+        let call = |at: usize, with: &str| {
+            let given: Vec<&str> = (0..)
+                .zip(args)
+                .map(|(i, (arg, _))| if i == at { with } else { *arg })
+                .collect();
+            format!("{name}({})", given.join(", "))
+        };
+        let whole = call(usize::MAX, "");
+        assert!(
+            matches!(eval(&whole, &EvalContext::new()), Ok(Value::Number(_))),
+            "{whole} gives no number"
+        );
+        for (at, (_, refused)) in (0..).zip(args) {
+            let unknown = call(at, "nope");
+            assert_eq!(
+                eval(&unknown, &EvalContext::new()).unwrap_err().message,
+                "Unknown variable: nope",
+                "{unknown}"
+            );
+            if let Some(message) = refused {
+                let text = call(at, "\"x\"");
+                let error = eval(&text, &EvalContext::new()).unwrap_err().message;
+                assert!(error.starts_with(message), "{text}: {error}");
+            }
+        }
+    }
+
     pub fn sweep_is_exactly(formula: &str, value: f64) {
         is_exactly_in(formula, &sweep_table(), value);
     }
@@ -1141,5 +1173,150 @@ mod tests {
     fn an_index_that_is_no_number_fails() {
         let ctx = table(&[("col", numbers(&[10.0]))]);
         assert!(error_in("t.col[\"x\"]", &ctx).contains("must be a number"));
+    }
+
+    /// An error in a part of an expression is passed on as it is
+    #[test]
+    fn an_error_in_a_part_is_passed_on() {
+        let ctx = table(&[("col", numbers(&[10.0, 20.0]))]);
+        for formula in [
+            "nope[0]",
+            "t.col[nope]",
+            "(1 + nope)(1)",
+            "LAMBDA(x, x * 2)(nope)",
+            "-nope",
+            "nope:1",
+            "1:nope",
+            "FILTER(nope, TRUE)",
+        ] {
+            assert_eq!(
+                eval(formula, &ctx).unwrap_err().message,
+                "Unknown variable: nope",
+                "{formula}"
+            );
+        }
+    }
+
+    /// What is not an array cannot be indexed, what is not a LAMBDA cannot
+    /// be called, and a LAMBDA takes as many arguments as it names
+    #[test]
+    fn what_cannot_be_indexed_or_called_is_refused() {
+        let ctx = EvalContext::new();
+        let refused = |formula| eval(formula, &ctx).unwrap_err().message;
+        assert_eq!(refused("5[0]"), "Cannot index non-array value");
+        assert_eq!(refused("(5)(1)"), "Cannot call non-lambda value");
+        assert_eq!(
+            refused("LAMBDA(x, x * 2)(1, 2)"),
+            "Lambda expects 1 arguments, got 2"
+        );
+    }
+
+    /// A range is its two ends as text
+    #[test]
+    fn a_range_is_its_ends_as_text() {
+        let ctx = table(&[("col", numbers(&[10.0, 20.0]))]);
+        assert_eq!(eval("2:3", &ctx), Ok(Value::Text("2:3".to_string())));
+    }
+
+    /// A row past the end of a column, or of an array scalar, is out of
+    /// bounds; with no row count to check against, a column's row is read
+    #[test]
+    fn a_row_past_the_end_is_out_of_bounds() {
+        let mut ctx = table(&[("col", numbers(&[10.0, 20.0]))]);
+        ctx.scalars
+            .insert("x".into(), Value::Array(numbers(&[1.0]).into()));
+        let ctx = ctx.with_row(5, 2);
+        let refused = |formula| eval(formula, &ctx).unwrap_err().message;
+        assert_eq!(refused("x"), "Row 5 out of bounds");
+        assert_eq!(refused("t.col"), "Row 5 out of bounds");
+        let mut ctx = table(&[("col", numbers(&[10.0, 20.0]))]);
+        ctx.current_row = Some(1);
+        assert_eq!(eval("t.col", &ctx), Ok(Value::Number(20.0)));
+    }
+
+    /// A name that is neither in the context nor one of its short names is
+    /// unknown; the default context has no names
+    #[test]
+    fn a_name_in_no_scope_is_unknown() {
+        let mut ctx = EvalContext::default();
+        assert_eq!(
+            eval("nope", &ctx).unwrap_err().message,
+            "Unknown variable: nope"
+        );
+        ctx.aliases = Some(std::rc::Rc::new(scope::Aliases::default()));
+        assert_eq!(
+            eval("nope", &ctx).unwrap_err().message,
+            "Unknown variable: nope"
+        );
+    }
+
+    /// A number argument given as an array of one value is that value, and
+    /// an empty cell is 0 (ADR-059)
+    #[test]
+    fn a_number_from_one_value_or_an_empty_cell() {
+        is_exactly("PMT({0}, 10, -1000)", 100.0);
+        is_exactly_in("PMT(blank, 10, -1000)", &empty_cells(), 100.0);
+    }
+
+    /// Date text before 1900-03-01, a date Excel does not hold, is read as a
+    /// plain number, so the answer is one too
+    #[test]
+    fn early_date_text_is_a_plain_number() {
+        assert_eq!(
+            eval("MAX(\"1900-01-05\", \"1900-01-03\")", &EvalContext::new()),
+            Ok(Value::Number(6.0))
+        );
+    }
+
+    /// A date is text or a number; anything else is refused
+    #[test]
+    fn a_date_is_text_or_a_number() {
+        assert_eq!(
+            parse_date_value(&Value::Boolean(true)).unwrap_err().message,
+            "Expected date string or serial number"
+        );
+    }
+
+    /// The tests' own helpers: a formula that does not tokenize or parse is
+    /// an error, and each helper refuses an answer of the wrong kind
+    mod helpers {
+        use super::*;
+
+        #[test]
+        fn a_formula_that_does_not_read_is_an_error() {
+            let ctx = EvalContext::new();
+            assert_eq!(
+                eval("\"open", &ctx).unwrap_err().message,
+                tokenize("\"open").unwrap_err().message
+            );
+            assert_eq!(
+                eval("1 +", &ctx).unwrap_err().message,
+                parse(tokenize("1 +").unwrap()).unwrap_err().message
+            );
+        }
+
+        #[test]
+        #[should_panic(expected = "\"a\": Ok(Text(\"a\"))")]
+        fn number_refuses_text() {
+            number("\"a\"");
+        }
+
+        #[test]
+        #[should_panic(expected = "1: Ok(Number(1.0))")]
+        fn text_refuses_a_number() {
+            text("1");
+        }
+
+        #[test]
+        #[should_panic(expected = "1: Ok(Number(1.0))")]
+        fn truth_refuses_a_number() {
+            truth("1");
+        }
+
+        #[test]
+        #[should_panic(expected = "1 gave Number(1.0), not #NUM!")]
+        fn fails_with_refuses_an_answer() {
+            fails_with("1", "#NUM!");
+        }
     }
 }

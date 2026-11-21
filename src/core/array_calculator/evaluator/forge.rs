@@ -378,11 +378,56 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
-}
 
-// ══════════════════════════════════════════════════════════════════════════════
-// Integration tests (moved from tests/forge.rs)
-// ══════════════════════════════════════════════════════════════════════════════
+    /// An error in any argument is passed on, and text where a number is
+    /// needed is refused
+    #[test]
+    fn each_argument_is_checked() {
+        use super::super::tests::each_argument;
+        let needs = |name: &str, count| vec![format!("{name} requires numbers"); count];
+        for (name, args) in [
+            ("BREAKEVEN_UNITS", vec!["10000", "50", "30"]),
+            ("BREAKEVEN_REVENUE", vec!["10000", "0.4"]),
+            ("VARIANCE", vec!["110", "100"]),
+            ("VARIANCE_PCT", vec!["110", "100"]),
+            ("VARIANCE_STATUS", vec!["110", "100"]),
+        ] {
+            let messages = needs(name, args.len());
+            let checked: Vec<(&str, Option<&str>)> = args
+                .iter()
+                .zip(&messages)
+                .map(|(arg, message)| (*arg, Some(message.as_str())))
+                .collect();
+            each_argument(name, &checked);
+        }
+        // The third argument of VARIANCE_STATUS may be text
+        each_argument(
+            "VARIANCE_STATUS",
+            &[("110", None), ("100", None), ("0.05", None)],
+        );
+        let ctx = EvalContext::new();
+        for formula in ["SCENARIO(nope, \"x\")", "SCENARIO(\"a\", nope)"] {
+            assert_eq!(
+                eval(formula, &ctx).unwrap_err().message,
+                "Unknown variable: nope",
+                "{formula}"
+            );
+        }
+    }
+
+    /// A third argument that is neither a threshold nor "cost" leaves the
+    /// threshold at 1%; against a budget of 0, any actual above 0 is
+    /// favourable
+    #[test]
+    fn variance_status_defaults() {
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("VARIANCE_STATUS(110, 100, TRUE)", &ctx),
+            Ok(Value::Number(1.0))
+        );
+        assert_eq!(eval("VARIANCE_STATUS(5, 0)", &ctx), Ok(Value::Number(1.0)));
+    }
+}
 
 #[cfg(test)]
 mod integration_tests {

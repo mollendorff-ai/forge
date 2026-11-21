@@ -67,10 +67,9 @@ fn erfc_scaled(x: f64) -> f64 {
 /// Excel, Gnumeric and R are not). The tails are `exp(-z^2/2)` times a smooth
 /// factor, with z squared exactly, because squaring a rounded z is what
 /// loses digits far out.
+/// A z that is not a number gives one that is not either (every comparison
+/// below is false for it), which the evaluator reports as #NUM!.
 fn standard_cdf(z: f64) -> f64 {
-    if z.is_nan() {
-        return f64::NAN;
-    }
     let x = z.abs() / std::f64::consts::SQRT_2;
     if x < 0.5 {
         return 0.5f64.mul_add(erf_small(z / std::f64::consts::SQRT_2), 0.5);
@@ -119,10 +118,8 @@ fn positive_std_dev(name: &str, std_dev: f64) -> Result<f64, EvalError> {
 }
 
 /// The z where the standard normal distribution function is `p`
-fn standard_inverse(name: &str, p: f64) -> Result<f64, EvalError> {
-    Normal::new(0.0, 1.0)
-        .map(|normal| normal.inverse_cdf(p))
-        .map_err(|e| EvalError::new(format!("{name}: {e}")))
+fn standard_inverse(p: f64) -> f64 {
+    Normal::standard().inverse_cdf(p)
 }
 
 fn probability(name: &str, p: f64) -> Result<f64, EvalError> {
@@ -169,13 +166,13 @@ pub fn try_evaluate(
             let p = probability(name, number(name, args, 0, ctx)?)?;
             let mean = number(name, args, 1, ctx)?;
             let std_dev = positive_std_dev(name, number(name, args, 2, ctx)?)?;
-            Value::Number(std_dev.mul_add(standard_inverse(name, p)?, mean))
+            Value::Number(std_dev.mul_add(standard_inverse(p), mean))
         },
 
         "NORM.S.INV" => {
             require_args(name, args, 1)?;
             let p = probability(name, number(name, args, 0, ctx)?)?;
-            Value::Number(standard_inverse(name, p)?)
+            Value::Number(standard_inverse(p))
         },
 
         _ => return Ok(None),
@@ -186,14 +183,9 @@ pub fn try_evaluate(
 #[cfg(test)]
 mod tests {
     use super::super::tests::eval;
-    use super::super::{EvalContext, Value};
+    use super::super::EvalContext;
 
-    fn number(formula: &str) -> f64 {
-        match eval(formula, &EvalContext::new()).unwrap() {
-            Value::Number(n) => n,
-            other => panic!("{formula}: {other:?}"),
-        }
-    }
+    use super::super::tests::number;
 
     fn close(a: f64, b: f64, tolerance: f64) -> bool {
         (a - b).abs() <= tolerance * b.abs().max(1.0)
@@ -289,5 +281,74 @@ mod tests {
             let message = eval(formula, &ctx).unwrap_err().to_string();
             assert!(message.contains("#NUM!"), "{formula}: {message}");
         }
+    }
+
+    /// Near the middle the distribution function is a series (mpmath, 40
+    /// digits: ncdf(0.3) = 0.61791142218895263731, ncdf(-0.25) =
+    /// 0.40129367431707627576, ncdf(0.6) = 0.72574688224992641971,
+    /// ncdf(0.05) = 0.5199388058383724616), to a few units in the last place
+    #[test]
+    fn near_the_middle_to_the_last_digits() {
+        for (z, phi) in [
+            ("0.3", 0.617_911_422_188_952_6),
+            ("-0.25", 0.401_293_674_317_076_3),
+            ("0.6", 0.725_746_882_249_926_4),
+            ("0.05", 0.519_938_805_838_372_5),
+        ] {
+            let got = number(&format!("NORM.S.DIST({z}, TRUE)"));
+            assert!(close(got, phi, 1e-15), "{z}: {got}, not {phi}");
+        }
+    }
+
+    /// Past 40 standard deviations the density is below the smallest double,
+    /// 0, and the distribution function is 1; what is not a number has no
+    /// result
+    #[test]
+    fn past_the_tails_and_not_a_number() {
+        use super::super::tests::{fails_with, is_exactly};
+        is_exactly("NORM.S.DIST(50, FALSE)", 0.0);
+        is_exactly("NORM.S.DIST(50, TRUE)", 1.0);
+        // 1E309 is past the largest double: infinity over infinity
+        fails_with(
+            "NORM.DIST(1E309, 0, 1E309, TRUE)",
+            "#NUM!: NORM.DIST has no result for these arguments",
+        );
+    }
+
+    /// An error in any argument is passed on, and text is refused with the
+    /// argument's place
+    #[test]
+    fn each_argument_is_checked() {
+        use super::super::tests::each_argument;
+        let needs = |name: &str, index: usize, what: &str| {
+            format!("{name} needs {what} as argument {index}")
+        };
+        let n = |name, index| needs(name, index, "a number");
+        let flag = |name, index| needs(name, index, "TRUE or FALSE");
+        each_argument(
+            "NORM.DIST",
+            &[
+                ("1", Some(&n("NORM.DIST", 1))),
+                ("0", Some(&n("NORM.DIST", 2))),
+                ("1", Some(&n("NORM.DIST", 3))),
+                ("TRUE", Some(&flag("NORM.DIST", 4))),
+            ],
+        );
+        each_argument(
+            "NORM.S.DIST",
+            &[
+                ("1", Some(&n("NORM.S.DIST", 1))),
+                ("FALSE", Some(&flag("NORM.S.DIST", 2))),
+            ],
+        );
+        each_argument(
+            "NORM.INV",
+            &[
+                ("0.3", Some(&n("NORM.INV", 1))),
+                ("0", Some(&n("NORM.INV", 2))),
+                ("1", Some(&n("NORM.INV", 3))),
+            ],
+        );
+        each_argument("NORM.S.INV", &[("0.3", Some(&n("NORM.S.INV", 1)))]);
     }
 }
