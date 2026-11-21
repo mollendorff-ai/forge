@@ -82,6 +82,7 @@ Technical documentation for Forge's architecture.
 | [ADR-067](ADR-067-A-SCENARIO-WITHOUT-A-PROBABILITY.md) | A Scenario Without a Probability Is Compared, Not Weighted | Accepted (option 1); built |
 | [ADR-068](ADR-068-GAMES.md) | Games: a Payoff Table, Its Equilibria, and Tournaments | Accepted; games played once built, `forge game` and tournaments next |
 | [ADR-069](ADR-069-ONE-MODEL-VALIDATOR.md) | One Model Validator, Without a JSON Schema Engine | Accepted (option 1); built |
+| [ADR-070](ADR-070-STUDIO-DOWNLOAD-BUDGET.md) | What Forge Studio's Download Budget Is For | Accepted |
 
 ## Architecture Principles
 

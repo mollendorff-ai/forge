@@ -12,6 +12,10 @@ No exceptions and no skipping, in every crate (the main crate, `forge-wasm`, `va
 
 `validation/repo/src/no_skipping.rs` counts each way round these rules, the test files outside the code they test included. The counts may only fall, to zero (roadmap T1-NO-SKIPPING): the test fails when one rises, and when one falls without its budget being lowered in the same change. Never raise a budget or lower a coverage floor.
 
+## Libraries before code of our own
+
+Prefer a stable, well-maintained library to code of our own. Size alone is never the reason to replace one while Forge Studio's WebAssembly module is under the ceiling of ADR-070 (3,000,000 bytes gzipped); code of our own needs its own merits (more correct, simpler, or what the library cannot do). Forge's names are Unicode (`hypothèses.coût_unitaire`, `假设.单价`): whatever matches them must too.
+
 ## Proposing the next step
 
 Whenever you propose what to do next, give each step the model and the effort level to run it with, and say why in a few words. For example:
