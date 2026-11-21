@@ -85,6 +85,7 @@ Technical documentation for Forge's architecture.
 | [ADR-070](ADR-070-STUDIO-DOWNLOAD-BUDGET.md) | What Forge Studio's Download Budget Is For | Accepted |
 | [ADR-071](ADR-071-A-YAML-MERGE-KEY-IS-REFUSED.md) | A YAML Merge Key Is Refused, With One Message | Accepted (option 1); built |
 | [ADR-072](ADR-072-VALIDATOR-REVISITED.md) | jsonschema Checks Every Model Again | Accepted; built |
+| [ADR-073](ADR-073-GAMES-OF-MANY-PLAYERS.md) | Games of Many Players, and Strategies That Spread | Proposed |
 
 ## Architecture Principles
 
