@@ -133,7 +133,7 @@ impl ExcelImporter {
         let mut sheets = Vec::new();
         for name in workbook.sheet_names() {
             // A sheet that cannot be read is skipped, as an empty one is
-            let values = workbook.worksheet_range(&name).unwrap_or_default();
+            let values = sheet::finite_cells(workbook.worksheet_range(&name).unwrap_or_default());
             if values.is_empty() {
                 continue;
             }
@@ -834,6 +834,53 @@ mod tests {
             assert_eq!(result.scalars["s.empty"], Some(2.0));
             // A column with a name and no value is a column of empty cells
             assert_eq!(result.scalars["s.none"], Some(5.0));
+        }
+    }
+
+    mod not_finite {
+        //! A workbook an older Forge exported can hold a formula whose cached
+        //! result is `NaN` (`=1E309 - 1E309` was written as `inf - inf`). It
+        //! was imported as `.nan`, which no model may hold; it is imported as
+        //! Excel's #NUM! is, and the model reads.
+
+        use crate::cli::import_core;
+        use rust_xlsxwriter::{Formula, Workbook};
+
+        #[test]
+        fn a_cached_nan_is_imported_as_an_error_cell() {
+            let dir = tempfile::tempdir().unwrap();
+            let xlsx = dir.path().join("old.xlsx");
+            let mut workbook = Workbook::new();
+            let scalars = workbook.add_worksheet().set_name("out").unwrap();
+            scalars.write_string(0, 0, "Name").unwrap();
+            scalars.write_string(0, 1, "Value").unwrap();
+            scalars.write_string(1, 0, "nanres").unwrap();
+            scalars
+                .write_formula(1, 1, Formula::new("=inf - inf").set_result("NaN"))
+                .unwrap();
+            let table = workbook.add_worksheet().set_name("t").unwrap();
+            table.write_string(0, 0, "x").unwrap();
+            table.write_number(1, 0, 3.0).unwrap();
+            table
+                .write_formula(2, 0, Formula::new("=A2 * 1E308 * 10").set_result("NaN"))
+                .unwrap();
+            workbook.save(&xlsx).unwrap();
+
+            let out = dir.path().join("old.yaml");
+            let imported = import_core(&xlsx, &out, false, false).unwrap();
+            let yaml = std::fs::read_to_string(&out).unwrap();
+            assert!(!yaml.contains(".nan") && !yaml.contains(".inf"), "{yaml}");
+            // The cell in the column of numbers is named, as any error cell is
+            assert!(
+                imported
+                    .warnings
+                    .iter()
+                    .any(|w| w.contains("t.x") && w.contains("A3 (#NUM!)")),
+                "{:?}",
+                imported.warnings
+            );
+            // and the model it wrote reads
+            crate::parser::parse_model(&out).unwrap();
         }
     }
 

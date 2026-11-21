@@ -191,6 +191,23 @@ impl Sheet {
     }
 }
 
+/// The cells, with a number that is not finite (NaN or an infinity) as Excel's
+/// `#NUM!`. Excel never writes one, but a workbook an older Forge exported can
+/// hold a cached `NaN`, which was imported as `.nan`: now it is imported as an
+/// error cell is, and a model holds no number that is not finite.
+pub(super) fn finite_cells(mut values: Range<Data>) -> Range<Data> {
+    let (height, width) = values.get_size();
+    for row in 0..height {
+        for col in 0..width {
+            let cell = &mut values[(row, col)];
+            if number_of(cell).is_some_and(|n| !n.is_finite()) {
+                *cell = Data::Error(calamine::CellErrorType::Num);
+            }
+        }
+    }
+    values
+}
+
 /// What the cells of a column hold.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Cells {
@@ -264,6 +281,31 @@ mod tests {
     }
 
     /// A sheet built by hand: `cells` from A1, and no formulas or styles
+    /// A cell that holds NaN or an infinity, which only a workbook Forge
+    /// exported can, becomes Excel's #NUM!; every other cell is kept
+    #[test]
+    fn a_number_that_is_not_finite_is_num() {
+        let cells = [
+            Data::Float(f64::NAN),
+            Data::Float(f64::INFINITY),
+            Data::Float(1.5),
+            Data::String("NaN".to_string()),
+        ];
+        let sheet = by_hand(&[&cells]);
+        let num = Data::Error(calamine::CellErrorType::Num);
+        let finite = finite_cells(sheet.values);
+        let read: Vec<Data> = finite.cells().map(|(_, _, cell)| cell.clone()).collect();
+        assert_eq!(
+            read,
+            [
+                num.clone(),
+                num,
+                Data::Float(1.5),
+                Data::String("NaN".to_string())
+            ]
+        );
+    }
+
     fn by_hand(cells: &[&[Data]]) -> Sheet {
         let rows = u32::try_from(cells.len()).unwrap();
         let cols = u32::try_from(cells[0].len()).unwrap();

@@ -299,10 +299,18 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        num_str
+        let number = num_str
             .parse::<f64>()
-            .map(Token::Number)
-            .map_err(|_| TokenizeError::new(format!("Invalid number: {num_str}"), start_pos))
+            .map_err(|_| TokenizeError::new(format!("Invalid number: {num_str}"), start_pos))?;
+        // Past the largest double the text reads as infinity, which no cell
+        // holds; Excel refuses such a number as the formula is entered
+        if number.is_infinite() {
+            return Err(TokenizeError::new(
+                format!("#NUM!: {num_str} is larger than any number a cell holds"),
+                start_pos,
+            ));
+        }
+        Ok(Token::Number(number))
     }
 
     /// Read an identifier (function name, variable, or table.column reference)
@@ -421,6 +429,22 @@ mod tests {
     fn test_tokenize_decimal_number() {
         let tokens = tokenize("3.567").unwrap();
         assert_eq!(tokens, vec![Token::Number(3.567)]);
+    }
+
+    /// A number past the largest double is refused, not read as infinity;
+    /// the largest double itself is a number
+    #[test]
+    fn a_number_past_the_largest_double_is_refused() {
+        for text in ["1E309", "1e+400", "2E308"] {
+            assert_eq!(
+                tokenize(text).unwrap_err().message,
+                format!("#NUM!: {text} is larger than any number a cell holds"),
+            );
+        }
+        assert_eq!(
+            tokenize("1.7976931348623157E308").unwrap(),
+            vec![Token::Number(f64::MAX)]
+        );
     }
 
     #[test]

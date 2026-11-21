@@ -86,10 +86,15 @@ pub fn power(base: f64, exponent: f64) -> Result<Value, EvalError> {
     finite(result)
 }
 
-/// Excel returns #NUM! when arithmetic overflows; an f64 would quietly become inf.
+/// Excel returns #NUM! when arithmetic overflows; an f64 would quietly become
+/// inf. A result that is not a number (infinity minus infinity) is #NUM! too:
+/// written to a model it would be `.nan`, and to a workbook a cell Excel
+/// cannot read.
 fn finite(result: f64) -> Result<Value, EvalError> {
     if result.is_infinite() {
         Err(EvalError::new("#NUM!: result is too large"))
+    } else if result.is_nan() {
+        Err(EvalError::new("#NUM!: the result is not a number"))
     } else {
         Ok(Value::Number(result))
     }
@@ -572,6 +577,28 @@ mod tests {
     /// Excel. Each result here is what Gnumeric and `LibreOffice` give for the
     /// exported formula over a real date (forge-e2e-gnumeric,
     /// `edge_real_dates.yaml`).
+    /// What overflows, or is not a number, is #NUM!: an infinite operand can
+    /// come only from outside a formula, as a literal past the largest double
+    /// is refused
+    #[test]
+    fn a_result_that_is_not_finite_is_num() {
+        let infinity = Value::Number(f64::INFINITY);
+        let refused =
+            |op: &str, l: &Value, r: &Value| evaluate_binary_op(op, l, r).unwrap_err().message;
+        assert_eq!(
+            refused("-", &infinity, &infinity),
+            "#NUM!: the result is not a number"
+        );
+        assert_eq!(
+            refused("*", &Value::Number(0.0), &infinity),
+            "#NUM!: the result is not a number"
+        );
+        assert_eq!(
+            refused("+", &infinity, &Value::Number(1.0)),
+            "#NUM!: result is too large"
+        );
+    }
+
     mod dates_as_dates {
         use crate::core::array_calculator::evaluator::tests as h;
         use crate::core::array_calculator::evaluator::EvalContext;

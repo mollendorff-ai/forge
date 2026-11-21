@@ -16,6 +16,7 @@
 //! - `model`: Core model parsing logic
 
 mod arrays;
+mod finite;
 mod includes;
 mod memory;
 pub(crate) mod model;
