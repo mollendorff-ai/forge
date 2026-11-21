@@ -3,7 +3,7 @@
 //! Implements variable elimination for exact inference in Bayesian networks.
 //! A unit test checks a small network against a hand calculation of a pgmpy example.
 
-use super::config::{BayesianConfig, BayesianNode, NodeType};
+use super::config::{BayesianConfig, BayesianNode};
 use std::collections::HashMap;
 
 /// Factor (potential function) for inference
@@ -164,13 +164,7 @@ impl Factor {
                 .map(|(_, idx)| *idx)
                 .collect();
 
-            let new_idx = if new_idx_vec.is_empty() {
-                0
-            } else {
-                Self::encode_index(&new_idx_vec, &new_cardinalities)
-            };
-
-            new_values[new_idx] += self.values[i];
+            new_values[Self::encode_index(&new_idx_vec, &new_cardinalities)] += self.values[i];
         }
 
         Self {
@@ -242,9 +236,8 @@ impl BeliefPropagation {
         // Build initial factors from nodes
         let mut factors = Vec::new();
         for (name, node) in &config.nodes {
-            if node.node_type == NodeType::Discrete {
-                factors.push(Factor::from_node(name, node, &config));
-            }
+            // validate() refuses any other type of node
+            factors.push(Factor::from_node(name, node, &config));
         }
 
         Ok(Self { config, factors })
@@ -256,83 +249,7 @@ impl BeliefPropagation {
     ///
     /// Returns an error if the target variable is not found or no factors remain.
     pub fn query(&self, target: &str) -> Result<Vec<f64>, String> {
-        if !self.config.nodes.contains_key(target) {
-            return Err(format!("Variable '{target}' not found in network"));
-        }
-
-        // Variable elimination
-        let order = self.get_elimination_order(target);
-
-        let mut factors = self.factors.clone();
-
-        for var in order {
-            if var == target {
-                continue;
-            }
-
-            // Find factors containing this variable
-            let (containing, remaining): (Vec<_>, Vec<_>) = factors
-                .into_iter()
-                .partition(|f| f.variables.contains(&var));
-
-            if containing.is_empty() {
-                factors = remaining;
-                continue;
-            }
-
-            // Multiply containing factors
-            let mut product = containing[0].clone();
-            for f in containing.iter().skip(1) {
-                product = product.multiply(f);
-            }
-
-            // Marginalize
-            let marginal = product.marginalize(&var);
-
-            factors = remaining;
-            factors.push(marginal);
-        }
-
-        // Multiply remaining factors
-        if factors.is_empty() {
-            return Err("No factors remaining".to_string());
-        }
-
-        let mut result = factors[0].clone();
-        for f in factors.iter().skip(1) {
-            result = result.multiply(f);
-        }
-
-        // Normalize
-        result.normalize();
-
-        // Extract probabilities for target variable
-        // After variable elimination, result should only contain the target variable
-        if result.variables.len() == 1 && result.variables[0] == target {
-            // Simple case: result is already just the target variable
-            let sum: f64 = result.values.iter().sum();
-            if sum > 0.0 {
-                Ok(result.values.iter().map(|v| v / sum).collect())
-            } else {
-                Ok(result.values.clone())
-            }
-        } else {
-            // Complex case: marginalize out any remaining variables except target
-            let mut final_result = result.clone();
-            for var in &result.variables {
-                if var != target {
-                    final_result = final_result.marginalize(var);
-                }
-            }
-
-            // Extract probabilities
-            let sum: f64 = final_result.values.iter().sum();
-            if sum > 0.0 {
-                Ok(final_result.values.iter().map(|v| v / sum).collect())
-            } else {
-                Ok(final_result.values)
-            }
-        }
+        self.query_with_evidence(target, &HashMap::new())
     }
 
     /// Query with evidence (observed values)
@@ -357,76 +274,33 @@ impl BeliefPropagation {
             .collect();
 
         // Variable elimination (excluding evidence variables)
-        let order = self.get_elimination_order(target);
-
-        for var in order {
-            if var == target || evidence.contains_key(&var) {
+        for var in self.get_elimination_order(target) {
+            if evidence.contains_key(&var) {
                 continue;
             }
 
-            // Find factors containing this variable
+            // Multiply the factors containing this variable, then sum it out
             let (containing, remaining): (Vec<_>, Vec<_>) = factors
                 .into_iter()
                 .partition(|f| f.variables.contains(&var));
-
-            if containing.is_empty() {
-                factors = remaining;
-                continue;
-            }
-
-            // Multiply containing factors
-            let mut product = containing[0].clone();
-            for f in containing.iter().skip(1) {
-                product = product.multiply(f);
-            }
-
-            // Marginalize
-            let marginal = product.marginalize(&var);
-
             factors = remaining;
-            factors.push(marginal);
+            if let Some(product) = containing.into_iter().reduce(|a, b| a.multiply(&b)) {
+                factors.push(product.marginalize(&var));
+            }
         }
 
-        // Multiply remaining factors
-        if factors.is_empty() {
-            return Err("No factors remaining".to_string());
+        // Multiply what remains, and sum out all but the target
+        let mut result = factors
+            .into_iter()
+            .reduce(|a, b| a.multiply(&b))
+            .ok_or_else(|| "No factors remaining".to_string())?;
+        for var in result.variables.clone() {
+            if var != target {
+                result = result.marginalize(&var);
+            }
         }
-
-        let mut result = factors[0].clone();
-        for f in factors.iter().skip(1) {
-            result = result.multiply(f);
-        }
-
-        // Normalize
         result.normalize();
-
-        // Extract probabilities for target variable
-        // After variable elimination, result should only contain the target variable
-        if result.variables.len() == 1 && result.variables[0] == target {
-            // Simple case: result is already just the target variable
-            let sum: f64 = result.values.iter().sum();
-            if sum > 0.0 {
-                Ok(result.values.iter().map(|v| v / sum).collect())
-            } else {
-                Ok(result.values.clone())
-            }
-        } else {
-            // Complex case: marginalize out any remaining variables except target
-            let mut final_result = result.clone();
-            for var in &result.variables {
-                if var != target {
-                    final_result = final_result.marginalize(var);
-                }
-            }
-
-            // Extract probabilities
-            let sum: f64 = final_result.values.iter().sum();
-            if sum > 0.0 {
-                Ok(final_result.values.iter().map(|v| v / sum).collect())
-            } else {
-                Ok(final_result.values)
-            }
-        }
+        Ok(result.values)
     }
 
     /// Apply evidence to a factor
@@ -540,5 +414,143 @@ mod inference_tests {
             "P(sprinkler=on | rain=yes) should be 0.01, got {}",
             probs[1]
         );
+    }
+
+    fn factor(variables: &[&str], cardinalities: &[usize], values: &[f64]) -> Factor {
+        Factor {
+            variables: variables.iter().map(ToString::to_string).collect(),
+            cardinalities: cardinalities.to_vec(),
+            values: values.to_vec(),
+        }
+    }
+
+    fn close(a: f64, b: f64) -> bool {
+        (a - b).abs() < 1e-12
+    }
+
+    #[test]
+    fn an_unknown_variable_is_refused() {
+        let bp = BeliefPropagation::new(create_simple_network()).unwrap();
+        let message = "Variable 'ghost' not found in network";
+        assert_eq!(bp.query("ghost").unwrap_err(), message);
+        assert_eq!(
+            bp.query_with_evidence("ghost", &HashMap::new())
+                .unwrap_err(),
+            message
+        );
+    }
+
+    #[test]
+    fn an_engine_without_factors_has_no_answer() {
+        let bp = BeliefPropagation {
+            config: create_simple_network(),
+            factors: vec![],
+        };
+        assert_eq!(bp.query("rain").unwrap_err(), "No factors remaining");
+        assert_eq!(bp.config().name, "Sprinkler");
+    }
+
+    #[test]
+    fn evidence_on_the_target_pins_it_and_impossible_evidence_gives_zeros() {
+        let config = create_simple_network();
+        let bp = BeliefPropagation::new(config.clone()).unwrap();
+        let pinned = bp
+            .query_with_evidence("rain", &HashMap::from([("rain".to_string(), 1)]))
+            .unwrap();
+        assert!(close(pinned[0], 0.0) && close(pinned[1], 1.0), "{pinned:?}");
+
+        // P(sprinkler=on | rain=yes) is 0, so that evidence cannot happen
+        let impossible = config.with_node(
+            "sprinkler",
+            BayesianNode::discrete(vec!["off", "on"])
+                .with_parents(vec!["rain"])
+                .with_cpt_entry("no", vec![0.6, 0.4])
+                .with_cpt_entry("yes", vec![1.0, 0.0]),
+        );
+        let bp = BeliefPropagation::new(impossible).unwrap();
+        let evidence = HashMap::from([("rain".to_string(), 1), ("sprinkler".to_string(), 1)]);
+        assert_eq!(
+            bp.query_with_evidence("rain", &evidence).unwrap(),
+            [0.0, 0.0]
+        );
+    }
+
+    #[test]
+    fn a_factor_from_a_child_reads_its_cpt_by_parent_state() {
+        let config = create_simple_network();
+        let node = &config.nodes["sprinkler"];
+        let f = Factor::from_node("sprinkler", node, &config);
+        assert_eq!(f.variables, ["sprinkler", "rain"]);
+        assert_eq!(f.cardinalities, [2, 2]);
+        // [sprinkler, rain], rain fastest: off|no, off|yes, on|no, on|yes
+        assert_eq!(f.values, [0.6, 0.99, 0.4, 0.01]);
+        let assignment = HashMap::from([("sprinkler".to_string(), 1), ("rain".to_string(), 0)]);
+        assert!(close(f.get_probability(&assignment), 0.4));
+        // A missing variable counts as state 0; a missing cell as 0
+        assert!(close(f.get_probability(&HashMap::new()), 0.6));
+    }
+
+    #[test]
+    fn a_parent_missing_from_the_network_and_a_missing_cpt_row_give_zeros() {
+        let config = create_simple_network();
+        let orphan = BayesianNode::discrete(vec!["a", "b"])
+            .with_parents(vec!["ghost"])
+            .with_cpt_entry("x", vec![0.5, 0.5]);
+        let f = Factor::from_node("orphan", &orphan, &config);
+        assert_eq!(f.variables, ["orphan"]);
+        assert_eq!(f.values, [0.0, 0.0]);
+
+        let node = BayesianNode::discrete(vec!["off", "on"])
+            .with_parents(vec!["rain"])
+            .with_cpt_entry("no", vec![0.6, 0.4]);
+        let f = Factor::from_node("sprinkler", &node, &config);
+        assert_eq!(f.values, [0.6, 0.0, 0.4, 0.0]);
+    }
+
+    #[test]
+    fn multiply_joins_factors_on_their_shared_variable() {
+        let a = factor(&["x"], &[2], &[0.3, 0.7]);
+        let b = factor(&["y", "x"], &[2, 2], &[1.0, 2.0, 3.0, 4.0]);
+        let p = a.multiply(&b);
+        assert_eq!(p.variables, ["x", "y"]);
+        // x fastest-last: (x0,y0) (x0,y1) (x1,y0) (x1,y1)
+        let want = [0.3, 0.9, 1.4, 2.8];
+        assert!(
+            p.values.iter().zip(want).all(|(g, w)| close(*g, w)),
+            "{:?}",
+            p.values
+        );
+        // A factor with too few values reads the missing cells as 0
+        let short = factor(&["x"], &[2], &[0.5]);
+        let q = short.multiply(&a);
+        assert!(
+            close(q.values[0], 0.15) && close(q.values[1], 0.0),
+            "{:?}",
+            q.values
+        );
+    }
+
+    #[test]
+    fn marginalize_sums_a_variable_out() {
+        let f = factor(&["x", "y"], &[2, 2], &[0.1, 0.2, 0.3, 0.4]);
+        let no_y = f.marginalize("y");
+        assert_eq!(no_y.variables, ["x"]);
+        assert!(close(no_y.values[0], 0.3) && close(no_y.values[1], 0.7));
+        let no_x = f.marginalize("x");
+        assert!(close(no_x.values[0], 0.4) && close(no_x.values[1], 0.6));
+        // The last variable leaves one number, and an absent variable nothing
+        let total = no_y.marginalize("x");
+        assert!(total.variables.is_empty() && close(total.values[0], 1.0));
+        assert_eq!(f.marginalize("z").values, f.values);
+    }
+
+    #[test]
+    fn normalize_scales_to_one_and_leaves_zeros_alone() {
+        let mut f = factor(&["x"], &[2], &[1.0, 3.0]);
+        f.normalize();
+        assert!(close(f.values[0], 0.25) && close(f.values[1], 0.75));
+        let mut zero = factor(&["x"], &[2], &[0.0, 0.0]);
+        zero.normalize();
+        assert_eq!(zero.values, [0.0, 0.0]);
     }
 }

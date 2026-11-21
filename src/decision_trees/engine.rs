@@ -67,12 +67,18 @@ pub struct Outcome {
     pub probability: f64,
 }
 
+/// The YAML text, or a comment saying it could not be written
+fn yaml_or_comment(yaml: Result<String, yaml_serde::Error>) -> String {
+    yaml.unwrap_or_else(|e| format!("# Error serializing results: {e}"))
+}
+
 impl TreeResult {
     /// Export results to YAML format
     #[must_use]
     pub fn to_yaml(&self) -> String {
-        yaml_serde::to_string(&crate::core::precision::Rounded(self))
-            .unwrap_or_else(|_| "# Error serializing results".to_string())
+        yaml_or_comment(yaml_serde::to_string(&crate::core::precision::Rounded(
+            self,
+        )))
     }
 
     /// Export results to JSON format
@@ -114,7 +120,8 @@ impl DecisionTreeEngine {
         let root_result = self.evaluate_node("root", root, &mut node_results)?;
 
         // Build optimal path
-        let optimal_path = self.build_optimal_path(&node_results);
+        let mut optimal_path = Vec::new();
+        self.trace_optimal_path("root", &root_result, &node_results, &mut optimal_path);
 
         // Build decision policy
         let decision_policy = Self::build_decision_policy(&node_results);
@@ -240,15 +247,13 @@ impl DecisionTreeEngine {
         Ok(base_value - branch.cost)
     }
 
-    /// Build the optimal decision path
-    fn build_optimal_path(&self, results: &BTreeMap<String, NodeResult>) -> Vec<String> {
-        let mut path = Vec::new();
-
-        if let Some(root_result) = results.get("root") {
-            self.trace_optimal_path("root", root_result, results, &mut path);
+    /// The node a result is named after: `root`, or one of the named nodes
+    fn node(&self, name: &str) -> Option<&Node> {
+        if name == "root" {
+            self.config.root.as_ref()
+        } else {
+            self.config.get_node(name)
         }
-
-        path
     }
 
     fn trace_optimal_path(
@@ -264,33 +269,21 @@ impl DecisionTreeEngine {
                     path.push(format!("{} → {}", result.name, choice));
 
                     // Follow the chosen branch
-                    if let Some(root) = &self.config.root {
-                        if name == "root" {
-                            if let Some(branch) = root.branches.get(choice) {
-                                if let Some(ref next) = branch.next {
-                                    if let Some(next_result) = results.get(next) {
-                                        self.trace_optimal_path(next, next_result, results, path);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if let Some(node) = self.config.get_node(name) {
-                        if let Some(branch) = node.branches.get(choice) {
-                            if let Some(ref next) = branch.next {
-                                if let Some(next_result) = results.get(next) {
-                                    self.trace_optimal_path(next, next_result, results, path);
-                                }
-                            }
-                        }
+                    let next = self
+                        .node(name)
+                        .and_then(|n| n.branches.get(choice))
+                        .and_then(|branch| branch.next.as_ref());
+                    if let Some((next, next_result)) =
+                        next.and_then(|n| results.get(n).map(|r| (n, r)))
+                    {
+                        self.trace_optimal_path(next, next_result, results, path);
                     }
                 }
             },
             NodeType::Chance => {
                 path.push(format!("{} → (await outcome)", result.name));
                 // For chance nodes, show all branches lead to
-                if let Some(node) = self.config.get_node(name) {
+                if let Some(node) = self.node(name) {
                     for (branch_name, branch) in &node.branches {
                         if let Some(ref next) = branch.next {
                             if let Some(next_result) = results.get(next) {
@@ -313,17 +306,16 @@ impl DecisionTreeEngine {
 
     /// Build decision policy
     fn build_decision_policy(results: &BTreeMap<String, NodeResult>) -> BTreeMap<String, String> {
-        let mut policy = BTreeMap::new();
-
-        for (name, result) in results {
-            if result.node_type == NodeType::Decision {
-                if let Some(ref choice) = result.optimal_choice {
-                    policy.insert(name.clone(), choice.clone());
-                }
-            }
-        }
-
-        policy
+        // Only a decision node has an optimal choice
+        results
+            .iter()
+            .filter_map(|(name, result)| {
+                result
+                    .optimal_choice
+                    .as_ref()
+                    .map(|choice| (name.clone(), choice.clone()))
+            })
+            .collect()
     }
 
     /// Collect the end points reachable when every decision follows the policy.
@@ -367,18 +359,27 @@ impl DecisionTreeEngine {
             let reach = probability * branch_probability;
             let value = paid - branch.cost;
             path.push(format!("{name}.{branch_name}"));
-            if let Some(terminal) = branch.value {
-                outcomes.push(Outcome {
+            match (branch.value, &branch.next) {
+                (Some(terminal), _) => outcomes.push(Outcome {
                     path: path.clone(),
                     value: value + terminal,
                     probability: reach,
-                });
-            } else if let Some(ref next) = branch.next {
-                let next_node = self
-                    .config
-                    .get_node(next)
-                    .ok_or_else(|| format!("Node '{next}' not found"))?;
-                self.collect_outcomes(next, next_node, results, path, (reach, value), outcomes)?;
+                }),
+                (None, Some(next)) => {
+                    let next_node = self
+                        .config
+                        .get_node(next)
+                        .ok_or_else(|| format!("Node '{next}' not found"))?;
+                    self.collect_outcomes(
+                        next,
+                        next_node,
+                        results,
+                        path,
+                        (reach, value),
+                        outcomes,
+                    )?;
+                },
+                (None, None) => return Err("Branch has neither value nor next node".to_string()),
             }
             path.pop();
         }
@@ -539,5 +540,258 @@ mod engine_tests {
 
         assert!(yaml.contains("root_expected_value"));
         assert!(yaml.contains("decision_policy"));
+    }
+
+    fn unchecked(config: DecisionTreeConfig) -> DecisionTreeEngine {
+        DecisionTreeEngine { config }
+    }
+
+    #[test]
+    fn a_tree_without_a_root_has_no_analysis() {
+        let engine = unchecked(DecisionTreeConfig::new("none"));
+        assert_eq!(engine.analyze().unwrap_err(), "No root node");
+    }
+
+    #[test]
+    fn a_branch_must_have_a_value_or_a_next_node() {
+        let empty = Branch {
+            cost: 0.0,
+            probability: 0.0,
+            value: None,
+            next: None,
+        };
+        let engine = unchecked(
+            DecisionTreeConfig::new("t").with_root(Node::decision("A").with_branch("x", empty)),
+        );
+        assert_eq!(
+            engine.analyze().unwrap_err(),
+            "Branch has neither value nor next node"
+        );
+    }
+
+    #[test]
+    fn a_branch_to_a_missing_node_is_refused_by_the_analysis_too() {
+        let engine = unchecked(
+            DecisionTreeConfig::new("t")
+                .with_root(Node::decision("A").with_branch("x", Branch::continuation("ghost"))),
+        );
+        assert_eq!(engine.analyze().unwrap_err(), "Node 'ghost' not found");
+    }
+
+    #[test]
+    fn a_decision_without_branches_and_a_terminal_node_are_worth_nothing() {
+        let engine = unchecked(DecisionTreeConfig::new("t"));
+        let mut results = BTreeMap::new();
+        let empty = Node::decision("Empty");
+        assert_eq!(
+            engine
+                .evaluate_node("empty", &empty, &mut results)
+                .unwrap_err(),
+            "No branches in decision node"
+        );
+        let end = Node {
+            node_type: NodeType::Terminal,
+            name: "End".to_string(),
+            branches: indexmap::IndexMap::new(),
+        };
+        let result = engine.evaluate_node("end", &end, &mut results).unwrap();
+        assert!(result.expected_value.abs() < f64::EPSILON);
+        assert_eq!(result.optimal_choice, None);
+        assert!(results.contains_key("end"));
+    }
+
+    #[test]
+    fn collecting_outcomes_refuses_a_policy_the_tree_cannot_follow() {
+        let root = Node::decision("A").with_branch("go", Branch::continuation("ghost"));
+        let engine = unchecked(DecisionTreeConfig::new("t").with_root(root.clone()));
+        let mut outcomes = Vec::new();
+        let mut collect = |results: &BTreeMap<String, NodeResult>| {
+            engine.collect_outcomes(
+                "root",
+                &root,
+                results,
+                &mut Vec::new(),
+                (1.0, 0.0),
+                &mut outcomes,
+            )
+        };
+        assert_eq!(
+            collect(&BTreeMap::new()).unwrap_err(),
+            "No optimal choice for decision node 'root'"
+        );
+        let chose = |choice: &str| {
+            BTreeMap::from([(
+                "root".to_string(),
+                NodeResult {
+                    name: "A".to_string(),
+                    node_type: NodeType::Decision,
+                    expected_value: 0.0,
+                    optimal_choice: Some(choice.to_string()),
+                    branch_values: BTreeMap::new(),
+                    tied_with: Vec::new(),
+                },
+            )])
+        };
+        assert_eq!(
+            collect(&chose("stay")).unwrap_err(),
+            "Node 'root' has no branch 'stay'"
+        );
+        assert_eq!(collect(&chose("go")).unwrap_err(), "Node 'ghost' not found");
+    }
+
+    #[test]
+    fn a_decision_after_a_decision_follows_the_best_branch_to_the_end() {
+        let config = DecisionTreeConfig::new("two steps")
+            .with_root(
+                Node::decision("First")
+                    .with_branch("on", Branch::continuation("second").with_cost(1.0))
+                    .with_branch("off", Branch::terminal(2.0)),
+            )
+            .with_node(
+                "second",
+                Node::decision("Second")
+                    .with_branch("big", Branch::terminal(10.0))
+                    .with_branch("small", Branch::terminal(3.0)),
+            );
+        let result = DecisionTreeEngine::new(config).unwrap().analyze().unwrap();
+        assert_eq!(
+            result.optimal_path,
+            ["First → on", "Second → big"].map(String::from)
+        );
+        assert!((result.root_expected_value - 9.0).abs() < 1e-12);
+        assert_eq!(result.decision_policy["root"], "on");
+        assert_eq!(result.decision_policy["second"], "big");
+    }
+
+    #[test]
+    fn a_chance_node_after_a_decision_lists_what_follows_each_outcome() {
+        let config = DecisionTreeConfig::new("bet")
+            .with_root(Node::decision("Bet?").with_branch("yes", Branch::continuation("coin")))
+            .with_node(
+                "coin",
+                Node::chance("Coin")
+                    .with_branch("heads", Branch::continuation("after").with_probability(0.5))
+                    .with_branch("tails", Branch::terminal(0.0).with_probability(0.5)),
+            )
+            .with_node(
+                "after",
+                Node::decision("Cash out?")
+                    .with_branch("cash", Branch::terminal(10.0))
+                    .with_branch("hold", Branch::terminal(4.0)),
+            );
+        let result = DecisionTreeEngine::new(config).unwrap().analyze().unwrap();
+        assert_eq!(
+            result.optimal_path,
+            [
+                "Bet? → yes",
+                "Coin → (await outcome)",
+                "  if heads →",
+                "    Cash out? → cash",
+            ]
+            .map(String::from)
+        );
+        assert!((result.root_expected_value - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn a_yaml_that_cannot_be_written_is_a_comment() {
+        let error = <yaml_serde::Error as serde::ser::Error>::custom("broken");
+        assert!(yaml_or_comment(Err(error)).starts_with("# Error serializing results: "));
+        assert_eq!(yaml_or_comment(Ok("a: 1\n".to_string())), "a: 1\n");
+    }
+
+    #[test]
+    fn the_engine_hands_back_its_configuration() {
+        let engine = DecisionTreeEngine::new(create_rnd_tree()).unwrap();
+        assert_eq!(engine.config().name, "R&D Investment");
+    }
+
+    #[test]
+    fn tracing_stops_where_the_results_stop() {
+        let config = DecisionTreeConfig::new("t")
+            .with_root(Node::decision("A").with_branch("go", Branch::continuation("b")))
+            .with_node(
+                "b",
+                Node::decision("B").with_branch("x", Branch::terminal(1.0)),
+            );
+        let engine = unchecked(config);
+        let root = NodeResult {
+            name: "A".to_string(),
+            node_type: NodeType::Decision,
+            expected_value: 0.0,
+            optimal_choice: Some("go".to_string()),
+            branch_values: BTreeMap::new(),
+            tied_with: Vec::new(),
+        };
+        // `b` has no result: the path ends after the first step
+        let mut path = Vec::new();
+        engine.trace_optimal_path("root", &root, &BTreeMap::new(), &mut path);
+        assert_eq!(path, ["A → go"]);
+        // A chance node's outcome without a result is left out
+        let chance = NodeResult {
+            node_type: NodeType::Chance,
+            ..root
+        };
+        let mut path = Vec::new();
+        engine.trace_optimal_path("root", &chance, &BTreeMap::new(), &mut path);
+        assert_eq!(path, ["A → (await outcome)"]);
+        // A name the tree does not have lists no outcomes; a decision
+        // without a choice adds nothing
+        let mut path = Vec::new();
+        engine.trace_optimal_path("ghost", &chance, &BTreeMap::new(), &mut path);
+        assert_eq!(path, ["A → (await outcome)"]);
+        let undecided = NodeResult {
+            optimal_choice: None,
+            node_type: NodeType::Decision,
+            ..chance
+        };
+        let mut path = Vec::new();
+        engine.trace_optimal_path("root", &undecided, &BTreeMap::new(), &mut path);
+        assert_eq!(path, Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_terminal_node_ends_the_path_and_adds_no_outcome() {
+        let end = Node {
+            node_type: NodeType::Terminal,
+            name: "End".to_string(),
+            branches: indexmap::IndexMap::from([("x".to_string(), Branch::terminal(1.0))]),
+        };
+        let config = DecisionTreeConfig::new("t")
+            .with_root(
+                Node::chance("Flip")
+                    .with_branch("a", Branch::continuation("end").with_probability(0.5))
+                    .with_branch("b", Branch::terminal(4.0).with_probability(0.5)),
+            )
+            .with_node("end", end);
+        let result = DecisionTreeEngine::new(config).unwrap().analyze().unwrap();
+        // The terminal node is worth nothing: 0.5 * 0 + 0.5 * 4
+        assert!((result.root_expected_value - 2.0).abs() < 1e-12);
+        assert_eq!(result.risk_profile.outcomes.len(), 1);
+        assert_eq!(result.optimal_path, ["Flip → (await outcome)", "  if a →"]);
+        assert!(result.decision_policy.is_empty());
+    }
+
+    #[test]
+    fn collecting_outcomes_refuses_a_branch_that_goes_nowhere() {
+        let empty = Branch {
+            cost: 0.0,
+            probability: 1.0,
+            value: None,
+            next: None,
+        };
+        let root = Node::chance("A").with_branch("x", empty);
+        let engine = unchecked(DecisionTreeConfig::new("t").with_root(root.clone()));
+        let error = engine
+            .collect_outcomes(
+                "root",
+                &root,
+                &BTreeMap::new(),
+                &mut Vec::new(),
+                (1.0, 0.0),
+                &mut Vec::new(),
+            )
+            .unwrap_err();
+        assert_eq!(error, "Branch has neither value nor next node");
     }
 }

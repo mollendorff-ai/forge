@@ -358,4 +358,52 @@ mod config_tests {
         assert_eq!(abandon.option_type, OptionType::Abandon);
         assert_exact!(abandon.salvage_value, 200_000.0);
     }
+
+    #[test]
+    fn each_bad_parameter_is_refused_with_its_own_message() {
+        let good = UnderlyingConfig::new(100.0, 0.3, 0.05, 1.0);
+        assert_eq!(
+            UnderlyingConfig::new(100.0, 0.3, 1.5, 1.0)
+                .validate()
+                .unwrap_err(),
+            "Risk-free rate must be between 0% and 100%"
+        );
+        assert_eq!(
+            UnderlyingConfig::new(100.0, 0.3, -0.1, 1.0)
+                .validate()
+                .unwrap_err(),
+            "Risk-free rate must be between 0% and 100%"
+        );
+        assert_eq!(
+            UnderlyingConfig::new(100.0, 0.3, 0.05, 0.0)
+                .validate()
+                .unwrap_err(),
+            "Time horizon must be positive"
+        );
+        let config =
+            RealOptionsConfig::new("n", good).with_option(OptionDefinition::abandon("exit", 1.0));
+        assert!(config.validate().is_ok());
+        assert_eq!(
+            config
+                .clone()
+                .with_binomial_steps(0)
+                .validate()
+                .unwrap_err(),
+            "Binomial steps must be positive"
+        );
+        let mut no_iterations = config;
+        no_iterations.monte_carlo_iterations = 0;
+        assert_eq!(
+            no_iterations.validate().unwrap_err(),
+            "Monte Carlo iterations must be positive"
+        );
+    }
+
+    #[test]
+    fn the_builders_set_their_fields() {
+        let underlying = UnderlyingConfig::new(100.0, 0.3, 0.05, 1.0).with_dividend_yield(0.02);
+        assert!((underlying.dividend_yield - 0.02).abs() < f64::EPSILON);
+        let config = RealOptionsConfig::new("n", underlying).with_seed(7);
+        assert_eq!(config.seed, Some(7));
+    }
 }

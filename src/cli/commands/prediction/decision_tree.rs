@@ -228,6 +228,97 @@ decision_tree:
         assert!(doc["root_expected_value"].as_f64().is_some());
     }
 
+    fn model(text: &str) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("m.yaml");
+        fs::write(&path, text).unwrap();
+        (dir, path)
+    }
+
+    const TIED: &str = "decision_tree:
+  name: Tied
+  root:
+    type: decision
+    name: Pick
+    branches:
+      a: {value: 10}
+      b: {value: 10}
+";
+
+    fn refusals() -> Vec<(tempfile::TempDir, PathBuf, &'static str)> {
+        let cases = [
+            ("a: 1\n", "No 'decision_tree' section"),
+            ("a: [\n", "YAML parse error"),
+            ("decision_tree: 5\n", "decision_tree config error"),
+            (
+                "decision_tree:\n  root:\n    type: decision\n    branches: {}\n",
+                "has no branches",
+            ),
+        ];
+        cases
+            .into_iter()
+            .map(|(text, expected)| {
+                let (dir, path) = model(text);
+                (dir, path, expected)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn core_and_command_refuse_a_model_that_is_not_a_tree() {
+        for (_dir, path, expected) in refusals() {
+            let error = decision_tree_core(&path).unwrap_err().to_string();
+            assert!(error.contains(expected), "{expected}: {error}");
+            let (result, _) = capture(|c| decision_tree(c, &path, false, None, false));
+            let error = result.unwrap_err().to_string();
+            assert!(error.contains(expected), "{expected}: {error}");
+        }
+        let missing = Path::new("no/such/model.yaml");
+        assert!(decision_tree_core(missing).is_err());
+        let (result, _) = capture(|c| decision_tree(c, missing, false, None, false));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn verbose_names_the_root_and_the_nodes_and_dot_is_not_implemented() {
+        let (result, out) = capture(|c| {
+            decision_tree(
+                c,
+                Path::new("examples/bagel/second_shop.yaml"),
+                true,
+                None,
+                true,
+            )
+        });
+        result.unwrap();
+        for expected in [
+            "Root: Some(",
+            "Nodes: ",
+            "Running backward induction...",
+            "DOT export not yet implemented",
+            "Decision tree analysis complete",
+        ] {
+            assert!(out.out.contains(expected), "{expected}\n{}", out.out);
+        }
+    }
+
+    #[test]
+    fn a_tie_is_said_out_loud() {
+        let (_dir, path) = model(TIED);
+        let (result, out) = capture(|c| decision_tree(c, &path, false, None, false));
+        result.unwrap();
+        assert!(out.out.contains("equally good: b"), "{}", out.out);
+        assert!(out.out.contains("Expected Value: $10.00"), "{}", out.out);
+    }
+
+    #[test]
+    fn an_unwritable_output_is_an_io_error() {
+        let (_dir, path) = model(TIED);
+        let out = PathBuf::from("no/such/dir/out.yaml");
+        let (result, _) = capture(|c| decision_tree(c, &path, false, Some(out), false));
+        assert!(matches!(result, Err(ForgeError::Io(_))));
+    }
+
     mod printed_numbers {
         //! The money `forge decision-tree` prints
         //! follow `forge report`'s rule (Session Prompt part 1, item 5): two decimals

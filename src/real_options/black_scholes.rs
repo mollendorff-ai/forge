@@ -320,4 +320,31 @@ mod black_scholes_tests {
 
         assert!(call < call_no_div, "Dividend should reduce call value");
     }
+
+    #[test]
+    fn gamma_vega_theta_and_rho_match_the_reference_values() {
+        // S=100, K=100, r=5%, σ=20%, T=1 (QuantLib / Hull)
+        let bs = BlackScholes::new(100.0, 100.0, 0.05, 0.20, 1.0);
+        assert!((bs.gamma() - 0.018_762).abs() < 1e-5, "{}", bs.gamma());
+        assert!((bs.vega() - 37.524).abs() < 1e-3, "{}", bs.vega());
+        assert!(
+            (bs.theta_call() + 6.414).abs() < 1e-3,
+            "{}",
+            bs.theta_call()
+        );
+        assert!((bs.rho_call() - 53.2325).abs() < 1e-3, "{}", bs.rho_call());
+    }
+
+    #[test]
+    fn a_dividend_yield_enters_every_greek() {
+        // d1 = (ln 1 + (0.05 - 0.03 + 0.02) * 1) / 0.2 = 0.2, pdf(0.2) = 0.391043
+        let bs = BlackScholes::new(100.0, 100.0, 0.05, 0.20, 1.0).with_dividend_yield(0.03);
+        let pdf = 0.391_043_f64;
+        let q = (-0.03_f64).exp();
+        assert!((bs.gamma() - q * pdf / 20.0).abs() < 1e-5, "{}", bs.gamma());
+        let vega = 100.0 * q * pdf;
+        assert!((bs.vega() - vega).abs() < 1e-3, "{}", bs.vega());
+        let plain = BlackScholes::new(100.0, 100.0, 0.05, 0.20, 1.0);
+        assert!((bs.theta_call() - plain.theta_call()).abs() > 0.1);
+    }
 }

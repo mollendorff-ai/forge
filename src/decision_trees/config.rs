@@ -204,7 +204,7 @@ impl DecisionTreeConfig {
         }
 
         // Check for cycles
-        self.check_cycles()?;
+        self.check_cycles(root)?;
 
         Ok(())
     }
@@ -224,15 +224,10 @@ impl DecisionTreeConfig {
     }
 
     /// Check for cycles in the tree (must be a DAG)
-    fn check_cycles(&self) -> Result<(), String> {
+    fn check_cycles(&self, root: &Node) -> Result<(), String> {
         let mut visited = std::collections::HashSet::new();
         let mut stack = std::collections::HashSet::new();
-
-        if let Some(ref root) = self.root {
-            self.dfs_cycle_check("root", root, &mut visited, &mut stack)?;
-        }
-
-        Ok(())
+        self.dfs_cycle_check("root", root, &mut visited, &mut stack)
     }
 
     fn dfs_cycle_check(
@@ -252,12 +247,14 @@ impl DecisionTreeConfig {
         visited.insert(name.to_string());
         stack.insert(name.to_string());
 
-        for branch in node.branches.values() {
-            if let Some(ref next) = branch.next {
-                if let Some(next_node) = self.nodes.get(next) {
-                    self.dfs_cycle_check(next, next_node, visited, stack)?;
-                }
-            }
+        // Every reference was checked to exist before this runs
+        let next_nodes = node
+            .branches
+            .values()
+            .filter_map(|branch| branch.next.as_ref())
+            .filter_map(|next| self.nodes.get_key_value(next));
+        for (next, next_node) in next_nodes {
+            self.dfs_cycle_check(next, next_node, visited, stack)?;
         }
 
         stack.remove(name);
@@ -358,5 +355,52 @@ mod config_tests {
         let result = tree.validate();
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Cycle"));
+    }
+
+    #[test]
+    fn a_branch_is_terminal_when_it_has_a_value_and_no_next_node() {
+        assert!(Branch::terminal(5.0).is_terminal());
+        assert!(!Branch::continuation("b").is_terminal());
+        let both = Branch {
+            next: Some("b".to_string()),
+            ..Branch::terminal(5.0)
+        };
+        assert!(!both.is_terminal());
+        let b = Branch::terminal(1.0).with_cost(2.0).with_probability(0.25);
+        assert!((b.cost - 2.0).abs() < f64::EPSILON);
+        assert!((b.probability - 0.25).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn a_node_without_branches_is_refused() {
+        let error = Node::decision("Empty").validate().unwrap_err();
+        assert_eq!(error, "Node 'Empty' has no branches");
+        let tree = DecisionTreeConfig::new("t")
+            .with_root(Node::decision("A").with_branch("go", Branch::continuation("b")))
+            .with_node("b", Node::chance("Empty chance"));
+        assert_eq!(
+            tree.validate().unwrap_err(),
+            "Node 'b': Node 'Empty chance' has no branches"
+        );
+    }
+
+    #[test]
+    fn a_valid_tree_with_a_shared_node_validates() {
+        // Both branches lead to the same node: a DAG, not a cycle
+        let tree = DecisionTreeConfig::new("diamond")
+            .with_root(
+                Node::decision("A")
+                    .with_branch("left", Branch::continuation("end"))
+                    .with_branch("right", Branch::continuation("end")),
+            )
+            .with_node(
+                "end",
+                Node::chance("Flip")
+                    .with_branch("up", Branch::terminal(1.0).with_probability(0.5))
+                    .with_branch("down", Branch::terminal(0.0).with_probability(0.5)),
+            );
+        assert_eq!(tree.validate(), Ok(()));
+        assert_eq!(tree.get_node("end").unwrap().name, "Flip");
+        assert!(tree.get_node("missing").is_none());
     }
 }
