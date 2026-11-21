@@ -107,7 +107,11 @@ pub(super) fn bca_adjusted_probability(z0: f64, a: f64, p: f64) -> Result<f64, S
                 .to_string(),
         );
     }
-    Ok(normal.cdf(z0 + (z0 + z) / denominator))
+    // The distribution function NORM.S.DIST uses: `statrs`'s is off by up to
+    // 9e-11 for |z| from 0.9 up
+    Ok(crate::core::array_calculator::evaluator::standard_cdf(
+        z0 + (z0 + z) / denominator,
+    ))
 }
 
 /// Bootstrap Resampling Engine

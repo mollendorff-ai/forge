@@ -19,9 +19,11 @@ pub(crate) fn standard_normal_quantile(p: f64) -> f64 {
     StandardNormal::standard().inverse_cdf(p.clamp(P_EPSILON, 1.0 - P_EPSILON))
 }
 
-/// Cumulative probability of the standard normal distribution.
+/// Cumulative probability of the standard normal distribution: the one
+/// NORM.S.DIST uses, right to about 3 units in the last place (`statrs`'s is
+/// off by up to 9e-11 for |z| from 0.9 up).
 pub(crate) fn standard_normal_cdf(z: f64) -> f64 {
-    StandardNormal::standard().cdf(z)
+    crate::core::array_calculator::evaluator::standard_cdf(z)
 }
 
 /// A parameter must be a finite number. `1E+400`, `inf` and `NaN` are read
@@ -545,6 +547,25 @@ fn numbers(items: &str, what: &str) -> Result<Vec<f64>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The copula's distribution function, against mpmath at 50 digits, to
+    /// within 2 units in the last place: `statrs`'s, used before, was off by
+    /// 1.6e-11 at 1 and 4.5e-11 at -2
+    #[test]
+    fn the_normal_distribution_function_is_right_to_the_last_digits() {
+        for (z, want) in [
+            (1.0, 0.841_344_746_068_542_9),
+            (-2.0, 0.022_750_131_948_179_21),
+            (0.9, 0.815_939_874_653_240_5),
+            (-3.0, 0.001_349_898_031_630_094_6),
+        ] {
+            let got = standard_normal_cdf(z);
+            assert!(
+                (got - want).abs() <= 2.0 * f64::EPSILON * want,
+                "{z}: {got}"
+            );
+        }
+    }
 
     /// The quantiles the engine draws through, at five probabilities, against
     /// scipy 1.18.1 (`stats.norm`, `triang`, `uniform`, `beta` scaled to the
