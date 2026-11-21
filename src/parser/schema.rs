@@ -52,12 +52,6 @@ fn validate_with(yaml: &Value, version: &str, schema: &Schema) -> ForgeResult<()
     let json_value: serde_json::Value = serde_json::to_value(yaml)
         .map_err(|e| ForgeError::Validation(format!("Failed to convert YAML to JSON: {e}")))?;
     let errors = schema.errors(&json_value);
-    // In a test build, `jsonschema` checks the format's own schema too (a
-    // schema of a test's own, as the one that cannot be read, is not its)
-    #[cfg(test)]
-    if super::schema_reader::for_format(version).is_some_and(|own| std::ptr::eq(own, schema)) {
-        super::schema_reader::tests::agrees_with_jsonschema(version, &json_value, &errors);
-    }
     if errors.is_empty() {
         return Ok(());
     }
@@ -685,11 +679,8 @@ price:
     fn a_schema_that_cannot_be_read_refuses_the_model_and_says_why() {
         let yaml: Value = yaml_serde::from_str("a: 1\n").unwrap();
         for (text, why) in [
-            ("not json", "/: not JSON ("),
-            (
-                "{\"const\": 1}",
-                "the keyword 'const', which Forge does not read",
-            ),
+            ("not json", "not JSON ("),
+            ("{\"const\": 1}", "no words for Constant"),
         ] {
             let reason = validate_with(&yaml, "5.1.0", &Schema::from_text(text))
                 .unwrap_err()

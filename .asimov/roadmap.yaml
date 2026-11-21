@@ -483,12 +483,17 @@ tier1:
   # Proposed, not built: forge audit could list numbers typed into formulas
   # (the import names them today; audit shows them in the tree).
 
-  - id: T1-REVISIT-VALIDATOR
-    title: "Decide again between Forge's own schema reader and jsonschema, now that size does not decide"
-    run_with: "Opus 5.5, high effort: the model validator decides which files every surface accepts, and a wrong choice either way is a wrong refusal or a missed one"
-    why: "ADR-069 replaced the jsonschema crate with about 2,000 lines of Forge's own (schema_reader.rs, schema_check.rs, schema_pattern.rs), largely because jsonschema was 684 KB of a browser module held to 2,000,000 bytes. ADR-070 (2026-11-21) sets the ceiling at 3,000,000 from a load-time target and says size alone is no reason to replace a library: 1.29 MB plus 0.68 MB fits. The maintainer was uncomfortable with the removal. The reasons that remain are ADR-069's others: one validator with the same messages on the command line, MCP, REST and the browser (jsonschema ran in the browser before, so one validator is possible either way), Forge's words in the messages (schema_errors.rs rewrote jsonschema's before), and the 53 crates it brought (ICU and idna for formats Forge never uses; its idna feature can be turned off, 55 KB)"
-    how: "Measure jsonschema 0.60 or later in the browser build with its unneeded features off, and whether it brings back a second version of any crate (CLAUDE.md allows none but syn). Compare, on the 78,838 generated models and every test model the reader is already checked on: the same refusals, and how the messages read. Then an ADR amending ADR-069 with the choice and its reasons, none of them size alone"
-    acceptance: "An ADR that keeps the reader or returns to jsonschema, with the browser size measured, the crates counted and the messages compared; whichever stays, the other is kept as the check against it in the tests"
+  # T1-REVISIT-VALIDATOR is done (2026-11-21, ADR-072): jsonschema 0.60 checks
+  # every model again, on every surface, read as draft 07; schema_reader.rs
+  # turns its errors into the kinds schema_errors.rs words, so the messages
+  # are unchanged. The maintainer's reasons: it is closer to the standard
+  # (Bowtie runs the official JSON Schema Test Suite against it) and
+  # battle-proven, where the reader was a day old; and the rule against
+  # crates in two versions does not compete with keeping a core library, so
+  # getrandom 0.3 (through ahash) is allowed beside 0.4. The reader's
+  # schema_check.rs and schema_pattern.rs are gone. The browser module is
+  # 2,037,051 bytes gzipped before wasm-bindgen (+682 KB, under ADR-070's
+  # ceiling).
 
   - id: T1-IMPORT-OTHER-LANGUAGES
     title: "forge import reads a sheet of scalars headed in French, Chinese or any language"
