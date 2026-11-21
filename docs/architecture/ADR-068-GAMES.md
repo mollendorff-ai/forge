@@ -168,7 +168,7 @@ Every equilibrium and ranking asserted in a test has a comment that says where i
 
 ## What is left out
 
-- **More than two players in mixed strategies.** With three or more players, Forge reports dominated strategies and pure equilibria, and says it did not look for mixed ones. A five-player public goods game is T2-GAME-THEORY-MORE.
+- **More than two players in mixed strategies.** With three or more players, Forge reports dominated strategies and pure equilibria, and says it did not look for mixed ones. A five-player public goods game is T2-GAME-THEORY-MORE. *Note, 2026-11-21:* ADR-073 lets a symmetric game of many players be written in the count form, and decides the symmetric mixed equilibria of two-strategy symmetric games and a `dynamics:` key.
 - **Extensive-form games:** moves in turn, what a player knows when, subgame perfection (the ultimatum game, entry deterrence). ADR-019's decision trees cover one decision maker against chance, not two players.
 - **Auctions**, and any game with a continuum of strategies (Cournot quantities, Bertrand prices). A price answer from a competitor can be written today as a table over a few named prices, which this does cover.
 - **Dominance by a mixed strategy.** A strategy that only a mix of two others beats is not reported as dominated. The report says "dominated by one of the player's own strategies", so it does not claim more.

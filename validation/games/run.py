@@ -10,6 +10,9 @@ generated    seeded random games, 2 x 2 to 6 x 6, ties included, against
              Gambit; a game Gambit and Forge disagree on fails unless Forge
              reports it as degenerate
 r            the closed forms of 2 x 2 games, against R
+counted      symmetric games of three to five players in the count form
+             (ADR-073): the public goods game and seeded games, the table
+             expanded cell by cell and the pure equilibria, against Gambit
 
 Needs `forge` (FORGE, default `forge` on the path), pygambit 16.7.0 and the
 axelrod library for the Python parts, and Rscript with jsonlite for `r`.
@@ -26,6 +29,7 @@ from fractions import Fraction as F
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)  # python3 -I leaves the script's folder off the path
 
+import counted
 import generated
 import specs
 import tables
@@ -93,6 +97,23 @@ def run_generated(work, seed, count):
     return failures
 
 
+def run_counted(work, seed, count):
+    failures, equilibria, kinds = [], 0, {}
+    for name, kind, text, n, strategies, pay in counted.cases(seed, count):
+        path = write(work, f"counted_{name}_{len(kinds)}.yaml", text)
+        report = only(tables.run_forge(path), name)
+        table = counted.expand(n, strategies, pay)
+        bad, found = counted.check(report, n, strategies, table)
+        equilibria += found
+        group = kind if kind.startswith("public goods") else kind.split(",")[0]
+        kinds[group] = kinds.get(group, 0) + 1
+        failures += [f"{name} ({kind}): {b}" for b in bad]
+    print(f"counted: seed {seed}, {sum(kinds.values())} games "
+          f"({', '.join(f'{n} {k}' for k, n in sorted(kinds.items()))}), "
+          f"{equilibria} pure equilibria, every cell compared, {len(failures)} failed")
+    return failures
+
+
 def run_tournaments(work, runs):
     failures, compared = [], 0
     for k, (rounds, continuation, noise) in enumerate(tournaments.SETTINGS):
@@ -134,20 +155,22 @@ def run_closed_forms(work, seed, count):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--only", nargs="*", choices=["specs", "tournaments", "generated", "r"])
+    p.add_argument("--only", nargs="*", choices=["specs", "tournaments", "generated", "r", "counted"])
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--games", type=int, default=300, help="generated games")
     p.add_argument("--runs", type=int, default=200, help="seeded axelrod matches of each pair")
     p.add_argument("--work", default="work")
     p.add_argument("--fail", action="store_true", help="exit 1 when anything fails (CI)")
     a = p.parse_args()
-    parts = a.only or ["specs", "tournaments", "generated", "r"]
+    parts = a.only or ["specs", "tournaments", "generated", "r", "counted"]
     os.makedirs(a.work, exist_ok=True)
     failures = []
     if "specs" in parts:
         failures += run_specs(a.work)
     if "generated" in parts:
         failures += run_generated(a.work, a.seed, a.games)
+    if "counted" in parts:
+        failures += run_counted(a.work, a.seed, max(a.games // 10, 10))
     if "tournaments" in parts:
         failures += run_tournaments(a.work, a.runs)
     if "r" in parts:

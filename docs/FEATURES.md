@@ -253,9 +253,22 @@ games:
       cheat:  {audit: [=-inputs.penalty, =-inputs.audit_cost], trust: [=inputs.gain, =-inputs.harm]}
 ```
 
-- **A cell** has one payoff per player, in the order of `players`. With more players, `payoffs:` nests one level per player. `symmetric: true` (two players with the same strategies) takes one payoff per cell, the first player's; the second player's is read from the mirror cell. A strategy list can be one list for every player (`strategies: [stag, hare]`).
+- **A cell** has one payoff per player, in the order of `players`. With more players, `payoffs:` nests one level per player. `symmetric: true` (every player with the same strategies) takes one payoff per cell, the first player's; with two players the second player's is read from the mirror cell. A strategy list can be one list for every player (`strategies: [stag, hare]`).
+- **A symmetric game of many players** is written with one payoff for each strategy, a number or a formula over how many of the *other* players play each strategy, `<game>.others.<strategy>` (ADR-073). Forge expands it into the whole table, so everything above works on it as on a table written out. A symmetric game of three or more players must be written this way, two players may be, and only that game's payoffs can read its counts. `others` is not a strategy name. [`examples/games/public-goods.yaml`](../examples/games/public-goods.yaml) has five players:
+
+```yaml
+games:
+  pg:
+    players: [a1, a2, a3, a4, a5]
+    strategies: [contribute, keep]
+    symmetric: true
+    payoffs:                     # one player's payoff, for its own strategy
+      contribute: =r * endowment * (pg.others.contribute + 1) / 5
+      keep: =endowment + r * endowment * pg.others.contribute / 5
+```
+
 - **What Forge works out:** strictly dominated strategies, removed one at a time (by another of the player's own strategies; weak dominance is noted, not removed); every pure equilibrium, for any number of players; every mixed equilibrium for two players with at most ten strategies each, by support enumeration, the method nashpy uses; and each strategy's payoff when the others play each of theirs equally often. In a degenerate game, where a tie can give a whole line of equilibria, the list may be incomplete, and `degenerate` is 1.
-- **`forge game model.yaml`** prints each game's dominated strategies, equilibria, ties and even-mix payoffs (`--game NAME` for one game, `--scenario NAME`, `-o FILE` for YAML or JSON, which also has every cell's payoffs). Forge Studio shows the same on its Model view, worked out again as the inputs change, and its Games set opens the seven models of `examples/games`.
+- **`forge game model.yaml`** prints each game's dominated strategies, equilibria, ties and even-mix payoffs (`--game NAME` for one game, `--scenario NAME`, `-o FILE` for YAML or JSON, which also has every cell's payoffs). Forge Studio shows the same on its Model view, worked out again as the inputs change, and its Games set opens the two-player models of `examples/games`.
 - **The results are scalars** named under the game, which any formula and any command can read: `inspection.pure_equilibria`, `inspection.equilibria`, `inspection.degenerate`, `inspection.equilibrium_1.human.audit` (the probability; pure equilibria first, in table order, then mixed ones), `inspection.equilibrium_1.human.payoff`, `inspection.dominated.ai.cheat` (1 or 0) and `inspection.even_mix.ai.cheat`. `forge calculate` prints them and does not write them into the file. A name the game does not have (`equilibrium_2` of a game with one) is an error that says how many it has, so a sweep that crosses a change in the number of equilibria stops there rather than read another one under the same name.
 - **Checked:** every equilibrium in the tests is checked with nashpy 0.0.43 or by hand. In the example above the human audits a third of the time and the AI cheats a third of the time; with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third.
 - **Excel:** `forge export` does not write the payoff formulas, since Excel cannot find an equilibrium. The results are written as numbers as of the export and do not follow the inputs, and the export warns and names the games.

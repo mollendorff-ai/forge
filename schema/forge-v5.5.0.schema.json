@@ -1224,7 +1224,7 @@
         },
         "payoffs": {
           "type": "object",
-          "description": "The first player's strategy, then the second's, and so on; a cell is a list of one payoff per player (a number or a formula starting with =), or one payoff in a symmetric game"
+          "description": "The first player's strategy, then the second's, and so on; a cell is a list of one payoff per player (a number or a formula starting with =), or one payoff in a symmetric game. A symmetric game may instead give one payoff for each strategy, over how many of the other players play each (<game>.others.<strategy>, ADR-073); with three or more players it must"
         }
       },
       "required": [

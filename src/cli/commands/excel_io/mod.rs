@@ -698,12 +698,12 @@ g:
             let text = fs::read_to_string(root.join(name)).unwrap();
             assert!(text.contains("MC."), "{name} has no MC. distribution");
         }
-        // The rest, 49 models, all round-trip with no difference. The seven
+        // The rest, 50 models, all round-trip with no difference. The eight
         // in games/, bagel/price_war.yaml and acquisition/deal_game.yaml come
         // back as their results,
         // numbers as of the export: the export warns that the games
         // themselves are not written
-        assert_eq!(results.len() - skipped.len(), 49);
+        assert_eq!(results.len() - skipped.len(), 50);
     }
 }
 

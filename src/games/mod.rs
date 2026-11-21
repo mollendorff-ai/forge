@@ -2,6 +2,7 @@
 //! dominated strategies and equilibria, and tournaments of repeated play
 //! (ADR-068).
 
+pub mod counts;
 pub mod linear;
 pub mod mixed;
 pub mod model;

@@ -7,6 +7,7 @@ Forge's games (ADR-068) are checked here against engines Forge shares no code wi
 | Named games (`specs.py`) | `forge game -o`, on a model the suite writes and on the shipped examples | [Gambit](https://gambitproject.readthedocs.io) (pygambit 16.7.0): `enumpure_solve` and `enummixed_solve` |
 | Tournaments (`tournaments.py`) | the exact match values of the nine strategies, in three settings, and the examples' tournaments | the [axelrod](https://axelrod.readthedocs.io) library (4.14.0), averages of seeded matches |
 | Generated games (`generated.py`) | seeded random games, 2 x 2 to 6 x 6, ties on purpose | Gambit, as the named games |
+| Games of many players (`counted.py`) | symmetric games of three to five players in the count form (ADR-073): the public goods game and seeded games | the table expanded again here, cell by cell, and Gambit's `enumpure_solve` |
 | 2 x 2 closed forms (`closed_forms.R`) | seeded random 2 x 2 games | R: the formulas for the mixed equilibrium and the cell check for the pure ones |
 
 R has no package that finds the equilibria of a game, so it checks only the case with a formula. Gambit is a separate implementation with its own pure, mixed and LCP solvers. nashpy, which the unit tests were checked with, runs the same support enumeration as Forge, so it is not independent of the method and is not used here.
@@ -21,7 +22,7 @@ FORGE=../../target/release/forge /tmp/games/bin/python -I run.py --seed 1 --game
 FORGE=../../target/release/forge /tmp/games/bin/python -I run.py --only generated --seed 202647 --games 3000   # replay one part
 ```
 
-`--only` takes `specs`, `tournaments`, `generated` and `r`. The R part needs `Rscript` with `jsonlite`; pygambit builds from source where there is no wheel for the Python version (a few minutes). The `Games vs Gambit, axelrod and R` job in `.github/workflows/validation.yml` runs seed 1 on every pull request and push that changes `src/` or `validation/`, and on Mondays, and on demand, the week's seed (ISO year and week) with 3,000 games and 1,000 runs of each match. The same seed, counts and library versions give the same games and the same numbers.
+`--only` takes `specs`, `tournaments`, `generated`, `r` and `counted`. The R part needs `Rscript` with `jsonlite`; pygambit builds from source where there is no wheel for the Python version (a few minutes). The `Games vs Gambit, axelrod and R` job in `.github/workflows/validation.yml` runs seed 1 on every pull request and push that changes `src/` or `validation/`, and on Mondays, and on demand, the week's seed (ISO year and week) with 3,000 games and 1,000 runs of each match. The same seed, counts and library versions give the same games and the same numbers.
 
 ## What fails the run
 
