@@ -74,8 +74,9 @@ impl OptionsResult {
     /// Export results to YAML format
     #[must_use]
     pub fn to_yaml(&self) -> String {
-        yaml_serde::to_string(&crate::core::precision::Rounded(self))
-            .unwrap_or_else(|_| "# Error serializing results".to_string())
+        yaml_or_comment(yaml_serde::to_string(&crate::core::precision::Rounded(
+            self,
+        )))
     }
 
     /// Export results to JSON format
@@ -86,6 +87,11 @@ impl OptionsResult {
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(&crate::core::precision::Rounded(self))
     }
+}
+
+/// The YAML text, or a comment saying it could not be written
+fn yaml_or_comment(yaml: Result<String, yaml_serde::Error>) -> String {
+    yaml.unwrap_or_else(|e| format!("# Error serializing results: {e}"))
 }
 
 /// Real Options Engine
@@ -519,5 +525,243 @@ mod engine_tests {
 
         assert!(json.contains("\"project_value_with_options\""));
         assert!(json.contains("\"options\""));
+    }
+
+    fn underlying() -> UnderlyingConfig {
+        UnderlyingConfig::new(100.0, 0.30, 0.05, 2.0)
+    }
+
+    fn engine_with(method: ValuationMethod, option: OptionDefinition) -> RealOptionsEngine {
+        let config = RealOptionsConfig::new("t", underlying())
+            .with_method(method)
+            .with_option(option)
+            .with_binomial_steps(50);
+        RealOptionsEngine::new(config).unwrap()
+    }
+
+    fn other(option_type: OptionType, name: &str) -> OptionDefinition {
+        OptionDefinition {
+            option_type,
+            name: name.to_string(),
+            exercise_cost: 20.0,
+            salvage_value: 0.0,
+            max_deferral: 0.0,
+            expansion_factor: 1.5,
+            contraction_factor: 0.5,
+        }
+    }
+
+    #[test]
+    fn black_scholes_prices_each_type_of_option_by_its_own_formula() {
+        let u = underlying();
+        let price = |s: f64, k: f64, put: bool| {
+            let bs = BlackScholes::new(s, k, u.risk_free_rate, u.volatility, u.time_horizon);
+            if put {
+                bs.put_price()
+            } else {
+                bs.call_price()
+            }
+        };
+        let value = |option: OptionDefinition| {
+            engine_with(ValuationMethod::BlackScholes, option)
+                .analyze()
+                .options
+                .values()
+                .next()
+                .unwrap()
+                .value
+        };
+        // Expand: a call on the extra 50% of the project
+        assert!(
+            (value(OptionDefinition::expand("e", 1.5, 40.0)) - price(50.0, 40.0, false)).abs()
+                < 1e-9
+        );
+        // Contract: a put on the 50% given up, struck at the savings
+        assert!(
+            (value(OptionDefinition::contract("c", 0.5, 30.0)) - price(50.0, 30.0, true)).abs()
+                < 1e-9
+        );
+        assert!(
+            (value(OptionDefinition::abandon("a", 80.0)) - price(100.0, 80.0, true)).abs() < 1e-9
+        );
+    }
+
+    #[test]
+    fn switch_and_compound_options_are_valued_on_the_tree_even_by_black_scholes() {
+        for option_type in [OptionType::Switch, OptionType::Compound] {
+            let by_bs = engine_with(ValuationMethod::BlackScholes, other(option_type, "x"));
+            let by_tree = engine_with(ValuationMethod::Binomial, other(option_type, "x"));
+            let a = by_bs.analyze().options["x"].value;
+            let b = by_tree.analyze().options["x"].value;
+            assert!(a > 0.0);
+            assert!((a - b).abs() < 1e-12, "{option_type:?}: {a} vs {b}");
+            assert_eq!(by_bs.analyze().options["x"].optimal_trigger, None);
+        }
+    }
+
+    #[test]
+    fn monte_carlo_uses_a_finer_tree() {
+        let option = OptionDefinition::abandon("a", 80.0);
+        let mc = engine_with(ValuationMethod::MonteCarlo, option.clone()).analyze();
+        let fine = RealOptionsEngine::new(
+            RealOptionsConfig::new("t", underlying())
+                .with_option(option)
+                .with_binomial_steps(200),
+        )
+        .unwrap()
+        .analyze();
+        assert!((mc.options["a"].value - fine.options["a"].value).abs() < 1e-12);
+    }
+
+    #[test]
+    fn each_option_type_names_its_rule_of_thumb() {
+        let engine = RealOptionsEngine::new(
+            RealOptionsConfig::new("t", underlying())
+                .with_option(OptionDefinition::defer("d", 1.0, 100.0))
+                .with_option(OptionDefinition::expand("e", 1.5, 50.0))
+                .with_option(OptionDefinition::abandon("a", 50.0))
+                .with_option(OptionDefinition::contract("c", 0.5, 10.0))
+                .with_binomial_steps(20),
+        )
+        .unwrap();
+        let options = engine.analyze().options;
+        let trigger = |name: &str| options[name].optimal_trigger.clone().unwrap();
+        assert_eq!(trigger("d"), format!("value > {}", money_whole(110.0)));
+        assert_eq!(trigger("e"), format!("value > {}", money_whole(100.0)));
+        assert_eq!(trigger("a"), format!("value < {}", money_whole(60.0)));
+        assert_eq!(trigger("c"), format!("value < {}", money_whole(50.0)));
+    }
+
+    #[test]
+    fn without_a_traditional_npv_only_a_defer_option_has_a_project_value() {
+        let defer = engine_with(
+            ValuationMethod::Binomial,
+            OptionDefinition::defer("d", 1.0, 100.0),
+        )
+        .analyze();
+        let d = &defer.options["d"];
+        assert_eq!(d.project_value, Some(d.value));
+        assert_eq!(d.value_added, None);
+        assert!(defer.decision.starts_with("ACCEPT") || defer.decision == "REJECT");
+
+        let abandon = engine_with(
+            ValuationMethod::Binomial,
+            OptionDefinition::abandon("a", 80.0),
+        )
+        .analyze();
+        let a = &abandon.options["a"];
+        assert_eq!(a.project_value, None);
+        assert_eq!(a.value_added, Some(a.value));
+        assert_eq!(abandon.best_option, None);
+        assert!(abandon
+            .decision
+            .starts_with("UNDECIDED: set traditional_npv"));
+    }
+
+    #[test]
+    fn with_a_traditional_npv_the_options_add_to_it() {
+        let engine = engine_with(
+            ValuationMethod::Binomial,
+            OptionDefinition::defer("d", 1.0, 100.0),
+        )
+        .with_traditional_npv(-5.0);
+        let result = engine.analyze();
+        let d = &result.options["d"];
+        assert!((d.value_added.unwrap() - (d.value + 5.0)).abs() < 1e-12);
+
+        let engine = engine_with(
+            ValuationMethod::Binomial,
+            OptionDefinition::abandon("a", 80.0),
+        )
+        .with_traditional_npv(-5.0);
+        let a = engine.analyze().options["a"].clone();
+        assert!((a.project_value.unwrap() - (a.value - 5.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn a_project_worth_nothing_with_every_option_is_rejected() {
+        let engine = engine_with(
+            ValuationMethod::Binomial,
+            OptionDefinition::abandon("a", 1.0),
+        )
+        .with_traditional_npv(-1_000.0);
+        let result = engine.analyze();
+        assert!(result.project_value_with_options.unwrap() < 0.0);
+        assert_eq!(result.decision, "REJECT");
+    }
+
+    #[test]
+    fn the_recommendation_explains_a_negative_npv_and_the_right_to_wait() {
+        let engine = RealOptionsEngine::new(
+            RealOptionsConfig::new("t", underlying())
+                .with_option(OptionDefinition::defer("wait", 1.0, 90.0))
+                .with_option(OptionDefinition::abandon("exit", 60.0))
+                .with_binomial_steps(50),
+        )
+        .unwrap()
+        .with_traditional_npv(-2.0);
+        let result = engine.analyze();
+        let text = &result.recommendation;
+        assert_eq!(result.best_option.as_deref(), Some("wait"));
+        for expected in [
+            "Best option: wait, project value",
+            "Traditional NPV is negative (",
+            "Keeping the right to wait is worth",
+            "Option values overlap, so they are compared, not added together",
+            "exit: rule of thumb, exercise when value < ",
+            "wait: rule of thumb, exercise when value > ",
+        ] {
+            assert!(text.contains(expected), "{expected}\n{text}");
+        }
+        assert!(
+            text.find("exit: rule").unwrap() < text.find("wait: rule").unwrap(),
+            "rules of thumb come in name order: {text}"
+        );
+    }
+
+    #[test]
+    fn a_yaml_that_cannot_be_written_is_a_comment() {
+        let error = <yaml_serde::Error as serde::ser::Error>::custom("broken");
+        assert!(yaml_or_comment(Err(error)).starts_with("# Error serializing results: "));
+        assert_eq!(yaml_or_comment(Ok("a: 1\n".to_string())), "a: 1\n");
+    }
+
+    #[test]
+    fn the_engine_hands_back_its_configuration() {
+        let engine = engine_with(
+            ValuationMethod::Binomial,
+            OptionDefinition::abandon("a", 80.0),
+        );
+        assert_eq!(engine.config().name, "t");
+    }
+
+    #[test]
+    fn equal_project_values_pick_the_earlier_name() {
+        for names in [["zeta", "alpha"], ["alpha", "zeta"]] {
+            let config = RealOptionsConfig::new("t", underlying())
+                .with_option(OptionDefinition::abandon(names[0], 80.0))
+                .with_option(OptionDefinition::abandon(names[1], 80.0))
+                .with_binomial_steps(20);
+            let result = RealOptionsEngine::new(config)
+                .unwrap()
+                .with_traditional_npv(1.0)
+                .analyze();
+            assert_eq!(result.best_option.as_deref(), Some("alpha"), "{names:?}");
+        }
+    }
+
+    #[test]
+    fn without_options_the_traditional_npv_decides() {
+        let engine = |npv: Option<f64>| RealOptionsEngine {
+            config: RealOptionsConfig::new("t", underlying()),
+            traditional_npv: npv,
+        };
+        assert_eq!(engine(Some(1.0)).analyze().decision, "ACCEPT");
+        assert_eq!(engine(Some(0.0)).analyze().decision, "REJECT");
+        assert_eq!(
+            engine(None).analyze().decision,
+            "UNDECIDED: no options and no traditional_npv"
+        );
+        assert_eq!(engine(None).analyze().best_option, None);
     }
 }

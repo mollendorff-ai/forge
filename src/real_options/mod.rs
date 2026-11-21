@@ -319,11 +319,12 @@ mod tests {
 
             let result = engine.analyze();
 
-            if result.project_value_with_options.unwrap() > 0.0 {
-                assert!(result.decision.contains("ACCEPT"));
-            } else {
-                assert!(result.decision.contains("REJECT"));
-            }
+            assert!(result.project_value_with_options.unwrap() > 0.0);
+            assert!(
+                result.decision.starts_with("ACCEPT (with "),
+                "{}",
+                result.decision
+            );
 
             // Should have recommendation text
             assert_ne!(result.recommendation, "");
