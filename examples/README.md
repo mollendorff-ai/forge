@@ -21,13 +21,13 @@ Each has a README with the numbers it should print. All figures are made up.
 | [`capex-plan/`](capex-plan/) | A machine bought on a loan: payment schedule, depreciation and a revenue trend. |
 | [`microgrid/`](microgrid/) | An island trading diesel for solar and a battery over 20 years: the battery's replacement, the loan, scenarios, a simulation and a decision tree. |
 | [`realestate/`](realestate/) | A building of 24 flats valued under uncertainty: ten years of rent and costs, a sale at an exit cap rate, a loan, scenarios, a tornado, 10,000 simulated futures, and what the right to sell early is worth in a market that moves in cycles. |
-| [`acquisition/`](acquisition/) | Project Kittiwake: a listed company bids 30% over the market for a smaller rival, part cash, part shares. Value created against the premium, earnings per share year by year (dilutive, then accretive), the walk-away price, an earn-out that moves the risk to the sellers, a rival bidder, comparable premiums, a diligence red flag, and the deal a year after closing. |
+| [`acquisition/`](acquisition/) | Project Kittiwake: a listed company bids 30% over the market for a smaller rival, part cash, part shares. Value created against the premium, earnings per share year by year (dilutive, then accretive), the walk-away price, an earn-out that moves the risk to the sellers, a rival bidder (a decision tree, and sealed bids as a game), comparable premiums, a diligence red flag, and the deal a year after closing. |
 | [`vineyard/`](vineyard/) | A vineyard's season, where a big harvest sells cheap: the crop and the price correlated, a spring frost one year in ten, scenarios, a tornado, and the same season simulated with and without the correlation. The correlation cuts the chance of a loss from one season in three to one in four, and the mean with it. |
 | [`fund/`](fund/) | A venture fund seen by its investors: calls, fees and exits on their own dates, the return by `XIRR` and the value by `XNPV`, fees and carry taking 15.7% down to 10.8%, and what a year's delay or a cold exit market costs. |
 | [`options/`](options/compare-options.yaml) | Two rentals compared. |
 | [`games/`](games/) | Games and tournaments, run with `forge game`: kinship-protocol's stag hunt, chicken and Axelrod tournament with the flags it wrote by hand now read from the games; the inspection game, where a harsher penalty lowers the audit rate and not the cheating (`forge tornado`); a tournament where noise moves a forgiving strategy ahead of TitForTat; the battle of the sexes; and the continuation at which cooperation holds (`forge sensitivity`). |
 
-Studio opens all of these except `games/` and the one-command files below.
+Studio opens all of these, `games/` included, but not the one-command files below.
 
 ## One command each
 

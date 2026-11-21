@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`examples/README.md` says Studio opens the games.** It said Studio opened every example but `games/`, which has been wrong since rc.31.
+
+### Added
+- **The takeover's rival bidder, as a game (`examples/acquisition/deal_game.yaml`, `forge game`).** Quillon's board asks for sealed best and final offers, and Valdane and Thornvale each bid a 30% or a 40% premium. Each payoff is the bidder's value created from `deal.yaml` (a point of premium costs 12.24, so Valdane's 224.51 at 30% is 102.11 at 40%); Thornvale's synergies are a round 530 against Valdane's 603.15. Both bidding 30% and both bidding 40% are equilibria, and both expect 61.2 less at 40%: the knockout bid is a trap, not a way out. With cost cuts worth 400 (`thornvale_cost_only`), both bid 30%. Worked out by hand and with nashpy 0.0.43 and asserted in `game.rs`; `validation/games` checks the file against Gambit (25 named games, from 23); Studio's acquisition set opens it, and `studio/tests/games.mjs` checks it. Where `deal_bid.yaml` types in Thornvale's chances, this works its choice out.
+- **The bagel README shows `forge audit`.** The year's profit, 786.32, traced to its 15 inputs (9 in `bagel.yaml`, 6 in `costs.yaml`) and two data columns, asserted in `audit.rs`. No story example's README showed the command before.
+
 ## [10.0.0-rc.31] - 2026-11-20
 
 Games in Forge Studio. A model with a `games:` section shows each game on the Model view, worked out again with every input and scenario: a payoff table with its equilibria marked, a tournament's ranking and matches, and each game's results under the names a formula reads them by. Studio has a Games set with the seven `examples/games` models, and the bagel has a price war. No wrong answer is fixed in this release (the Bayesian network's last digit is not one: docs/STABILITY.md promises no numbers to the last digit), so the two weeks still run from rc.30: the stable release is no earlier than 2026-12-04.

@@ -325,6 +325,24 @@ tier1:
   # and are asserted beside each command (acquisition_example). It needed no
   # engine change; what it made hard is the three items below
   # (T1-VARY-INCLUDED done since).
+  #
+  # Since (2026-11-21): examples/acquisition/deal_game.yaml plays the
+  # contest with Thornvale as a game (forge game): sealed best and final
+  # offers at 30% or 40%, each bidder's payoff its value created from
+  # deal.yaml, Thornvale's synergies a round 530. Two pure equilibria (both
+  # 30%, both 40%) and a mixed one; with cost cuts worth 400, both bid 30%.
+  # Worked out by hand and with nashpy 0.0.43, asserted in game.rs
+  # (the_sealed_bids_are_a_trap_both_can_fall_into), checked against Gambit
+  # in validation/games (two specs), opened in Studio's acquisition set and
+  # checked by studio/tests/games.mjs. The bidding tree keeps its typed-in
+  # chances; the README says what each leaves out.
+  #
+  # Examples review (2026-11-21): every analytics command runs on a story
+  # example; forge audit had no story example's README, so the bagel README
+  # shows it on year.profit (15 inputs and 2 data columns, asserted in
+  # audit.rs). Still uncovered: forge watch (interactive, no example needed),
+  # LAMBDA and VLOOKUP (no story example uses them; the lowest-value gap),
+  # and a model that starts from a workbook (T1-EXAMPLE-EXCEL-ROUNDTRIP, open).
 
   # T1-VARY-INCLUDED is done (2026-11-18): tornado, goal-seek, break-even
   # and sensitivity find `@alias.name` in the included file (names.rs) and

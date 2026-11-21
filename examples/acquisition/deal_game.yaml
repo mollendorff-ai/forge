@@ -1,0 +1,89 @@
+_forge_version: "5.5.0"
+# Project Kittiwake (fictional): Quillon's board asks Valdane and Thornvale
+# for best and final offers by Friday, sealed. Each bids a 30% or a 40%
+# premium, at the same time, not knowing the other's.
+# Run in the examples folder: forge game acquisition/deal_game.yaml
+#
+# deal_bid.yaml types in how likely Thornvale is to counter (60% against a
+# 30% offer, 15% against 40%), a judgement. Here Thornvale's choice is
+# worked out from its own numbers instead, as Valdane's is from deal.yaml.
+#
+# The payoffs are each bidder's value created, worked out from deal.yaml:
+# Quillon on its own (Valdane's case, which Thornvale is assumed to share),
+# the bidder's synergies, less the price, the debt and the fees. Each point
+# of premium costs 12.24 (1,200 of equity at the undisturbed price, plus 2%
+# fees), so Valdane's 224.51 at 30% is 102.11 at 40%. Thornvale, a fund
+# that owns a rival sensor maker, has cost cuts but not Valdane's sales
+# channels: its synergies are worth 530 against Valdane's 603.15. The higher
+# bid wins; on a tie the board takes either, half the time each. The loser
+# has spent 12 on bankers and lawyers.
+#
+# Both bidding 30% is an equilibrium, and so is both bidding 40%: whoever
+# expects the other to go to 40% goes there too. Both lose 61.2 at 40%
+# against 30%, so an escalation is a trap both can fall into, and neither
+# can leave it alone. If Thornvale's synergies are only cost cuts worth 400
+# (thornvale_cost_only), 40% loses Thornvale money whatever Valdane does,
+# it bids 30%, and so does Valdane.
+#   forge game acquisition/deal_game.yaml --scenario thornvale_cost_only
+
+_includes:
+  - file: deal.yaml
+    as: deal
+  - file: target.yaml
+    as: target
+
+bids:
+  opening: {value: 0.30, format: "0%"}
+  knockout: {value: 0.40, format: "0%"}
+  # Spent by the bidder that loses: bankers, lawyers, the bridge loan's fee
+  losing_cost: 12
+  # What one point of premium (0.01) costs a bidder, fees included
+  cost_per_point:
+    formula: "=@target.company.unaffected_price * @target.company.shares * (1 + @deal.financing.fees_rate) / 100"
+
+thornvale:
+  # Thornvale's synergies, net of their integration bill, as a value today:
+  # the cost cuts of merging Quillon with the sensor maker it owns
+  synergies: {value: 530, better: higher}
+
+# Each bidder's value created when it wins at a premium: deal.yaml's at its
+# own premium, moved by the cost of the points between
+worth:
+  valdane_at_30:
+    formula: "=@deal.valuation.value_created - (bids.opening - @deal.offer.premium) * 100 * bids.cost_per_point"
+  valdane_at_40:
+    formula: "=@deal.valuation.value_created - (bids.knockout - @deal.offer.premium) * 100 * bids.cost_per_point"
+  thornvale_at_30:
+    formula: "=valdane_at_30 - @deal.valuation.synergies + thornvale.synergies"
+  thornvale_at_40:
+    formula: "=valdane_at_40 - @deal.valuation.synergies + thornvale.synergies"
+
+games:
+  sealed_bids:
+    description: Best and final offers, sealed, 30% or 40%
+    players: [valdane, thornvale]
+    strategies: [bid_30, bid_40]
+    payoffs:                          # [valdane, thornvale]
+      bid_30:
+        bid_30: ["=(worth.valdane_at_30 - bids.losing_cost) / 2", "=(worth.thornvale_at_30 - bids.losing_cost) / 2"]
+        bid_40: ["=-bids.losing_cost", "=worth.thornvale_at_40"]
+      bid_40:
+        bid_30: ["=worth.valdane_at_40", "=-bids.losing_cost"]
+        bid_40: ["=(worth.valdane_at_40 - bids.losing_cost) / 2", "=(worth.thornvale_at_40 - bids.losing_cost) / 2"]
+
+contest:
+  escalation_costs_each:
+    formula: "=(worth.valdane_at_30 - worth.valdane_at_40) / 2"
+    notes: What each bidder expects to lose when both go to 40% rather than both staying at 30%
+  outcomes:
+    formula: "=sealed_bids.pure_equilibria"
+    notes: 2 when both 30% and both 40% are equilibria, 1 when only one is
+  thornvale_never_high:
+    formula: "=sealed_bids.dominated.thornvale.bid_40"
+    notes: 1 when 40% loses Thornvale money whatever Valdane bids
+
+scenarios:
+  thornvale_cost_only:
+    description: Thornvale's synergies are only cost cuts worth 400
+    scalars:
+      thornvale.synergies: 400

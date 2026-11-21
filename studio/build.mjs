@@ -48,7 +48,7 @@ export const SETS = [
     files: ["realestate.yaml", "realestate_risk.yaml", "realestate_flex.yaml"] },
   { id: "acquisition", title: "Project Kittiwake", case: "calculate acquisition", dir: "acquisition", main: "deal.yaml",
     blurb: "A listed company bids 30% over the market for a smaller rival, part cash, part shares: value created against the premium, earnings per share year by year, the walk-away price, an earn-out, a rival bidder, diligence and the deal a year after closing.",
-    files: ["deal.yaml", "buyer.yaml", "target.yaml", "deal_risk.yaml", "deal_bid.yaml", "halo_option.yaml", "premiums.yaml", "diligence.yaml", "actual.yaml"] },
+    files: ["deal.yaml", "buyer.yaml", "target.yaml", "deal_risk.yaml", "deal_bid.yaml", "deal_game.yaml", "halo_option.yaml", "premiums.yaml", "diligence.yaml", "actual.yaml"] },
   { id: "fund", title: "Corvane Seed Fund I", case: "calculate fund", dir: "fund", main: "fund.yaml",
     blurb: "A venture fund seen by its investors: calls, fees and exits on their own dates, the return by XIRR and the value by XNPV, and what a year's delay or a cold exit market costs.",
     files: ["fund.yaml"] },

@@ -829,6 +829,100 @@ games:
             }
         }
 
+        /// `examples/acquisition/deal_game.yaml`, by hand and with nashpy
+        /// 0.0.43, from deal.yaml's value created at 30% (224.50793341829)
+        /// and its synergies (603.149775584427), Python checked in
+        /// `prediction/scenarios.rs` (`acquisition_example`):
+        /// ```python
+        /// point = 24 * 50 * 1.02 / 100                     # 12.24 a point of premium
+        /// v30, v40 = 224.50793341829, 224.50793341829 - 10 * point   # 102.10793341829
+        /// t30, t40 = v30 - 603.149775584427 + 530, v40 - 603.149775584427 + 530
+        /// a, b, c = (v30 - 12) / 2, v40, (v40 - 12) / 2   # Valdane: tie at 30, wins at 40, tie at 40
+        /// q = (a - b) / (a - b + c + 12)                   # Thornvale bids 40%: 0.0677456420
+        /// r = ((t30 - 12) / 2 - t40) / ((t30 - 12) / 2 - t40 + (t40 - 12) / 2 + 12)  # 0.6653745275
+        /// # nashpy: (30, 30) 106.2539667 / 69.6790789, (40, 40) 45.0539667 / 8.4790789,
+        /// # the mixed one 98.2427758 / 15.3319004; with 400, (30, 30) alone
+        /// ```
+        #[test]
+        fn the_sealed_bids_are_a_trap_both_can_fall_into() {
+            let file = "examples/acquisition/deal_game.yaml";
+            let plan = calculated(file, None);
+            let near = |model: &ParsedModel, name: &str, expected: f64| {
+                let got = value(model, name);
+                assert!((got - expected).abs() < 1e-9, "{name}: {got}");
+            };
+            for (name, expected) in [
+                ("bids.cost_per_point", 12.24),
+                ("worth.valdane_at_30", 224.507_933_418_29),
+                ("worth.valdane_at_40", 102.107_933_418_29),
+                ("worth.thornvale_at_30", 151.358_157_833_863),
+                ("worth.thornvale_at_40", 28.958_157_833_863),
+                ("contest.escalation_costs_each", 61.2),
+                ("contest.outcomes", 2.0),
+                ("contest.thornvale_never_high", 0.0),
+                ("sealed_bids.equilibria", 3.0),
+                ("sealed_bids.equilibrium_1.valdane.bid_30", 1.0),
+                ("sealed_bids.equilibrium_1.thornvale.bid_30", 1.0),
+                (
+                    "sealed_bids.equilibrium_1.valdane.payoff",
+                    106.253_966_709_145,
+                ),
+                (
+                    "sealed_bids.equilibrium_1.thornvale.payoff",
+                    69.679_078_916_932,
+                ),
+                ("sealed_bids.equilibrium_2.valdane.bid_40", 1.0),
+                ("sealed_bids.equilibrium_2.thornvale.bid_40", 1.0),
+                (
+                    "sealed_bids.equilibrium_2.valdane.payoff",
+                    45.053_966_709_145,
+                ),
+                (
+                    "sealed_bids.equilibrium_2.thornvale.payoff",
+                    8.479_078_916_932,
+                ),
+                (
+                    "sealed_bids.equilibrium_3.valdane.bid_40",
+                    0.665_374_527_501,
+                ),
+                (
+                    "sealed_bids.equilibrium_3.thornvale.bid_40",
+                    0.067_745_642_007,
+                ),
+                (
+                    "sealed_bids.equilibrium_3.valdane.payoff",
+                    98.242_775_814_508,
+                ),
+                (
+                    "sealed_bids.equilibrium_3.thornvale.payoff",
+                    15.331_900_375_852,
+                ),
+            ] {
+                near(&plan, name, expected);
+            }
+            // The deal's own value at 40%, as deal_bid.yaml has it (102.11)
+            let mut deal =
+                crate::parser::parse_model(Path::new("examples/acquisition/deal.yaml")).unwrap();
+            deal.scalars.get_mut("offer.premium").unwrap().value = Some(0.40);
+            let deal = crate::core::ArrayCalculator::new(deal)
+                .calculate_all()
+                .unwrap();
+            near(&deal, "valuation.value_created", 102.107_933_418_29);
+            // Cost cuts worth 400: 40% loses Thornvale money, and both bid 30%
+            let cost_only = calculated(file, Some("thornvale_cost_only"));
+            near(&cost_only, "worth.thornvale_at_30", 21.358_157_833_863);
+            near(&cost_only, "worth.thornvale_at_40", -101.041_842_166_137);
+            near(&cost_only, "contest.outcomes", 1.0);
+            near(&cost_only, "contest.thornvale_never_high", 1.0);
+            near(&cost_only, "sealed_bids.equilibria", 1.0);
+            near(&cost_only, "sealed_bids.equilibrium_1.valdane.bid_30", 1.0);
+            near(
+                &cost_only,
+                "sealed_bids.equilibrium_1.thornvale.payoff",
+                4.679_078_916_932,
+            );
+        }
+
         #[test]
         fn forge_examples_runs_a_game_with_forge_game() {
             let out = forge(&["examples", "inspection", "--run"]).printed();
