@@ -111,22 +111,32 @@ fn print_table(c: &mut Console<'_>, r: &TableReport) {
         .collect();
     print_dominated(c, "Weakly dominated (not removed)", &only_weakly);
     let count = r.equilibria.len();
-    let kind = match (r.mixed_searched, count) {
-        (true, 1) => "equilibrium",
-        (true, _) => "equilibria",
-        (false, 1) => "pure equilibrium",
-        (false, _) => "pure equilibria",
+    let kind = match (r.mixed_searched, r.symmetric_searched, count) {
+        (true, _, 1) => "equilibrium",
+        (true, _, _) => "equilibria",
+        (false, true, 1) => "pure or symmetric equilibrium",
+        (false, true, _) => "pure or symmetric equilibria",
+        (false, false, 1) => "pure equilibrium",
+        (false, false, _) => "pure equilibria",
     };
     outln!(c, "   {}", format!("{count} {kind}:").bold());
     for (k, e) in r.equilibria.iter().enumerate() {
         print_equilibrium(c, k + 1, e);
     }
-    if !r.mixed_searched {
+    if r.symmetric_searched {
+        outln!(
+            c,
+            "   {}",
+            "Mixed equilibria in which every player plays alike are listed; those in which \
+             players mix differently were not looked for."
+                .yellow()
+        );
+    } else if !r.mixed_searched {
         outln!(
             c,
             "   {}",
             "Mixed equilibria were not looked for: they are found for two players \
-             with at most ten strategies each."
+             with at most ten strategies each, and in symmetric games of two strategies."
                 .yellow()
         );
     }
@@ -231,7 +241,12 @@ fn print_dominated(c: &mut Console<'_>, title: &str, list: &[Dominated]) {
 }
 
 fn print_equilibrium(c: &mut Console<'_>, number: usize, e: &NamedEquilibrium) {
-    outln!(c, "      {number}. {}", e.kind);
+    let stable = match e.stable {
+        Some(true) => ", stable: a population returns to it",
+        Some(false) => ", unstable: a population moves away from it",
+        None => "",
+    };
+    outln!(c, "      {number}. {}{stable}", e.kind);
     for (player, play) in &e.players {
         let plays: Vec<String> = play
             .strategies
@@ -378,6 +393,16 @@ games:
         assert!(out.contains("stag_hunt: me vs you"), "{out}");
         assert!(out.contains("3 equilibria:"), "{out}");
         assert!(out.contains("stag 0.75, hare 0.25 (payoff 3.00)"), "{out}");
+        // Marked symmetric with two strategies: a population returns to
+        // either pure one and leaves the mix (above 3/4 stag spreads)
+        assert!(
+            out.contains("1. pure, stable: a population returns to it"),
+            "{out}"
+        );
+        assert!(
+            out.contains("3. mixed, unstable: a population moves away from it"),
+            "{out}"
+        );
         // Prisoner's dilemma: cooperate is strictly dominated, (defect,
         // defect) is the only equilibrium
         assert!(out.contains("a: cooperate is dominated by defect"), "{out}");
@@ -790,6 +815,52 @@ games:
                 1.0
             ));
             assert!(close(value(&generous, "dilemma.all_keep"), 60.0));
+        }
+
+        #[test]
+        fn the_volunteers_dilemma_mixes_as_the_closed_form_says() {
+            // By hand (the file's comment): each volunteers with
+            // 1 - (c / b)^(1 / 4), 1 - 0.4^(1/4) = 0.204729 at c = 4 and
+            // 1 - 0.2^(1/4) = 0.331260 at c = 2; nobody does with
+            // 0.4^(5/4) = 0.318108 and 0.2^(5/4) = 0.133748 (Python 3.12)
+            let file = "examples/games/volunteers-dilemma.yaml";
+            let model = calculated(file, None);
+            assert!(close(value(&model, "vd.pure_equilibria"), 5.0));
+            assert!((value(&model, "risk.volunteers") - 0.204_729_271_232_949).abs() < 1e-12);
+            assert!((value(&model, "risk.nobody") - 0.318_108_291_506_820).abs() < 1e-12);
+            assert!(close(value(&model, "risk.stable"), 1.0));
+            assert!(close(value(&model, "vd.degenerate"), 0.0));
+            assert!(close(value(&model, "vd.equilibrium_6.a4.payoff"), 6.0));
+            let cheap = calculated(file, Some("cheap"));
+            assert!((value(&cheap, "risk.volunteers") - 0.331_259_695_023_578).abs() < 1e-12);
+            assert!((value(&cheap, "risk.nobody") - 0.133_748_060_995_284).abs() < 1e-12);
+            // At r = 5 in the public goods game every mix is an equilibrium
+            let even = calculated("examples/games/public-goods.yaml", Some("break_even"));
+            assert!(close(value(&even, "pg.degenerate"), 1.0));
+
+            let out = forge(&["game", file]).printed();
+            assert!(out.contains("6 pure or symmetric equilibria:"), "{out}");
+            assert!(
+                out.contains("6. mixed, stable: a population returns to it"),
+                "{out}"
+            );
+            assert!(
+                out.contains("a3: volunteer 0.2047, stay_out 0.7953 (payoff 6.00)"),
+                "{out}"
+            );
+            assert!(
+                out.contains(
+                    "Mixed equilibria in which every player plays alike are listed; those in \
+                     which players mix differently were not looked for."
+                ),
+                "{out}"
+            );
+            let one = forge(&["game", "examples/games/public-goods.yaml"]).printed();
+            assert!(one.contains("1 pure or symmetric equilibrium:"), "{one}");
+            assert!(
+                one.contains("1. pure, stable: a population returns to it"),
+                "{one}"
+            );
         }
 
         #[test]

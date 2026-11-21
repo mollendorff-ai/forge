@@ -6,6 +6,7 @@ pub mod counts;
 pub mod linear;
 pub mod mixed;
 pub mod model;
+pub mod population;
 pub mod pure;
 pub mod repeated;
 pub mod report;

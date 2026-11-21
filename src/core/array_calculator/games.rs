@@ -103,7 +103,7 @@ impl ArrayCalculator {
         let report = match self.model.games[name].clone() {
             Game::Table(game) => {
                 let table = game.table(|formula, at, others| value(self, formula, at, others))?;
-                let report = analyse(name, &table);
+                let report = analyse(name, &table, game.symmetric);
                 self.game_tables.insert(name.to_string(), table);
                 GameReport::Table(report)
             },

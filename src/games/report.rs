@@ -2,6 +2,7 @@
 //! as scalars named under the game (ADR-068, sections 2 and 3).
 
 use super::mixed::{equilibria, Equilibrium};
+use super::population::{population, Population};
 use super::pure::{even_mix, iterated_dominance, weakly_dominated};
 use super::standings::TournamentReport;
 use super::table::Table;
@@ -40,6 +41,11 @@ pub struct NamedEquilibrium {
     /// `pure` or `mixed`
     pub kind: &'static str,
     pub players: IndexMap<String, Play>,
+    /// For a symmetric equilibrium of a symmetric game of two strategies:
+    /// whether the replicator dynamics return to it after a small change in
+    /// the shares (ADR-073)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stable: Option<bool>,
 }
 
 /// Everything worked out for a game played once.
@@ -56,6 +62,11 @@ pub struct TableReport {
     /// Whether mixed equilibria were looked for (two players, at most ten
     /// strategies each); when not, the list has the pure ones only
     pub mixed_searched: bool,
+    /// Whether the symmetric mixed equilibria were looked for, in a
+    /// symmetric game of two strategies and more than two players: the
+    /// list then has the pure ones and those in which every player mixes
+    /// the same way, not those in which players mix differently (ADR-073)
+    pub symmetric_searched: bool,
     /// The ties that make the game degenerate: then mixed equilibria on a
     /// line between those listed may be missing
     pub ties: Vec<String>,
@@ -94,9 +105,10 @@ impl GameReport {
     }
 }
 
-/// Work out everything for a game played once.
+/// Work out everything for a game played once; `symmetric` when the model
+/// says it is.
 #[must_use]
-pub fn analyse(game: &str, table: &Table) -> TableReport {
+pub fn analyse(game: &str, table: &Table, symmetric: bool) -> TableReport {
     let name = |player: usize, strategy: usize| table.strategies[player][strategy].clone();
     let dominated = iterated_dominance(table)
         .into_iter()
@@ -114,11 +126,16 @@ pub fn analyse(game: &str, table: &Table) -> TableReport {
             by: name(w.player, w.by),
         })
         .collect();
-    let found = equilibria(table);
+    let mut found = equilibria(table);
+    let people = population(table).filter(|_| symmetric);
+    let symmetric_searched = people.is_some() && !found.mixed_searched;
+    if let Some(people) = people.as_ref().filter(|_| symmetric_searched) {
+        add_symmetric_mixes(table, people, &mut found.list, &mut found.ties);
+    }
     let named = found
         .list
         .iter()
-        .map(|e| named_equilibrium(table, e))
+        .map(|e| named_equilibrium(table, e, people.as_ref()))
         .collect();
     let even = even_mix(table);
     TableReport {
@@ -134,6 +151,7 @@ pub fn analyse(game: &str, table: &Table) -> TableReport {
         weakly_dominated: weakly,
         equilibria: named,
         mixed_searched: found.mixed_searched,
+        symmetric_searched,
         ties: found.ties,
         even_mix: table
             .players
@@ -166,8 +184,56 @@ pub fn analyse(game: &str, table: &Table) -> TableReport {
     }
 }
 
-fn named_equilibrium(table: &Table, e: &Equilibrium) -> NamedEquilibrium {
+/// The symmetric mixed equilibria of a game of more than two players, after
+/// the pure ones, by increasing share of the first strategy; or the tie that
+/// makes every mix one.
+fn add_symmetric_mixes(
+    table: &Table,
+    people: &Population,
+    list: &mut Vec<Equilibrium>,
+    ties: &mut Vec<String>,
+) {
+    let n = table.players.len();
+    let (first, second) = (&table.strategies[0][0], &table.strategies[0][1]);
+    if people.degenerate {
+        ties.push(format!(
+            "{first} and {second} pay the same however many of the others play each, so \
+             every mix in which all play alike is an equilibrium, and none of them is listed"
+        ));
+    }
+    for rest in people
+        .rests
+        .iter()
+        .filter(|r| r.share > 0.0 && r.share < 1.0)
+    {
+        list.push(Equilibrium {
+            probabilities: vec![vec![rest.share, 1.0 - rest.share]; n],
+            payoffs: vec![people.payoff(rest.share); n],
+        });
+    }
+}
+
+/// Whether the dynamics return to `e`, if it is a symmetric equilibrium of a
+/// symmetric game of two strategies.
+fn stable(e: &Equilibrium, people: Option<&Population>) -> Option<bool> {
+    let share = e.probabilities[0][0];
+    let alike = e
+        .probabilities
+        .iter()
+        .all(|mix| (mix[0] - share).abs() < 1e-9);
+    people
+        .filter(|_| alike)
+        .and_then(|p| p.rest_at(share))
+        .map(|r| r.stable)
+}
+
+fn named_equilibrium(
+    table: &Table,
+    e: &Equilibrium,
+    people: Option<&Population>,
+) -> NamedEquilibrium {
     NamedEquilibrium {
+        stable: stable(e, people),
         kind: if e.is_pure() { "pure" } else { "mixed" },
         players: table
             .players
@@ -214,6 +280,8 @@ impl TableReport {
                 format!("{g}.equilibria"),
                 crate::core::precision::count(self.equilibria.len()),
             ));
+        }
+        if self.mixed_searched || self.symmetric_searched {
             out.push((format!("{g}.degenerate"), flag(!self.ties.is_empty())));
         }
         for (k, equilibrium) in self.equilibria.iter().enumerate() {
@@ -223,6 +291,9 @@ impl TableReport {
                     out.push((format!("{at}.{strategy}"), *p));
                 }
                 out.push((format!("{at}.payoff"), play.payoff));
+            }
+            if let Some(stable) = equilibrium.stable {
+                out.push((format!("{g}.equilibrium_{}.stable", k + 1), flag(stable)));
             }
         }
         for (player, strategies) in &self.strategies {
@@ -257,6 +328,17 @@ impl TableReport {
                  the payoffs of game '{}' can read",
                 self.game
             );
+        } else if let Some(k) = rest
+            .strip_prefix("equilibrium_")
+            .and_then(|r| r.strip_suffix(".stable"))
+            .and_then(|k| k.parse::<usize>().ok())
+            .filter(|k| (1..=count).contains(k))
+        {
+            reason = format!(
+                "{reason}: equilibrium_{k}.stable is worked out for an equilibrium in which \
+                 every player plays alike, in a game marked symmetric with two strategies, and \
+                 equilibrium_{k} is not one"
+            );
         } else if rest.starts_with("equilibrium_") {
             let word = if count == 1 {
                 "equilibrium"
@@ -265,16 +347,28 @@ impl TableReport {
             };
             reason =
                 format!("{reason}: it has {count} {word} (equilibrium_1 to equilibrium_{count})");
-        } else if (rest == "equilibria" || rest == "degenerate") && !self.mixed_searched {
+        } else if rest == "equilibria" && self.symmetric_searched {
+            reason = format!(
+                "{reason}: in a game of {} players Forge looks for the mixed equilibria in which \
+                 every player plays alike, not those in which players mix differently, so it \
+                 has no count of them all; pure_equilibria counts the pure ones",
+                self.players.len()
+            );
+        } else if (rest == "equilibria" || rest == "degenerate")
+            && !self.mixed_searched
+            && !self.symmetric_searched
+        {
             reason.push_str(
                 ": mixed equilibria are looked for in games of two players with at most \
-                 ten strategies each, and this one has only its pure equilibria",
+                 ten strategies each, and in symmetric games of two strategies, and this one \
+                 has only its pure equilibria",
             );
         } else {
             reason.push_str(
                 ": a game's results are pure_equilibria, equilibria, degenerate, \
                  equilibrium_<k>.<player>.<strategy>, equilibrium_<k>.<player>.payoff, \
-                 dominated.<player>.<strategy> and even_mix.<player>.<strategy>",
+                 equilibrium_<k>.stable, dominated.<player>.<strategy> and \
+                 even_mix.<player>.<strategy>",
             );
         }
         reason
@@ -284,6 +378,7 @@ impl TableReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::games::population::tests::symmetric;
     use crate::games::table::tests::two;
 
     fn value(scalars: &[(String, f64)], name: &str) -> f64 {
@@ -302,7 +397,7 @@ mod tests {
             &["audit", "trust"],
             &[[0.0, -1.0], [0.0, 0.0], [-4.0, -1.0], [2.0, -3.0]],
         );
-        let report = analyse("inspection", &table);
+        let report = analyse("inspection", &table, false);
         let scalars = report.scalars();
         assert!((value(&scalars, "inspection.pure_equilibria")).abs() < 1e-12);
         assert!((value(&scalars, "inspection.equilibria") - 1.0).abs() < 1e-12);
@@ -352,7 +447,7 @@ mod tests {
             &["cooperate", "defect"],
             &[[3.0, 3.0], [0.0, 5.0], [5.0, 0.0], [1.0, 1.0]],
         );
-        let report = analyse("dilemma", &table);
+        let report = analyse("dilemma", &table, false);
         assert_eq!(
             report.dominated,
             vec![
@@ -386,7 +481,7 @@ mod tests {
             &["x", "y"],
             &[[1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [2.0, 0.0]],
         );
-        let report = analyse("g", &table);
+        let report = analyse("g", &table, false);
         assert_eq!(report.weakly_dominated[0].strategy, "a");
         assert!(
             report
@@ -399,6 +494,147 @@ mod tests {
     }
 
     #[test]
+    fn the_volunteers_dilemma_of_five_lists_its_symmetric_mix_after_the_pure_ones() {
+        // Volunteering pays 10 - 4 = 6, staying out 10 if anyone else
+        // volunteers and 0 if not. By hand: five pure equilibria, each with
+        // one volunteer, then the mix in which each volunteers with
+        // 1 - 0.4^(1/4) = 0.204729..., and a population returns to it.
+        let table = symmetric(5, |own, k| match (own, k) {
+            (0, _) => 6.0,
+            (_, 0) => 0.0,
+            _ => 10.0,
+        });
+        let report = analyse("vd", &table, true);
+        let scalars = report.scalars();
+        let share = 1.0 - 0.4_f64.powf(0.25);
+        assert!((value(&scalars, "vd.pure_equilibria") - 5.0).abs() < 1e-12);
+        assert!((value(&scalars, "vd.degenerate")).abs() < 1e-12);
+        assert!((value(&scalars, "vd.equilibrium_6.p3.a") - share).abs() < 1e-12);
+        assert!((value(&scalars, "vd.equilibrium_6.p5.b") - (1.0 - share)).abs() < 1e-12);
+        assert!((value(&scalars, "vd.equilibrium_6.p1.payoff") - 6.0).abs() < 1e-12);
+        assert!((value(&scalars, "vd.equilibrium_6.stable") - 1.0).abs() < 1e-12);
+        assert_eq!(report.equilibria[5].kind, "mixed");
+        assert_eq!(report.equilibria[5].stable, Some(true));
+        // One volunteer and four who stay out do not play alike
+        assert_eq!(report.equilibria[0].stable, None);
+        let names: Vec<String> = scalars.into_iter().map(|(n, _)| n).collect();
+        assert!(!names.contains(&"vd.equilibria".to_string()));
+        assert!(!names.contains(&"vd.equilibrium_1.stable".to_string()));
+        assert!(report.symmetric_searched && !report.mixed_searched);
+        assert_eq!(
+            report.why_not("vd.equilibrium_1.stable"),
+            "'vd.equilibrium_1.stable' is not a result of game 'vd': equilibrium_1.stable is \
+             worked out for an equilibrium in which every player plays alike, in a game marked \
+             symmetric with two strategies, and equilibrium_1 is not one"
+        );
+        assert!(report
+            .why_not("vd.equilibrium_7.stable")
+            .contains("it has 6 equilibria"));
+        assert!(report
+            .why_not("vd.equilibria")
+            .contains("in a game of 5 players Forge looks for the mixed equilibria in which"));
+        // Not marked symmetric: the pure ones only
+        let unmarked = analyse("vd", &table, false);
+        assert_eq!(unmarked.equilibria.len(), 5);
+        assert!(!unmarked.symmetric_searched);
+        assert!(unmarked
+            .why_not("vd.degenerate")
+            .contains("only its pure equilibria"));
+    }
+
+    #[test]
+    fn the_public_goods_game_at_r_equal_to_n_names_the_tie_and_lists_no_mix() {
+        // Contributing pays 10 (r / 5 - 1) more than keeping: nothing at
+        // r = 5, so all 32 profiles are equilibria, and so is every mix
+        let table = symmetric(5, |own, k| {
+            let k = crate::core::precision::count(k);
+            if own == 0 {
+                10.0 * (k + 1.0)
+            } else {
+                10.0_f64.mul_add(k, 10.0)
+            }
+        });
+        let report = analyse("pg", &table, true);
+        assert_eq!(report.equilibria.len(), 32);
+        assert!(report.equilibria.iter().all(|e| e.kind == "pure"));
+        assert_eq!(
+            report.ties,
+            [
+                "a and b pay the same however many of the others play each, so every mix in \
+              which all play alike is an equilibrium, and none of them is listed"
+            ]
+        );
+        let scalars = report.scalars();
+        assert!((value(&scalars, "pg.degenerate") - 1.0).abs() < 1e-12);
+        // Nothing returns: the dynamics stand still everywhere
+        assert!(report.equilibria.iter().all(|e| e.stable.is_none()));
+    }
+
+    #[test]
+    fn the_stag_hunt_of_two_says_which_equilibria_a_population_returns_to() {
+        // Stag 4 against stag, 0 against hare; hare 3: the support
+        // enumeration finds all-stag, all-hare and the mix at 3/4, and by
+        // hand a population returns to both pure ones and leaves the mix
+        let table = two(
+            ["a", "b"],
+            &["stag", "hare"],
+            &["stag", "hare"],
+            &[[4.0, 4.0], [0.0, 3.0], [3.0, 0.0], [3.0, 3.0]],
+        );
+        let report = analyse("sh", &table, true);
+        let stable: Vec<Option<bool>> = report.equilibria.iter().map(|e| e.stable).collect();
+        assert_eq!(stable, [Some(true), Some(true), Some(false)]);
+        let scalars = report.scalars();
+        assert!((value(&scalars, "sh.equilibrium_3.stable")).abs() < 1e-12);
+        assert!((value(&scalars, "sh.equilibrium_3.a.stag") - 0.75).abs() < 1e-12);
+        assert!(!report.symmetric_searched && report.mixed_searched);
+        // A game not marked symmetric has no stability
+        assert!(analyse("sh", &table, false)
+            .equilibria
+            .iter()
+            .all(|e| e.stable.is_none()));
+    }
+
+    #[test]
+    fn for_two_players_the_symmetric_equilibria_are_the_support_enumerations() {
+        // 2,000 seeded symmetric games of two strategies: the equilibria in
+        // which both play alike, found by support enumeration (ADR-068),
+        // are the population's, share for share, and each has a stability
+        let mut seed: u64 = 202_611;
+        let mut draw = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            crate::core::precision::unsigned(seed % 2001) / 100.0 - 10.0
+        };
+        let mut mixes = 0;
+        for _ in 0..2000 {
+            let cells = [draw(), draw(), draw(), draw()];
+            let table = symmetric(2, |own, k| cells[own * 2 + (1 - k)]);
+            let people = population(&table).unwrap();
+            let report = analyse("g", &table, true);
+            let share = |e: &NamedEquilibrium, p: &str| e.players[p].strategies["a"];
+            let mut alike: Vec<f64> = report
+                .equilibria
+                .iter()
+                .filter(|e| (share(e, "p1") - share(e, "p2")).abs() < 1e-9)
+                .map(|e| share(e, "p1"))
+                .collect();
+            alike.sort_by(f64::total_cmp);
+            let rests: Vec<f64> = people.rests.iter().map(|r| r.share).collect();
+            if report.ties.is_empty() {
+                assert_eq!(alike.len(), rests.len(), "{cells:?} {report:?} {people:?}");
+                for (a, r) in alike.iter().zip(&rests) {
+                    assert!((a - r).abs() < 1e-9, "{cells:?}");
+                }
+                mixes += rests.iter().filter(|&&r| r > 0.0 && r < 1.0).count();
+            }
+        }
+        // Mixed ones among them, not only pure
+        assert!(mixes > 200, "{mixes}");
+    }
+
+    #[test]
     fn a_name_that_is_not_a_result_says_why() {
         let table = two(
             ["a", "b"],
@@ -406,7 +642,7 @@ mod tests {
             &["x", "y"],
             &[[4.0, 4.0], [0.0, 3.0], [3.0, 0.0], [3.0, 3.0]],
         );
-        let report = analyse("g", &table);
+        let report = analyse("g", &table, false);
         assert_eq!(
             report.why_not("g.equilibrium_4.a.x"),
             "'g.equilibrium_4.a.x' is not a result of game 'g': it has 3 equilibria \
@@ -415,7 +651,7 @@ mod tests {
         assert!(report
             .why_not("g.wins")
             .contains("a game's results are pure_equilibria"));
-        let one = analyse("h", &two(["a", "b"], &["x"], &["y"], &[[1.0, 1.0]]));
+        let one = analyse("h", &two(["a", "b"], &["x"], &["y"], &[[1.0, 1.0]]), false);
         assert!(one
             .why_not("h.equilibrium_2.a.x")
             .contains("it has 1 equilibrium (equilibrium_1"));
@@ -431,6 +667,7 @@ mod tests {
                 strategies: vec![vec!["x".into(), "y".into()]; 3],
                 payoffs,
             },
+            false,
         );
         assert!(three
             .why_not("t.equilibria")

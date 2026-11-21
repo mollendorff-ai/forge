@@ -8,7 +8,7 @@ Forge is a release candidate and an R&D prototype. These checks reduce the chanc
 
 | Check | Compares Forge with | Result |
 | --- | --- | --- |
-| Unit tests (this repo) | Expected values written in the tests | over 2,750 tests and 2 doctests pass |
+| Unit tests (this repo) | Expected values written in the tests | over 2,800 tests and 2 doctests pass |
 | [forge-e2e-gnumeric](validation/gnumeric) | Gnumeric, a separate spreadsheet engine, and LibreOffice for 175 cases Gnumeric cannot read | 2,162 formula cases; 2,137 of the 2,138 before ADR-066 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); the 13 of ADR-066 pass where Gnumeric judges them (2026-11-18), and CI judges the 7 by LibreOffice; the 5 of `edge_fund_cash_flows.yaml` pass in Gnumeric (2026-11-18); the 4 of the ROUND and HOUR fixes pass in Gnumeric (2026-11-18); the 2 of XNPV and XIRR before the first date are checked against Forge only (2026-11-19); CI runs them all on every pull request |
 | [forge-e2e-r](validation/r), formulas | R, with Excel rules where R differs | 136 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 70 of 77 specs pass against R in the Validation workflow; 7 skipped |
@@ -85,7 +85,9 @@ A disagreement fails the run unless Forge reports the game as degenerate, and a 
 
 Symmetric games of three to five players in the count form (ADR-073): the public goods game of five players below, at and above r = n, and seeded games of two or three strategies, each table expanded again by the suite and compared with Forge's cell by cell, and its pure equilibria with Gambit's `enumpure_solve` (`counted.py`; 303 games and 3,376 pure equilibria, 0 failed, seed 202611, on 2026-11-21).
 
-Not covered: mixed equilibria of more than two players (Forge does not look for them), and Forge's tournament strategies against any library but axelrod.
+The mixed equilibria in which every player plays alike, of symmetric games of two strategies (ADR-073, question 4; `symmetric.py`): the volunteer's dilemma of 2 to 8 players against its closed form 1 − (c / b)^(1 / (n − 1)), the public goods game at r = 5 (degenerate: no mix listed, the tie named), and seeded games of three to five players, each mix compared with the exact roots of the population function (sympy's real-root isolation over the game's fractions) and with Gambit's `enumpoly_solve`, and each payoff and `stable` worked out with fractions. On 2026-11-21, seed 31: 158 games, 150 mixes, each an exact root, 0 failed; Gambit found 145 of them and none that Forge lacks (its method is numerical; two it missed in another run, at 0.9475 and 0.9145, are exact roots, g = −1.3e-15 and 1.3e-14 there). Each check was tried on a deliberately wrong Forge: with the stability turned around, a run of 18 games had 14 failures; with the last root dropped wherever there are two, a run of 38 games (seed 202611) had 12 failures, the exact roots and Gambit each naming the missing one.
+
+Not covered: mixed equilibria of more than two players in which players mix differently, and any of three or more strategies (Forge does not look for them), and Forge's tournament strategies against any library but axelrod.
 
 ## Known limits
 
