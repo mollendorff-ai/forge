@@ -111,6 +111,10 @@ fn misspelt_keys(model: &Value, schema: &Value, problems: &mut Vec<Problem>) {
                         continue;
                     }
                     if let Some(near) = crate::error::closest(key, &scenario_keys) {
+                        // Said once, in a scenario's words, where the schema
+                        // also named it as an unknown key
+                        let named = format!("'{at}.{key}':");
+                        problems.retain(|p| !(p.unknown_key && p.text.starts_with(&named)));
                         found.push((
                             at.clone(),
                             format!("'{at}.{key}': a scenario has no key '{key}'. Did you mean '{near}'? The keys of a scenario are {}", scenario_keys.join(", ")),
@@ -445,20 +449,19 @@ fn any_of(
         });
         return;
     }
-    // The alternative whose errors reach deepest into the value, then the
+    // In a mapping, the alternative under which the fewest of its entries
+    // fail, then the one whose errors reach deepest into the value, then the
     // one with the fewest errors
-    let depth = |branch: &Vec<SchemaError<'_>>| {
-        branch
-            .iter()
-            .map(|e| e.instance_path.matches('/').count())
-            .max()
-            .unwrap_or(0)
-    };
     // (Some alternative has an error: none of them fitted)
     if let Some(best) = context
         .iter()
         .filter(|b| !b.is_empty())
-        .max_by(|a, b| depth(a).cmp(&depth(b)).then(b.len().cmp(&a.len())))
+        .max_by(|a, b| {
+            entries_failing(b, instance, pointer)
+                .cmp(&entries_failing(a, instance, pointer))
+                .then(depth(a).cmp(&depth(b)))
+                .then(b.len().cmp(&a.len()))
+        })
         .filter(|best| depth(best) > pointer.matches('/').count())
     {
         for e in best {
@@ -474,6 +477,41 @@ fn any_of(
         ),
         unknown_key: false,
     });
+}
+
+/// How many entries of a mapping an alternative's errors fall in. One bad
+/// scenario fails the scenario form in one entry, but every scenario fails
+/// the flat form, deeper in; the first is the form meant. An error at the
+/// mapping itself counts as every entry; a value that is not a mapping has
+/// none.
+fn entries_failing(branch: &[SchemaError<'_>], instance: &Value, pointer: &str) -> usize {
+    let Some(entries) = instance.as_object() else {
+        return 0;
+    };
+    let mut failing: Vec<&str> = Vec::new();
+    for e in branch {
+        let Some(entry) = e
+            .instance_path
+            .strip_prefix(pointer)
+            .and_then(|rest| rest.strip_prefix('/'))
+            .and_then(|rest| rest.split('/').next())
+        else {
+            return entries.len();
+        };
+        if !failing.contains(&entry) {
+            failing.push(entry);
+        }
+    }
+    failing.len()
+}
+
+/// How deep into the value an alternative's errors reach.
+fn depth(branch: &[SchemaError<'_>]) -> usize {
+    branch
+        .iter()
+        .map(|e| e.instance_path.matches('/').count())
+        .max()
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -751,6 +789,30 @@ monte_carlo:
                 "'scenarios.up.probabilty': a scenario has no key 'probabilty'. Did you mean 'probability'? The keys of a scenario are description, probability, scalars",
                 "'_includs': there is no section '_includs'. Did you mean '_includes'?",
             ]
+        );
+    }
+
+    /// One bad scenario among good ones: only the bad one is named. Each
+    /// scenario failed the flat form too, deeper in, and that form used to
+    /// be reported, so the good scenario's description "must be a date"
+    /// (roadmap T1-SCENARIO-FALSE-ERRORS).
+    #[test]
+    fn one_bad_scenario_does_not_make_the_good_ones_wrong() {
+        let got = lines(
+            "_forge_version: \"5.5.0\"\nc: 0\nscenarios:\n  good:\n    description: fine\n    scalars: {c: 1}\n  bad:\n    description: has a typo\n    scalar: {c: 2}\n",
+        );
+        assert_eq!(
+            got,
+            ["'scenarios.bad.scalar': a scenario has no key 'scalar'. Did you mean 'scalars'? The keys of a scenario are description, probability, scalars"]
+        );
+        // A key that is close to none of a scenario's: the schema's own words
+        let got = lines(
+            "_forge_version: \"5.5.0\"\nc: 0\nscenarios:\n  good:\n    description: fine\n    scalars: {c: 1}\n  bad:\n    scalars: {c: 2}\n    weight: 0.3\n",
+        );
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(
+            got[0].starts_with("'scenarios.bad.weight': there is no key 'weight' here."),
+            "{got:?}"
         );
     }
 
