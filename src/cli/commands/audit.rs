@@ -608,6 +608,16 @@ mod tests {
         })
     }
 
+    /// Every name in a tree that has no formula: what was typed in
+    fn leaves(deps: &[AuditDep], out: &mut std::collections::BTreeSet<String>) {
+        for d in deps {
+            if d.formula.is_none() {
+                out.insert(d.name.clone());
+            }
+            leaves(&d.children, out);
+        }
+    }
+
     fn walk(deps: &[AuditDep], unknown: &mut Vec<String>, dozens: &mut usize) {
         for d in deps {
             if d.dep_type == "Unknown" {
@@ -646,6 +656,15 @@ mod tests {
         walk(deps, &mut unknown, &mut dozens);
         assert!(unknown.is_empty(), "{unknown:?}");
         assert_eq!(dozens, 1);
+        // The README's count: what has no formula, 9 inputs in bagel.yaml, 6
+        // in costs.yaml, and the month and season columns
+        let mut inputs = std::collections::BTreeSet::new();
+        leaves(deps, &mut inputs);
+        let count = |p: &str| inputs.iter().filter(|n| n.starts_with(p)).count();
+        assert_eq!(count("assumptions."), 9, "{inputs:?}");
+        assert_eq!(count("@costs."), 6, "{inputs:?}");
+        assert_eq!(count("months."), 2, "{inputs:?}");
+        assert_eq!(inputs.len(), 17, "{inputs:?}");
     }
 
     /// A column of an included table is followed into its file.

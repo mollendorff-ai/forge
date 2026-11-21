@@ -53,7 +53,8 @@ def run_specs(work):
         reports = [(spec.name, only(tables.run_forge(path), "g"))]
         if spec.example:
             file, game, scenario = spec.example
-            reports.append((f"{spec.name} (examples/games/{os.path.basename(file)})",
+            shown = os.path.relpath(os.path.join(HERE, file), os.path.join(HERE, "..", ".."))
+            reports.append((f"{spec.name} ({shown})",
                             only(tables.run_forge(os.path.join(HERE, file), game, scenario), game)))
         for label, report in reports:
             bad, facts = tables.check(spec.a, spec.b, report)
