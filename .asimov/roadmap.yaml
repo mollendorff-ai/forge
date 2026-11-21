@@ -20,7 +20,15 @@
 
 state:
   version: >-
-    10.0.0-rc.31, released 2026-11-20: Forge Studio shows a model's games
+    10.0.0-rc.32, released 2026-11-21: wrong answers fixed (forge import read
+    a range over part of a table's column as the whole column, SWITCH with
+    two arguments, NaN and infinity in a model), a YAML merge key refused
+    with one message (ADR-071), jsonschema checking every model again
+    (ADR-072), forge import of a workbook Forge did not write, and the
+    inherited-budget and deal_game examples. Wrong answers fixed, so the two
+    weeks in docs/STABILITY.md start again from rc.32: no earlier than
+    2026-12-05.
+    rc.31 (2026-11-20): Forge Studio shows a model's games
     (payoff tables, equilibria, tournaments, each game's results by name)
     and has a Games set with the seven examples/games models; the bagel's
     price war. No wrong answer fixed, so the two weeks in docs/STABILITY.md
