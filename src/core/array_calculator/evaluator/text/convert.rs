@@ -174,7 +174,8 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 1234.5);
     }
 
     #[test]
@@ -189,7 +190,8 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 123.45);
     }
 
     // VALUE FUNCTION TESTS

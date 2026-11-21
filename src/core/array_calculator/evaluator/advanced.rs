@@ -70,8 +70,9 @@ pub fn try_evaluate(
 
         "SWITCH" => {
             // SWITCH(expression, value1, result1, [value2, result2], ..., [default])
-            if args.len() < 2 {
-                return Err(EvalError::new("SWITCH requires at least 2 arguments"));
+            // An expression, then a value and its result, as in Excel
+            if args.len() < 3 {
+                return Err(EvalError::new("SWITCH requires at least 3 arguments"));
             }
 
             let expr_val = evaluate(&args[0], ctx)?;
@@ -533,7 +534,11 @@ mod integration_tests {
 
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all();
-        assert!(result.is_ok() || result.is_err());
+        let model = result.unwrap();
+        assert_eq!(
+            model.tables["data"].columns["value"].values,
+            ColumnValue::Number(vec![100.0, 200.0, 300.0])
+        );
     }
 
     #[test]
@@ -552,7 +557,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 100.0);
     }
 
     #[test]
@@ -571,7 +577,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), -1.0);
     }
 
     #[test]
@@ -585,8 +592,13 @@ mod integration_tests {
                 Some("=SWITCH(1, 2)".to_string()),
             ),
         );
+        // An expression, a value and its result at least, as in Excel
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(
+            error.contains("SWITCH requires at least 3 arguments"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -601,7 +613,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 10.0);
     }
 
     #[test]
@@ -616,7 +629,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 20.0);
     }
 
     #[test]
@@ -631,7 +645,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 30.0);
     }
 }
 

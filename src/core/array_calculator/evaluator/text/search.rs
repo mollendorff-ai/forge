@@ -73,7 +73,8 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["pos"].value.unwrap(), 4.0);
     }
 
     #[test]

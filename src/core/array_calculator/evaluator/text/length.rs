@@ -146,7 +146,11 @@ mod tests {
 
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all();
-        assert!(result.is_ok() || result.is_err());
+        let model = result.unwrap();
+        assert_eq!(
+            model.tables["data"].columns["left_part"].values,
+            ColumnValue::Text(vec!["Hello".to_string()])
+        );
     }
 
     #[test]
@@ -161,7 +165,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("LEFT(\"Hello\", 3)"),
+            "Hel"
+        );
     }
 
     #[test]
@@ -176,7 +186,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("RIGHT(\"Hello\", 3)"),
+            "llo"
+        );
     }
 
     #[test]
@@ -191,7 +207,8 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["length"].value.unwrap(), 11.0);
     }
 
     #[test]
@@ -206,7 +223,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("MID(\"Hello World\", 7, 5)"),
+            "World"
+        );
     }
 
     #[test]
@@ -252,7 +275,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("MID(\"Hello\", 1, 1)"),
+            "H"
+        );
     }
 
     #[test]
@@ -268,7 +297,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("MID(\"Hi\", 1, 10)"),
+            "Hi"
+        );
     }
 
     #[test]
@@ -283,7 +318,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("RIGHT(\"Hello\", 1)"),
+            "o"
+        );
     }
 
     #[test]
@@ -298,7 +339,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("RIGHT(\"Hi\", 10)"),
+            "Hi"
+        );
     }
 
     // OUT OF BOUNDS TESTS

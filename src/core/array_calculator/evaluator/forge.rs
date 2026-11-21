@@ -1070,7 +1070,8 @@ mod integration_tests {
         );
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all();
-        assert!(result.is_ok() || result.is_err());
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("VAR requires at least 2 values"), "{error}");
     }
 
     #[test]
@@ -1093,7 +1094,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["var_pct"].value.unwrap(), 0.2);
     }
 
     #[test]
@@ -1120,7 +1122,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["be_units"].value.unwrap(), 500.0);
     }
 
     #[test]
@@ -1143,6 +1146,7 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["be_rev"].value.unwrap(), 25000.0);
     }
 }

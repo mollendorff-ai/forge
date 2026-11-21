@@ -214,7 +214,11 @@ mod tests {
 
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all();
-        assert!(result.is_ok() || result.is_err());
+        let model = result.unwrap();
+        assert_eq!(
+            model.tables["data"].columns["upper_name"].values,
+            ColumnValue::Text(vec!["ALICE".to_string(), "BOB".to_string()])
+        );
     }
 
     // Additional tests for functions with low coverage (v6.0.0 Phase 2)
@@ -228,7 +232,13 @@ mod tests {
         );
         let calculator = ArrayCalculator::new(model);
         // Just verify calculation succeeds
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("UPPER(\"\")"),
+            ""
+        );
     }
 
     #[test]
@@ -243,7 +253,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("UPPER(\"abc123xyz\")"),
+            "ABC123XYZ"
+        );
     }
 
     #[test]
@@ -258,7 +274,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("UPPER(\"hello-world_test\")"),
+            "HELLO-WORLD_TEST"
+        );
     }
 
     #[test]
@@ -269,7 +291,13 @@ mod tests {
             Variable::new("result".to_string(), None, Some("=LOWER(\"\")".to_string())),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("LOWER(\"\")"),
+            ""
+        );
     }
 
     #[test]
@@ -284,7 +312,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("LOWER(\"ABC123XYZ\")"),
+            "abc123xyz"
+        );
     }
 
     #[test]
@@ -299,7 +333,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("LOWER(\"HeLLo WoRLd\")"),
+            "hello world"
+        );
     }
 
     #[test]

@@ -130,7 +130,8 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 45299.0);
     }
 
     #[test]
@@ -145,7 +146,8 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 23.0);
     }
 
     fn networkdays(formula: &str) -> f64 {
