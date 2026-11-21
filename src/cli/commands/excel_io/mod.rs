@@ -698,11 +698,179 @@ g:
             let text = fs::read_to_string(root.join(name)).unwrap();
             assert!(text.contains("MC."), "{name} has no MC. distribution");
         }
-        // The rest, 48 models, all round-trip with no difference. The seven
+        // The rest, 49 models, all round-trip with no difference. The seven
         // in games/, bagel/price_war.yaml and acquisition/deal_game.yaml come
         // back as their results,
         // numbers as of the export: the export warns that the games
         // themselves are not written
-        assert_eq!(results.len() - skipped.len(), 48);
+        assert_eq!(results.len() - skipped.len(), 49);
+    }
+}
+
+/// examples/inherited-budget (roadmap T1-EXAMPLE-EXCEL-ROUNDTRIP): a workbook
+/// Forge did not write, with titles, merged headings, a blank row, a total
+/// row, a named range and a number typed in, imported, audited and changed.
+#[cfg(test)]
+mod inherited_budget {
+    use super::*;
+    use crate::cli::commands::results::AuditDep;
+    use crate::cli::commands::{audit_core, calculate_core};
+    use calamine::{open_workbook, DataType, Reader, Xlsx};
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    fn example(file: &str) -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("examples/inherited-budget")
+            .join(file)
+    }
+
+    /// The value `LibreOffice` stored in a cell of the workbook (row and
+    /// column from 0).
+    fn stored(
+        book: &mut Xlsx<std::io::BufReader<std::fs::File>>,
+        sheet: &str,
+        at: (u32, u32),
+    ) -> f64 {
+        let range = book.worksheet_range(sheet).unwrap();
+        range.get_value(at).and_then(DataType::as_f64).unwrap()
+    }
+
+    fn close(a: f64, b: f64) -> bool {
+        (a - b).abs() <= 1e-9 * a.abs().max(b.abs()).max(1.0)
+    }
+
+    /// Every number the workbook calculated, the months, the total row and
+    /// the summary, is what the imported model calculates; and the import
+    /// names the three things it did not find as Forge holds them.
+    #[test]
+    fn the_imported_workbook_calculates_to_its_own_values() {
+        let dir = tempfile::tempdir().unwrap();
+        let yaml = dir.path().join("budget.yaml");
+        let imported = import_core(&example("budget.xlsx"), &yaml, false, false).unwrap();
+        let warnings = &imported.warnings;
+        assert_eq!(warnings.len(), 3, "{warnings:#?}");
+        assert!(warnings[0].starts_with("monthly.price: its rows hold different formulas"));
+        assert!(warnings[0].ends_with(
+            "=IF(ROW() <= 6, assumptions.price, assumptions.price * (1 + assumptions.price_rise_from_july))"
+        ));
+        assert!(warnings[1].contains("row 14 holds 21000, the others assumptions.staff"));
+        assert!(warnings[1].ends_with("=IF(ROW() = 10, 21000, assumptions.staff)"));
+        assert!(warnings[2].starts_with("summary.h2_revenue_over_h1: imported as a value"));
+
+        let text = fs::read_to_string(&yaml).unwrap();
+        for line in [
+            "volume_kg:\n    formula: =IF(ROW() = 1, assumptions.opening_volume, PREV(volume_kg, 0) * (1 + assumptions.volume_growth))",
+            "revenue:\n    formula: =SUM(monthly.revenue)",
+            "price:\n    formula: =monthly_total.revenue / monthly_total.volume_kg",
+            "revenue:\n    formula: =monthly_total.revenue",
+            "    unit: kg a month\n    notes: January, from the 2026 run rate",
+        ] {
+            assert!(text.contains(line), "{line}\n{text}");
+        }
+
+        let model = calculate_core(&yaml, true, None).unwrap();
+        let mut book: Xlsx<_> = open_workbook(example("budget.xlsx")).unwrap();
+        let columns = [
+            "volume_kg",
+            "price",
+            "revenue",
+            "cogs",
+            "gross_margin",
+            "rent",
+            "staff",
+            "ebitda",
+        ];
+        let months: Vec<u32> = (3..9).chain(10..16).collect();
+        for (i, column) in columns.iter().enumerate() {
+            let col = u32::try_from(i).unwrap() + 1;
+            let forge: Vec<f64> = model.tables["monthly"].values[*column]
+                .iter()
+                .map(|v| v.as_f64().unwrap())
+                .collect();
+            assert_eq!(forge.len(), 12, "{column}");
+            for (value, row) in forge.iter().zip(&months) {
+                let cell = stored(&mut book, "Monthly", (*row, col));
+                assert!(close(*value, cell), "{column} {row}: {value} vs {cell}");
+            }
+            let total = model.scalars[&format!("monthly_total.{column}")].unwrap();
+            let cell = stored(&mut book, "Monthly", (16, col));
+            assert!(close(total, cell), "total {column}: {total} vs {cell}");
+        }
+        let summary = [
+            "revenue",
+            "gross_margin",
+            "gross_margin_pct",
+            "ebitda",
+            "tax",
+            "net_income",
+            "h2_revenue_over_h1",
+        ];
+        for (i, name) in summary.iter().enumerate() {
+            let value = model.scalars[&format!("summary.{name}")].unwrap();
+            let cell = stored(&mut book, "Summary", (u32::try_from(i).unwrap() + 2, 1));
+            assert!(close(value, cell), "{name}: {value} vs {cell}");
+        }
+        assert!(close(
+            model.scalars["summary.net_income"].unwrap(),
+            656_435.464_438_365
+        ));
+    }
+
+    fn find<'a>(deps: &'a [AuditDep], name: &str) -> Option<&'a AuditDep> {
+        deps.iter().find_map(|d| {
+            (d.name == name)
+                .then_some(d)
+                .or_else(|| find(&d.children, name))
+        })
+    }
+
+    /// `forge audit` of net income on the import goes down to October's
+    /// typed number: the staff column's formula holds it.
+    #[test]
+    fn audit_follows_net_income_to_the_typed_number() {
+        let dir = tempfile::tempdir().unwrap();
+        let yaml = dir.path().join("budget.yaml");
+        import_core(&example("budget.xlsx"), &yaml, false, false).unwrap();
+        let audit = audit_core(&yaml, "summary.net_income").unwrap();
+        assert!(audit.is_valid);
+        assert_eq!(
+            audit.formula.as_deref(),
+            Some("=summary.ebitda - summary.tax")
+        );
+        let staff = find(&audit.dependencies, "monthly.staff").unwrap();
+        assert_eq!(
+            staff.formula.as_deref(),
+            Some("=IF(ROW() = 10, 21000, assumptions.staff)")
+        );
+        assert_eq!(staff.children[0].name, "assumptions.staff");
+        assert_eq!(staff.children[0].value, Some(21_000.0));
+        let total = find(&audit.dependencies, "monthly_total.ebitda").unwrap();
+        assert_eq!(total.formula.as_deref(), Some("=SUM(monthly.ebitda)"));
+    }
+
+    /// The pay rise in budget.yaml, with October reading the assumption,
+    /// and as it would have been with October still typed in.
+    #[test]
+    fn the_pay_rise_with_and_without_october_typed_in() {
+        let budget = calculate_core(&example("budget.yaml"), true, None).unwrap();
+        let net = budget.scalars["summary.net_income"].unwrap();
+        assert!(close(net, 642_935.464_438_365), "{net}");
+        let h2 = budget.scalars["summary.h2_revenue_over_h1"].unwrap();
+        assert!(close(h2, 0.137_180_994_500_346), "{h2}");
+
+        let dir = tempfile::tempdir().unwrap();
+        let trap = dir.path().join("trap.yaml");
+        let text = fs::read_to_string(example("budget.yaml")).unwrap();
+        let typed = text.replace(
+            "formula: =assumptions.staff\n",
+            "formula: =IF(ROW() = 10, 21000, assumptions.staff)\n",
+        );
+        assert_ne!(typed, text);
+        fs::write(&trap, typed).unwrap();
+        let trapped = calculate_core(&trap, true, None).unwrap();
+        let net_trapped = trapped.scalars["summary.net_income"].unwrap();
+        assert!(close(net_trapped, 644_060.464_438_365), "{net_trapped}");
+        assert!(close(net_trapped - net, 1_125.0));
     }
 }

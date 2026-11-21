@@ -787,6 +787,30 @@ mod tests {
                 1e-6
             ));
         }
+
+        /// examples/inherited-budget over HTTP: the workbook Forge did not write
+        /// calculates to the net income `LibreOffice` stored in it.
+        #[tokio::test]
+        async fn import_reads_the_inherited_workbook() {
+            let dir = tempfile::tempdir().unwrap();
+            let yaml = dir.path().join("budget.yaml");
+            let data = post(
+                "/api/v1/import",
+                &json!({"excel_path": "examples/inherited-budget/budget.xlsx", "yaml_path": yaml.to_str().unwrap()}),
+            )
+            .await;
+            assert_eq!(data["imported"], true);
+            let back = post(
+                "/api/v1/calculate",
+                &json!({"file_path": yaml.to_str().unwrap(), "dry_run": true}),
+            )
+            .await;
+            assert!(close(
+                &back["result"]["scalars"]["summary.net_income"],
+                656_435.464_438_365,
+                1e-9
+            ));
+        }
     }
 
     // ==================== Serving and stopping ====================

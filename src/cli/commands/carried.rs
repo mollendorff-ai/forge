@@ -108,7 +108,7 @@ pub(super) fn print_import_formulas(
     outln!(
         c,
         "{}",
-        "⚠️  Imported as values, because Forge cannot express these formulas:".yellow()
+        "⚠️  What the import changed or could not keep:".yellow()
     );
     for warning in as_values {
         outln!(c, "   - {warning}");
