@@ -105,7 +105,11 @@ pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable>
             },
             _ => None,
         };
-        let val = date.or_else(|| map.get("value").and_then(yaml_serde::Value::as_f64));
+        // A result that is not finite can only be a formula's, which an older
+        // Forge wrote (`check_finite` refuses any other): it is calculated again
+        let val = date
+            .or_else(|| map.get("value").and_then(yaml_serde::Value::as_f64))
+            .filter(|v| v.is_finite());
         let formula = map
             .get("formula")
             .and_then(|f| f.as_str().map(std::string::ToString::to_string));
