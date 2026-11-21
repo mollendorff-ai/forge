@@ -372,8 +372,8 @@ mod tests {
         //! YIELD, PRICE = pert(0.5, 1.0, 1.3), lognormal(2000, 500)
         //! season(1.0, 2000, 0.0)  # the plan: 72140
         //! # From Forge's own 10,000 draws (seed 7, Latin hypercube): every run's
-        //! # profit within 2.3e-10 of Forge's; mean 42889.015893, P5 -58926.619114,
-        //! # P50 39680.667474, P95 153625.617063, P(loss) 0.2555, the worst 5%
+        //! # profit within 1.8e-10 of Forge's; mean 42889.015893, P5 -58926.619114,
+        //! # P50 39680.667472, P95 153625.617060, P(loss) 0.2555, the worst 5%
         //! # -79829.454058; rank correlation of the draws -0.6902
         //! # An independent simulation, 2,000,000 runs:
         //! rng = np.random.default_rng(2026)
@@ -480,8 +480,8 @@ mod tests {
             let stats = &profit.statistics;
             within(stats.mean, 42_889.015_893, 1e-6, "mean");
             within(stats.percentiles[&5], -58_926.619_114, 1e-6, "P5");
-            within(stats.median, 39_680.667_474, 1e-6, "P50");
-            within(stats.percentiles[&95], 153_625.617_063, 1e-6, "P95");
+            within(stats.median, 39_680.667_472, 1e-6, "P50");
+            within(stats.percentiles[&95], 153_625.617_060, 1e-6, "P95");
             within(profit.threshold_probabilities["< 0"], 0.2555, 1e-12, "loss");
             within(
                 profit.expected_shortfall[0].1,

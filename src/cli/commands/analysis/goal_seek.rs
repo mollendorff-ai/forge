@@ -51,47 +51,50 @@ pub fn goal_seek_core(
         1000.0
     });
 
-    let mut low = lower;
-    let mut high = upper;
-
-    let f_low = calculate_with_override(&base_model, vary, low, target)? - value;
-    let f_high = calculate_with_override(&base_model, vary, high, target)? - value;
-
-    if f_low * f_high > 0.0 {
-        let expanded = expand_search_range_quiet(&base_model, vary, target, value, lower, upper)?;
-        low = expanded.0;
-        high = expanded.1;
-    }
+    // The output at each end of the interval, as calculated
+    let y_low = calculate_with_override(&base_model, vary, lower, target)?;
+    let y_high = calculate_with_override(&base_model, vary, upper, target)?;
+    let ((mut low, mut y_low), (mut high, mut y_high)) = if (y_low - value) * (y_high - value) > 0.0
+    {
+        expand_search_range_quiet(&base_model, vary, target, value, lower, upper)?
+    } else {
+        ((lower, y_low), (upper, y_high))
+    };
 
     // Bisect until the output is within `tolerance` of the target, or the
     // interval cannot be split any further. `tolerance` is about the output,
-    // so it is also what decides `converged`.
+    // so it is also what decides `converged`. The answer is the last point
+    // calculated: the midpoint, or the end the interval has shrunk to.
     let max_iterations = 200;
-    let mut f_low = calculate_with_override(&base_model, vary, low, target)? - value;
-    let mut mid = f64::midpoint(low, high);
+    let (mut mid, mut final_value) = (low, y_low);
     let mut iteration = 0;
 
     while iteration < max_iterations {
-        mid = f64::midpoint(low, high);
-        if mid <= low || mid >= high {
-            break; // no float left between low and high
+        let m = f64::midpoint(low, high);
+        // No float left between low and high: the midpoint is one of them
+        if m <= low || m >= high {
+            (mid, final_value) = if m <= low {
+                (low, y_low)
+            } else {
+                (high, y_high)
+            };
+            break;
         }
-        let f_mid = calculate_with_override(&base_model, vary, mid, target)? - value;
+        let y_mid = calculate_with_override(&base_model, vary, m, target)?;
         iteration += 1;
+        (mid, final_value) = (m, y_mid);
 
-        if f_mid.abs() <= tolerance {
+        if (y_mid - value).abs() <= tolerance {
             break;
         }
 
-        if f_low * f_mid < 0.0 {
-            high = mid;
+        if (y_low - value) * (y_mid - value) < 0.0 {
+            (high, y_high) = (m, y_mid);
         } else {
-            low = mid;
-            f_low = f_mid;
+            (low, y_low) = (m, y_mid);
         }
     }
 
-    let final_value = calculate_with_override(&base_model, vary, mid, target)?;
     let error = (final_value - value).abs();
 
     Ok(crate::cli::commands::results::GoalSeekResult {
@@ -106,7 +109,9 @@ pub fn goal_seek_core(
     })
 }
 
-/// Expand search range without printing (for core function)
+/// Widen the interval 10, 100 and then 1,000 times, away from zero at each
+/// end, until the output crosses the target inside it: the two ends, each
+/// with its output.
 fn expand_search_range_quiet(
     base_model: &crate::types::ParsedModel,
     vary: &str,
@@ -114,7 +119,7 @@ fn expand_search_range_quiet(
     value: f64,
     lower: f64,
     upper: f64,
-) -> ForgeResult<(f64, f64)> {
+) -> ForgeResult<((f64, f64), (f64, f64))> {
     for factor in [10.0, 100.0, 1000.0] {
         let exp_low = if lower > 0.0 {
             lower / factor
@@ -127,11 +132,11 @@ fn expand_search_range_quiet(
             upper / factor
         };
 
-        let f_exp_low = calculate_with_override(base_model, vary, exp_low, target)? - value;
-        let f_exp_high = calculate_with_override(base_model, vary, exp_high, target)? - value;
+        let y_low = calculate_with_override(base_model, vary, exp_low, target)?;
+        let y_high = calculate_with_override(base_model, vary, exp_high, target)?;
 
-        if f_exp_low * f_exp_high <= 0.0 {
-            return Ok((exp_low, exp_high));
+        if (y_low - value) * (y_high - value) <= 0.0 {
+            return Ok(((exp_low, y_low), (exp_high, y_high)));
         }
     }
 
@@ -274,6 +279,156 @@ const BREAK_EVEN_TOLERANCE: f64 = 0.0001;
 
 #[cfg(test)]
 mod tests {
+
+    mod small_models {
+        //! One input `x` and one output `y`, so the answer is known by hand:
+        //! `y = x` reaches 500 at x = 500.
+
+        use super::super::{goal_seek, goal_seek_core};
+        use crate::cli::Console;
+        use std::path::{Path, PathBuf};
+
+        fn model(dir: &Path, x: &str, formula: &str) -> PathBuf {
+            let path = dir.join("m.yaml");
+            std::fs::write(
+                &path,
+                format!(
+                    "_forge_version: \"5.0.0\"\nx:\n  value: {x}\ny:\n  value: 0\n  formula: \"{formula}\"\n"
+                ),
+            )
+            .unwrap();
+            path
+        }
+
+        /// `y` at `value`, varying `x` from its value, with tolerance 1e-9
+        fn seek(x: &str, formula: &str, value: f64) -> Result<(f64, f64, bool), String> {
+            let dir = tempfile::tempdir().unwrap();
+            let path = model(dir.path(), x, formula);
+            goal_seek_core(&path, "y", value, "x", (None, None), 1e-9)
+                .map(|r| (r.solution, r.achieved, r.converged))
+                .map_err(|e| e.to_string())
+        }
+
+        /// The search starts from x / 100 to x * 100 (x = 1: 0.01 to 100),
+        /// from x * 100 to x / 100 for a negative x, and from -1,000 to 1,000
+        /// for x = 0; it widens 10, 100 and 1,000 times away from zero until
+        /// the target is inside.
+        #[test]
+        fn the_search_widens_from_the_input_until_the_target_is_inside() {
+            for (x, value) in [("1", 500.0), ("-1", -500.0), ("0", 7.0), ("1", 50.0)] {
+                let (solution, achieved, converged) = seek(x, "=x", value).unwrap();
+                assert_eq!(
+                    (
+                        (solution - value).abs() <= 1e-9,
+                        (achieved - value).abs() <= 1e-9,
+                        converged
+                    ),
+                    (true, true, true),
+                    "x = {x}, target {value}: {solution}, {achieved}"
+                );
+            }
+        }
+
+        #[test]
+        fn a_target_out_of_reach_is_refused() {
+            assert_eq!(
+                seek("1", "=x * x + 1", 0.0),
+                Err("Validation error: No solution found in search range. The target value 0 may not be achievable by varying 'x'.".to_string())
+            );
+        }
+
+        /// The output cannot be calculated at an end of the first range (x =
+        /// 0.01 or 100), at a widened end (x = 10,000, or -10,000 for a negative x),
+        /// or at the first midpoint (50.005): the search stops with that error.
+        #[test]
+        fn an_output_that_cannot_be_calculated_stops_the_search() {
+            for (x, formula, value) in [
+                ("1", "=SQRT(x - 1)", 5.0),
+                ("1", "=SQRT(50 - x)", 5.0),
+                ("1", "=SQRT(5000 - x)", 100.0),
+                ("-1", "=SQRT(x + 5000)", 100.0),
+                ("1", "=IF(AND(x > 49, x < 51), SQRT(-1), x - 75)", 0.0),
+            ] {
+                assert_eq!(
+                    seek(x, formula, value),
+                    Err(format!(
+                        "Formula evaluation error: y: SQRT of negative number (formula: {formula})"
+                    )),
+                    "{formula}"
+                );
+            }
+        }
+
+        /// A step from -1 to 1 never comes within the tolerance of 0: the
+        /// search closes in on the step until no float is left between the
+        /// ends, and says it did not converge. The last midpoint is one end
+        /// or the other (the midpoint of two neighbouring floats rounds to the
+        /// even one): the top one for a step at 50, where the output is 1,
+        /// and the bottom one for a step at 10, where it is -1. (Forge compares
+        /// to 15 significant digits, as Excel does (ADR-065), so `x > 10` is
+        /// false just above 10.)
+        #[test]
+        fn a_step_the_target_falls_inside_does_not_converge() {
+            for (step, output) in [(50.0, 1.0), (10.0, -1.0)] {
+                let (solution, achieved, converged) =
+                    seek("1", &format!("=IF(x > {step}, 1, -1)"), 0.0).unwrap();
+                assert_eq!(
+                    (
+                        solution > step && solution - step < 1e-12,
+                        achieved,
+                        converged
+                    ),
+                    (true, output, false),
+                    "{step}: {solution}"
+                );
+            }
+        }
+
+        /// `forge goal-seek` prints the error beside the tolerance when it is
+        /// over it, and with `--verbose` how the bisection stopped
+        #[test]
+        fn goal_seek_prints_an_error_over_the_tolerance_and_with_verbose_the_steps() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = model(dir.path(), "1", "=IF(x > 50, 1, -1)");
+            let mut out = Vec::new();
+            let mut err = Vec::new();
+            let mut input = std::io::empty();
+            let mut console = Console::new(&mut out, &mut err, &mut input);
+            goal_seek(
+                &mut console,
+                &path,
+                ("y", 0.0),
+                "x",
+                (None, None),
+                0.0001,
+                true,
+            )
+            .unwrap();
+            let text = String::from_utf8(out).unwrap();
+            let after_file = text.split_once("m.yaml\n").unwrap().1;
+            assert_eq!(
+                after_file,
+                format!(
+                    "   Target: y = 0\n   Vary: x\n   Tolerance: 0.0001\n\n   Bisection stopped after 54 evaluations, error 1\n{line}\n🎯 Solution found in 54 iterations:\n   x = 50.00 → y = 1.00\n   ⚠\u{fe0f} Error: 1 (tolerance: 0.0001)\n{line}\n",
+                    line = "─".repeat(50)
+                )
+            );
+        }
+
+        #[test]
+        fn a_file_or_a_name_that_is_not_there_is_refused() {
+            let dir = tempfile::tempdir().unwrap();
+            let missing = dir.path().join("none.yaml");
+            assert!(goal_seek_core(&missing, "y", 1.0, "x", (None, None), 1e-9).is_err());
+            let path = model(dir.path(), "1", "=x");
+            for (target, vary) in [("y", "nope"), ("@nope.y", "x")] {
+                let err = goal_seek_core(&path, target, 1.0, vary, (None, None), 1e-9)
+                    .unwrap_err()
+                    .to_string();
+                assert!(err.contains("nope"), "{target}, {vary}: {err}");
+            }
+        }
+    }
 
     mod printed_numbers {
         //! The solution `forge goal-seek` prints and the numbers beside it
