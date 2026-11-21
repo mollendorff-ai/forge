@@ -85,7 +85,9 @@ A disagreement fails the run unless Forge reports the game as degenerate, and a 
 
 Symmetric games of three to five players in the count form (ADR-073): the public goods game of five players below, at and above r = n, and seeded games of two or three strategies, each table expanded again by the suite and compared with Forge's cell by cell, and its pure equilibria with Gambit's `enumpure_solve` (`counted.py`; 303 games and 3,376 pure equilibria, 0 failed, seed 202611, on 2026-11-21).
 
-Not covered: mixed equilibria of more than two players (Forge does not look for them), and Forge's tournament strategies against any library but axelrod.
+The mixed equilibria in which every player plays alike, of symmetric games of two strategies (ADR-073, question 4; `symmetric.py`): the volunteer's dilemma of 2 to 8 players against its closed form 1 − (c / b)^(1 / (n − 1)), the public goods game at r = 5 (degenerate: no mix listed, the tie named), and seeded games of three to five players, each mix compared with the exact roots of the population function (sympy's real-root isolation over the game's fractions) and with Gambit's `enumpoly_solve`, and each payoff and `stable` worked out with fractions. On 2026-11-21, seed 31: 158 games, 150 mixes, each an exact root, 0 failed; Gambit found 145 of them and none that Forge lacks (its method is numerical; two it missed in another run, at 0.9475 and 0.9145, are exact roots, g = −1.3e-15 and 1.3e-14 there). Each check was tried on a deliberately wrong Forge: with the stability turned around, a run of 18 games had 14 failures; with the last root dropped wherever there are two, a run of 38 games (seed 202611) had 12 failures, the exact roots and Gambit each naming the missing one.
+
+Not covered: mixed equilibria of more than two players in which players mix differently, and any of three or more strategies (Forge does not look for them), and Forge's tournament strategies against any library but axelrod.
 
 ## Known limits
 

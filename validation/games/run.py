@@ -1,6 +1,6 @@
 """Forge's games against Gambit, axelrod and R (ADR-068, T2-GAME-THEORY-E2E).
 
-  python3 -I run.py [--only specs tournaments generated r] [--seed N]
+  python3 -I run.py [--only specs tournaments generated r counted symmetric] [--seed N]
                     [--games N] [--runs N] [--work DIR] [--fail]
 
 specs        named games (specs.py) and the shipped examples, against Gambit
@@ -13,6 +13,10 @@ r            the closed forms of 2 x 2 games, against R
 counted      symmetric games of three to five players in the count form
              (ADR-073): the public goods game and seeded games, the table
              expanded cell by cell and the pure equilibria, against Gambit
+symmetric    the mixed equilibria in which every player plays alike, of
+             symmetric games of two strategies (ADR-073): the volunteer's
+             dilemma of 2 to 8 players against its closed form, and seeded
+             games of 3 to 5 players against Gambit's enumpoly_solve
 
 Needs `forge` (FORGE, default `forge` on the path), pygambit 16.7.0 and the
 axelrod library for the Python parts, and Rscript with jsonlite for `r`.
@@ -31,6 +35,7 @@ sys.path.insert(0, HERE)  # python3 -I leaves the script's folder off the path
 
 import counted
 import generated
+import symmetric
 import specs
 import tables
 import tournaments
@@ -114,6 +119,25 @@ def run_counted(work, seed, count):
     return failures
 
 
+def run_symmetric(work, seed, count):
+    failures, mixes, missed, games = [], 0, 0, 0
+    for name, kind, text, n, strategies, pay, closed in symmetric.cases(seed, count):
+        path = write(work, f"symmetric_{name}_{games}.yaml", text)
+        report = only(tables.run_forge(path), name)
+        bad, found, gambit_missed = symmetric.check(report, n, strategies, pay, closed)
+        mixes += found
+        missed += gambit_missed
+        games += 1
+        failures += [f"{name} ({kind}): {b}" for b in bad]
+    print(f"symmetric: seed {seed}, {games} games (the volunteer's dilemma of 2 to 8 players, "
+          f"the public goods game at r = 5, {count} drawn), {mixes} mixes in which all play alike, "
+          f"compared with the exact roots; Gambit's enumpoly_solve found {mixes - missed} of them; "
+          f"{len(failures)} failed")
+    if failures:
+        print(f"replay: python3 -I run.py --only symmetric --seed {seed} --games {count * 10}")
+    return failures
+
+
 def run_tournaments(work, runs):
     failures, compared = [], 0
     for k, (rounds, continuation, noise) in enumerate(tournaments.SETTINGS):
@@ -155,14 +179,14 @@ def run_closed_forms(work, seed, count):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--only", nargs="*", choices=["specs", "tournaments", "generated", "r", "counted"])
+    p.add_argument("--only", nargs="*", choices=["specs", "tournaments", "generated", "r", "counted", "symmetric"])
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--games", type=int, default=300, help="generated games")
     p.add_argument("--runs", type=int, default=200, help="seeded axelrod matches of each pair")
     p.add_argument("--work", default="work")
     p.add_argument("--fail", action="store_true", help="exit 1 when anything fails (CI)")
     a = p.parse_args()
-    parts = a.only or ["specs", "tournaments", "generated", "r", "counted"]
+    parts = a.only or ["specs", "tournaments", "generated", "r", "counted", "symmetric"]
     os.makedirs(a.work, exist_ok=True)
     failures = []
     if "specs" in parts:
@@ -171,6 +195,9 @@ def main():
         failures += run_generated(a.work, a.seed, a.games)
     if "counted" in parts:
         failures += run_counted(a.work, a.seed, max(a.games // 10, 10))
+    if "symmetric" in parts:
+        # Gambit's enumpoly_solve takes seconds a game of five players: at most 100
+        failures += run_symmetric(a.work, a.seed, min(max(a.games // 10, 10), 100))
     if "tournaments" in parts:
         failures += run_tournaments(a.work, a.runs)
     if "r" in parts:

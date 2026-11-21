@@ -96,6 +96,10 @@ jsonschema = { version = "0.60", default-features = false }
 # Checked conversions from a float to an integer (`ToPrimitive`), which `as`
 # would saturate: already in the tree through statrs
 num-traits = "0.2.19"
+# The real roots of a polynomial in an interval (linebender, used by kurbo):
+# the symmetric mixed equilibria of a symmetric game of two strategies
+# (ADR-073, question 4). Brings only arrayvec
+polycool = "0.4.0"
 # YAML parsing
 serde = { version = "1.0", features = ["derive"] }
 yaml_serde = "0.10"

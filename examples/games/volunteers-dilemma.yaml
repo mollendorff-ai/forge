@@ -1,0 +1,56 @@
+# The Volunteer's Dilemma
+# =======================
+# Run in the examples folder: forge game games/volunteers-dilemma.yaml
+#   forge game games/volunteers-dilemma.yaml --scenario cheap
+#
+# Five AIs share a server. Someone has to run the nightly check, at a cost of
+# 4 to whoever does; if anyone does, all five are spared a loss and each gets
+# 10. If nobody does, all get 0. One volunteer is enough.
+#
+# The game is symmetric, so it is written with one payoff for each strategy,
+# over how many of the other four volunteer (vd.others.volunteer), as in the
+# public goods game (ADR-073).
+#
+# By hand: there are five pure equilibria, each with exactly one volunteer,
+# but nothing says who. In the equilibrium in which every player plays alike,
+# a player who stays out must gain as much as one who volunteers: the others
+# all stay out with probability q, and q^4 * 0 + (1 - q^4) * 10 = 10 - 4, so
+# q^4 = 4 / 10 and q = 0.4^(1/4) = 0.795271. Each volunteers with probability
+# 1 - q = 0.204729, and nobody volunteers with probability q^5 = 0.318108:
+# with two players it is 0.4^2 = 0.16. The more players, the likelier that
+# nobody does it. The mix is stable: with fewer volunteers than that,
+# volunteering pays more, and with more, less.
+
+_forge_version: "5.5.0"
+
+benefit: 10     # what each gets when someone volunteers
+cost: 4         # what volunteering costs the volunteer
+
+games:
+  vd:
+    description: Run the nightly check, or hope someone else does
+    players: [a1, a2, a3, a4, a5]
+    strategies: [volunteer, stay_out]
+    symmetric: true
+    payoffs:                        # one player's payoff, for its own strategy
+      volunteer: =benefit - cost
+      stay_out: =IF(vd.others.volunteer > 0, benefit, 0)
+
+risk:
+  volunteers:
+    formula: "=vd.equilibrium_6.a1.volunteer"
+    value: 0.204729271232949
+    notes: How likely each is to volunteer in the symmetric mix, 1 - 0.4^(1/4) = 0.204729
+  nobody:
+    formula: "=(1 - risk.volunteers) ^ 5"
+    value: 0.31810829150682
+    notes: How likely it is that nobody volunteers, 0.4^(5/4) = 0.318108
+  stable:
+    formula: "=vd.equilibrium_6.stable"
+    value: 1
+    notes: 1, a population returns to the mix
+
+scenarios:
+  cheap:
+    description: Volunteering costs 2; each volunteers with 1 - 0.2^(1/4) = 0.331260, and nobody does with 0.2^(5/4) = 0.133748
+    scalars: {cost: 2}

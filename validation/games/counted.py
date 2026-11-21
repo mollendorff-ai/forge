@@ -10,7 +10,10 @@ expands it again, here, and the rules, each a failure when broken, are:
   2. The pure equilibria are Gambit's (`enumpure_solve` on the table expanded
      here), and the ones a check of every cell here finds.
   3. Each equilibrium's payoffs are the payoffs of its cell.
-  4. Mixed equilibria are not looked for: the report says so.
+  4. Mixed equilibria are looked for only in a game of two strategies, and
+     only those in which every player plays alike (ADR-073, question 4;
+     symmetric.py checks them against Gambit): the report says so, and lists
+     no other.
 
 The cases are the public goods game of five players (below, at and above
 r = n, by its own formulas), and games drawn from a seed: three to five
@@ -141,7 +144,9 @@ def check(report, n, strategies, table):
     forge = set()
     for eq in report["equilibria"]:
         if eq["kind"] != "pure":
-            bad.append(f"a {eq['kind']} equilibrium in a game of {n} players")
+            plays = [eq["players"][pl]["strategies"][strategies[0]] for pl in players]
+            if k != 2 or max(plays) - min(plays) > 1e-9:
+                bad.append(f"a {eq['kind']} equilibrium in a game of {n} players: {plays}")
             continue
         profile = tuple(next(index[s] for s, p in eq["players"][pl]["strategies"].items() if p == 1)
                         for pl in players)
@@ -156,6 +161,8 @@ def check(report, n, strategies, table):
         bad.append(f"Gambit's pure equilibria {sorted(gambit)}, a check of every cell {sorted(here)}")
     if report["mixed_searched"]:
         bad.append("mixed equilibria reported as looked for")
+    if report["symmetric_searched"] != (k == 2):
+        bad.append(f"symmetric mixes looked for: {report['symmetric_searched']}, with {k} strategies")
     return bad, len(forge)
 
 
