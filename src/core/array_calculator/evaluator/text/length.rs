@@ -89,14 +89,10 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let length = result_table.columns.get("length").unwrap();
-        match &length.values {
-            ColumnValue::Number(nums) => {
-                assert_exact!(nums[0], 5.0);
-                assert_exact!(nums[1], 2.0);
-                assert_exact!(nums[2], 7.0);
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = length.values.numbers().unwrap();
+        assert_exact!(nums[0], 5.0);
+        assert_exact!(nums[1], 2.0);
+        assert_exact!(nums[2], 7.0);
     }
 
     #[test]
@@ -123,24 +119,16 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let mid_2_3 = result_table.columns.get("mid_2_3").unwrap();
-        match &mid_2_3.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "ell");
-                assert_eq!(texts[1], "orl");
-                assert_eq!(texts[2], "est");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = mid_2_3.values.texts().unwrap();
+        assert_eq!(texts[0], "ell");
+        assert_eq!(texts[1], "orl");
+        assert_eq!(texts[2], "est");
 
         let mid_1_2 = result_table.columns.get("mid_1_2").unwrap();
-        match &mid_1_2.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "he");
-                assert_eq!(texts[1], "wo");
-                assert_eq!(texts[2], "te");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = mid_1_2.values.texts().unwrap();
+        assert_eq!(texts[0], "he");
+        assert_eq!(texts[1], "wo");
+        assert_eq!(texts[2], "te");
     }
 
     #[test]
@@ -158,7 +146,11 @@ mod tests {
 
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all();
-        assert!(result.is_ok() || result.is_err());
+        let model = result.unwrap();
+        assert_eq!(
+            model.tables["data"].columns["left_part"].values,
+            ColumnValue::Text(vec!["Hello".to_string()])
+        );
     }
 
     #[test]
@@ -173,7 +165,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("LEFT(\"Hello\", 3)"),
+            "Hel"
+        );
     }
 
     #[test]
@@ -188,7 +186,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("RIGHT(\"Hello\", 3)"),
+            "llo"
+        );
     }
 
     #[test]
@@ -203,7 +207,8 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["length"].value.unwrap(), 11.0);
     }
 
     #[test]
@@ -218,7 +223,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("MID(\"Hello World\", 7, 5)"),
+            "World"
+        );
     }
 
     #[test]
@@ -264,7 +275,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("MID(\"Hello\", 1, 1)"),
+            "H"
+        );
     }
 
     #[test]
@@ -280,7 +297,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("MID(\"Hi\", 1, 10)"),
+            "Hi"
+        );
     }
 
     #[test]
@@ -295,7 +318,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("RIGHT(\"Hello\", 1)"),
+            "o"
+        );
     }
 
     #[test]
@@ -310,7 +339,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("RIGHT(\"Hi\", 10)"),
+            "Hi"
+        );
     }
 
     // OUT OF BOUNDS TESTS

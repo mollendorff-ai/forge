@@ -435,4 +435,48 @@ mod tests {
         h::fails_with("WEEKDAY(45000, 1/0)", "");
         h::fails_with("WEEKNUM(45000, 1/0)", "");
     }
+
+    /// An error in the argument is passed on, and text that is no date is
+    /// refused
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        let date = ("\"2024-03-15\"", Some("Invalid date format"));
+        each_argument("WEEKNUM", &[date, ("2", None)]);
+        each_argument("WEEKDAY", &[date, ("2", None)]);
+        each_argument("ISOWEEKNUM", &[date]);
+        for name in ["HOUR", "MINUTE", "SECOND"] {
+            each_argument(
+                name,
+                &[("0.5", Some(&format!("{name}: Could not parse time")))],
+            );
+        }
+    }
+
+    /// The week of Friday 15 March 2024 for each day a week may start on,
+    /// Monday (11) to Sunday (17), as `LibreOffice` Calc 24.2 gives it
+    #[test]
+    fn weeks_from_each_day() {
+        use crate::core::array_calculator::evaluator::tests::is_exactly;
+        for (kind, week) in [
+            (11, 11.0),
+            (12, 12.0),
+            (13, 12.0),
+            (14, 12.0),
+            (15, 12.0),
+            (16, 11.0),
+            (17, 11.0),
+        ] {
+            is_exactly(&format!("WEEKNUM(\"2024-03-15\", {kind})"), week);
+        }
+    }
+
+    /// The time of a date and time written as text (`LibreOffice`: 13, 45, 30)
+    #[test]
+    fn time_of_a_date_and_time() {
+        use crate::core::array_calculator::evaluator::tests::is_exactly;
+        is_exactly("HOUR(\"2024-01-01 13:45:30\")", 13.0);
+        is_exactly("MINUTE(\"2024-01-01 13:45:30\")", 45.0);
+        is_exactly("SECOND(\"2024-01-01 13:45:30\")", 30.0);
+    }
 }

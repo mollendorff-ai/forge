@@ -537,7 +537,8 @@ mod edge_case_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["count"].value.unwrap(), 3.0);
     }
 
     #[test]
@@ -558,7 +559,8 @@ mod edge_case_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["count"].value.unwrap(), 3.0);
     }
 
     #[test]

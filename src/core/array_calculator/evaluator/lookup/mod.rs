@@ -104,24 +104,16 @@ mod tests {
         let result_table = result.tables.get("sales").unwrap();
 
         let product_name = result_table.columns.get("product_name").unwrap();
-        match &product_name.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "Widget B");
-                assert_eq!(texts[1], "Widget A");
-                assert_eq!(texts[2], "Widget C");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = product_name.values.texts().unwrap();
+        assert_eq!(texts[0], "Widget B");
+        assert_eq!(texts[1], "Widget A");
+        assert_eq!(texts[2], "Widget C");
 
         let price = result_table.columns.get("price").unwrap();
-        match &price.values {
-            ColumnValue::Number(nums) => {
-                assert_exact!(nums[0], 20.0);
-                assert_exact!(nums[1], 10.0);
-                assert_exact!(nums[2], 30.0);
-            },
-            _ => panic!("Expected Number array"),
-        }
+        let nums = price.values.numbers().unwrap();
+        assert_exact!(nums[0], 20.0);
+        assert_exact!(nums[1], 10.0);
+        assert_exact!(nums[2], 30.0);
     }
 
     #[test]

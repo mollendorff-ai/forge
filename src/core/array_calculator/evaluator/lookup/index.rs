@@ -94,14 +94,10 @@ mod tests {
         let result_table = result.tables.get("test").unwrap();
 
         let name = result_table.columns.get("name").unwrap();
-        match &name.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "Widget A");
-                assert_eq!(texts[1], "Widget C");
-                assert_eq!(texts[2], "Widget B");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = name.values.texts().unwrap();
+        assert_eq!(texts[0], "Widget A");
+        assert_eq!(texts[1], "Widget C");
+        assert_eq!(texts[2], "Widget B");
     }
 
     #[test]

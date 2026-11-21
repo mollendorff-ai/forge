@@ -9,7 +9,7 @@
 
 use super::EvalError;
 use crate::core::precision;
-use chrono::{Datelike, Months, NaiveDate};
+use chrono::{Datelike, Days, Months, NaiveDate};
 use num_traits::ToPrimitive;
 
 /// A validated day-count basis
@@ -214,8 +214,8 @@ fn shift_months(anchor: NaiveDate, months: i32, month_end: bool) -> Option<Naive
         anchor.checked_sub_months(Months::new(months.unsigned_abs()))?
     };
     if month_end {
-        shifted
-            .with_day(1)?
+        // The first of its month, then the day before the next month's first
+        (shifted - Days::new(u64::from(shifted.day0())))
             .checked_add_months(Months::new(1))?
             .pred_opt()
     } else {
@@ -247,17 +247,18 @@ pub fn accrued_interest(
     };
 
     // Start from the coupon period that contains the issue date
-    let mut k = 0;
-    while coupon(k)? > issue {
+    // The coupon 0 months on is the first interest date itself (a month's
+    // end stays one)
+    let (mut k, mut start) = (0, first_interest);
+    while start > issue {
         k -= 1;
+        start = coupon(k)?;
     }
 
+    // Each period starts where the one before it ended
     let mut total = 0.0;
-    loop {
-        let (start, end) = (coupon(k)?, coupon(k + 1)?);
-        if start >= settlement {
-            break;
-        }
+    while start < settlement {
+        let end = coupon(k + 1)?;
         let (from, to) = (start.max(issue), end.min(settlement));
         if from < to {
             let normal_length = match basis {
@@ -266,6 +267,7 @@ pub fn accrued_interest(
             };
             total += days_between(from, to, basis) / normal_length;
         }
+        start = end;
         k += 1;
     }
     Ok(par * rate / f64::from(frequency) * total)
@@ -497,5 +499,72 @@ mod tests {
         assert!(Basis::from_number(1E+20, "YEARFRAC").is_err());
         assert!(Basis::from_number(f64::NAN, "YEARFRAC").is_err());
         assert!(Basis::from_number(5.0, "YEARFRAC").is_err());
+    }
+
+    /// Actual/actual over a change of year: up to a year to the day is one
+    /// year's length (366 with a 29 February in it), longer is the average
+    /// of the years spanned; within one year, that year's length
+    #[test]
+    fn actual_actual_across_a_change_of_year() {
+        let fraction = |a, b| year_fraction(a, b, Basis::ActualActual);
+        assert!(close(fraction(date(2023, 5, 10), date(2024, 5, 10)), 1.0));
+        assert!(close(
+            fraction(date(2023, 5, 10), date(2024, 5, 9)),
+            365.0 / 366.0
+        ));
+        assert!(close(
+            fraction(date(2023, 3, 1), date(2024, 5, 1)),
+            427.0 / 365.5
+        ));
+        assert!(close(
+            fraction(date(2023, 1, 1), date(2023, 7, 1)),
+            181.0 / 365.0
+        ));
+    }
+
+    /// Coupon periods that end before the issue date add nothing: three
+    /// months from the issue at 5% a year is 12.5 on 1,000, whichever
+    /// coupon the schedule is anchored on
+    #[test]
+    fn accrued_interest_skips_periods_before_the_issue() {
+        let accrued = accrued_interest(
+            date(2024, 6, 1),
+            date(2023, 1, 1),
+            date(2024, 9, 1),
+            0.05,
+            1000.0,
+            2,
+            Basis::Us30360,
+        )
+        .unwrap();
+        assert!(close(accrued, 12.5), "{accrued}");
+    }
+
+    /// A coupon before the first date or after the last there is: the
+    /// schedule cannot be built, whether the coupons are at a month's end
+    /// or not
+    #[test]
+    fn accrued_interest_at_the_ends_of_the_calendar() {
+        let failed = |issue, first, settlement| {
+            accrued_interest(issue, first, settlement, 0.05, 1000.0, 1, Basis::Us30360)
+                .unwrap_err()
+                .message
+        };
+        let message = "ACCRINT: cannot build the coupon schedule";
+        let first_day = NaiveDate::MIN;
+        assert_eq!(
+            failed(
+                first_day + Days::new(1),
+                first_day + Days::new(200),
+                first_day + Days::new(400)
+            ),
+            message
+        );
+        let last_day = NaiveDate::MAX;
+        let year_before = last_day.checked_sub_months(Months::new(12)).unwrap();
+        assert_eq!(
+            failed(year_before - Days::new(200), year_before, last_day),
+            message
+        );
     }
 }

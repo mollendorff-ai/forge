@@ -105,14 +105,10 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let combined = result_table.columns.get("combined").unwrap();
-        match &combined.values {
-            ColumnValue::Text(texts) => {
-                assert_eq!(texts[0], "Hello World");
-                assert_eq!(texts[1], "Good Day");
-                assert_eq!(texts[2], "Nice Work");
-            },
-            _ => panic!("Expected Text array"),
-        }
+        let texts = combined.values.texts().unwrap();
+        assert_eq!(texts[0], "Hello World");
+        assert_eq!(texts[1], "Good Day");
+        assert_eq!(texts[2], "Nice Work");
     }
 
     #[test]
@@ -127,7 +123,13 @@ mod tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        // A scalar holds a number, so a formula giving text is refused there
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(error.contains("result is not a number"), "{error}");
+        assert_eq!(
+            crate::core::array_calculator::evaluator::tests::text("REPT(\"ab\", 3)"),
+            "ababab"
+        );
     }
 
     #[test]
@@ -142,9 +144,16 @@ mod tests {
             "last".to_string(),
             ColumnValue::Text(vec!["Doe".to_string(), "Smith".to_string()]),
         ));
+        data.add_row_formula(
+            "full".to_string(),
+            "=CONCAT(first, \" \", last)".to_string(),
+        );
         model.add_table(data);
-        let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = ArrayCalculator::new(model).calculate_all().unwrap();
+        assert_eq!(
+            model.tables["data"].columns["full"].values,
+            ColumnValue::Text(vec!["John Doe".to_string(), "Jane Smith".to_string()])
+        );
     }
 
     #[test]
@@ -168,7 +177,11 @@ mod tests {
 
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all();
-        assert!(result.is_ok() || result.is_err());
+        let model = result.unwrap();
+        assert_eq!(
+            model.tables["data"].columns["joined"].values,
+            ColumnValue::Text(vec!["Hello World".to_string()])
+        );
     }
 
     #[test]
@@ -415,7 +428,11 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all();
         // Should handle cross-table text reference
-        assert!(result.is_ok() || result.is_err());
+        let model = result.unwrap();
+        assert_eq!(
+            model.tables["target"].columns["copy_name"].values,
+            ColumnValue::Text(vec!["Alice".to_string(), "Bob".to_string()])
+        );
     }
 
     #[test]
@@ -445,7 +462,11 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all();
         // INDEX function returns text, which may be handled differently
-        assert!(result.is_ok() || result.is_err());
+        let model = result.unwrap();
+        assert_eq!(
+            model.tables["data"].columns["result"].values,
+            ColumnValue::Text(vec!["Second".to_string()])
+        );
     }
 
     /// Tests of the functions added in 10.1: schedules, conveniences, percentiles.
@@ -491,5 +512,26 @@ mod tests {
             assert_eq!(h::sweep_text("CONCAT(1E+20)"), "1E+20");
             assert_exact!(h::sweep_number("LEN(2 / 3)"), 17.0);
         }
+    }
+
+    /// An error in any argument is passed on; REPT refuses a text longer
+    /// than Excel holds; TEXTJOIN reads a number as its ignore-empty flag
+    #[test]
+    fn errors_lengths_and_flags() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        for formula in [
+            "CONCAT(nope)",
+            "REPT(nope, 2)",
+            "TEXTJOIN(nope, TRUE, \"a\")",
+            "TEXTJOIN(\",\", nope, \"a\")",
+            "TEXTJOIN(\",\", TRUE, nope)",
+        ] {
+            h::fails_with(formula, "Unknown variable: nope");
+        }
+        h::fails_with(
+            "REPT(\"ab\", 20000)",
+            "#VALUE!: REPT: the result would be longer than 32,767 characters",
+        );
+        assert_eq!(h::text("TEXTJOIN(\",\", 1, \"a\", \"\", \"b\")"), "a,b");
     }
 }

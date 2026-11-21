@@ -70,8 +70,9 @@ pub fn try_evaluate(
 
         "SWITCH" => {
             // SWITCH(expression, value1, result1, [value2, result2], ..., [default])
-            if args.len() < 2 {
-                return Err(EvalError::new("SWITCH requires at least 2 arguments"));
+            // An expression, then a value and its result, as in Excel
+            if args.len() < 3 {
+                return Err(EvalError::new("SWITCH requires at least 3 arguments"));
             }
 
             let expr_val = evaluate(&args[0], ctx)?;
@@ -402,11 +403,11 @@ mod integration_tests {
             .columns
             .get("result")
             .unwrap();
-        if let ColumnValue::Number(values) = &col.values {
-            assert_exact!(values[0], 25.0);
-            assert_exact!(values[1], 45.0);
-            assert_exact!(values[2], 65.0);
-        }
+        let values = col.values.numbers().unwrap();
+        let values = values.as_ref();
+        assert_exact!(values[0], 25.0);
+        assert_exact!(values[1], 45.0);
+        assert_exact!(values[2], 65.0);
     }
 
     #[test]
@@ -434,11 +435,11 @@ mod integration_tests {
             .columns
             .get("label")
             .unwrap();
-        if let ColumnValue::Number(values) = &col.values {
-            assert_exact!(values[0], 100.0);
-            assert_exact!(values[1], 200.0);
-            assert_exact!(values[2], 0.0);
-        }
+        let values = col.values.numbers().unwrap();
+        let values = values.as_ref();
+        assert_exact!(values[0], 100.0);
+        assert_exact!(values[1], 200.0);
+        assert_exact!(values[2], 0.0);
     }
 
     #[test]
@@ -470,12 +471,10 @@ mod integration_tests {
             .columns
             .get("product")
             .unwrap();
-        if let ColumnValue::Number(values) = &col.values {
-            assert_exact!(values[0], 6.0, "2 * 3 = 6");
-            assert_exact!(values[1], 12.0, "3 * 4 = 12");
-        } else {
-            panic!("Expected number column");
-        }
+        let values = col.values.numbers().unwrap();
+        let values = values.as_ref();
+        assert_exact!(values[0], 6.0, "2 * 3 = 6");
+        assert_exact!(values[1], 12.0, "3 * 4 = 12");
     }
 
     #[test]
@@ -535,7 +534,11 @@ mod integration_tests {
 
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all();
-        assert!(result.is_ok() || result.is_err());
+        let model = result.unwrap();
+        assert_eq!(
+            model.tables["data"].columns["value"].values,
+            ColumnValue::Number(vec![100.0, 200.0, 300.0])
+        );
     }
 
     #[test]
@@ -554,7 +557,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 100.0);
     }
 
     #[test]
@@ -573,7 +577,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), -1.0);
     }
 
     #[test]
@@ -587,8 +592,13 @@ mod integration_tests {
                 Some("=SWITCH(1, 2)".to_string()),
             ),
         );
+        // An expression, a value and its result at least, as in Excel
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let error = calculator.calculate_all().unwrap_err().to_string();
+        assert!(
+            error.contains("SWITCH requires at least 3 arguments"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -603,7 +613,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 10.0);
     }
 
     #[test]
@@ -618,7 +629,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 20.0);
     }
 
     #[test]
@@ -633,7 +645,8 @@ mod integration_tests {
             ),
         );
         let calculator = ArrayCalculator::new(model);
-        let _ = calculator.calculate_all();
+        let model = calculator.calculate_all().unwrap();
+        assert_exact!(model.scalars["result"].value.unwrap(), 30.0);
     }
 }
 
@@ -901,5 +914,26 @@ mod edge_case_tests {
         assert!(e.contains("Division by zero"), "{e}");
         assert!(h::error_in("PREV(t.x, 0, 1.5)", &ctx).contains("whole number"));
         assert!(h::error_in("PREV(t.x, 0, 1E+10)", &ctx).contains("whole number"));
+    }
+
+    /// A LAMBDA's parameters and a LET's names must be names; an error in
+    /// any part of LET or SWITCH is passed on; SWITCH with no match and no
+    /// default is #N/A
+    #[test]
+    fn names_errors_and_no_match() {
+        use crate::core::array_calculator::evaluator::tests::fails_with;
+        fails_with("LAMBDA(1, 2)", "LAMBDA parameter 1 must be an identifier");
+        fails_with("LET(1, 2, 3)", "LET variable name must be an identifier");
+        for formula in [
+            "LET(x, nope, x)",
+            "LET(x, 1, nope)",
+            "SWITCH(nope, 1, 2)",
+            "SWITCH(1, nope, 2)",
+            "SWITCH(1, 1, nope)",
+            "SWITCH(1, 2, 3, nope)",
+        ] {
+            fails_with(formula, "Unknown variable: nope");
+        }
+        fails_with("SWITCH(1, 2, 3)", "#N/A: SWITCH: no match found");
     }
 }
