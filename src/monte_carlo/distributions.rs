@@ -423,7 +423,10 @@ impl Distribution {
     #[must_use]
     pub fn theoretical_variance(&self) -> f64 {
         match &self.dist_type {
-            DistributionType::Normal { stdev, .. } => stdev * stdev,
+            // A lognormal's mean and stdev are its own, not the log-space ones
+            DistributionType::Normal { stdev, .. } | DistributionType::Lognormal { stdev, .. } => {
+                stdev * stdev
+            },
             DistributionType::Triangular { min, mode, max } => {
                 // Correct formula: Var = (a^2 + b^2 + c^2 - ab - ac - bc) / 18
                 #[allow(clippy::suspicious_operation_groupings)]
@@ -436,10 +439,6 @@ impl Distribution {
                 let mean = (min + 4.0 * mode + max) / 6.0;
                 // PERT variance approximation
                 ((max - min) / 6.0).powi(2) * (1.0 + (mode - mean).abs() / (max - min))
-            },
-            DistributionType::Lognormal { mean, stdev } => {
-                let variance = stdev * stdev;
-                ((variance / (mean * mean)).ln() + 1.0).exp_m1()
             },
             DistributionType::Discrete {
                 values,
@@ -824,15 +823,13 @@ mod tests {
         let row = parse_distribution("MC.Discrete({0, 0.3}, {0.9, 0.1})").unwrap();
         let column = parse_distribution("MC.Discrete( {0; 0.3} , {0.9; 0.1} )").unwrap();
         for dist in [&row, &column] {
-            let DistributionType::Discrete {
-                values,
-                probabilities,
-            } = &dist.dist_type
-            else {
-                panic!("{}", dist.dist_type);
-            };
-            assert_eq!(values, &[0.0, 0.3]);
-            assert_eq!(probabilities, &[0.9, 0.1]);
+            assert_eq!(
+                dist.dist_type,
+                DistributionType::Discrete {
+                    values: vec![0.0, 0.3],
+                    probabilities: vec![0.9, 0.1],
+                }
+            );
         }
         // The first 90% of the probability is no frost, the last 10% a frost
         assert_exact!(row.inverse_cdf(0.9), 0.0);
@@ -954,15 +951,148 @@ mod tests {
         let triangular = Distribution::triangular(0.0, 5.0, 10.0).unwrap();
         assert_exact!(triangular.theoretical_mean(), 5.0);
     }
+    #[test]
+    fn constructors_refuse_each_bad_shape_with_its_own_message() {
+        let cases = [
+            (
+                Distribution::triangular(0.0, 5.0, 1.0),
+                "Triangular distribution requires min <= mode <= max",
+            ),
+            (
+                Distribution::uniform(2.0, 1.0),
+                "Uniform distribution requires min < max",
+            ),
+            (
+                Distribution::pert(2.0, 2.0, 1.0),
+                "PERT distribution requires min < max",
+            ),
+            (
+                Distribution::pert(0.0, 5.0, 1.0),
+                "PERT distribution requires min <= mode <= max",
+            ),
+            (
+                Distribution::lognormal(1.0, 0.0),
+                "Lognormal distribution stdev must be > 0",
+            ),
+            (
+                Distribution::lognormal(0.0, 1.0),
+                "Lognormal distribution mean must be > 0",
+            ),
+            (
+                Distribution::discrete(vec![], vec![]),
+                "Discrete distribution requires at least one value",
+            ),
+            (
+                Distribution::discrete(vec![1.0, 2.0], vec![-0.5, 1.5]),
+                "Discrete distribution probabilities must be >= 0",
+            ),
+        ];
+        for (result, expected) in cases {
+            refused_with(result, expected);
+        }
+    }
+
+    #[test]
+    fn lognormal_and_discrete_draws_follow_their_distribution() {
+        let mut rng = seeded_rng();
+        let lognormal = Distribution::lognormal(100.0, 20.0).unwrap();
+        let draws = lognormal.sample_n(&mut rng, 20_000);
+        let mean = draws.iter().sum::<f64>() / precision::count(draws.len());
+        assert!((mean - 100.0).abs() < 1.0, "mean {mean}");
+        assert!(draws.iter().all(|x| *x > 0.0));
+
+        let discrete = Distribution::discrete(vec![1.0, 5.0], vec![0.25, 0.75]).unwrap();
+        let draws = discrete.sample_n(&mut rng, 20_000);
+        let fives = draws.iter().filter(|x| (**x - 5.0).abs() < 1e-9).count();
+        let share = precision::count(fives) / precision::count(draws.len());
+        assert!((share - 0.75).abs() < 0.02, "share {share}");
+        let ones = draws.iter().filter(|x| (**x - 1.0).abs() < 1e-9).count();
+        assert_eq!(ones + fives, draws.len());
+    }
+
+    #[test]
+    fn theoretical_moments_of_every_distribution() {
+        let close = |a: f64, b: f64| assert!((a - b).abs() < 1e-9, "{a} vs {b}");
+        let normal = Distribution::normal(10.0, 3.0).unwrap();
+        close(normal.theoretical_mean(), 10.0);
+        close(normal.theoretical_variance(), 9.0);
+        let triangular = Distribution::triangular(0.0, 3.0, 6.0).unwrap();
+        close(triangular.theoretical_mean(), 3.0);
+        close(triangular.theoretical_variance(), 1.5);
+        let uniform = Distribution::uniform(0.0, 12.0).unwrap();
+        close(uniform.theoretical_mean(), 6.0);
+        close(uniform.theoretical_variance(), 12.0);
+        let pert = Distribution::pert(0.0, 6.0, 12.0).unwrap();
+        close(pert.theoretical_mean(), 6.0);
+        close(pert.theoretical_variance(), 4.0);
+        let lognormal = Distribution::lognormal(100.0, 50.0).unwrap();
+        close(lognormal.theoretical_mean(), 100.0);
+        close(lognormal.theoretical_variance(), 2500.0);
+        let discrete = Distribution::discrete(vec![0.0, 10.0], vec![0.5, 0.5]).unwrap();
+        close(discrete.theoretical_mean(), 5.0);
+        close(discrete.theoretical_variance(), 25.0);
+    }
+
+    #[test]
+    fn inverse_cdf_of_lognormal_and_discrete() {
+        let lognormal = Distribution::lognormal(100.0, 50.0).unwrap();
+        let (mu, _) = lognormal_params(100.0, 50.0);
+        assert!((lognormal.inverse_cdf(0.5) - mu.exp()).abs() < 1e-6);
+        let discrete = Distribution::discrete(vec![1.0, 2.0], vec![0.5, 0.5]).unwrap();
+        assert!((discrete.inverse_cdf(0.4) - 1.0).abs() < f64::EPSILON);
+        assert!((discrete.inverse_cdf(0.6) - 2.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn an_empty_range_gives_the_mode_everywhere() {
+        let pert = Distribution {
+            dist_type: DistributionType::PERT {
+                min: 4.0,
+                mode: 4.0,
+                max: 4.0,
+            },
+        };
+        assert!((pert.inverse_cdf(0.3) - 4.0).abs() < f64::EPSILON);
+        assert!((sample_pert(&mut seeded_rng(), 4.0, 4.0, 4.0) - 4.0).abs() < f64::EPSILON);
+        assert!((triangular_quantile(4.0, 4.0, 4.0, 0.3) - 4.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn discrete_quantile_past_a_short_total_gives_the_last_value() {
+        let values = [1.0, 2.0];
+        assert!((discrete_quantile(&values, &[0.3, 0.3], 0.9) - 2.0).abs() < f64::EPSILON);
+        assert!(discrete_quantile(&[], &[], 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn parse_distribution_refuses_malformed_formulas() {
+        let cases = [
+            ("MC.Normal 1, 2", "Missing opening parenthesis"),
+            ("MC.Normal(1, 2", "Missing closing parenthesis"),
+            ("MC.Normal(1, x)", "Invalid argument"),
+            ("MC.Normal(1)", "MC.Normal requires 2 arguments"),
+            ("MC.Triangular(1, 2)", "MC.Triangular requires 3 arguments"),
+            ("MC.Uniform(1)", "MC.Uniform requires 2 arguments"),
+            ("MC.PERT(1, 2)", "MC.PERT requires 3 arguments"),
+            ("MC.Lognormal(1)", "MC.Lognormal requires 2 arguments"),
+            ("MC.Bogus(1)", "Unknown distribution type: Bogus"),
+        ];
+        for (formula, expected) in cases {
+            refused_with(parse_distribution(formula), expected);
+        }
+    }
+
     // Non-finite parameters (roadmap T1-NONFINITE)
 
     const NOT_FINITE: [f64; 3] = [f64::INFINITY, f64::NEG_INFINITY, f64::NAN];
 
     fn refused_with(result: Result<Distribution, String>, expected: &str) {
-        match result {
-            Ok(dist) => panic!("{} was accepted; expected: {expected}", dist.dist_type),
-            Err(message) => assert!(message.contains(expected), "{message}"),
-        }
+        // An accepted distribution leaves no message, which fails the check
+        let message = result.err().unwrap_or_default();
+        assert!(
+            message.contains(expected),
+            "expected '{expected}', got '{message}'"
+        );
     }
 
     /// The draws the engine can take: the quantiles at both ends and in between
