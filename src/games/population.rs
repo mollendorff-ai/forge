@@ -309,7 +309,7 @@ pub(crate) mod tests {
         });
         let p = population(&table).unwrap();
         assert!(p.degenerate);
-        assert!(p.rests.is_empty());
+        assert_eq!(p.rests, Vec::<Rest>::new());
         assert_eq!(p.rest_at(0.0), None);
     }
 
@@ -359,9 +359,9 @@ pub(crate) mod tests {
         let found = mixes(&to_bernstein(&power_of_roots(&r)));
         assert!(close(&found, &r, 1e-9), "{found:?}");
         // A constant, nonzero g: no mix
-        assert!(mixes(&[1.0, 1.0, 1.0]).is_empty());
+        assert_eq!(mixes(&[1.0, 1.0, 1.0]), Vec::<f64>::new());
         // A root at both ends, divided out down to a constant
-        assert!(mixes(&[0.0, 2.0, 0.0]).is_empty());
+        assert_eq!(mixes(&[0.0, 2.0, 0.0]), Vec::<f64>::new());
     }
 
     /// The coefficients of 1, x, x², … of Π (x − rᵢ).
