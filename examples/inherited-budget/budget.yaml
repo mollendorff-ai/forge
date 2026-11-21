@@ -1,0 +1,144 @@
+# Kestrel Coffee Roasters' FY2027 budget, as forge import read it from the
+# workbook the team inherited (budget.xlsx), with two changes the import
+# pointed to and one new assumption. See README.md for the steps.
+#
+#  - monthly.staff was =IF(ROW() = 10, 21000, assumptions.staff): October's
+#    staff cost was typed into the workbook. It reads the assumption again.
+#  - summary.h2_revenue_over_h1 was a number: the workbook summed part of a
+#    column (Monthly!D11:D16), which Forge does not read. SUMIFS by month
+#    calculates it.
+#  - assumptions.staff is 22,500 a month, was 21,000: a pay rise.
+_forge_version: "5.4.0"
+
+monthly:
+  month:
+    value:
+    - 2027-01-01
+    - 2027-02-01
+    - 2027-03-01
+    - 2027-04-01
+    - 2027-05-01
+    - 2027-06-01
+    - 2027-07-01
+    - 2027-08-01
+    - 2027-09-01
+    - 2027-10-01
+    - 2027-11-01
+    - 2027-12-01
+    format: mmm\ yy
+  volume_kg:
+    formula: =IF(ROW() = 1, assumptions.opening_volume, PREV(volume_kg, 0) * (1 + assumptions.volume_growth))
+    format: '#,##0'
+  price:
+    formula: =IF(ROW() <= 6, assumptions.price, assumptions.price * (1 + assumptions.price_rise_from_july))
+    format: \$#,##0.00
+  revenue:
+    formula: =volume_kg * price
+    format: '#,##0'
+  cogs:
+    formula: =volume_kg * (assumptions.green_coffee + assumptions.roasting_and_packing)
+    format: '#,##0'
+  gross_margin:
+    formula: =revenue - cogs
+    format: '#,##0'
+  rent:
+    formula: =assumptions.rent
+    format: '#,##0'
+  staff:
+    formula: =assumptions.staff
+    format: '#,##0'
+  ebitda:
+    formula: =gross_margin - rent - staff
+    format: '#,##0'
+assumptions:
+  opening_volume:
+    value: 4200
+    format: '#,##0'
+    unit: kg a month
+    notes: January, from the 2026 run rate
+  volume_growth:
+    value: 0.015
+    format: 0.0%
+    unit: a month
+  price:
+    value: 38.5
+    format: \$#,##0.00
+    unit: $ per kg
+    notes: wholesale list price
+  green_coffee:
+    value: 14.2
+    format: \$#,##0.00
+    unit: $ per kg
+  roasting_and_packing:
+    value: 3.1
+    format: \$#,##0.00
+    unit: $ per kg
+  rent:
+    value: 6500
+    format: '#,##0'
+    unit: $ a month
+  staff:
+    value: 22500
+    format: '#,##0'
+    unit: $ a month
+  price_rise_from_july:
+    value: 0.04
+    format: 0.0%
+    notes: agreed with the two big accounts
+  tax_rate:
+    value: 0.25
+    format: 0.0%
+monthly_total:
+  volume_kg:
+    formula: =SUM(monthly.volume_kg)
+    value: 54773.0880092299
+  price:
+    formula: =monthly_total.revenue / monthly_total.volume_kg
+    value: 39.304369841531
+  revenue:
+    formula: =SUM(monthly.revenue)
+    value: 2152821.7084775
+  cogs:
+    formula: =SUM(monthly.cogs)
+    value: 947574.422559677
+  gross_margin:
+    formula: =SUM(monthly.gross_margin)
+    value: 1205247.28591782
+  rent:
+    formula: =SUM(monthly.rent)
+    value: 78000
+  staff:
+    formula: =SUM(monthly.staff)
+    value: 270000
+  ebitda:
+    formula: =SUM(monthly.ebitda)
+    value: 857247.28591782
+summary:
+  revenue:
+    formula: =monthly_total.revenue
+    value: 2152821.7084775
+    format: '#,##0'
+  gross_margin:
+    formula: =monthly_total.gross_margin
+    value: 1205247.28591782
+    format: '#,##0'
+  gross_margin_pct:
+    formula: =summary.gross_margin / summary.revenue
+    value: 0.559845379286047
+    format: 0.0%
+  ebitda:
+    formula: =monthly_total.ebitda
+    value: 857247.28591782
+    format: '#,##0'
+  tax:
+    formula: =MAX(0, summary.ebitda * assumptions.tax_rate)
+    value: 214311.821479455
+    format: '#,##0'
+  net_income:
+    formula: =summary.ebitda - summary.tax
+    value: 642935.464438365
+    format: '#,##0'
+  h2_revenue_over_h1:
+    formula: =SUMIFS(monthly.revenue, monthly.month, ">=2027-07-01") / SUMIFS(monthly.revenue, monthly.month, "<2027-07-01") - 1
+    value: 0.137180994500346
+    format: 0.0%

@@ -125,18 +125,18 @@ fn scalars_to_value(
     let mut map = Mapping::new();
     for (path, variable) in scalars {
         let format = variable.metadata.format.as_ref();
+        let described = variable.metadata.unit.is_some() || variable.metadata.notes.is_some();
         let entry = match (&variable.formula, variable.value) {
-            // An input with a format: is a mapping (ADR-061)
-            (None, Some(value)) if format.is_some() => {
+            // An input with a format:, unit: or notes: is a mapping (ADR-061)
+            (None, Some(value)) if format.is_some() || described => {
                 let mut entry = Mapping::new();
                 let value = variable
                     .date_text()
                     .map_or_else(|| number(value), Value::String);
                 entry.insert(Value::from("value"), value);
-                entry.insert(
-                    Value::from("format"),
-                    Value::from(format.cloned().unwrap_or_default()),
-                );
+                if let Some(format) = format {
+                    entry.insert(Value::from("format"), Value::from(format.clone()));
+                }
                 Value::Mapping(entry)
             },
             // A date input is its text (ADR-060)
@@ -161,6 +161,19 @@ fn scalars_to_value(
                 entry.insert(Value::from("value"), Value::Null);
                 Value::Mapping(entry)
             },
+        };
+        // A unit and notes from a sheet of labels (`Unit`, `Notes` columns)
+        let entry = match entry {
+            Value::Mapping(mut long) => {
+                let metadata = &variable.metadata;
+                for (key, text) in [("unit", &metadata.unit), ("notes", &metadata.notes)] {
+                    if let Some(text) = text {
+                        long.insert(Value::from(key), Value::from(text.clone()));
+                    }
+                }
+                Value::Mapping(long)
+            },
+            plain => plain,
         };
         match path.split_once('.') {
             Some((group, name)) => {

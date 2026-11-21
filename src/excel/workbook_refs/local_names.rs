@@ -506,6 +506,7 @@ mod tests {
                     include: None,
                 },
             )]),
+            names: HashMap::new(),
         };
         assert_eq!(
             back.to_forge("=_xlfn.LET(_xlpm.a, 10, _xlpm.a * $B$2)", "g", 0)

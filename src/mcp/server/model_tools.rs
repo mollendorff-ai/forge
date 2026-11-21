@@ -765,6 +765,31 @@ scalars:
         }
     }
 
+    /// examples/inherited-budget (`inherited_budget` in `cli/commands/excel_io`):
+    /// the workbook Forge did not write, imported by the tool, calculates to the
+    /// net income `LibreOffice` stored in it, and the tool names the three things
+    /// the import did not find as Forge holds them.
+    #[test]
+    fn import_reads_the_inherited_workbook_to_its_own_net_income() {
+        let server = ForgeMcpServer::new();
+        let dir = TempDir::new().unwrap();
+        let yaml = dir.path().join("budget.yaml");
+        let imported = json(&ok_text(server.import(Parameters(ImportRequest {
+            excel_path: "examples/inherited-budget/budget.xlsx".into(),
+            yaml_path: yaml.to_str().unwrap().into(),
+        }))));
+        assert_eq!(imported["warnings"].as_array().unwrap().len(), 3);
+        let back = json(&ok_text(server.calculate(Parameters(CalculateRequest {
+            file_path: Some(yaml.to_str().unwrap().into()),
+            content: None,
+            includes: None,
+            dry_run: true,
+            scenario: None,
+        }))));
+        let net = back["scalars"]["summary.net_income"].as_f64().unwrap();
+        assert!(close(net, 656_435.464_438_365, 1e-9), "{net}");
+    }
+
     /// examples/acquisition (`the_plan_matches_the_independent_calculation` in
     /// cli/commands/prediction/scenarios.rs, the Python is quoted there): the plan
     /// reads Valdane and Quillon from two included files.
