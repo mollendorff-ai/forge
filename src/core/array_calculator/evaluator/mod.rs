@@ -15,6 +15,7 @@ mod lookup;
 mod math;
 pub(crate) use criterion::Criterion;
 mod normal;
+pub(crate) use normal::standard_cdf;
 mod regression;
 mod schedule;
 mod scope;

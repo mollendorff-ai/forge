@@ -738,7 +738,7 @@ Real Options Analysis values the flexibility to make future decisions (defer, ex
 
 **Key Features:**
 - Six option types: Defer, Expand, Contract, Abandon, Switch, Compound
-- Three valuation methods: Black-Scholes, Binomial Tree, Monte Carlo
+- Two valuation methods: Black-Scholes and a binomial tree. `method: monte_carlo` is accepted but is not a simulation yet: it values each option on a binomial tree of 200 steps, and `monte_carlo_iterations` is not used
 - Models volatility and time value explicitly
 - Supports American and European exercise styles
 - Integrates with Monte Carlo uncertainty
