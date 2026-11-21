@@ -153,7 +153,6 @@ tempfile = { version = "3.8", optional = true }
 sha2 = { version = "0.11", optional = true }
 
 # Monte Carlo simulation
-rand_distr = "0.6"  # Distribution sampling (Normal, Triangular, PERT, etc.)
 # Statistical functions (CDF), with no features: Forge uses neither nalgebra
 # nor rand from statrs, and even its std feature names nalgebra (weakly), so
 # that clippy counted the four versions of glam nalgebra can convert to

@@ -7,8 +7,6 @@
 //! - MC.PERT(min, mode, max) - Smooth project estimates
 //! - MC.Lognormal(mean, stdev) - Non-negative values (Phase 4)
 
-use rand::{Rng, RngExt};
-use rand_distr::{Distribution as RandDistribution, Normal, Triangular, Uniform};
 use statrs::distribution::{Beta, ContinuousCDF, Normal as StandardNormal};
 use std::fmt;
 
@@ -120,12 +118,22 @@ impl fmt::Display for DistributionType {
     }
 }
 
-/// A distribution that can be sampled
+/// A distribution the engine draws from through [`Distribution::inverse_cdf`].
+///
+/// Only the checked constructors build one, so its parameters are finite,
+/// `min < max` with `max - min` finite, and its draws are finite.
+#[derive(Debug, Clone)]
 pub struct Distribution {
-    pub dist_type: DistributionType,
+    dist_type: DistributionType,
 }
 
 impl Distribution {
+    /// The kind of distribution and its parameters
+    #[must_use]
+    pub const fn dist_type(&self) -> &DistributionType {
+        &self.dist_type
+    }
+
     /// Create a Normal distribution
     ///
     /// # Errors
@@ -282,39 +290,6 @@ impl Distribution {
         }
     }
 
-    /// Sample a single value from the distribution
-    ///
-    /// # Panics
-    ///
-    /// Panics if the underlying `rand_distr` distribution cannot be constructed
-    /// (should not happen with validated parameters).
-    pub fn sample<R: Rng>(&self, rng: &mut R) -> f64 {
-        match &self.dist_type {
-            DistributionType::Normal { mean, stdev } => {
-                let dist = Normal::new(*mean, *stdev).unwrap();
-                dist.sample(rng)
-            },
-            DistributionType::Triangular { min, mode, max } => {
-                let dist = Triangular::new(*min, *max, *mode).unwrap();
-                dist.sample(rng)
-            },
-            DistributionType::Uniform { min, max } => {
-                let dist = Uniform::new(*min, *max).unwrap();
-                dist.sample(rng)
-            },
-            DistributionType::PERT { min, mode, max } => {
-                // PERT is a scaled Beta distribution
-                // Shape parameters based on PERT formula
-                sample_pert(rng, *min, *mode, *max)
-            },
-            DistributionType::Lognormal { mean, stdev } => sample_lognormal(rng, *mean, *stdev),
-            DistributionType::Discrete {
-                values,
-                probabilities,
-            } => sample_discrete(rng, values, probabilities),
-        }
-    }
-
     /// Value at cumulative probability `p`: the inverse CDF, or quantile function.
     ///
     /// Mapping uniform draws through this function gives samples with exactly
@@ -338,9 +313,6 @@ impl Distribution {
             DistributionType::Uniform { min, max } => p.mul_add(max - min, *min),
             DistributionType::PERT { min, mode, max } => {
                 let range = max - min;
-                if range <= 0.0 {
-                    return *mode;
-                }
                 let (alpha, beta) = pert_shape(*min, *mode, *max);
                 let x = Beta::new(alpha, beta)
                     .expect("PERT shape parameters are at least 1")
@@ -387,92 +359,6 @@ impl Distribution {
             },
         }
     }
-
-    /// Sample multiple values from the distribution
-    pub fn sample_n<R: Rng>(&self, rng: &mut R, n: usize) -> Vec<f64> {
-        (0..n).map(|_| self.sample(rng)).collect()
-    }
-
-    /// Get theoretical mean of the distribution
-    #[must_use]
-    pub fn theoretical_mean(&self) -> f64 {
-        match &self.dist_type {
-            DistributionType::Normal { mean, .. } => *mean,
-            DistributionType::Triangular { min, mode, max } => (min + mode + max) / 3.0,
-            DistributionType::Uniform { min, max } => (min + max) / 2.0,
-            DistributionType::PERT { min, mode, max } => (min + 4.0 * mode + max) / 6.0,
-            DistributionType::Lognormal { mean, stdev } => {
-                // For lognormal, mean of log-space params
-                let variance = stdev * stdev;
-                let mu = (mean * mean / (mean * mean + variance).sqrt()).ln();
-                let sigma_sq = (variance / (mean * mean)).ln_1p();
-                (mu + sigma_sq / 2.0).exp()
-            },
-            DistributionType::Discrete {
-                values,
-                probabilities,
-            } => values
-                .iter()
-                .zip(probabilities.iter())
-                .map(|(v, p)| v * p)
-                .sum(),
-        }
-    }
-
-    /// Get theoretical variance of the distribution
-    #[must_use]
-    pub fn theoretical_variance(&self) -> f64 {
-        match &self.dist_type {
-            DistributionType::Normal { stdev, .. } => stdev * stdev,
-            DistributionType::Triangular { min, mode, max } => {
-                // Correct formula: Var = (a^2 + b^2 + c^2 - ab - ac - bc) / 18
-                #[allow(clippy::suspicious_operation_groupings)]
-                let numerator =
-                    min * min + mode * mode + max * max - min * mode - min * max - mode * max;
-                numerator / 18.0
-            },
-            DistributionType::Uniform { min, max } => (max - min).powi(2) / 12.0,
-            DistributionType::PERT { min, mode, max } => {
-                let mean = (min + 4.0 * mode + max) / 6.0;
-                // PERT variance approximation
-                ((max - min) / 6.0).powi(2) * (1.0 + (mode - mean).abs() / (max - min))
-            },
-            DistributionType::Lognormal { mean, stdev } => {
-                let variance = stdev * stdev;
-                ((variance / (mean * mean)).ln() + 1.0).exp_m1()
-            },
-            DistributionType::Discrete {
-                values,
-                probabilities,
-            } => {
-                let mean = self.theoretical_mean();
-                values
-                    .iter()
-                    .zip(probabilities.iter())
-                    .map(|(v, p)| p * (v - mean).powi(2))
-                    .sum()
-            },
-        }
-    }
-}
-
-/// Sample from PERT (Beta-PERT) distribution
-fn sample_pert<R: Rng>(rng: &mut R, min: f64, mode: f64, max: f64) -> f64 {
-    // PERT uses Beta distribution with shape parameters
-    // alpha = 1 + 4 * (mode - min) / (max - min)
-    // beta = 1 + 4 * (max - mode) / (max - min)
-    let range = max - min;
-    if range <= 0.0 {
-        return mode;
-    }
-
-    let (alpha, beta) = pert_shape(min, mode, max);
-
-    // Sample from Beta using rejection method or gamma ratio
-    let x = sample_beta(rng, alpha, beta);
-
-    // Scale to [min, max]
-    x.mul_add(range, min)
 }
 
 /// Beta shape parameters of a PERT distribution with `max > min`
@@ -490,9 +376,6 @@ fn pert_shape(min: f64, mode: f64, max: f64) -> (f64, f64) {
 /// Quantile of the triangular distribution, in closed form
 fn triangular_quantile(min: f64, mode: f64, max: f64, p: f64) -> f64 {
     let range = max - min;
-    if range <= 0.0 {
-        return mode;
-    }
     let mode_probability = (mode - min) / range;
     if p < mode_probability {
         min + sqrt_of_product(p, range, mode - min)
@@ -535,35 +418,6 @@ fn discrete_quantile(values: &[f64], probabilities: &[f64], p: f64) -> f64 {
     }
     // Rounding can leave the total just below 1
     *values.last().unwrap_or(&0.0)
-}
-
-/// Sample from Beta distribution using gamma ratio method
-fn sample_beta<R: Rng>(rng: &mut R, alpha: f64, beta: f64) -> f64 {
-    use rand_distr::Gamma;
-
-    let gamma_a = Gamma::new(alpha, 1.0).unwrap();
-    let gamma_b = Gamma::new(beta, 1.0).unwrap();
-
-    let x: f64 = gamma_a.sample(rng);
-    let y: f64 = gamma_b.sample(rng);
-
-    x / (x + y)
-}
-
-/// Sample from Lognormal distribution
-fn sample_lognormal<R: Rng>(rng: &mut R, mean: f64, stdev: f64) -> f64 {
-    // Convert mean/stdev of lognormal to underlying normal parameters
-    let (mu, sigma) = lognormal_params(mean, stdev);
-
-    let normal = Normal::new(mu, sigma).unwrap();
-    let z: f64 = normal.sample(rng);
-    z.exp()
-}
-
-/// Sample from Discrete distribution
-fn sample_discrete<R: Rng>(rng: &mut R, values: &[f64], probabilities: &[f64]) -> f64 {
-    let u: f64 = rng.random();
-    discrete_quantile(values, probabilities, u)
 }
 
 /// Parse a distribution from formula string (e.g., "`MC.Normal(100, 15)`")
@@ -691,121 +545,233 @@ fn numbers(items: &str, what: &str) -> Result<Vec<f64>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::precision;
-    use rand::rngs::StdRng;
-    use rand::SeedableRng;
 
-    fn seeded_rng() -> StdRng {
-        StdRng::seed_from_u64(12345)
+    /// The quantiles the engine draws through, at five probabilities, against
+    /// scipy 1.18.1 (`stats.norm`, `triang`, `uniform`, `beta` scaled to the
+    /// range for PERT, `lognorm` with the mean and stdev turned into `mu` and
+    /// `sigma`), to within 1e-9 of each value.
+    #[test]
+    fn each_quantile_is_scipys() {
+        let probabilities = [0.025, 0.1, 0.5, 0.9, 0.975];
+        let cases: [(&str, [f64; 5]); 6] = [
+            (
+                "MC.Normal(100, 15)",
+                [
+                    70.600_540_231_899_17,
+                    80.776_726_516_830_99,
+                    100.0,
+                    119.223_273_483_169_01,
+                    129.399_459_768_100_83,
+                ],
+            ),
+            (
+                "MC.Triangular(0, 5, 10)",
+                [
+                    1.118_033_988_749_895,
+                    2.236_067_977_499_79,
+                    5.0,
+                    7.763_932_022_500_21,
+                    8.881_966_011_250_103,
+                ],
+            ),
+            (
+                "MC.Triangular(0, 2, 10)",
+                [
+                    0.707_106_781_186_547_7,
+                    1.414_213_562_373_095_4,
+                    3.675_444_679_663_241,
+                    7.171_572_875_253_81,
+                    8.585_786_437_626_904,
+                ],
+            ),
+            ("MC.Uniform(10, 20)", [10.25, 11.0, 15.0, 19.0, 19.75]),
+            (
+                "MC.PERT(0, 3, 10)",
+                [
+                    0.680_956_639_218_361,
+                    1.361_999_625_636_714_2,
+                    3.509_994_849_491_181_2,
+                    6.207_544_856_651_202,
+                    7.475_513_729_654_873,
+                ],
+            ),
+            (
+                "MC.Lognormal(2000, 500)",
+                [
+                    1_197.518_154_290_320_1,
+                    1_415.227_613_115_077_5,
+                    1_940.285_000_290_663,
+                    2_660.141_624_898_338,
+                    3_143.756_834_804_729,
+                ],
+            ),
+        ];
+        for (formula, expected) in cases {
+            let dist = parse_distribution(formula).unwrap();
+            let got = probabilities.map(|p| dist.inverse_cdf(p));
+            let close = got
+                .iter()
+                .zip(expected)
+                .all(|(g, e)| (g - e).abs() <= 1e-9 * e.abs().max(1.0));
+            assert_eq!((formula, close), (formula, true), "{got:?}");
+        }
     }
 
+    /// A discrete distribution's probabilities may sum to 1 within 0.001; a
+    /// draw above their total is the last value.
     #[test]
-    fn test_normal_distribution() {
-        let dist = Distribution::normal(100.0, 15.0).unwrap();
-        let mut rng = seeded_rng();
+    fn a_draw_above_a_discrete_total_just_below_one_is_the_last_value() {
+        let dist = Distribution::discrete(vec![1.0, 2.0], vec![0.5, 0.4995]).unwrap();
+        assert_exact!(dist.inverse_cdf(0.9999), 2.0);
+        assert_exact!(dist.inverse_cdf(0.5), 1.0);
+        assert_exact!(dist.inverse_cdf(0.5001), 2.0);
+    }
 
-        let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
-        let variance: f64 = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
-            / precision::count(samples.len());
-
-        // Mean should be within 2% of theoretical
-        assert!((mean - 100.0).abs() < 2.0, "Mean {mean} not close to 100");
-        // Variance should be within 10% of theoretical (15^2 = 225)
-        assert!(
-            (variance - 225.0).abs() < 30.0,
-            "Variance {variance} not close to 225"
+    /// Each parameter check, with its message
+    #[test]
+    fn each_distribution_names_the_parameters_it_refuses() {
+        for (formula, expected) in [
+            (
+                "MC.Triangular(0, 11, 10)",
+                "Triangular distribution requires min <= mode <= max",
+            ),
+            (
+                "MC.Triangular(0, -1, 10)",
+                "Triangular distribution requires min <= mode <= max",
+            ),
+            (
+                "MC.Triangular(10, 5, 10)",
+                "Triangular distribution requires min < max",
+            ),
+            (
+                "MC.Uniform(20, 10)",
+                "Uniform distribution requires min < max",
+            ),
+            (
+                "MC.Uniform(10, 10)",
+                "Uniform distribution requires min < max",
+            ),
+            (
+                "MC.PERT(10, 10, 10)",
+                "PERT distribution requires min < max",
+            ),
+            (
+                "MC.PERT(0, 11, 10)",
+                "PERT distribution requires min <= mode <= max",
+            ),
+            (
+                "MC.PERT(0, -1, 10)",
+                "PERT distribution requires min <= mode <= max",
+            ),
+            (
+                "MC.Lognormal(10, 0)",
+                "Lognormal distribution stdev must be > 0",
+            ),
+            (
+                "MC.Lognormal(0, 1)",
+                "Lognormal distribution mean must be > 0",
+            ),
+            (
+                "MC.Lognormal(-5, 1)",
+                "Lognormal distribution mean must be > 0",
+            ),
+            (
+                "MC.Normal(100)",
+                "MC.Normal requires 2 arguments: (mean, stdev)",
+            ),
+            (
+                "MC.Triangular(0, 5)",
+                "MC.Triangular requires 3 arguments: (min, mode, max)",
+            ),
+            (
+                "MC.Uniform(1, 2, 3)",
+                "MC.Uniform requires 2 arguments: (min, max)",
+            ),
+            (
+                "MC.PERT(0, 5)",
+                "MC.PERT requires 3 arguments: (min, mode, max)",
+            ),
+            (
+                "MC.Lognormal(5)",
+                "MC.Lognormal requires 2 arguments: (mean, stdev)",
+            ),
+            ("MC.Unknown(1, 2)", "Unknown distribution type: Unknown"),
+            (
+                "Normal(100, 15)",
+                "Distribution must start with 'MC.' prefix: Normal(100, 15)",
+            ),
+            (
+                "MC.Normal 100, 15",
+                "Missing opening parenthesis: MC.Normal 100, 15",
+            ),
+            (
+                "MC.Normal(100, 15",
+                "Missing closing parenthesis: MC.Normal(100, 15",
+            ),
+            (
+                "MC.Normal(100, x)",
+                "Invalid argument: invalid float literal",
+            ),
+        ] {
+            assert_eq!(
+                parse_distribution(formula).err(),
+                Some(expected.to_string()),
+                "{formula}"
+            );
+        }
+        assert_eq!(
+            Distribution::discrete(vec![], vec![]).err(),
+            Some("Discrete distribution requires at least one value".to_string())
         );
-    }
-
-    #[test]
-    fn test_triangular_distribution() {
-        let dist = Distribution::triangular(0.0, 5.0, 10.0).unwrap();
-        let mut rng = seeded_rng();
-
-        let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
-
-        // Theoretical mean = (0 + 5 + 10) / 3 = 5
-        assert!((mean - 5.0).abs() < 0.2, "Mean {mean} not close to 5");
-
-        // All samples should be within bounds
-        assert!(samples.iter().all(|&x| (0.0..=10.0).contains(&x)));
-    }
-
-    #[test]
-    fn test_uniform_distribution() {
-        let dist = Distribution::uniform(10.0, 20.0).unwrap();
-        let mut rng = seeded_rng();
-
-        let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
-
-        // Theoretical mean = (10 + 20) / 2 = 15
-        assert!((mean - 15.0).abs() < 0.2, "Mean {mean} not close to 15");
-
-        // All samples should be within bounds
-        assert!(samples.iter().all(|&x| (10.0..20.0).contains(&x)));
-    }
-
-    #[test]
-    fn test_pert_distribution() {
-        let dist = Distribution::pert(0.0, 3.0, 10.0).unwrap();
-        let mut rng = seeded_rng();
-
-        let samples: Vec<f64> = dist.sample_n(&mut rng, 10000);
-        let mean: f64 = samples.iter().sum::<f64>() / precision::count(samples.len());
-
-        // Theoretical mean = (0 + 4*3 + 10) / 6 = 22/6 ≈ 3.67
-        let theoretical = (4.0f64.mul_add(3.0, 0.0) + 10.0) / 6.0;
-        assert!(
-            (mean - theoretical).abs() < 0.3,
-            "Mean {mean} not close to {theoretical}"
+        assert_eq!(
+            Distribution::discrete(vec![1.0, 2.0], vec![1.5, -0.5]).err(),
+            Some("Discrete distribution probabilities must be >= 0".to_string())
         );
-
-        // All samples should be within bounds
-        assert!(samples.iter().all(|&x| (0.0..=10.0).contains(&x)));
     }
 
     #[test]
     fn test_parse_distribution() {
-        let dist = parse_distribution("MC.Normal(100, 15)").unwrap();
-        assert!(matches!(
-            dist.dist_type,
-            DistributionType::Normal {
-                mean: 100.0,
-                stdev: 15.0
-            }
-        ));
-
-        let dist = parse_distribution("MC.Triangular(0, 5, 10)").unwrap();
-        assert!(matches!(
-            dist.dist_type,
-            DistributionType::Triangular {
-                min: 0.0,
-                mode: 5.0,
-                max: 10.0
-            }
-        ));
-
-        let dist = parse_distribution("MC.Uniform(10, 20)").unwrap();
-        assert!(matches!(
-            dist.dist_type,
-            DistributionType::Uniform {
-                min: 10.0,
-                max: 20.0
-            }
-        ));
-
-        let dist = parse_distribution("MC.PERT(0, 3, 10)").unwrap();
-        assert!(matches!(
-            dist.dist_type,
-            DistributionType::PERT {
-                min: 0.0,
-                mode: 3.0,
-                max: 10.0
-            }
-        ));
+        for (formula, expected) in [
+            (
+                "MC.Normal(100, 15)",
+                DistributionType::Normal {
+                    mean: 100.0,
+                    stdev: 15.0,
+                },
+            ),
+            (
+                "MC.Triangular(0, 5, 10)",
+                DistributionType::Triangular {
+                    min: 0.0,
+                    mode: 5.0,
+                    max: 10.0,
+                },
+            ),
+            (
+                "MC.Uniform(10, 20)",
+                DistributionType::Uniform {
+                    min: 10.0,
+                    max: 20.0,
+                },
+            ),
+            (
+                "MC.PERT(0, 3, 10)",
+                DistributionType::PERT {
+                    min: 0.0,
+                    mode: 3.0,
+                    max: 10.0,
+                },
+            ),
+            (
+                "MC.lognormal(2000, 500)",
+                DistributionType::Lognormal {
+                    mean: 2000.0,
+                    stdev: 500.0,
+                },
+            ),
+        ] {
+            assert_eq!(parse_distribution(formula).unwrap().dist_type(), &expected);
+        }
     }
 
     #[test]
@@ -823,17 +789,14 @@ mod tests {
     fn discrete_takes_its_values_and_probabilities_as_two_arrays() {
         let row = parse_distribution("MC.Discrete({0, 0.3}, {0.9, 0.1})").unwrap();
         let column = parse_distribution("MC.Discrete( {0; 0.3} , {0.9; 0.1} )").unwrap();
-        for dist in [&row, &column] {
-            let DistributionType::Discrete {
-                values,
-                probabilities,
-            } = &dist.dist_type
-            else {
-                panic!("{}", dist.dist_type);
-            };
-            assert_eq!(values, &[0.0, 0.3]);
-            assert_eq!(probabilities, &[0.9, 0.1]);
-        }
+        let expected = DistributionType::Discrete {
+            values: vec![0.0, 0.3],
+            probabilities: vec![0.9, 0.1],
+        };
+        assert_eq!(
+            (row.dist_type(), column.dist_type()),
+            (&expected, &expected)
+        );
         // The first 90% of the probability is no frost, the last 10% a frost
         assert_exact!(row.inverse_cdf(0.9), 0.0);
         assert_exact!(row.inverse_cdf(0.900_001), 0.3);
@@ -917,52 +880,26 @@ mod tests {
     /// A PERT whose range is finite but near the largest number: its shape
     /// multiplied 4 by `max - mode` before dividing, which overflowed.
     #[test]
-    fn a_pert_near_the_largest_number_samples() {
-        let dist = parse_distribution("MC.PERT(0, 1, 1E+308)").expect("accepted");
-        let mut rng = seeded_rng();
-        let x = dist.sample(&mut rng);
-        assert!(x.is_finite() && (0.0..=1e308).contains(&x), "{x}");
-        assert!(dist.inverse_cdf(0.5).is_finite());
-    }
-
-    #[test]
-    fn test_seed_reproducibility() {
-        let dist = Distribution::normal(100.0, 15.0).unwrap();
-
-        let mut rng1 = StdRng::seed_from_u64(42);
-        let samples1: Vec<f64> = dist.sample_n(&mut rng1, 100);
-
-        let mut rng2 = StdRng::seed_from_u64(42);
-        let samples2: Vec<f64> = dist.sample_n(&mut rng2, 100);
-
+    fn a_pert_near_the_largest_number_draws_finite_values() {
+        let dist = parse_distribution("MC.PERT(0, 1, 1E+308)").unwrap();
+        let x = dist.inverse_cdf(0.5);
         assert_eq!(
-            samples1, samples2,
-            "Same seed should produce identical results"
+            (x.is_finite(), (0.0..=1e308).contains(&x)),
+            (true, true),
+            "{x}"
         );
     }
 
-    #[test]
-    fn test_theoretical_values() {
-        let normal = Distribution::normal(100.0, 15.0).unwrap();
-        assert_exact!(normal.theoretical_mean(), 100.0);
-        assert_exact!(normal.theoretical_variance(), 225.0);
-
-        let uniform = Distribution::uniform(10.0, 20.0).unwrap();
-        assert_exact!(uniform.theoretical_mean(), 15.0);
-        assert!((uniform.theoretical_variance() - 100.0 / 12.0).abs() < 0.001);
-
-        let triangular = Distribution::triangular(0.0, 5.0, 10.0).unwrap();
-        assert_exact!(triangular.theoretical_mean(), 5.0);
-    }
     // Non-finite parameters (roadmap T1-NONFINITE)
 
     const NOT_FINITE: [f64; 3] = [f64::INFINITY, f64::NEG_INFINITY, f64::NAN];
 
     fn refused_with(result: Result<Distribution, String>, expected: &str) {
-        match result {
-            Ok(dist) => panic!("{} was accepted; expected: {expected}", dist.dist_type),
-            Err(message) => assert!(message.contains(expected), "{message}"),
-        }
+        let message = result.err().unwrap();
+        assert!(
+            message.contains(expected),
+            "{message}; expected: {expected}"
+        );
     }
 
     /// The draws the engine can take: the quantiles at both ends and in between

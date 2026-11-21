@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Library functions of the simulation that nothing called (roadmap T1-COVERAGE-GATE).** `forge simulate`, `forge mcp` and Forge Studio draw every value through `Distribution::inverse_cdf`; a second way of drawing, `Distribution::sample` and `sample_n`, was used only by its own tests, and so were `Distribution::theoretical_mean` and `theoretical_variance`, `Statistics::probability_greater_than`, `probability_less_than` and `get_percentiles`, `Histogram::bin_centers`, and `MonteCarloEngine::sampler` and `sampler_mut`. They are gone, and with them the `rand_distr` dependency. `theoretical_variance` was wrong for two distributions: 2.96 for `MC.PERT(0, 3, 10)`, whose variance is 3.32, and -0.83 for `MC.Lognormal(2000, 500)`, whose variance is 250,000. A `Distribution` is built only by its checked constructors now: its `dist_type` is read with `dist_type()`. No number Forge prints changes.
+
+### Added
+- **The quantiles of each distribution are checked against scipy.** `MC.Normal`, `MC.Triangular` (symmetric and not), `MC.Uniform`, `MC.PERT` and `MC.Lognormal` at five probabilities each, within 1e-9 of scipy 1.18.1. New tests also give each refused distribution, threshold, correlation and engine setting its exact message, and `monte_carlo/distributions.rs`, `statistics.rs` and `engine.rs` are fully covered. Two lint allows went with the removed code, so the budget in `validation/repo/src/no_skipping.rs` falls from 36 to 34.
+
 ## [10.0.0-rc.31] - 2026-11-20
 
 Games in Forge Studio. A model with a `games:` section shows each game on the Model view, worked out again with every input and scenario: a payoff table with its equilibria marked, a tournament's ranking and matches, and each game's results under the names a formula reads them by. Studio has a Games set with the seven `examples/games` models, and the bagel has a price war. No wrong answer is fixed in this release (the Bayesian network's last digit is not one: docs/STABILITY.md promises no numbers to the last digit), so the two weeks still run from rc.30: the stable release is no earlier than 2026-12-04.
