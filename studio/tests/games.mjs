@@ -25,6 +25,10 @@
 //   generation are Forge's; hawks end at 2/3 in hawk-dove, the stag hunt ends
 //   all stag from 0.8 and all hare in its scenario few_stags; pointing at the
 //   chart shows a generation's shares from Forge's path;
+// - the bagel's price war spreads through the city as Forge's path says (99.1%
+//   of the shops at $14 after 24 months), and its street's festival of five
+//   shops is drawn by count, all keeping, and all paying when the borough
+//   matches;
 // - the acquisition's sealed bids (deal_game.yaml) are Forge's, with both
 //   bidding 30% and both 40% marked, and only 30% in its scenario.
 //
@@ -221,6 +225,16 @@ async function check(label, scenario, pure) {
 const plan = await check("plan", null, "cut,cut");
 if (plan.stable.join(",") !== "matcher,grudge,discounter") fail(`plan: Forge's stable players are ${plan.stable}`);
 
+// The price war across the city: Forge's path, compared by checkAll above;
+// from a tenth of the shops at $14, 99.1% cut after 24 months
+{
+  const war = (await forge("bagel", "price_war.yaml", null)).find((g) => g.game === "price_war");
+  const end = war && war.dynamics.path[war.dynamics.path.length - 1].shares.cut;
+  if (!(Math.abs(end - 0.9913363782163622) < 1e-12)) fail(`price war: Forge's cut share after 24 months is ${end}`);
+  const shownEnd = (await shown("price_war")).dynamics;
+  if (!shownEnd || shownEnd.shares.cut !== String(end)) fail(`price war: the screen ends with ${JSON.stringify(shownEnd)}`);
+}
+
 // Each scenario: tap its chip and read the games again
 let before = await generation(page);
 await page.click('[data-scn="loyal_regulars"]');
@@ -247,10 +261,37 @@ if (marked.join(";") !== "hold,hold") fail(`typing 0.55 on market.undercut_share
 await page.click('.tab[data-tab="mcp"]');
 await page.click('[data-tool="game"]');
 await page.click('[data-run="game"]');
-await page.waitForFunction(() => /"kind": "tournament"|msg bad/.test(document.querySelector('[data-out="game"]').innerHTML), null, { timeout: 60000 });
+await page.waitForFunction(() => /<pre|msg bad/.test(document.querySelector('[data-out="game"]').innerHTML), null, { timeout: 60000 });
 const answer = await page.textContent('[data-out="game"]');
-if (!answer.includes('"game": "price_war"') || !answer.includes('"cells"')) fail(`the Tools tab's forge_game answered: ${answer.slice(0, 200)}`);
+if (!answer.includes('"game": "price_war"') || !answer.includes('"cells"') || !answer.includes('"dynamics"')) fail(`the Tools tab's forge_game answered: ${answer.slice(0, 200)}`);
 await page.close();
+
+// The street's festival (bagel/street_fund.yaml): five shops, drawn by count,
+// all keep; the borough's match makes all pay
+{
+  const p = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  p.on("pageerror", (e) => fail(`street_fund.yaml: ${e.message}`));
+  page = p;
+  await p.goto(`${base}/?example=bagel`);
+  await ready(p);
+  await p.click('.tab[data-tab="files"]');
+  await p.click('[data-main="street_fund.yaml"]');
+  await ready(p);
+  await p.click('.tab[data-tab="model"]');
+  await p.waitForSelector('[data-game="street"] table');
+  await p.waitForFunction(() => !/Forge is working out/.test(document.querySelector('[data-game="street"]').textContent), null, { timeout: 60000 });
+  await checkAll("street_fund.yaml", "bagel", "street_fund.yaml", null);
+  const street = await shown("street");
+  if (street.counts.length !== 10 || street.cells.length) fail(`street_fund.yaml: ${street.counts.length} numbers by count and ${street.cells.length} profiles`);
+  if (street.splits.map((x) => x.split).join(";") !== "0,5") fail(`street_fund.yaml: the splits listed are ${street.splits.map((x) => x.split)}, not all five keeping`);
+  const before = await generation(p);
+  await p.click('[data-scn="borough_matches"]');
+  await settle(p, before);
+  await checkAll("street_fund.yaml (borough_matches)", "bagel", "street_fund.yaml", "borough_matches");
+  const matched = await shown("street");
+  if (matched.splits.map((x) => x.split).join(";") !== "5,0") fail(`street_fund.yaml (borough_matches): the splits listed are ${matched.splits.map((x) => x.split)}, not all five paying`);
+  await p.close();
+}
 
 // The Games set: every file, every game
 const drawn = (p) => p.waitForFunction(() => [...document.querySelectorAll("#view-model [data-game]")]

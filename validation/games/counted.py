@@ -170,3 +170,16 @@ def cases(seed, count):
     rng = random.Random(seed)
     out = [public_goods(r) for r in (F(8, 5), F(5), F(6))]
     return out + [draw(rng, i) for i in range(count)]
+
+
+def street_fund(match):
+    """The bagel's festival (examples/bagel/street_fund.yaml): five shops, a
+    fee of 1,000, 8 dozen a day for each fee over 30 days at the plan's
+    margin, shared by five; `match` multiplies each fee's lift."""
+    food = F(12, 9) * F("1.15") + F(12 * 6, 1000) * F("9.40") + F("0.35")
+    share = 8 * match * 30 * (16 * F("0.974") - food) / 5
+
+    def pay(own, counts):
+        k = counts[0]
+        return share * (k + 1) - 1000 if own == 0 else share * k
+    return pay

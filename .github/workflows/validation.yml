@@ -7,7 +7,8 @@ name: Validation
 #   validation/r         functions and analytics compared with R
 #   validation/games     games compared with Gambit, tournaments with the
 #                        axelrod library, 2 x 2 closed forms with R (ADR-068),
-#                        the dynamics with egttools (ADR-073)
+#                        the dynamics with egttools, and games of many
+#                        players and their dynamics again in R (ADR-073)
 # Weekly (which notices a new Gnumeric, LibreOffice or R), on demand, and on
 # the pull requests and merges to main described below.
 # Runs on Ubuntu 24.04: with the Gnumeric of 22.04, FLOOR and CEILING of a
