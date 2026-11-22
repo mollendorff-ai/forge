@@ -351,6 +351,14 @@ jobs:
         working-directory: studio
         run: node tests/welcome.mjs ../studio-site
 
+      - name: Studio shows a set's models as questions, with the kinds Forge gives
+        working-directory: studio
+        run: node tests/sets.mjs ../studio-site
+
+      - name: Studio draws decision trees, real options, bootstraps and Bayesian networks from their tools
+        working-directory: studio
+        run: node tests/analyses.mjs ../studio-site
+
       - name: Studio's grid shows what Forge returns
         working-directory: studio
         run: node tests/grid.mjs ../studio-site

@@ -367,3 +367,43 @@ table.grid.scalars .g-formula { max-width: 15rem }
 .welcome p { margin: 0 0 10px; color: var(--muted) }
 .welcome ul { margin: 0 0 14px; padding-left: 18px }
 .welcome li { margin: 6px 0 }
+
+/* A set's models (ADR-076): questions on the welcome card, a strip on the
+   Model view, each with the kind of model Forge says it is */
+.questions { display: flex; flex-direction: column; margin: 0 0 10px }
+.question { display: flex; gap: 10px; align-items: center; padding: 10px 0; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer }
+.question:first-child { border-top: 0 }
+.question b { flex: 1; font-weight: 600; font-size: 14.5px }
+.question .go { color: var(--muted); font-size: 18px }
+.welcome .tip { font-size: 13.5px }
+.kind { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; border-radius: 6px; padding: 2px 6px; white-space: nowrap; background: var(--sunk); color: var(--muted); min-width: 2ch }
+.kind:empty { visibility: hidden }
+.kind.small { font-size: 9.5px; padding: 1px 5px; margin-left: 6px }
+.kind[data-kind="calculation"] { background: var(--accent-soft); color: var(--accent) }
+.kind[data-kind="simulation"] { background: var(--ember-soft); color: var(--ember) }
+.kind[data-kind="game"] { background: color-mix(in srgb, var(--series-1) 14%, transparent); color: var(--series-1) }
+/* In the strip a calculation needs no badge: most models are one */
+.set-strip .kind[data-kind="calculation"] { display: none }
+.set-strip { margin: 0 0 4px }
+.set-strip .chip { align-items: center }
+.set-strip .chip[aria-pressed="true"] .kind { background: color-mix(in srgb, var(--accent-ink) 22%, transparent); color: var(--accent-ink) }
+
+/* The analyses that are models of their own (ADR-076) */
+.analysis .lead-num { font-size: 15px; margin: 8px 0 }
+.analysis .lead-num > .num { font-family: var(--f-display); font-weight: 600; font-size: 22px }
+.analysis tr.best th, .analysis tr.best td { font-weight: 600 }
+.analysis .path { margin: 4px 0 10px; padding-left: 20px; font-size: 13.5px }
+.analysis .sub { margin-top: 12px }
+.bn-node { padding: 6px 0; border-top: 1px solid var(--line) }
+.bn-node:first-of-type { border-top: 0 }
+.bn-state { display: grid; grid-template-columns: minmax(70px, auto) 1fr 52px; gap: 8px; align-items: center; margin: 5px 0 }
+.bn-bar { height: 8px; border-radius: 4px; background: var(--sunk); overflow: hidden }
+.bn-bar i { display: block; height: 100%; background: var(--accent) }
+.bn-state .num { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px }
+.options { display: flex; flex-direction: column }
+.option { padding: 8px 0; border-top: 1px solid var(--line) }
+.option:first-child { border-top: 0 }
+.option-top { display: flex; gap: 8px; align-items: baseline; justify-content: space-between }
+.option.best b { color: var(--accent) }
+.analysis .report { width: 100% }
+.analysis .report th, .analysis .report td { white-space: normal; overflow-wrap: anywhere }

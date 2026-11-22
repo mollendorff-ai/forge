@@ -642,10 +642,12 @@ studio:
     why: "The bagel's simulation and games are reached only through Files, by file name"
     how: "model answers analyses (monte_carlo, games, scenarios, decision_tree, real_options, bootstrap, bayesian); build.mjs gives each model of a set a question; the welcome card lists them; chips under the title open each"
     acceptance: "For every set, each model's badge is what model answers; a tap on a question or a chip opens that model; welcome.mjs and layout.mjs pass at 320 px"
+    built: "2026-11-22: model answers analyses; studio/sets.js; questions for the 7 sets of several models; studio/tests/sets.mjs"
   - id: S-ANALYSES
     title: "Decision trees, real options, bootstrap and Bayesian networks get a Model view (ADR-076, step 4)"
     why: "second_shop, wait_option, first_month and slow_week open on an empty Model view with no message"
     acceptance: "Each opens on a card drawn from its tool's answer, every number held against the tool's answer by a studio test; evidence on a Bayesian network is set by a tap"
+    built: "2026-11-22: studio/analyses.js; 9 example files drawn from their tools; studio/tests/analyses.mjs"
   - id: S-HELP
     title: "A ? on each section, function and key help, and the manual linked on GitHub at the release's tag (ADR-076, step 5)"
     acceptance: "studio/help.json covers every section heading the page draws; each link names a document and heading that exist (studio/tests/help.mjs); a function's suggestion shows Forge's syntax and description; a key's shows the schema's description"

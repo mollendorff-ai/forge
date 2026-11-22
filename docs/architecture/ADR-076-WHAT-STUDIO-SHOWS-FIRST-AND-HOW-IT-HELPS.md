@@ -1,6 +1,6 @@
 # ADR-076: What Forge Studio Shows First, and How It Helps
 
-**Status:** Accepted (2026-11-22), not yet built
+**Status:** Accepted (2026-11-22); built: steps 1 to 4 (2026-11-22). Step 5, the help, is next
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who found that the bagel's simulation and games are reached only through Files and that the page links to no documentation, and who chose the readers: people who use GitHub. The analysis and the measurements are Claude's
 **For:** roadmap S-SETS, S-ANALYSES and S-HELP. It extends ADR-056 and its 2026-11-14 addendum (the welcome card)
@@ -44,12 +44,12 @@ Each example set with more than one model gives each model a question, in `studi
 | `wait_option.yaml` | What is waiting a year worth? |
 | … | … |
 
-Each question carries a badge for its kind: plan, simulation, game, decision tree, option, bootstrap or Bayes. The page does not guess the kind: Forge's `model` answers which analyses a file holds. That is engine work: `analyses`, a list of `monte_carlo`, `games`, `scenarios`, `decision_tree`, `real_options`, `bootstrap` and `bayesian`.
+Each question carries a badge for its kind: plan, simulation, game, decision tree, option, bootstrap or Bayes. The page does not guess the kind: Forge's `model` answers which analyses a file holds. That is engine work: `analyses`, the analysis sections the file has, in its order, among `monte_carlo`, `tornado`, `decision_tree`, `real_options`, `bootstrap` and `bayesian_network`. Games and scenarios are listed already.
 
 The questions appear in two places:
 
 - **The welcome card** on a first visit becomes the set's questions, a tap on one opening it. It keeps one line on what the page is and one tip (drag an input, tap Edit on a formula), and "Got it". `studio/tests/welcome.mjs` is changed to match.
-- **A strip of chips under the title**, on every view, with the set's models by their short names and badges. The price war is then one tap from the plan, at any time.
+- **A strip of chips at the top of the Model view**, with the set's models by their short names and badges. The price war is then one tap from the plan, at any time. It is not put in the header, which stays on screen on every view: a second row there would take height from every view on a phone.
 
 Files keeps its list of the files, and each "Another model" line gets its question and badge.
 

@@ -7,6 +7,9 @@ import { call, start } from "./forge.js";
 import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
 import { tableCard, tournamentCard, pathHover } from "./games.js";
+import { kindOf, questionsCard, setStrip, drawKinds } from "./sets.js";
+import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js";
+import { toolArgs, toolsHtml, answerHtml } from "./tools.js";
 import { scopeOf, namesFor, gameResults, functionsOf, suggest, apply, schemaOf, suggestKeys, formulaContext, suggestInFormula } from "./suggest.js";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -17,7 +20,10 @@ const S = {
   sets: [], set: null, files: {}, main: "", title: "", version: "",
   structure: null, scenarios: null, scenarioError: null, report: null, scenario: null, calc: null, games: null,
   error: null, generation: 0, open: new Set(), prev: {}, yamlFile: "", tab: "model",
-  analyze: {}, tools: {},
+  analyze: {}, tools: {}, kinds: {},
+  // The answers of a decision tree, real options, a bootstrap or a Bayesian
+  // network the file holds (ADR-076); a network's nodes and what was seen
+  answers: {}, bnNodes: null, evidence: {},
 };
 
 // ---------- names ----------
@@ -64,6 +70,8 @@ function setWelcome(seen) {
 }
 function welcomeCard() {
   if (welcomeSeen) return "";
+  const models = modelsOf();
+  if (models) return questionsCard(setOf().title, models, S.main, S.kinds);
   return `<section class="welcome card" id="welcome" aria-labelledby="welcome-title">
     <h2 id="welcome-title">Welcome to Forge Studio</h2>
     <p>This is a real financial model, calculated by Forge in your browser. Nothing you type leaves this device.</p>
@@ -82,16 +90,43 @@ function restore() {
   } catch (e) { /* nothing saved */ }
   return false;
 }
+// ---------- a set's models (ADR-076) ----------
+const setOf = () => S.sets.find((x) => x.id === S.set);
+// The open set's models as [file, short name, question], when it has several
+// and they are still among the open files
+function modelsOf() {
+  const set = setOf();
+  return set && set.models ? set.models.filter(([file]) => Object.hasOwn(S.files, file)) : null;
+}
+// The kind of each of the set's models, from Forge's `model` answer for its
+// file; worked out once a set is opened, and drawn when each answer comes
+async function loadKinds() {
+  const models = modelsOf();
+  if (!models) return;
+  await Promise.all(models.filter(([file]) => !(file in S.kinds)).map(async ([file]) => {
+    try { S.kinds[file] = kindOf(await call("model", { files: S.files, main: file })); } catch (e) { S.kinds[file] = "calculation"; }
+  }));
+  drawKinds(document, S.kinds);
+}
+const questionOf = (file) => ((modelsOf() || []).find(([f]) => f === file) || [])[2];
+// Open one model of the set, as the strip, a question and Files do
+async function openModel(file) {
+  const set = setOf();
+  S.main = file; S.title = set && file === set.main ? set.title : file;
+  forget(); save(); show("model"); window.scrollTo(0, 0);
+  await load();
+}
+
 // A set opens on its own main model, or on `model` when the set has that file
 // (`?example=bagel&model=price_war.yaml`, as Files' Open button does)
 function openSet(id, model) {
   const set = S.sets.find((x) => x.id === id) || S.sets[0];
-  S.set = set.id; S.files = { ...set.files }; S.main = set.main; S.title = set.title;
+  S.set = set.id; S.files = { ...set.files }; S.main = set.main; S.title = set.title; S.kinds = {};
   if (model && model !== set.main && Object.hasOwn(set.files, model)) { S.main = model; S.title = model; }
   forget();
 }
 function forget() {
-  S.scenario = null; S.open = new Set(); S.prev = {}; S.yamlFile = S.main; S.analyze = {}; S.tools = {};
+  S.scenario = null; S.open = new Set(); S.prev = {}; S.yamlFile = S.main; S.analyze = {}; S.tools = {}; S.answers = {}; S.bnNodes = null; S.evidence = {};
 }
 
 // ---------- Forge ----------
@@ -116,6 +151,7 @@ async function load() {
   if (generation !== S.generation) return;
   renderAll();
   await recalc();
+  await loadKinds();
 }
 
 async function recalc() {
@@ -126,8 +162,9 @@ async function recalc() {
     // The games' results, worked out again with the inputs (ADR-068)
     const games = S.structure.games && S.structure.games.length
       ? await call("game", request({ scenario: S.scenario })).catch((e) => ({ error: e.message })) : null;
+    const answers = await runAnalyses();
     if (generation !== S.generation) return;
-    S.calc = calc; S.games = games; S.error = null;
+    S.calc = calc; S.games = games; S.answers = answers; S.error = null;
   } catch (e) {
     if (generation !== S.generation) return;
     S.calc = null; S.games = null; S.error = e.message;
@@ -139,6 +176,21 @@ function finish() {
   updateStatus();
   document.body.dataset.state = S.error ? "error" : "ready";
   document.body.dataset.generation = S.generation;
+}
+
+// The file's other analyses, each by its tool; a network with what was seen,
+// and its nodes and states from its answer with nothing seen
+async function runAnalyses() {
+  const answers = {};
+  for (const section of S.structure.analyses.filter((a) => ANALYSES[a])) {
+    const tool = ANALYSES[section].tool;
+    try {
+      if (tool === "bayesian" && !S.bnNodes) S.bnNodes = Object.values((await call(tool, request())).queries).map(({ name, states }) => ({ name, states }));
+      const extra = tool === "bayesian" ? { evidence: Object.entries(S.evidence).map(([n, st]) => `${n}=${st}`) } : {};
+      answers[section] = await call(tool, request(extra));
+    } catch (e) { answers[section] = { error: e.message }; }
+  }
+  return answers;
 }
 
 // ---------- header ----------
@@ -265,7 +317,9 @@ function renderModel() {
     v.innerHTML = `<div class="msg bad">${esc(S.error || "Forge is starting…")}</div><p class="note">Fix it in the YAML tab, or open another model from Files.</p>`;
     return;
   }
-  let h = welcomeCard() + `<div class="msg bad" id="model-error" hidden></div>`;
+  const models = modelsOf();
+  let h = welcomeCard() + (models ? setStrip(models, S.main, S.kinds) : "") + `<div class="msg bad" id="model-error" hidden></div>`;
+  h += S.structure.analyses.filter((a) => ANALYSES[a]).map(analysisSlot).join("");
   if (S.structure.scenarios.length) {
     const info = (n) => (S.scenarios ? S.scenarios.scenarios.find((s) => s.name === n) : null);
     h += `<div class="eyebrow"><h2>scenarios</h2><span class="tag">tap to apply</span></div>
@@ -289,6 +343,9 @@ function renderModel() {
   }
   v.innerHTML = h;
   S.prev = {};
+  // The open model's chip in view, however far along the strip it is
+  const strip = $(".set-strip", v), on = strip && $('[aria-pressed="true"]', strip);
+  if (on) strip.scrollLeft = on.offsetLeft - strip.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2;
 }
 
 function rowLabels(table) {
@@ -361,6 +418,10 @@ function updateValues() {
     }
   }
   drawGames();
+  for (const slot of $$("#view-model [data-analysis]")) {
+    const answer = S.answers[slot.dataset.analysis];
+    if (answer) drawAnalysis(slot, slot.dataset.analysis, answer, S.bnNodes, S.evidence);
+  }
 }
 // ---------- games (ADR-068): forge game's answer, drawn ----------
 // Every number here is in the answer of the `game` tool; the page only lays
@@ -434,6 +495,21 @@ $("#view-model").addEventListener("input", (e) => {
 });
 $("#view-model").addEventListener("click", (e) => {
   if (e.target.id === "welcome-done") { setWelcome(true); $("#welcome").remove(); return; }
+  // A state seen on a Bayesian network, or, tapped again, seen no more
+  const ev = e.target.closest("[data-ev]");
+  if (ev) {
+    const node = ev.dataset.ev, seen = S.evidence[node] === ev.dataset.state;
+    S.evidence = Object.fromEntries([...Object.entries(S.evidence).filter(([n]) => n !== node), ...(seen ? [] : [[node, ev.dataset.state]])]);
+    recalc();
+    return;
+  }
+  const model = e.target.closest("[data-model]");
+  if (model) {
+    // A question answered is the welcome card read; the strip stays
+    if (model.closest("#welcome")) setWelcome(true);
+    if (model.dataset.model !== S.main) openModel(model.dataset.model);
+    return;
+  }
   const sug = e.target.closest("[data-sug]");
   if (sug) { takeSuggestion(sug); return; }
   const chip = e.target.closest("[data-scn]");
@@ -1097,39 +1173,16 @@ va.addEventListener("click", async (e) => {
   }
 });
 
-// ---------- Tools view: the MCP server's tools, run here ----------
-const TOOLS = [
-  ["Core", [["validate", "Check a model for formula errors, circular references and type mismatches."], ["calculate", "Calculate every formula, optionally under a named scenario."], ["audit", "Follow one variable's formula down to the inputs it reads."], ["report", "Groups with the same keys, side by side."]]],
-  ["What-if", [["goal_seek", "Find the input value that makes an output hit a target."], ["break_even", "Find where an output reaches zero."], ["scenarios", "Run each probability-weighted scenario."], ["compare", "Put scenario results side by side."], ["sensitivity", "Vary one input over a range and watch an output."], ["tornado", "Rank inputs by how much they move one output."], ["variance", "Budget against actual, with favourable and unfavourable flags."]]],
-  ["Uncertainty", [["simulate", "Monte Carlo with Latin hypercube sampling and a seed."], ["probability_seek", "Find the input that gives an output a chance of passing a threshold."], ["bootstrap", "Bootstrap confidence intervals from data."], ["decision_tree", "Backward induction: best path and expected value."], ["real_options", "Value the option to defer, expand or abandon."], ["bayesian", "Posterior probabilities in a Bayesian network."]]],
-  ["Games", [["game", "Dominated strategies, equilibria and tournaments of the model's games."]]],
-  ["Reference", [["functions", "The Excel-compatible functions, by category."], ["examples", "Runnable example models, by name."], ["schema", "The JSON Schema for Forge model files."]]],
-];
-function toolArgs(tool) {
-  const A = defaults(), base = { files: "…", main: S.main };
-  const first = inputs()[0], v = first ? first.value : 1;
-  switch (tool) {
-    case "functions": case "examples": case "schema": return {};
-    case "calculate": case "game": return { ...base, scenario: S.scenario };
-    case "audit": return { ...base, variable: A.out };
-    case "compare": return { ...base, scenarios: S.structure.scenarios.slice(0, 2) };
-    case "goal_seek": return { ...base, target: A.out, value: A.target ?? 0, vary: A.vary };
-    case "break_even": return { ...base, output: A.out, vary: A.vary };
-    case "sensitivity": return { ...base, vary: A.vary, range: [v * 0.8, v * 1.2, v * 0.1].map((x) => Number(x.toPrecision(4))).join(","), output: A.out };
-    case "simulate": case "bootstrap": return { ...base, iterations: 1000, seed: 7 };
-    case "probability_seek": return { ...base, goal: { output: A.out, threshold: "> 0", probability: 0.8 }, input: A.vary, min: Number((v * 0.5).toPrecision(4)), max: Number((v * 1.5).toPrecision(4)), iterations: 1000, seed: 7 };
-    case "variance": return { files: "…", budget: S.main, actual: A.actual };
-    default: return base;
-  }
+// ---------- Tools view: the MCP server's tools, run here (studio/tools.js) ----------
+// The open model as the Tools view sends it
+function toolModel() {
+  const first = inputs()[0];
+  return { A: defaults(), v: first ? first.value : 1, main: S.main, scenario: S.scenario, scenarios: S.structure.scenarios };
 }
 function renderTools() {
   const v = $("#view-mcp");
   if (!S.structure) { v.innerHTML = `<div class="msg bad">${esc(S.error || "No model")}</div>`; return; }
-  v.innerHTML = `<p class="lead">Forge's MCP server gives an AI agent these tools. Here they run in this page, on the open model, with the same arguments (the files in place of paths) and the same answers.</p>` +
-    TOOLS.map(([group, list]) => `<div class="eyebrow"><h2>${esc(group)}</h2><span class="tag">${list.length} tools</span></div><div class="card stack">${list.map(([name, desc]) => `
-      <div class="row" style="padding:0"><button type="button" class="tool" data-tool="${name}" aria-expanded="${S.tools.open === name}"><span class="tool-name">forge_${name}</span><span class="pill live">runs here</span><span class="tool-desc">${esc(desc)}</span></button>
-      ${S.tools.open === name ? `<div class="tool-body"><p class="sub">request</p><pre class="code">${esc(`call("${name}", ${JSON.stringify(toolArgs(name), null, 2)})`)}</pre>
-        <div class="btns"><button type="button" class="btn primary" data-run="${name}">Run</button></div><div data-out="${name}">${S.tools.out && S.tools.out[0] === name ? S.tools.out[1] : ""}</div></div>` : ""}</div>`).join("")}</div>`).join("");
+  v.innerHTML = toolsHtml(S.tools.open, S.tools.out, toolModel());
 }
 $("#view-mcp").addEventListener("click", async (e) => {
   const t = e.target.closest("[data-tool]");
@@ -1144,16 +1197,13 @@ $("#view-mcp").addEventListener("click", async (e) => {
   if (d) { download(`forge_${d.dataset.dlAnswer}.json`, S.tools.answer, "application/json"); return; }
   const r = e.target.closest("[data-run]");
   if (r) {
-    const name = r.dataset.run, box = $(`[data-out="${name}"]`), args = toolArgs(name);
+    const name = r.dataset.run, box = $(`[data-out="${name}"]`), args = toolArgs(name, toolModel());
     if (args.files) args.files = S.files;
     busy(box, "Running…");
     try {
-      // The whole answer, never cut (ADR-076): the box scrolls, and Copy and
-      // Download take all of it
-      const out = JSON.stringify(await call(name, args), null, 2);
-      S.tools.answer = out;
-      S.tools.out = [name, `<p class="sub">answer</p><pre class="code">${esc(out)}</pre>
-        <div class="btns"><button type="button" class="btn" data-copy="${name}">Copy</button><button type="button" class="btn" data-dl-answer="${name}">Download</button><span class="note" data-copied></span></div>`];
+      // The whole answer, never cut (ADR-076)
+      S.tools.answer = JSON.stringify(await call(name, args), null, 2);
+      S.tools.out = [name, answerHtml(name, S.tools.answer)];
     } catch (err) { S.tools.out = [name, `<div class="msg bad">${esc(err.message)}</div>`]; }
     box.innerHTML = S.tools.out[1];
   }
@@ -1184,7 +1234,7 @@ function renderFiles() {
     <div class="card row form"><div class="file"><div><b>${esc(modelFiles().join(" + "))}</b><p class="note">On an iPhone or iPad, Save opens the share sheet: choose Save to Files, then iCloud Drive and a folder. Elsewhere the files are downloaded.</p></div>
       <button class="btn primary" type="button" id="save-yaml">Save</button></div><div id="save-msg"></div></div>
     <div class="eyebrow"><h2>this model's files</h2><span class="tag">${Object.keys(S.files).length}</span></div>
-    <div class="card stack">${Object.keys(S.files).map((f) => `<div class="row file"><div><b>${esc(f)}</b><p class="note">${f === S.main ? "Main model" : included.has(f) ? "Included by the main model" : "Another model"}</p></div>
+    <div class="card stack">${Object.keys(S.files).map((f) => `<div class="row file"><div><b>${esc(f)}</b><p class="note">${f === S.main ? "Main model" : included.has(f) ? "Included by the main model" : "Another model"}${questionOf(f) ? `: ${esc(questionOf(f))} <span class="kind small" data-kind-of="${esc(f)}" data-kind="${esc(S.kinds[f] || "")}">${esc(S.kinds[f] || "")}</span>` : ""}</p></div>
       ${f !== S.main && !included.has(f) ? `<button class="btn" type="button" data-main="${esc(f)}">Open</button>` : ""}<button class="btn" type="button" data-dl="${esc(f)}">Download</button></div>`).join("")}</div>
     <div class="eyebrow"><h2>excel</h2><span class="tag">forge export</span></div>
     <div class="card row form"><div class="file"><div><b>${esc(S.main.replace(/\.ya?ml$/i, ""))}.xlsx</b><p class="note">The workbook <span class="mono">forge export</span> writes: every table and scalar group on its own sheet, with live formulas.</p></div>
@@ -1202,7 +1252,7 @@ const vf = $("#view-files");
 vf.addEventListener("click", async (e) => {
   const t = e.target;
   if (t.closest("[data-set]")) { openSet(t.closest("[data-set]").dataset.set); save(); show("model"); await load(); return; }
-  if (t.dataset.main) { S.main = t.dataset.main; S.title = t.dataset.main; forget(); save(); show("model"); await load(); return; }
+  if (t.dataset.main) { await openModel(t.dataset.main); return; }
   if (t.dataset.dl) download(t.dataset.dl, S.files[t.dataset.dl]);
   if (t.dataset.csv) download(t.dataset.csv + ".csv", csvOf(t.dataset.csv), "text/csv");
   if (t.id === "reset") { openSet(S.set); save(); show("model"); await load(); }

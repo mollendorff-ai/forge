@@ -2,11 +2,12 @@
 
 Forge in your browser, phone first (ADR-056): **<https://forge.mollendorff.ai/>**
 
-The first visit opens with a short welcome card: what the page is and three things to try. Open one of the examples, a YAML file from your device, or an Excel workbook, and the model shows as cards: inputs to change, results with their formulas, tables, scenarios. Change a number and Forge calculates the model again. It is the same engine as the command line, running in the page as WebAssembly.
+The first visit opens with a short welcome card: what the page is, and for an example of several models, the questions they answer (a tap opens one), each marked with its kind (a calculation, a simulation, a game, a decision tree…); a strip at the top of the Model view opens any of them later. Open one of the examples, a YAML file from your device, or an Excel workbook, and the model shows as cards: inputs to change, results with their formulas, tables, scenarios. Change a number and Forge calculates the model again. It is the same engine as the command line, running in the page as WebAssembly.
 
 ## What it does
 
 - **Model:** inputs as sliders and fields, results with their formulas, tables, scenarios to apply, and a model's games (ADR-068): a payoff table with its equilibria marked, a tournament's ranking and matches, all worked out again when an input or a scenario changes, and under each game the results a formula can read, by name (`stag_hunt.even_mix.me.stag`), which the formula suggestions offer too. A formula can be changed on its card, with suggestions for names and functions; it is kept only when Forge accepts it, and otherwise Forge's message says why. A group's Add button adds an input, a formula or a table column, and a card's Delete removes it; each change is kept only when Forge reads back exactly that change.
+- **The other analyses:** a file that is a decision tree, real options, a bootstrap or a Bayesian network opens on a card drawn from its tool (ADR-076): the best choice and the plan, the value of each option, the estimate and its intervals, and each node's chances, with what you have seen set by a tap.
 - **Grid:** the model as a spreadsheet reads it, read-only. A tap shows a cell's formula and leads to its card.
 - **YAML:** the model's text, with Forge's formula colours, and suggestions for the keys of the model format and for names and functions inside a formula. On a phone the edit is applied with a button; above 900 px the editor sits beside the cards and a number typed in one changes the other.
 - **Analyze:** goal seek, break-even, scenarios, a tornado, a simulation and budget against actual. **Tools:** the MCP server's tools, run on the open model.
@@ -25,9 +26,12 @@ Every number is Forge's. The page reads no YAML itself: a change on a card is wr
 | File | What it holds |
 | --- | --- |
 | `index.html`, `studio.css` | The page |
-| `app.js` | State, the six views, events |
+| `app.js` | State, the six views, events; the parts below are its modules |
 | `forge.js`, `worker.js` | The only way to a number: `call(tool, request)` to forge-wasm, in a worker |
 | `text.js` | Text work on YAML: changing one input's or one formula's line, colouring the editor with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
+| `tools.js` | The Tools view: the MCP server's tools, the request each is shown with, and an answer shown whole |
+| `analyses.js` | A decision tree, real options, a bootstrap and a Bayesian network drawn on the Model view from their tools' answers, each number with the place in the answer it comes from (ADR-076) |
+| `sets.js` | A set's models: its questions on the welcome card, the strip, and each model's kind from Forge's `model` answer (ADR-076) |
 | `suggest.js` | What to offer while a formula or a key is typed: names from the model and the games' results from Forge's `calculate`, functions from Forge's own list, keys from Forge's schema (the page keeps no list of its own) |
 | `format.js` | How numbers look on screen: one rule (`isPercent`) for when a number is a percentage, by the model's unit first |
 | `build.mjs` | Puts the page, forge-wasm and the example sets in one folder |
@@ -68,7 +72,9 @@ All of these run in CI, in the `forge-wasm` job, which keeps the built site as t
 | `offline.mjs` | Every file is kept on the device, the page opens and calculates with the connection cut, and a later release replaces the cache once Studio has been closed |
 | `layout.mjs` | No view scrolls sideways at 320 px; at 1440 x 900 the editor and the cards are side by side and follow each other, the divider moves, either side hides |
 | `highlight.mjs`, `format.mjs` | The formula colours are the VS Code extension's rules, unchanged; the percent rule and how typed numbers are read |
-| `welcome.mjs` | A first visit shows the welcome card with its three tips, the model still recalculates under it, Got it keeps it away after a reload, and the Files tab brings it back |
+| `welcome.mjs` | A first visit shows the welcome card (a set's questions, or a single model's three tips), the model still recalculates under it, Got it keeps it away after a reload, and the Files tab brings it back |
+| `analyses.mjs` | Every example file that is a decision tree, real options, a bootstrap or a Bayesian network opens on a card whose every number is its tool's, at the place in the answer the card names; on a network a state tapped is evidence, as the tool answers it, and tapped again is not; no card is wider than 390 px |
+| `sets.mjs` | A set of several models lists them as questions on the welcome card, each with the kind of model Forge's `model` says its file is; a question, a chip of the strip at the top of the Model view and Files open each model of every such set (ADR-076) |
 | `live.mjs` | After each release, the published page runs the release's Forge and the bagel example's `year.profit` is 786.32 |
 
 Run one with `node studio/tests/<name>.mjs studio-site` (after `npm install` here); `no-engine.mjs`, `text.mjs`, `format.mjs` and `highlight.mjs` need no built site.

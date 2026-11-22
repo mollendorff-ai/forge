@@ -1,6 +1,8 @@
 // The welcome card on a first visit (ADR-056 addendum), in a headless browser:
 //
-// - a first visit shows it above the model, with its three tips and Got it;
+// - a first visit shows it above the model with Got it: for the bagel, a
+//   set of several models, its questions (tests/sets.mjs checks them, ADR-076);
+//   for a set of one model, the three tips;
 // - Got it removes it, and it stays away after a reload (a flag on the
 //   device, in localStorage);
 // - "Show the welcome tips again" on the Files tab brings it back;
@@ -46,9 +48,19 @@ await ready(page);
 const card = page.locator("#welcome");
 if (!(await card.isVisible())) fail("a first visit does not show the welcome card");
 else {
-  const tips = await card.locator("li").count();
-  if (tips !== 3) fail(`the welcome card has ${tips} tips, not 3`);
+  const questions = await card.locator(".question").count();
+  if (questions !== 9) fail(`the bagel's welcome card has ${questions} questions, not 9`);
   if (!/leaves this device/.test(await card.innerText())) fail("the welcome card does not say that nothing leaves the device");
+}
+// A set of one model keeps the three tips
+{
+  const one = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await one.goto(`${base}/?example=mortgage`);
+  await ready(one);
+  const tips = await one.locator("#welcome li").count();
+  if (tips !== 3) fail(`the mortgage's welcome card has ${tips} tips, not 3`);
+  if (await one.locator(".set-strip").count()) fail("a set of one model has a strip of models");
+  await one.close();
 }
 
 // The card leaves the model alone
@@ -82,4 +94,4 @@ if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log("Welcome: a first visit shows the card with three tips, the model still recalculates under it, Got it keeps it away after a reload, Files brings it back, and it fits 320 px.");
+console.log("Welcome: a first visit shows the card, with the bagel's questions and a single model's three tips; the model still recalculates under it, Got it keeps it away after a reload, Files brings it back, and it fits 320 px.");

@@ -308,6 +308,8 @@ fn structure(model: &ParsedModel) -> Value {
         "includes": includes,
         "scenarios": scenarios,
         "games": games,
+        // The analysis sections, for the kind of model Studio shows (ADR-076)
+        "analyses": model.analyses,
     })
 }
 
@@ -727,6 +729,36 @@ mod tests {
                 .find(|s| s["player"] == "ad")
                 .unwrap();
             close(number(ad, "/score"), 2.008, 1e-12);
+        }
+
+        /// Each of the bagel's files names its analysis sections, so Studio
+        /// can tell a decision tree from a plan without reading the YAML
+        /// (ADR-076)
+        #[test]
+        fn each_bagel_file_names_its_analyses() {
+            let dir = examples().join("bagel");
+            for (file, analyses) in [
+                ("bagel.yaml", serde_json::json!(["tornado"])),
+                ("bagel_simulate.yaml", serde_json::json!(["monte_carlo"])),
+                ("second_shop.yaml", serde_json::json!(["decision_tree"])),
+                ("wait_option.yaml", serde_json::json!(["real_options"])),
+                ("first_month.yaml", serde_json::json!(["bootstrap"])),
+                ("slow_week.yaml", serde_json::json!(["bayesian_network"])),
+                ("price_war.yaml", serde_json::json!([])),
+            ] {
+                let files: serde_json::Map<String, Value> = std::fs::read_dir(&dir)
+                    .unwrap()
+                    .map(|e| e.unwrap().path())
+                    .filter(|p| p.extension().is_some_and(|x| x == "yaml"))
+                    .map(|p| {
+                        let name = p.file_name().unwrap().to_string_lossy().into_owned();
+                        (name, Value::String(std::fs::read_to_string(&p).unwrap()))
+                    })
+                    .collect();
+                let model = run("model", &serde_json::json!({"files": files, "main": file}))
+                    .unwrap_or_else(|e| panic!("{file}: {e}"));
+                assert_eq!(model["analyses"], analyses, "{file}");
+            }
         }
 
         /// `examples/bagel/price_war.yaml`: the model names its two games, and
