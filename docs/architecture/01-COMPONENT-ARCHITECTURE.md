@@ -1669,7 +1669,7 @@ graph TB
 
 - [README.md](../../README.md) - User guide, features, installation
 - [DESIGN_V1.md](../../DESIGN_V1.md) - v1.0.0 specification
-- [GLOSSARY.md](../../GLOSSARY.md) - Canonical terminology
+- [GLOSSARY.md](../GLOSSARY.md) - Canonical terminology
 
 ### Source Files Referenced
 

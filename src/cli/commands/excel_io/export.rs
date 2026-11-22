@@ -81,15 +81,7 @@ fn load_for_export(input: &Path) -> ForgeResult<(crate::types::ParsedModel, Opti
 fn plan_values(
     model: &crate::types::ParsedModel,
 ) -> indexmap::IndexMap<String, crate::monte_carlo::engine::PlanInput> {
-    crate::monte_carlo::engine::MonteCarloEngine::new(
-        crate::monte_carlo::MonteCarloConfig::default(),
-    )
-    .and_then(|mut engine| {
-        engine
-            .parse_distributions_from_model(model)
-            .map(|()| engine.plan_inputs())
-    })
-    .unwrap_or_default()
+    crate::monte_carlo::engine::plan_of(model).unwrap_or_default()
 }
 
 /// The formula of scalar `name`, of the model or of an included file

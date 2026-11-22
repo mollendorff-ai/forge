@@ -85,9 +85,9 @@ CROSS-FILE REFERENCES:
 When a value changes, the file as it was is kept next to it as
 model.yaml.bak. Use --dry-run to preview changes without modifying files.
 
-Under --scenario nothing is written: the stored values are the file's own.
-To state what a scenario gives, list it under the scenario's expect: and run
-forge validate (ADR-074).")]
+Nothing is written under --scenario (a scenario states its results under its
+expect:, which forge validate checks) or --plan, which calculates an uncertain
+model (MC.* inputs) with each uncertain input at its plan figure.")]
     /// Calculate all formulas in a YAML file
     Calculate(CalculateArgs),
 
@@ -894,6 +894,12 @@ pub struct CalculateArgs {
     /// Scenario name to apply (uses variable overrides from 'scenarios' section)
     #[arg(short, long)]
     pub scenario: Option<String>,
+
+    /// Calculate an uncertain model at plan: each MC.* input at its plan
+    /// figure (its value:, or else its distribution's likeliest value), as
+    /// `forge simulate` does for its value at plan. Never writes the file
+    #[arg(long)]
+    pub plan: bool,
 }
 
 #[derive(Args)]

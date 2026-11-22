@@ -326,7 +326,7 @@ Check by hand: 600,000 × (1 + 0.1167, the triangular mean) × 1.05 (the uniform
 
 ### Correlated Variables
 
-Real-world variables often move together. Use `MC.Correlated` to model relationships like revenue and margin correlation:
+Real-world variables often move together. List the pairs under `correlations:` in the `monte_carlo:` section, each with a coefficient between -1 and 1, to model relationships like revenue and margin moving together:
 
 ```yaml
 _forge_version: "5.1.0"
@@ -1168,4 +1168,4 @@ With rain at 20% and the sprinkler on 40% of the time, `forge bayesian model.yam
 
 ---
 
-For more examples, see test-data/v1.0/ in the repository.
+For more examples, see [examples/](../examples/README.md) in the repository, or run `forge examples`.

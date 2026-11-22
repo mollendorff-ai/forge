@@ -445,6 +445,54 @@ scalars:
         }
     }
 
+    /// `forge_calculate` with `plan`: the simulation's model with each
+    /// uncertain input at its plan figure, every output at the value
+    /// `forge_simulate` gives at plan (ADR-076); without it, refused.
+    #[test]
+    fn calculate_at_plan_gives_simulates_values_at_plan_by_path_and_inline() {
+        use crate::mcp::types::CalculateRequest;
+        for inline in [false, true] {
+            let calculate = |plan: bool| {
+                let (file_path, content, includes) = simulated(inline);
+                ForgeMcpServer::new().calculate(Parameters(CalculateRequest {
+                    file_path,
+                    content,
+                    includes,
+                    dry_run: false,
+                    scenario: None,
+                    plan,
+                }))
+            };
+            let result = json(&ok_text(calculate(true)));
+            let simulated = simulate(inline, None, None);
+            let outputs = simulated["monte_carlo_results"]["outputs"]
+                .as_object()
+                .unwrap();
+            for name in ["year.profit", "year.worst_month_profit"] {
+                let want = outputs[name]["at_plan"].as_f64().unwrap();
+                let got = result["scalars"][name].as_f64().unwrap();
+                assert!(
+                    close(got, want, 1e-9),
+                    "inline {inline}: {name} {got} {want}"
+                );
+            }
+            let inputs = simulated["monte_carlo_results"]["inputs"]
+                .as_object()
+                .unwrap();
+            for (name, input) in inputs {
+                assert_eq!(
+                    result["at_plan"][name], input["plan"],
+                    "inline {inline}: {name}"
+                );
+            }
+            // Nothing is written, so there is no calculated content to read back
+            assert_eq!(result["dry_run"], true);
+            assert!(result.get("calculated_content").is_none());
+            let refused = calculate(false).unwrap_err();
+            assert!(refused.contains("forge calculate --plan"), "{refused}");
+        }
+    }
+
     /// The rent hike moves every sample by exactly 12 months of 800, so the mean
     /// moves by 9,600 and so does the year at the plan.
     #[test]

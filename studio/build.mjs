@@ -63,6 +63,66 @@ export const SETS = [
     files: ["starter.yaml"] },
 ];
 
+// A set of several models shows them as questions, in this order, on the
+// welcome card and in the strip under the title (ADR-077): each is [file,
+// short name for the strip, question]. A file only included by another
+// (costs.yaml) is not a model of its own and is not listed. The badge beside
+// each comes from Forge (`model` answers `analyses`), not from here.
+export const QUESTIONS = {
+  bagel: [
+    ["bagel.yaml", "plan", "Will the first year make money?"],
+    ["bagel_simulate.yaml", "how sure", "How sure can we be of the year?"],
+    ["price_war.yaml", "price war", "Cut the price if the rival does?"],
+    ["street_fund.yaml", "festival", "Will the street pay for a festival?"],
+    ["second_shop.yaml", "second shop", "Open a second shop, or try a pop-up first?"],
+    ["wait_option.yaml", "wait a year", "What is waiting a year before the second lease worth?"],
+    ["first_month.yaml", "first month", "How sure are we of the average day?"],
+    ["slow_week.yaml", "slow week", "A slow week: the rain, or the roadwork?"],
+    ["actual.yaml", "actual", "What actually happened in the first year?"],
+  ],
+  household: [
+    ["budget.yaml", "budget", "Where does October's money go?"],
+    ["actual.yaml", "actual", "What actually came in and went out?"],
+  ],
+  microgrid: [
+    ["microgrid.yaml", "plan", "Should the island trade its diesel for solar and a battery?"],
+    ["microgrid_risk.yaml", "how sure", "How sure is the saving?"],
+    ["microgrid_decision.yaml", "which system", "Which system, and build now or wait a year?"],
+  ],
+  realestate: [
+    ["realestate.yaml", "plan", "What is the building worth, held ten years and sold?"],
+    ["realestate_risk.yaml", "how sure", "And with rents, vacancy and costs uncertain?"],
+    ["realestate_flex.yaml", "sell early", "What is the freedom to sell early worth?"],
+  ],
+  acquisition: [
+    ["deal.yaml", "deal", "Does the deal create value for the buyer?"],
+    ["deal_risk.yaml", "how sure", "And if synergies and integration are uncertain?"],
+    ["deal_bid.yaml", "bid", "Open at 30% and risk a counter-bid, or go in at 40%?"],
+    ["deal_game.yaml", "sealed bids", "Sealed bids against a rival fund: 30% or 40%?"],
+    ["halo_option.yaml", "Halo", "What is the platform in the lab worth?"],
+    ["premiums.yaml", "premiums", "Is a 30% premium enough to win the board?"],
+    ["diligence.yaml", "diligence", "A spike in sales: a big contract, or channel stuffing?"],
+    ["actual.yaml", "a year on", "How does the deal look a year after closing?"],
+  ],
+  vineyard: [
+    ["vineyard.yaml", "plan", "What does one season earn?"],
+    ["vineyard_risk.yaml", "how sure", "How sure is the season, frost and all?"],
+    ["vineyard_independent.yaml", "independent", "And if the price did not follow the harvest?"],
+  ],
+  games: [
+    ["stag-hunt.yaml", "stag hunt", "Hunt the stag together, or a hare alone?"],
+    ["battle-of-the-sexes.yaml", "battle of the sexes", "The opera or the football?"],
+    ["chicken.yaml", "chicken", "Who swerves?"],
+    ["inspection.yaml", "inspection", "How often to audit, if cheating pays?"],
+    ["hawk-dove.yaml", "hawk–dove", "Fight or share, and which spreads?"],
+    ["public-goods.yaml", "public goods", "Five players: put in, or keep?"],
+    ["volunteers-dilemma.yaml", "volunteers", "Five players: who runs the nightly check?"],
+    ["axelrod.yaml", "Axelrod", "Which habit wins a dilemma played again and again?"],
+    ["noisy-tournament.yaml", "noise", "And when moves are sometimes mistaken?"],
+    ["continuation.yaml", "continuation", "How likely must a next round be for cooperation to hold?"],
+  ],
+};
+
 // The patterns of the VS Code extension's formula grammar, in its order. The
 // page colours formulas with these (studio/text.js), so there is one copy.
 export function formulaRules(injection) {
@@ -108,9 +168,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   }
   const sets = SETS.map(({ dir, files, ...set }) => ({
     ...set,
+    models: QUESTIONS[set.id] ?? null,
     files: Object.fromEntries(files.map((f) => [f, readFileSync(join(examples, dir, f), "utf8")])),
   }));
   writeFileSync(join(out, "examples.json"), JSON.stringify(sets));
+  // The help sheets' text (ADR-077)
+  copyFileSync(join(here, "help.json"), join(out, "help.json"));
   writeFileSync(join(out, "formula-rules.json"), JSON.stringify(formulaRules(JSON.parse(readFileSync(GRAMMAR, "utf8")))));
   // GitHub Pages runs Jekyll on a site unless told not to
   writeFileSync(join(out, ".nojekyll"), "");

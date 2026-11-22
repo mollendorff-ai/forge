@@ -137,6 +137,11 @@ pub(super) fn parse_multi_document_from(
             claim("Game", &game_name)?;
             merged_model.games.insert(game_name, game);
         }
+        for analysis in doc_model.analyses {
+            if !merged_model.analyses.contains(&analysis) {
+                merged_model.analyses.push(analysis);
+            }
+        }
         merged_model.includes.extend(doc_model.includes);
         merged_model.documents.push(doc_name);
     }
@@ -311,6 +316,16 @@ expenses:
         assert_eq!(result.documents.len(), 2);
         assert!(result.documents.contains(&"revenue".to_string()));
         assert!(result.documents.contains(&"costs".to_string()));
+    }
+
+    /// A file's analysis sections, over all its documents, each once
+    /// (ADR-077)
+    #[test]
+    fn the_analysis_sections_of_every_document_are_noted_once() {
+        let content = "---\n_forge_version: \"5.1.0\"\nprice: 16\nbootstrap:\n  data: [1, 2, 3]\n---\n_forge_version: \"5.1.0\"\nunits: 3\nbootstrap:\n  data: [4, 5, 6]\nmonte_carlo:\n  iterations: 100\n";
+        let model = parse_multi_document_yaml(content, Path::new("m.yaml")).unwrap();
+        assert_eq!(model.analyses, ["bootstrap", "monte_carlo"]);
+        assert_eq!(model.documents.len(), 2);
     }
 
     #[test]
