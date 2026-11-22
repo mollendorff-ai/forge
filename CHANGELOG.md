@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **A link opens one model of an example set in Forge Studio.** `?example=` opened a set on its own main model, so the bagel's price war was two taps away from any link (Files, then Open), and a post could not link to it. `https://forge.mollendorff.ai/?example=bagel&model=price_war.yaml` now opens the price war on its games, as Open does; a file the set does not have opens the set's own model, as before. `studio/tests/games.mjs` opens the link, checks every cell of the game against `forge game` with no tap on Files, and checks the fallback.
 
+### Changed
+- **The coverage floors in CI are 99.2 / 98.3 / 98.9** (lines / functions / regions), up from 99.0 / 98.1 / 98.7, from CI's run on main after PR #351 (T1-COVERAGE-GATE).
+
 ### Removed
 - **`ReverseFormulaTranslator`, from the library.** `forge import` reads formulas with `workbook_refs::reverse`; the old translator was exported but called by nothing in Forge, its WebAssembly module or its validation crates. The rest of `src/excel/` is now at 100% coverage (T1-COVERAGE-GATE): `text_results.rs` reads back only the workbook the writer saved, so its archive and UTF-8 checks are `expect`s with the reason; `WorkbookRefs::gives_a_date`, called by nothing, is removed; tests cover a sign and an operator in an array constant, a quote in an imported constant, `VARIANCE_STATUS` with a number threshold, a name `irr` that is not a call, a LAMBDA not called in a LET, `PREV` without its `)`, `IFS` and a `SWITCH` without a default over dates, and a formula the parser does not read on import. A text read back from a workbook is written with a quote inside doubled (`dates/print.rs`); import refuses such a text before it gets there, so no result changes.
 
