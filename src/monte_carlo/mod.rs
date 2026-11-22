@@ -404,7 +404,7 @@ mod tests {
             engine.add_distribution("test", Distribution::uniform(0.0, 100.0).unwrap());
 
             let result = engine.run().unwrap();
-            let json = result.to_json().unwrap();
+            let json = result.to_json();
 
             // Verify JSON is valid and contains expected fields
             let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();

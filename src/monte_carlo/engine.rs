@@ -604,10 +604,11 @@ impl SimulationResult {
 
     /// Format results as JSON string
     ///
-    /// # Errors
+    /// # Panics
     ///
-    /// Returns an error if JSON serialization fails.
-    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+    /// Never in practice: serializing a `serde_json::Value` cannot fail.
+    #[must_use]
+    pub fn to_json(&self) -> String {
         use serde_json::{json, to_string_pretty};
 
         let mut outputs_json = serde_json::Map::new();
@@ -678,6 +679,7 @@ impl SimulationResult {
         });
 
         to_string_pretty(&crate::core::precision::Rounded(&result_json))
+            .expect("a JSON value always serializes")
     }
 }
 
@@ -821,7 +823,7 @@ mod tests {
         assert_eq!(result.outputs["revenue"].at_plan, Some(100.0));
         let yaml = result.to_yaml();
         assert!(yaml.contains("      at_plan: 100.0000\n"), "{yaml}");
-        let json: serde_json::Value = serde_json::from_str(&result.to_json().unwrap()).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&result.to_json()).unwrap();
         let mc = &json["monte_carlo_results"];
         assert_eq!(mc["outputs"]["revenue"]["at_plan"], 100.0);
         assert_eq!(mc["inputs"]["hours"]["plan"], 2.0);
@@ -881,7 +883,7 @@ mod tests {
         engine.add_distribution("revenue", dist);
 
         let result = engine.run().unwrap();
-        let json = result.to_json().unwrap();
+        let json = result.to_json();
 
         assert!(json.contains("\"monte_carlo_results\""));
         assert!(json.contains("\"iterations\": 10000"));
@@ -1077,7 +1079,7 @@ mod tests {
             result.to_yaml(),
             "monte_carlo_results:\n  iterations: 4\n  execution_time_ms: 0\n  sampling: monte_carlo\n\n  outputs:\n    profit:\n      mean: 7.0000\n      at_plan: 7.0000\n      median: 7.0000\n      std_dev: 0.0000\n      min: 7.0000\n      max: 7.0000\n      percentiles:\n        p5: 7.0000\n        p10: 7.0000\n        p25: 7.0000\n        p50: 7.0000\n        p75: 7.0000\n        p90: 7.0000\n        p95: 7.0000\n      expected_shortfall:\n        worst_25_percent: 7.0000\n"
         );
-        let json: serde_json::Value = serde_json::from_str(&result.to_json().unwrap()).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&result.to_json()).unwrap();
         let profit = &json["monte_carlo_results"]["outputs"]["profit"];
         assert_eq!(
             (

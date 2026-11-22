@@ -193,9 +193,6 @@ fn print_column_rows(
         .filter(|o| o.row.as_ref().is_some_and(|(c, _)| c == column))
         .filter_map(|o| result.outputs.get(&o.variable))
         .collect();
-    let Some(first) = rows.first() else {
-        return;
-    };
     outln!(
         c,
         "      {} {}:",
@@ -206,7 +203,12 @@ fn print_column_rows(
         "         {:>4} {:>14} {:>14} {:>14} {:>14} {:>14}",
         "row", "mean", "at plan", "P10", "P50", "P90"
     );
-    for threshold in first.threshold_probabilities.keys() {
+    // Every row has the thresholds of its column; the first one names them
+    for threshold in rows
+        .iter()
+        .take(1)
+        .flat_map(|r| r.threshold_probabilities.keys())
+    {
         let _ = write!(header, " {:>10}", format!("P({threshold})"));
     }
     outln!(c, "{header}");
@@ -257,10 +259,7 @@ pub(super) fn write_simulation_output(
             ));
         },
         Some("json") => {
-            let output_str = result
-                .to_json()
-                .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))?;
-            fs::write(output_path, output_str).map_err(ForgeError::Io)?;
+            fs::write(output_path, result.to_json()).map_err(ForgeError::Io)?;
         },
         _ => {
             let output_str = result.to_yaml();
@@ -298,6 +297,129 @@ mod tests {
         assert!(
             above.starts_with("The mean is 2.00 above the value at plan"),
             "{above}"
+        );
+    }
+
+    const ROWS: &str = r#"_forge_version: "5.2.0"
+t:
+  n: [1, 2]
+  shock: "=MC.Normal(0, 0.1)"
+  level: "=10 + shock"
+s:
+  total: {formula: "=SUM(t.shock)"}
+monte_carlo:
+  iterations: 200
+  seed: 5
+  outputs:
+    - variable: s.total
+    - variable: t.level
+      thresholds: ["> 10"]
+"#;
+
+    fn simulated(model: &str) -> crate::monte_carlo::SimulationResult {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("m.yaml");
+        fs::write(&path, model).unwrap();
+        crate::cli::simulate_core(&path, crate::cli::SimulateOptions::default()).unwrap()
+    }
+
+    /// A column of rows is printed once, by row, with each threshold's
+    /// probability; a lone output is printed on its own.
+    #[test]
+    fn a_column_is_printed_by_row_with_its_thresholds() {
+        let result = simulated(ROWS);
+        let ((), printed) = crate::cli::console::capture(|c| print_simulation_results(c, &result));
+        let out = printed.out;
+        assert_eq!(out.matches("by row:").count(), 1, "{out}");
+        assert!(out.contains("t.level by row:"), "{out}");
+        assert!(out.contains("P(> 10)"), "{out}");
+        assert!(out.contains("Iterations:     200"), "{out}");
+        assert!(out.contains("Output Statistics:"), "{out}");
+        assert!(out.contains("s.total"), "{out}");
+        // Two rows, numbered from 1
+        let rows: Vec<&str> = out
+            .lines()
+            .filter(|l| l.trim_start().starts_with(['1', '2']) && l.contains('%'))
+            .collect();
+        assert_eq!(rows.len(), 2, "{out}");
+        assert!(rows[0].trim_start().starts_with("1 "), "{out}");
+    }
+
+    #[test]
+    fn results_are_written_as_yaml_json_and_excel_and_each_failure_is_an_error() {
+        let result = simulated(ROWS);
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["r.yaml", "r.json", "r.xlsx", "r.other"] {
+            let path = dir.path().join(name);
+            let (done, printed) =
+                crate::cli::console::capture(|c| write_simulation_output(c, &result, &path));
+            assert!(done.is_ok(), "{name}");
+            assert!(
+                printed
+                    .out
+                    .contains(&format!("Results written to {}", path.display())),
+                "{}",
+                printed.out
+            );
+            assert!(fs::metadata(&path).unwrap().len() > 0, "{name}");
+        }
+        let json = fs::read_to_string(dir.path().join("r.json")).unwrap();
+        assert!(json.contains("\"iterations\": 200"), "{json}");
+        let yaml = fs::read_to_string(dir.path().join("r.yaml")).unwrap();
+        assert!(yaml.contains("iterations: 200"), "{yaml}");
+        // A folder that does not exist cannot be written to
+        let missing = dir.path().join("none").join("r.json");
+        let (done, _) =
+            crate::cli::console::capture(|c| write_simulation_output(c, &result, &missing));
+        assert!(done.unwrap_err().to_string().starts_with("IO error"));
+        // The same for the YAML, and for a workbook that cannot be made
+        for name in ["none/r.yaml", "none/r.xlsx"] {
+            let path = dir.path().join(name);
+            let (done, printed) =
+                crate::cli::console::capture(|c| write_simulation_output(c, &result, &path));
+            assert!(done.is_err(), "{name}");
+            assert_eq!(printed.out, "", "{name}");
+        }
+    }
+
+    /// An output with no value at plan, no drivers and a threshold-less row
+    /// still prints, with a dash where the plan would be; a run with no
+    /// outputs prints the inputs only.
+    #[test]
+    fn what_a_result_lacks_is_left_out_of_what_is_printed() {
+        let mut result = simulated(ROWS);
+        for output in result.outputs.values_mut() {
+            output.at_plan = None;
+            output.drivers.clear();
+        }
+        let ((), printed) = crate::cli::console::capture(|c| print_simulation_results(c, &result));
+        let out = printed.out;
+        assert!(!out.contains("At plan:"), "{out}");
+        assert!(!out.contains("Drivers"), "{out}");
+        let by_row: Vec<&str> = out
+            .lines()
+            .skip_while(|l| !l.contains("t.level by row:"))
+            .filter(|l| l.trim_start().starts_with(['1', '2']))
+            .collect();
+        assert_eq!(by_row.len(), 2, "{out}");
+        assert!(
+            by_row
+                .iter()
+                .all(|l| l.split_whitespace().nth(2) == Some("-")),
+            "{out}"
+        );
+
+        result.outputs.clear();
+        let ((), printed) = crate::cli::console::capture(|c| print_simulation_results(c, &result));
+        assert!(
+            !printed.out.contains("Output Statistics:"),
+            "{}",
+            printed.out
+        );
+        assert!(
+            printed.out.contains("Input Distributions:"),
+            "{}",
+            printed.out
         );
     }
 }
