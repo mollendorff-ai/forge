@@ -30,7 +30,7 @@ pub fn calculate_plan_core(file: &Path, scenario: Option<&str>) -> ForgeResult<C
         apply_scenario(&mut model, scenario_name)?;
     }
     let at_plan = set_at_plan(&mut model)?;
-    calculated(file, model, true, at_plan)
+    calculated(file, model, true, scenario, at_plan)
 }
 
 /// Each uncertain input of `model` and of its included files

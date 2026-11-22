@@ -10,10 +10,58 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationResult {
     pub tables_valid: bool,
+    /// Every stored `value:` matches its formula
     pub scalars_valid: bool,
     pub table_count: usize,
     pub scalar_count: usize,
+    /// The stored values that do not match their formula
     pub mismatches: Vec<ValidationMismatch>,
+    /// Formulas with no stored value yet (nothing to compare)
+    #[serde(default)]
+    pub unstored: usize,
+    /// How many expectations (`expect:`, ADR-074) were checked, in the file
+    /// as written and in the scenarios
+    #[serde(default)]
+    pub expectations_checked: usize,
+    /// How many expectations of the file as written were checked
+    #[serde(default)]
+    pub base_checked: usize,
+    /// How many scenarios with an `expect:` were calculated and checked
+    #[serde(default)]
+    pub scenarios_checked: usize,
+    /// Every expectation checked is met (true when there are none)
+    #[serde(default)]
+    pub expectations_met: bool,
+    /// Each expectation the model does not meet
+    #[serde(default)]
+    pub expectation_differences: Vec<ExpectationCheck>,
+}
+
+/// One expectation checked against what Forge gives (ADR-074)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpectationCheck {
+    /// The scenario, or `None` for the file as written
+    pub scenario: Option<String>,
+    /// The result, as `expect:` names it
+    pub name: String,
+    /// Its full name, when the model gives a number by it
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// Whether Forge gives what it says, within 10⁻⁶ × max(1, |expected|)
+    #[serde(default)]
+    pub met: bool,
+    /// What `expect:` says it should be
+    pub expected: f64,
+    /// The formula the expectation was written as, when it was one
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formula: Option<String>,
+    /// What Forge gives, or `None` when it gives no number by that name
+    pub got: Option<f64>,
+    /// How far apart they are, when Forge gives one
+    pub diff: Option<f64>,
+    /// Why there is no number to compare, when there is none
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// A single value mismatch found during validation
@@ -46,6 +94,9 @@ pub struct CalculationResult {
     /// calculated at, in name order: empty unless the model was calculated at
     /// plan (ADR-076)
     pub at_plan: BTreeMap<String, f64>,
+    /// The expectations of the run calculated, the file as written or the
+    /// scenario applied, each checked (ADR-074)
+    pub expectations: Vec<ExpectationCheck>,
 }
 
 impl CalculationResult {
@@ -74,6 +125,8 @@ struct CalculationWire {
     dry_run: bool,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     at_plan: BTreeMap<String, f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    expectations: Vec<ExpectationCheck>,
 }
 
 impl From<CalculationResult> for CalculationWire {
@@ -100,6 +153,7 @@ impl From<CalculationResult> for CalculationWire {
             file_updated: r.file_updated,
             dry_run: r.dry_run,
             at_plan: r.at_plan,
+            expectations: r.expectations,
         }
     }
 }
@@ -134,6 +188,7 @@ impl From<CalculationWire> for CalculationResult {
             file_updated: w.file_updated,
             dry_run: w.dry_run,
             at_plan: w.at_plan,
+            expectations: w.expectations,
         }
     }
 }

@@ -112,7 +112,7 @@ The response will contain both the calculation results and a `calculated_content
 
 #### `forge_validate`
 
-Validate a Forge YAML model file for formula errors, circular dependencies, and type mismatches.
+Validate a Forge YAML model file for formula errors, circular dependencies, and type mismatches, and check each stored value against its formula. When the model states its results (`expect:`, format 5.6.0, ADR-074), it calculates the file and each scenario that has one: `expectations_checked` counts them, `expectations_met` is false when one differs, and `expectation_differences` lists each with its `scenario` (null for the file as written), `name`, `expected`, `formula` when it was written as one, `got` and `diff`, or a `reason` when the model gives no number by that name. A difference is data, as a stale value is, not a tool error.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -140,7 +140,7 @@ Calculate all formulas in a Forge YAML model and optionally update the file.
 | `scenario` | string | no | Scenario name to apply |
 | `plan` | boolean | no | Calculate an uncertain model at plan: each `MC.*` input at its plan figure, as `forge_simulate` does for `at_plan`; the answer's `at_plan` lists the inputs and their figures, and nothing is written (default: false, which refuses an uncertain model) |
 
-*One of `file_path` or `content` is required. When using `content` with `dry_run: false`, the response includes a `calculated_content` field.
+*One of `file_path` or `content` is required. When using `content` with `dry_run: false`, the response includes a `calculated_content` field. Under a `scenario` nothing is written, and there is no `calculated_content`: a scenario's results are not the file's (ADR-074). When the run has an `expect:` (the file's, or the scenario's), `expectations` lists each, checked as `forge_validate` checks it, with its full name (`path`) and `met`.
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_calculate","arguments":{"file_path":"/path/to/model.yaml","dry_run":true}}}

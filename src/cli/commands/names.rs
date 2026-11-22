@@ -43,6 +43,17 @@ pub fn scalar<'a>(model: &'a ParsedModel, name: &str) -> Option<&'a Variable> {
     }
 }
 
+/// The full name an expectation's `name` stands for (ADR-074), found as a
+/// scenario's override is; a name that fits nothing is returned as given, and
+/// the check then finds no result by it.
+///
+/// # Errors
+///
+/// Returns the reason when a bare name fits several scalars.
+pub(super) fn expected_name(model: &ParsedModel, name: &str) -> Result<String, String> {
+    lookup(model, name, true)
+}
+
 fn lookup(model: &ParsedModel, name: &str, missing_ok: bool) -> Result<String, String> {
     if let Some(rest) = name.strip_prefix('@') {
         return included(model, name, rest);

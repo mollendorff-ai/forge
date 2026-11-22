@@ -36,7 +36,7 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
     // (ADR-060)
     let dates = content.lines().any(|line| {
         line.trim_start().starts_with("_forge_version")
-            && ["5.4.0", "5.5.0"].iter().any(|v| line.contains(v))
+            && ["5.4.0", "5.5.0", "5.6.0"].iter().any(|v| line.contains(v))
     });
     let values: Vec<(in_place::ScalarPath, in_place::Written)> = result
         .scalars
@@ -168,6 +168,7 @@ mod tests {
             ("5.1.0", "46326"),
             ("5.4.0", "2026-10-31"),
             ("5.5.0", "2026-10-31"),
+            ("5.6.0", "2026-10-31"),
         ] {
             let text = format!(
                 "_forge_version: \"{version}\"\nend:\n  formula: \"=DATE(2026, 10, 31)\"\n"

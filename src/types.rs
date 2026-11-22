@@ -384,6 +384,23 @@ pub struct Scenario {
     /// The overrides written as a date, held as its day number (ADR-060)
     #[serde(default)]
     pub dates: std::collections::BTreeSet<String>,
+    /// What the scenario should give, in the file's order (`expect:`, ADR-074)
+    #[serde(default)]
+    pub expect: Vec<Expected>,
+}
+
+/// One result a model states it should give (`expect:`, model format 5.6.0,
+/// ADR-074): a scalar the calculation gives, and its value, written as a
+/// number or as a formula over numbers only (`=2/11`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Expected {
+    /// The scalar, as the file names it
+    pub name: String,
+    /// The value it should have
+    pub value: f64,
+    /// The formula it was written as, when it was one
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formula: Option<String>,
 }
 
 impl Scenario {
@@ -393,6 +410,7 @@ impl Scenario {
             overrides: HashMap::new(),
             description: None,
             dates: std::collections::BTreeSet::new(),
+            expect: Vec::new(),
         }
     }
 
@@ -443,6 +461,10 @@ pub struct ParsedModel {
     /// file's kind of model by them (ADR-077)
     #[serde(default)]
     pub analyses: Vec<String>,
+    /// What the file as written should give (the top-level `expect:`,
+    /// model format 5.6.0, ADR-074); each scenario has its own
+    #[serde(default)]
+    pub expect: Vec<Expected>,
 
     /// The file the model was read from, for messages that name it
     #[serde(skip)]
@@ -483,6 +505,7 @@ impl ParsedModel {
             documents: Vec::new(),
             games: IndexMap::new(),
             analyses: Vec::new(),
+            expect: Vec::new(),
         }
     }
 

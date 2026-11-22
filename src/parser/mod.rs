@@ -12,8 +12,10 @@
 //! - `includes`: Cross-file include resolution (v4.0)
 //! - `variables`: Table and scalar variable parsing
 //! - `model`: Core model parsing logic
+//! - `expect`: what a model states its results should be (`expect:`, ADR-074)
 
 mod arrays;
+mod expect;
 mod finite;
 mod includes;
 mod memory;
@@ -36,7 +38,7 @@ pub use multi_doc::{
     detect_multi_document, parse_multi_document_yaml, parse_single_document_yaml,
     split_yaml_documents,
 };
-pub use schema::{validate_against_schema, validate_v1_0_0_no_tables};
+pub use schema::{format_at_least, validate_against_schema, validate_v1_0_0_no_tables};
 pub use variables::{
     is_nested_scalar_section, looks_like_date, parse_metadata, parse_scalar_variable, parse_table,
     scalar_date,
