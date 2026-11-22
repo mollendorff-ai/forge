@@ -921,7 +921,6 @@ mod tests {
     /// Every `forge ...` example in a command's help parses as written.
     #[test]
     fn every_example_in_the_help_parses() {
-        let mut wrong = Vec::new();
         for sub in Cli::command().get_subcommands() {
             let help = sub
                 .get_long_about()
@@ -940,36 +939,25 @@ mod tests {
                 }
                 let full = format!("{pending}{line}");
                 pending.clear();
-                if let Err(e) = Cli::try_parse_from(words(&full)) {
-                    wrong.push(format!("{full}\n    {}", e.kind()));
-                }
+                assert!(
+                    Cli::try_parse_from(words(&full)).is_ok(),
+                    "help example that does not parse: {full}"
+                );
             }
         }
-        assert!(
-            wrong.is_empty(),
-            "help examples that do not parse:\n{}",
-            wrong.join("\n")
-        );
     }
 
     /// `-o` is the output file and `-v` is `--verbose`, in every command.
     #[test]
     fn short_flags_mean_the_same_in_every_command() {
-        let mut wrong = Vec::new();
         for sub in Cli::command().get_subcommands() {
+            let name = sub.get_name();
             for arg in sub.get_arguments() {
                 let id = arg.get_id().as_str();
-                match arg.get_short() {
-                    Some('o') if id != "output" => {
-                        wrong.push(format!("{} -o is {id}", sub.get_name()));
-                    },
-                    Some('v') if id != "verbose" => {
-                        wrong.push(format!("{} -v is {id}", sub.get_name()));
-                    },
-                    _ => {},
-                }
+                let short = arg.get_short();
+                assert!(short != Some('o') || id == "output", "{name} -o is {id}");
+                assert!(short != Some('v') || id == "verbose", "{name} -v is {id}");
             }
         }
-        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
     }
 }

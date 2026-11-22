@@ -469,15 +469,16 @@ mod tests {
     /// `forge` that must succeed: what it printed.
     fn ok(args: &[&str]) -> String {
         let ran = forge(args);
-        assert_eq!(ran.code, 0, "{args:?}: {}", ran.both());
+        assert_eq!(ran.code, 0, "{args:?}: {ran:?}");
         ran.out
     }
 
     /// `forge` that must fail with exit code 1: its message.
     fn fails(args: &[&str]) -> String {
         let ran = forge(args);
-        assert_eq!(ran.code, 1, "{args:?}: {}", ran.both());
-        assert!(ran.err.starts_with("Error: "), "{}", ran.err);
+        assert_eq!(ran.code, 1, "{args:?}: {ran:?}");
+        let err = &ran.err;
+        assert!(err.starts_with("Error: "), "{err}");
         ran.err
     }
 
@@ -583,6 +584,17 @@ mod tests {
         assert!(starts_a_server(["forge", "serve"]));
         assert!(!starts_a_server(["forge", "functions"]));
         assert!(!starts_a_server(["forge", "nope"]));
+    }
+
+    /// `forge update --check` is dispatched to the update command: whatever the
+    /// network answers, it starts with its heading and installs nothing.
+    #[test]
+    fn update_is_a_command() {
+        let printed = forge(&["update", "--check"]).out;
+        assert!(
+            printed.starts_with("🔄 Forge - Update Check\n"),
+            "{printed}"
+        );
     }
 
     #[test]
@@ -785,21 +797,42 @@ mod tests {
         #[test]
         fn the_version_starts_with_the_crate_version_and_a_stamp_is_a_commit() {
             let ran = forge(&["--version"]);
-            assert!(ran.success(), "{}", ran.both());
+            assert!(ran.success(), "{ran:?}");
             let text = ran.out.trim();
             let plain = format!("forge {}", env!("CARGO_PKG_VERSION"));
             assert!(text.starts_with(&plain), "{text}");
+            // A build from a source archive has no stamp
+            assert!(stamp(text, &plain).is_none_or(is_a_commit), "{text}");
+        }
+
+        /// The commit a version line stamps: `(a8ec1db)` or `(a8ec1db, modified)`.
+        fn stamp<'t>(text: &'t str, plain: &str) -> Option<&'t str> {
             let rest = text[plain.len()..].trim();
-            if !rest.is_empty() {
-                // `(a8ec1db)` or `(a8ec1db, modified)`
+            (!rest.is_empty()).then(|| {
                 let inner = rest
                     .strip_prefix('(')
                     .and_then(|r| r.strip_suffix(')'))
                     .expect(text);
-                let commit = inner.strip_suffix(", modified").unwrap_or(inner);
-                assert_eq!(commit.len(), 7, "{text}");
-                assert!(commit.chars().all(|c| c.is_ascii_hexdigit()), "{text}");
-            }
+                inner.strip_suffix(", modified").unwrap_or(inner)
+            })
+        }
+
+        fn is_a_commit(commit: &str) -> bool {
+            commit.len() == 7 && commit.chars().all(|c| c.is_ascii_hexdigit())
+        }
+
+        #[test]
+        fn a_stamp_is_a_seven_digit_commit_with_or_without_modified() {
+            assert_eq!(stamp("forge 1.0.0", "forge 1.0.0"), None);
+            assert_eq!(
+                stamp("forge 1.0.0 (a8ec1db)", "forge 1.0.0"),
+                Some("a8ec1db")
+            );
+            let modified = stamp("forge 1.0.0 (a8ec1db, modified)", "forge 1.0.0");
+            assert_eq!(modified, Some("a8ec1db"));
+            assert!(is_a_commit("a8ec1db"));
+            assert!(!is_a_commit("a8ec1d"));
+            assert!(!is_a_commit("a8ec1dz"));
         }
     }
 
@@ -864,8 +897,8 @@ results:
                 "--vary",
                 "price_per_dozen",
             ]);
-            assert!(out.success(), "{}", out.both());
-            assert!(out.out.contains("12"), "{}", out.both());
+            assert!(out.success(), "{out:?}");
+            assert!(out.out.contains("12"), "{out:?}");
 
             let out = forge(&[
                 "goal-seek",
@@ -877,7 +910,7 @@ results:
                 "--vary",
                 "price_per_dozen",
             ]);
-            assert!(out.success(), "{}", out.both());
+            assert!(out.success(), "{out:?}");
 
             let out = forge(&[
                 "sensitivity",
@@ -889,12 +922,8 @@ results:
                 "--output-var",
                 "profit",
             ]);
-            assert!(out.success(), "{}", out.both());
-            assert!(
-                out.out.contains("8,000") || out.out.contains("8000"),
-                "{}",
-                out.both()
-            );
+            assert!(out.success(), "{out:?}");
+            assert!(out.out.contains("8,000"), "{out:?}");
 
             // The full name still works, and so does the old --output
             let out = forge(&[
@@ -905,7 +934,7 @@ results:
                 "--vary",
                 "assumptions.price_per_dozen",
             ]);
-            assert!(out.success(), "{}", out.both());
+            assert!(out.success(), "{out:?}");
         }
 
         #[test]
@@ -1034,7 +1063,7 @@ tornado:
             let a = write(dir.path(), "a.yaml", ACTUAL);
             let report = dir.path().join("r.yaml");
             let out = forge(&["variance", &b, &a, "-o", report.to_str().expect("path")]);
-            assert!(out.success(), "{}", out.both());
+            assert!(out.success(), "{out:?}");
             let text = std::fs::read_to_string(&report).expect("report");
             let doc: serde_json::Value = yaml_serde::from_str(&text).expect("yaml");
             let lines = doc["variances"].as_object().expect("variances");
@@ -1063,9 +1092,9 @@ tornado:
             let a = write(dir.path(), "a.yaml", ACTUAL);
             assert!(forge(&["variance", &b, &a]).success());
             let out = forge(&["variance", &b, &a, "--fail-on-alert"]);
-            assert_eq!(out.code, 1, "{}", out.both());
+            assert_eq!(out.code, 1, "{out:?}");
             let same = forge(&["variance", &b, &b, "--fail-on-alert"]);
-            assert!(same.success(), "{}", same.both());
+            assert!(same.success(), "{same:?}");
         }
 
         // ── Examples ─────────────────────────────────────────────────────────────
@@ -1073,22 +1102,17 @@ tornado:
         #[test]
         fn example_comments_give_paths_that_work_in_any_examples_folder() {
             let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples");
-            let mut wrong = Vec::new();
             for entry in walk(&root) {
                 if entry.extension().is_some_and(|e| e == "yaml") {
                     let text = std::fs::read_to_string(&entry).expect("read");
                     for line in text.lines().filter(|l| l.trim_start().starts_with('#')) {
-                        if line.contains("examples/") {
-                            wrong.push(format!("{}: {line}", entry.display()));
-                        }
+                        assert!(
+                            !line.contains("examples/"),
+                            "install.sh copies the examples to forge-examples/, so a path under examples/ fails: {entry:?}: {line}"
+                        );
                     }
                 }
             }
-            assert!(
-                wrong.is_empty(),
-                "install.sh copies the examples to forge-examples/, so a path under examples/ fails:\n{}",
-                wrong.join("\n")
-            );
         }
 
         #[test]

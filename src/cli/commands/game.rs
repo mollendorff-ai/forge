@@ -648,9 +648,9 @@ games:
             ran.err
         );
         let ran = forge(&["game", &file, "--scenario", "nope"]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1, "{ran:?}");
         let ran = forge(&["game", "no/such/file.yaml"]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1, "{ran:?}");
         // A model that cannot be calculated at all (a cycle) stops the command
         let cycle = write(
             &dir,
@@ -662,8 +662,8 @@ games:
         // above was written over the model, so it is written again)
         let file = write(&dir, MODEL);
         let ran = forge(&["game", &file, "-o", dir.path().to_str().unwrap()]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
-        assert!(ran.err.contains("IO error"), "{}", ran.both());
+        assert_eq!(ran.code, 1, "{ran:?}");
+        assert!(ran.err.contains("IO error"), "{ran:?}");
         let plain = write(&dir, "_forge_version: \"5.5.0\"\nx: 1\n");
         let ran = forge(&["game", &plain]);
         assert!(ran.err.contains("No 'games' section"), "{}", ran.err);
