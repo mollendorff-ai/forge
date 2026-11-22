@@ -1,1365 +1,257 @@
-# Data Model Architecture
+# 02 - Data model
 
-> **Superseded (2026-11-08):** This page describes Forge as it was around v1.2, and most of it no longer matches the code. Gone: `xlformula_engine` (formulas are evaluated by Forge's own evaluator in `src/core/array_calculator/`, checked against Gnumeric and R by `forge-e2e-gnumeric` and `forge-e2e-r`), the v0.2.0 format, its scalar calculator and version detection (`_forge_version` is required: 1.0.0, 5.0.0 or 5.1.0, ADR-051), `ForgeVersion`, `Variable.alias`, `columns:`/`row_formulas:` table keys, and the files `core/calculator.rs`, `core/array_calculator.rs` and `cli/commands.rs` (now directories). `@namespace.name` is the current `_includes` mechanism, not a v0.2.0 leftover. Read the code, [FEATURES.md](../FEATURES.md) and ADR-050 to ADR-052 for what Forge does today. (2026-11-20) `jsonschema` was replaced by a reader of Forge's own (ADR-069); since 2026-11-21 it checks every model again, through `src/parser/schema_reader.rs` (ADR-072). (2026-11-20) `petgraph` is gone too: the topological sort and the strongly connected components are Forge's own, in `src/core/array_calculator/graph.rs`, the same algorithms visiting nodes in the same order, checked against petgraph on random graphs in a test.
+How a YAML file becomes the model Forge calculates: the file's shape, the steps that read it, the types it is read into, and the format versions that say which keys a file may use.
 
-**Document Version:** 1.0.0
-**Forge Version:** v1.2.1
-**Last Updated:** 2025-11-24
-**Status:** Complete
+The user's view of the same file is [FEATURES.md](../FEATURES.md#the-model-file); the exact rules of each format are the JSON schemas in `schema/` and [schema/README.md](../../schema/README.md).
 
----
-
-## Table of Contents
-
-1. [Introduction](#introduction)
-2. [Type System Overview](#type-system-overview)
-3. [Core Data Structures](#core-data-structures)
-4. [Version-Specific Models](#version-specific-models)
-5. [Type Safety and Invariants](#type-safety-and-invariants)
-6. [Data Flow Through System](#data-flow-through-system)
-7. [Memory Layout and Performance](#memory-layout-and-performance)
-8. [Serialization and Deserialization](#serialization-and-deserialization)
-9. [Error Types](#error-types)
-10. [Related Documentation](#related-documentation)
-
----
-
-## Introduction
-
-### Purpose
-
-This document provides a comprehensive specification of Forge's data model, including:
-
-- **Type system** - Enums, structs, and their relationships
-- **Data structures** - Tables, columns, and values
-- **Invariants** - Type safety guarantees and validation rules
-- **Memory model** - Layout, ownership, and performance characteristics
-- **Serialization** - YAML and Excel representation
-
-Understanding this data model is essential for:
-
-- **Developers** implementing new features
-- **Contributors** fixing bugs or adding functions
-- **Architects** evaluating design decisions
-- **Users** understanding error messages and limitations
-
-### Design Philosophy
-
-Forge's data model follows these principles:
-
-1. **Type Safety First** - Compile-time guarantees prevent runtime errors
-2. **Excel Compatibility** - Data structures map 1:1 to Excel concepts
-3. **Homogeneous Arrays** - All elements in a column have the same type
-4. **Explicit Over Implicit** - No hidden conversions or magic behavior
-5. **Zero-Copy Where Possible** - Minimize allocations and copies
-
----
-
-## Type System Overview
-
-### Type Hierarchy
-
-```mermaid
-graph TB
-    subgraph "Primitive Types"
-        F64["f64<br/>Floating-point numbers"]
-        String["String<br/>UTF-8 text"]
-        Bool["bool<br/>true/false"]
-        Date["ISO Date<br/>YYYY-MM-DD"]
-    end
-
-    subgraph "Collection Types"
-        VecF64["Vec&lt;f64&gt;"]
-        VecString["Vec&lt;String&gt;"]
-        VecBool["Vec&lt;bool&gt;"]
-        HashMap["HashMap&lt;K, V&gt;"]
-        Option["Option&lt;T&gt;"]
-    end
-
-    subgraph "Enum Types"
-        ForgeVersion["ForgeVersion<br/>V0_2_0 | V1_0_0"]
-        ColumnValue["ColumnValue<br/>Number | Text | Date | Boolean"]
-        ForgeError["ForgeError<br/>IO | Parse | Validation | Eval"]
-    end
-
-    subgraph "Struct Types"
-        Column["Column<br/>name + values"]
-        Table["Table<br/>columns + row_formulas"]
-        Variable["Variable<br/>value + formula + alias"]
-        ParsedModel["ParsedModel<br/>Unified model"]
-    end
-
-    F64 --> VecF64
-    String --> VecString
-    Bool --> VecBool
-
-    VecF64 -->|Number| ColumnValue
-    VecString -->|Text| ColumnValue
-    VecString -->|Date| ColumnValue
-    VecBool -->|Boolean| ColumnValue
-
-    ColumnValue --> Column
-    HashMap --> Column
-    Column --> Table
-    HashMap --> Table
-
-    Option --> Variable
-    Variable --> ParsedModel
-    Table --> ParsedModel
-    ForgeVersion --> ParsedModel
-```
-
-### Type Categories
-
-#### 1. Value Types (Data)
-
-- `f64` - Floating-point numbers
-- `String` - UTF-8 text
-- `bool` - Boolean true/false
-- ISO date strings (YYYY-MM-DD)
-
-#### 2. Collection Types
-
-- `Vec<T>` - Homogeneous arrays
-- `HashMap<K, V>` - Key-value mappings
-- `Option<T>` - Optional values
-
-#### 3. Enum Types (Variants)
-
-- `ForgeVersion` - v0.2.0 or v1.0.0
-- `ColumnValue` - Typed column arrays
-- `ForgeError` - Error categories
-
-#### 4. Struct Types (Aggregates)
-
-- `Column` - Named typed array
-- `Table` - Collection of columns
-- `ParsedModel` - Complete model
-- `Variable` - Scalar value with formula
-
----
-
-## Core Data Structures
-
-### 1. ColumnValue Enum
-
-**Purpose:** Represent homogeneous arrays of values in table columns.
-
-**Definition:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/types.rs:84-121
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-
-pub enum ColumnValue {
-    /// Array of numbers (f64)
-    Number(Vec<f64>),
-    /// Array of text strings
-    Text(Vec<String>),
-    /// Array of ISO date strings (YYYY-MM or YYYY-MM-DD)
-    Date(Vec<String>),
-    /// Array of booleans
-    Boolean(Vec<bool>),
-}
-
-impl ColumnValue {
-    pub fn len(&self) -> usize {
-        match self {
-            ColumnValue::Number(v) => v.len(),
-            ColumnValue::Text(v) => v.len(),
-            ColumnValue::Date(v) => v.len(),
-            ColumnValue::Boolean(v) => v.len(),
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            ColumnValue::Number(_) => "Number",
-            ColumnValue::Text(_) => "Text",
-            ColumnValue::Date(_) => "Date",
-            ColumnValue::Boolean(_) => "Boolean",
-        }
-    }
-}
-```
-
-**Memory Layout:**
-
-```text
-ColumnValue::Number(Vec<f64>)
-├─ Tag (enum discriminant): 1 byte
-├─ Vec metadata:
-│  ├─ pointer to heap data: 8 bytes
-│  ├─ length: 8 bytes
-│  └─ capacity: 8 bytes
-└─ Heap data: [f64; len]
-   └─ Each f64: 8 bytes
-
-Total stack size: 25 bytes (1 + 24)
-Heap size: 8 * len bytes
-```
-
-**Examples:**
+## A model file
 
 ```yaml
-
-# Number column (quarterly revenue)
-
-revenue:
-
-  - 100000
-  - 120000
-  - 150000
-  - 180000
-
-# Text column (quarter names)
-
-quarter:
-
-  - "Q1 2025"
-  - "Q2 2025"
-  - "Q3 2025"
-  - "Q4 2025"
-
-# Date column (period end dates)
-
-period_end:
-
-  - "2025-03"
-  - "2025-06"
-  - "2025-09"
-  - "2025-12"
-
-# Boolean column (target achieved)
-
-target_met:
-
-  - false
-  - true
-  - true
-  - true
-
-```
-
-**Design Decisions:**
-
-1. **Why separate variants instead of `Vec<Value>`?**
-   - Type safety: Prevents mixed types in columns
-   - Performance: No runtime type checking needed
-   - Memory efficiency: No enum overhead per element
-
-2. **Why f64 for numbers?**
-   - Excel uses IEEE 754 double precision
-   - xlformula_engine returns f32, we upcast to f64
-   - Sufficient precision for financial calculations
-
-3. **Why String for dates instead of chrono::Date?**
-   - ISO format is human-readable in YAML
-   - Excel exports dates as strings
-   - Avoids timezone complexity
-   - Easy to validate with regex
-
-### 2. Column Struct
-
-**Purpose:** Named typed array representing a table column.
-
-**Definition:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/types.rs:123-142
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-
-pub struct Column {
-    pub name: String,
-    pub values: ColumnValue,
-}
-
-impl Column {
-    pub fn new(name: String, values: ColumnValue) -> Self {
-        Self { name, values }
-    }
-
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
-    }
-}
-```
-
-**Memory Layout:**
-
-```text
-Column
-├─ name: String (24 bytes on stack + heap)
-│  ├─ pointer: 8 bytes
-│  ├─ length: 8 bytes
-│  └─ capacity: 8 bytes
-└─ values: ColumnValue (25 bytes + heap)
-
-Total stack size: 49 bytes
-Heap size: name.len() + values.heap_size()
-```
-
-**Invariants:**
-
-1. **Non-empty name**: Column name must not be empty string
-2. **Valid identifier**: Name must match `[a-zA-Z_][a-zA-Z0-9_]*`
-3. **Consistent length**: All columns in a table must have same length
-
-**Examples:**
-
-```rust
-// Number column
-let revenue = Column::new(
-    "revenue".to_string(),
-    ColumnValue::Number(vec![100000.0, 120000.0, 150000.0, 180000.0])
-);
-
-// Text column
-let quarters = Column::new(
-    "quarter".to_string(),
-    ColumnValue::Text(vec![
-        "Q1 2025".to_string(),
-        "Q2 2025".to_string(),
-        "Q3 2025".to_string(),
-        "Q4 2025".to_string(),
-    ])
-);
-```
-
-### 3. Table Struct
-
-**Purpose:** Collection of columns representing a worksheet or dataset.
-
-**Definition:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/types.rs:144-190
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-
-pub struct Table {
-    pub name: String,
-    pub columns: HashMap<String, Column>,
-    /// Row-wise formulas (e.g., "profit: =revenue - expenses")
-    pub row_formulas: HashMap<String, String>,
-}
-
-impl Table {
-    pub fn new(name: String) -> Self {
-        Self {
-            name,
-            columns: HashMap::new(),
-            row_formulas: HashMap::new(),
-        }
-    }
-
-    pub fn add_column(&mut self, column: Column) {
-        self.columns.insert(column.name.clone(), column);
-    }
-
-    pub fn add_row_formula(&mut self, name: String, formula: String) {
-        self.row_formulas.insert(name, formula);
-    }
-
-    pub fn row_count(&self) -> usize {
- self.columns.values().next().map_or(0, |col| col.len())
-    }
-
-    pub fn validate_lengths(&self) -> Result<(), String> {
-        let row_count = self.row_count();
-        for (name, column) in &self.columns {
-            if column.len() != row_count {
-                return Err(format!(
-                    "Column '{}' has {} rows, expected {} rows",
-                    name, column.len(), row_count
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-```
-
-**Invariants:**
-
-1. **Unique column names**: No duplicate column names in `columns` or `row_formulas`
-2. **Equal row counts**: All columns must have the same length
-3. **Valid formulas**: Row formulas must reference existing columns
-4. **No self-reference**: Formula column cannot reference itself
-
-**Table Structure Diagram:**
-
-```mermaid
-graph TB
-    Table["Table<br/>name: String"]
-
-    subgraph "Columns HashMap"
-        Col1["revenue:<br/>ColumnValue::Number<br/>[100000, 120000, 150000]"]
-        Col2["cogs:<br/>ColumnValue::Number<br/>[30000, 36000, 45000]"]
-        Col3["quarter:<br/>ColumnValue::Text<br/>['Q1', 'Q2', 'Q3']"]
-    end
-
-    subgraph "Row Formulas HashMap"
-        Formula1["gross_profit:<br/>'=revenue - cogs'"]
-        Formula2["gross_margin:<br/>'=gross_profit / revenue'"]
-    end
-
-    subgraph "Calculated Columns"
-        Calc1["gross_profit:<br/>ColumnValue::Number<br/>[70000, 84000, 105000]"]
-        Calc2["gross_margin:<br/>ColumnValue::Number<br/>[0.70, 0.70, 0.70]"]
-    end
-
-    Table --> Col1
-    Table --> Col2
-    Table --> Col3
-    Table --> Formula1
-    Table --> Formula2
-
-    Formula1 -.->|Evaluates to| Calc1
-    Formula2 -.->|Evaluates to| Calc2
-```
-
-**Examples:**
-
-```yaml
-
-# In YAML format
-
-pl_2025:
-  columns:
-    revenue: [100000, 120000, 150000, 180000]
-    cogs: [30000, 36000, 45000, 54000]
-    quarter: ["Q1", "Q2", "Q3", "Q4"]
-  row_formulas:
-    gross_profit: "=revenue - cogs"
-    gross_margin: "=gross_profit / revenue"
-```
-
-```rust
-// In Rust code
-let mut table = Table::new("pl_2025".to_string());
-
-table.add_column(Column::new(
-    "revenue".to_string(),
-    ColumnValue::Number(vec![100000.0, 120000.0, 150000.0, 180000.0]),
-));
-
-table.add_column(Column::new(
-    "cogs".to_string(),
-    ColumnValue::Number(vec![30000.0, 36000.0, 45000.0, 54000.0]),
-));
-
-table.add_row_formula("gross_profit".to_string(), "=revenue - cogs".to_string());
-table.add_row_formula("gross_margin".to_string(), "=gross_profit / revenue".to_string());
-
-// Validate all columns have same length
-table.validate_lengths().expect("Length mismatch");
-```
-
-### 4. ParsedModel Struct
-
-**Purpose:** Unified model supporting both v0.2.0 and v1.0.0 formats.
-
-**Definition:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/types.rs:220-265
-
-#[derive(Debug, Serialize, Deserialize)]
-
-pub struct ParsedModel {
-    /// Model version detected
-    pub version: ForgeVersion,
-
-    /// Tables (v1.0.0 only)
-    pub tables: HashMap<String, Table>,
-
-    /// Scalar variables (v0.2.0 compatible, also used in v1.0.0 for summary values)
-    pub scalars: HashMap<String, Variable>,
-
-    /// Includes (both versions)
-    pub includes: Vec<Include>,
-
-    /// Aggregation formulas (v1.0.0 - formulas that reduce columns to scalars)
-    pub aggregations: HashMap<String, String>,
-}
-
-impl ParsedModel {
-    pub fn new(version: ForgeVersion) -> Self {
-        Self {
-            version,
-            tables: HashMap::new(),
-            scalars: HashMap::new(),
-            includes: Vec::new(),
-            aggregations: HashMap::new(),
-        }
-    }
-
-    pub fn add_table(&mut self, table: Table) {
-        self.tables.insert(table.name.clone(), table);
-    }
-
-    pub fn add_scalar(&mut self, name: String, variable: Variable) {
-        self.scalars.insert(name, variable);
-    }
-
-    pub fn add_aggregation(&mut self, name: String, formula: String) {
-        self.aggregations.insert(name, formula);
-    }
-}
-```
-
-**Version-Specific Fields:**
-
-| Field | v0.2.0 | v1.0.0 | Purpose |
-|-------|--------|--------|---------|
-| `version` | ✓ | ✓ | Version marker |
-| `tables` | ✗ | ✓ | Array-based tables |
-| `scalars` | ✓ | ✓ | Scalar values |
-| `includes` | ✓ | ✗ | Cross-file references |
-| `aggregations` | ✗ | ✓ | Column → scalar formulas |
-
-**Model Lifecycle:**
-
-```mermaid
-graph LR
-    YAMLFile["📄 YAML File"]
-    Parser["Parser"]
-    EmptyModel["ParsedModel::new()<br/>Empty model"]
-    PopulatedModel["ParsedModel<br/>With tables/scalars"]
-    Calculator["Calculator"]
-    CalculatedModel["ParsedModel<br/>With calculated values"]
-    Writer["Writer"]
-    UpdatedYAML["📄 Updated YAML"]
-
-    YAMLFile --> Parser
-    Parser --> EmptyModel
-    EmptyModel -->|Add tables| PopulatedModel
-    EmptyModel -->|Add scalars| PopulatedModel
-    EmptyModel -->|Add aggregations| PopulatedModel
-    PopulatedModel --> Calculator
-    Calculator --> CalculatedModel
-    CalculatedModel --> Writer
-    Writer --> UpdatedYAML
-```
-
-### 5. Variable Struct (v0.2.0 Scalars)
-
-**Purpose:** Scalar value with optional formula and cross-file reference.
-
-**Definition:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/types.rs:203-211
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-
-pub struct Variable {
-    pub path: String,
-    pub value: Option<f64>,
-    pub formula: Option<String>,
-    /// The alias of the file this variable came from (None for main file)
-    pub alias: Option<String>,
-}
-```
-
-**Fields:**
-
-- `path` - Fully qualified path (e.g., "financials.revenue.q1")
-- `value` - Calculated numeric value
-- `formula` - Excel-style formula (e.g., "=@pricing.base * qty")
-- `alias` - File alias for cross-file references (e.g., "pricing")
-
-**Examples:**
-
-```yaml
-
-# In YAML (v0.2.0)
-
-revenue:
-  value: 1000000
-  formula: "=@pricing.base_price * volume"
-
-# In YAML (v1.0.0 scalar)
-
-summary:
-  total_revenue:
-    value: 550000
-    formula: "=SUM(pl_2025.revenue)"
-```
-
-```rust
-// In Rust code
-let revenue = Variable {
-    path: "financials.revenue".to_string(),
-    value: Some(1000000.0),
-    formula: Some("=@pricing.base_price * volume".to_string()),
-    alias: None,
-};
-
-let imported_var = Variable {
-    path: "pricing.base_price".to_string(),
-    value: Some(99.0),
-    formula: None,
-    alias: Some("pricing".to_string()),
-};
-```
-
-### 6. ForgeVersion Enum
-
-**Purpose:** Distinguish between v0.2.0 (scalar) and v1.0.0 (array) models.
-
-**Definition:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/types.rs:8-77
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-
-pub enum ForgeVersion {
-    /// v0.2.0 - Scalar model (discrete values with {value, formula})
-    V0_2_0,
-    /// v1.0.0 - Array model (column arrays for Excel compatibility)
-    V1_0_0,
-}
-
-impl ForgeVersion {
-    pub fn detect(yaml: &yaml_serde::Value) -> Self {
-        // 1. Check for explicit version marker
-        if let Some(version_val) = yaml.get("_forge_version") {
-            if let Some(version_str) = version_val.as_str() {
-                if version_str.starts_with("1.0") {
-                    return ForgeVersion::V1_0_0;
-                }
-            }
-        }
-
-        // 2. Check for v0.2.0 specific features (includes field)
-        if yaml.get("includes").is_some() {
-            return ForgeVersion::V0_2_0;
-        }
-
-        // 3. Check for v1.0.0 specific features (tables with columns)
-        if let Some(tables_val) = yaml.get("tables") {
-            if let Some(tables_map) = tables_val.as_mapping() {
-                for (_table_name, table_val) in tables_map {
-                    if let Some(table_map) = table_val.as_mapping() {
-                        if table_map.contains_key("columns") {
-                            return ForgeVersion::V1_0_0;
-                        }
-                    }
-                }
-            }
-        }
-
-        // 4. Check for array pattern (v1.0.0 indicator)
-        if Self::has_array_values(yaml) {
-            return ForgeVersion::V1_0_0;
-        }
-
-        // 5. Default to v0.2.0 for backwards compatibility
-        ForgeVersion::V0_2_0
-    }
-}
-```
-
-**Detection Algorithm:**
-
-```mermaid
-graph TB
-    Start["Read YAML file"]
-    Parse["Parse YAML structure"]
-    CheckTables{"Has 'tables' key?"}
-    ValidateSchema{"Valid v1.0.0 schema?"}
-    V1["ForgeVersion::V1_0_0"]
-    V0["ForgeVersion::V0_2_0<br/>Backwards compatible"]
-
-    Start --> Parse
-    Parse --> CheckTables
-    CheckTables -->|Yes| ValidateSchema
-    CheckTables -->|No| V0
-    ValidateSchema -->|Valid| V1
-    ValidateSchema -->|Invalid| V0
-```
-
----
-
-## Version-Specific Models
-
-### v0.2.0 Scalar Model
-
-**Characteristics:**
-
-- Discrete scalar values
-- Cross-file references via `includes`
-- Formula syntax: `=@alias.variable`
-- No arrays or tables
-
-**YAML Structure:**
-
-```yaml
-
-# main.yaml
-
-includes:
-
-  - file: pricing.yaml
-    as: pricing
+_forge_version: "5.4.0"          # the model format, not the Forge version (required)
+_includes:                       # other files, read under a name
   - file: costs.yaml
     as: costs
 
-revenue:
-  value: null
-  formula: "=@pricing.base_price * volume"
+assumptions:                     # a group of scalars
+  price_per_dozen: {value: 16, unit: CAD, format: "$#,##0.00"}
+  opening_dozens_per_day: 55     # an input in the short form (5.1.0)
 
-volume:
-  value: 1000
-  formula: null
+months:                          # a table: columns of equal length
+  month: [1, 2, 3]
+  season: [0.85, 1.25, 0.8]
+  dozens: "=assumptions.opening_dozens_per_day * season * 30"   # a row formula
+  revenue: "=dozens * assumptions.price_per_dozen"
+  flour: "=dozens * 12 / 9 * @costs.ingredients.flour_per_kg"   # a value of costs.yaml
 
-profit:
-  value: null
-  formula: "=revenue - @costs.total"
+year:
+  revenue: {formula: "=SUM(months.revenue)", value: 76560}      # a result, written back
+
+scenarios:                       # named overrides
+  flour_shock:
+    scalars:
+      "@costs.ingredients.flour_per_kg": 1.70
 ```
 
-**Data Flow:**
+Besides tables, groups and scenarios, a file can hold analysis sections (`monte_carlo`, `tornado`, `decision_tree`, `real_options`, `bootstrap`, `bayesian_network`), `games:` (5.5.0) and `expect:` (5.6.0). A file can also be several YAML documents separated by `---`, which share one namespace (ADR-052).
 
-```text
-pricing.yaml (base_price=99) ──┐
-                                ├──> revenue = 99 * 1000 = 99000
-volume=1000 ────────────────────┘
-
-revenue=99000 ──┐
-                ├──> profit = 99000 - 5000 = 94000
-costs.yaml (total=5000) ────┘
-```
-
-### v1.0.0 Array Model
-
-**Characteristics:**
-
-- Column arrays for tables
-- Row-wise formulas (element-wise operations)
-- Aggregation formulas (column → scalar)
-- Excel-compatible structure
-
-**YAML Structure:**
-
-```yaml
-_forge_version: "1.0.0"
-
-pl_2025:
-  columns:
-    revenue: [100000, 120000, 150000, 180000]
-    cogs: [30000, 36000, 45000, 54000]
-    quarter: ["Q1", "Q2", "Q3", "Q4"]
-  row_formulas:
-    gross_profit: "=revenue - cogs"
-    gross_margin: "=gross_profit / revenue"
-
-summary:
-  total_revenue:
-    value: null
-    formula: "=SUM(pl_2025.revenue)"
-  avg_margin:
-    value: null
-    formula: "=AVERAGE(pl_2025.gross_margin)"
-```
-
-**Data Structure:**
+## Reading a file
 
 ```mermaid
-graph TB
-    Model["ParsedModel<br/>version: V1_0_0"]
+flowchart TB
+    start(["parse_model(path)<br/>or parse_model_text(name, text, files)"])
+    text["read_model_text<br/>from disk, or from files in memory"]
+    multi{"two or more<br/>--- lines?"}
+    split["split into documents,<br/>each read as below,<br/>merged into one namespace"]
+    yaml["read_yaml<br/>YAML to a value; a merge key<br/>(&lt;&lt;) is refused (ADR-071)"]
+    finite["check_finite<br/>no .nan or .inf anywhere"]
+    schema["validate_against_schema<br/>jsonschema, against the schema of<br/>the file's _forge_version (ADR-072)"]
+    read["read_model<br/>each top-level key to a table,<br/>a group, a scalar, scenarios,<br/>games, expect or an analysis"]
+    includes["resolve_includes<br/>each included file parsed the same way,<br/>a circular include refused"]
+    model(["ParsedModel"])
 
-    subgraph "Tables"
-        Table1["pl_2025<br/>Table"]
-        Cols1["columns:<br/>revenue, cogs, quarter"]
-        Formulas1["row_formulas:<br/>gross_profit, gross_margin"]
-    end
-
-    subgraph "Scalars/Aggregations"
-        Agg1["total_revenue:<br/>'=SUM(pl_2025.revenue)'"]
-        Agg2["avg_margin:<br/>'=AVERAGE(pl_2025.gross_margin)'"]
-    end
-
-    subgraph "Calculated Results"
-        ColResults["Calculated columns:<br/>gross_profit: [70000, 84000, 105000]<br/>gross_margin: [0.70, 0.70, 0.70]"]
-        AggResults["Calculated scalars:<br/>total_revenue: 370000<br/>avg_margin: 0.70"]
-    end
-
-    Model --> Table1
-    Table1 --> Cols1
-    Table1 --> Formulas1
-    Model --> Agg1
-    Model --> Agg2
-
-    Formulas1 -.->|Phase 1| ColResults
-    Agg1 -.->|Phase 2| AggResults
-    Agg2 -.->|Phase 2| AggResults
+    start --> text --> multi
+    multi -- yes --> split --> model
+    multi -- no --> yaml --> finite --> schema --> read --> includes --> model
 ```
 
----
+| Step | Code | Fails with |
+| --- | --- | --- |
+| Read the text | `src/parser/memory.rs` (`read_model_text`) | the file cannot be read, or is not among the files in memory |
+| Split documents | `src/parser/multi_doc.rs` | a name defined in two documents, naming both |
+| YAML | `src/parser/merge_keys.rs` (`read_yaml`) | invalid YAML; a `<<` merge key |
+| Finite numbers | `src/parser/finite.rs` | `.nan`, `.inf` |
+| Schema | `src/parser/schema.rs`, `schema_reader.rs`, `schema_errors.rs` | an unknown version; a key or a value the format does not allow, with its path and a suggestion (`'formla': did you mean 'formula'?`) |
+| Sections | `src/parser/model.rs` (`read_model`), `variables.rs`, `arrays.rs`, `periods.rs`, `expect.rs` | a mixed array, a bad date, a game named like a table |
+| Includes | `src/parser/includes.rs` | a missing file, a circular include, an `as` used twice |
 
-## Type Safety and Invariants
+The schemas are embedded in the binary (`include_str!` in `src/parser/schema_reader.rs`) and compiled once. They check the shape of a file. Whether a formula's names exist, and whether its stored results are current, is checked later, by the calculator and `forge validate`.
 
-### Compile-Time Guarantees
+## How a top-level key is read
 
-**1. Homogeneous Arrays**
+`read_model` in `src/parser/model.rs` looks at each key once, in the file's order. The order of these tests matters: a group and a table are told apart by their contents, not their names.
 
-```rust
-// ✓ Allowed - all f64
-let numbers = ColumnValue::Number(vec![1.0, 2.0, 3.0]);
-
-// ✗ Prevented by Rust type system - cannot mix types
-// let mixed = ColumnValue::Number(vec![1.0, "text", true]);
-//                                       ^^^  ^^^^^^  ^^^^
-//                                       f64  &str    bool
-// Compiler error: mismatched types
+```mermaid
+flowchart TB
+    key["a top-level key"] --> special{"_forge_version<br/>or _name?"}
+    special -- yes --> skip["skipped"]
+    special -- no --> analysis{"monte_carlo, tornado, decision_tree,<br/>real_options, bootstrap,<br/>bayesian_network?"}
+    analysis -- yes --> noted["noted in model.analyses;<br/>its command reads the section"]
+    analysis -- no --> games{"games, from 5.5.0?"}
+    games -- yes --> parsegames["games::parse_games"]
+    games -- no --> expect{"expect, from 5.6.0?"}
+    expect -- yes --> parseexpect["model.expect"]
+    expect -- no --> inc{"_includes?"}
+    inc -- yes --> parseinc["model.includes"]
+    inc -- no --> scen{"scenarios, and its entries<br/>hold numbers or scalars:?"}
+    scen -- yes --> parsescen["model.scenarios"]
+    scen -- no --> num{"a number,<br/>or a date (5.4.0)?"}
+    num -- yes --> input["an input scalar"]
+    num -- no --> map{"a mapping"}
+    map --> one{"one scalar:<br/>value: or formula:<br/>and no list?"}
+    one -- yes --> scalar["a scalar"]
+    one -- no --> table{"a list, or a value: list,<br/>or a period column?"}
+    table -- yes --> tbl["a table"]
+    table -- no --> group{"nested scalars?"}
+    group -- yes --> grp["a group of scalars,<br/>named group.key"]
+    group -- no --> formulas["a table of formula columns"]
 ```
 
-**2. Ownership and Borrowing**
+A group's scalars are stored flat under their full dotted name (`assumptions.price_per_dozen`); there is no group type. A table keeps its data columns and its row formulas in two maps and remembers the order they came in, so an export and a write-back keep the file's column order.
 
-```rust
-// Calculator takes ownership of model
-let calculator = ArrayCalculator::new(model);  // model moved
+## The types
 
-// Cannot use model here - ownership transferred
-// let x = model.tables;  // Compiler error: value borrowed after move
+All in `src/types.rs`, with how a scenario or a simulation sets an input in `src/types/overrides.rs`.
 
-// Get model back with calculated values
-let calculated_model = calculator.calculate_all()?;  // ownership returned
-```
-
-**3. Option Types for Null Safety**
-
-```rust
-pub struct Variable {
-    pub value: Option<f64>,       // May or may not have a value
-    pub formula: Option<String>,  // May or may not have a formula
-}
-
-// Explicit handling required
-match variable.value {
-    Some(v) => println!("Value: {}", v),
-    None => println!("No value yet"),
-}
-```
-
-### Runtime Invariants
-
-**1. Column Length Consistency**
-
-```rust
-// From: /home/rex/src/utils/forge/src/types.rs:176-189
-pub fn validate_lengths(&self) -> Result<(), String> {
-    let row_count = self.row_count();
-    for (name, column) in &self.columns {
-        if column.len() != row_count {
-            return Err(format!(
-                "Column '{}' has {} rows, expected {} rows",
-                name, column.len(), row_count
-            ));
-        }
+```mermaid
+classDiagram
+    class ParsedModel {
+        tables: IndexMap~String, Table~
+        scalars: IndexMap~String, Variable~
+        scenarios: HashMap~String, Scenario~
+        includes: Vec~Include~
+        resolved_includes: HashMap~String, ResolvedInclude~
+        games: IndexMap~String, Game~
+        analyses: Vec~String~
+        expect: Vec~Expected~
+        documents: Vec~String~
+        source: Option~PathBuf~
+        override_scalar()
+        set_input()
     }
-    Ok(())
-}
-```
-
-**Enforcement:**
-
-- Called after parsing (parser/mod.rs:97-101)
-- Called before calculation
-- User sees clear error: "Column 'profit' has 3 rows, expected 4 rows"
-
-**2. No Circular Dependencies**
-
-```rust
-// Detected by petgraph topological sort
-let order = toposort(&graph, None).map_err(|_| {
-    ForgeError::CircularDependency(
-        "Circular dependency detected between tables".to_string()
-    )
-})?;
-```
-
-**Examples:**
-
-```text
-✗ Invalid: revenue depends on profit, profit depends on revenue
-  revenue: =profit * 1.2
-  profit: =revenue - costs
-
-✓ Valid: Linear dependency chain
-  revenue: 100000
-  costs: 30000
-  profit: =revenue - costs
-```
-
-**3. Formula Column References**
-
-```rust
-// From: /home/rex/src/utils/forge/src/core/array_calculator.rs:292-307
-if let Some(col) = table.columns.get(col_ref) {
-    if col.values.len() != row_count {
-        return Err(ForgeError::Eval(format!(
-            "Column '{}' has {} rows, expected {}",
-            col_ref, col.values.len(), row_count
-        )));
+    class Table {
+        name: String
+        columns: IndexMap~String, Column~
+        row_formulas: IndexMap~String, String~
+        formula_metadata: IndexMap~String, Metadata~
+        row_count()
+        column_names()
     }
-} else {
-    return Err(ForgeError::Eval(format!(
-        "Column '{}' not found in table",
-        col_ref
-    )));
-}
+    class Column {
+        name: String
+        values: ColumnValue
+        metadata: Metadata
+    }
+    class ColumnValue {
+        <<enumeration>>
+        Number(Vec~f64~)
+        Text(Vec~String~)
+        Date(Vec~String~)
+        Boolean(Vec~bool~)
+        Blanks(Vec~Option~f64~~)
+    }
+    class Variable {
+        path: String
+        value: Option~f64~
+        formula: Option~String~
+        metadata: Metadata
+        is_date: bool
+    }
+    class Metadata {
+        unit, notes, source
+        validation_status, last_updated
+        better, format
+    }
+    class Scenario {
+        overrides: HashMap~String, f64~
+        description: Option~String~
+        dates: BTreeSet~String~
+        expect: Vec~Expected~
+    }
+    class Include {
+        file: String
+        namespace: String
+    }
+    class ResolvedInclude {
+        include: Include
+        resolved_path: PathBuf
+        model: ParsedModel
+    }
+    ParsedModel "1" *-- "*" Table
+    ParsedModel "1" *-- "*" Variable
+    ParsedModel "1" *-- "*" Scenario
+    ParsedModel "1" *-- "*" Include
+    ParsedModel "1" *-- "*" ResolvedInclude
+    ResolvedInclude --> ParsedModel : an included file is a whole model
+    Table "1" *-- "*" Column
+    Column --> ColumnValue
+    Column --> Metadata
+    Variable --> Metadata
 ```
 
-**Enforcement:**
+Points that are easy to miss:
 
-- Before formula evaluation
-- Checks all referenced columns exist
-- Validates row counts match
+- **A value is an `f64`.** A date is its day number with `is_date` set (ADR-054, ADR-060); a text or a boolean exists only in a table column or inside a formula. A scalar holds one number.
+- **A formula scalar's stored `value` is never read.** The calculator clears it before calculating (`calculate_cells` in `src/core/array_calculator/mod.rs`): a stored result is a cache for people and `git diff`, not an input.
+- **`Blanks` is data only.** A `null` in a column of numbers (5.3.0, ADR-059); a formula never produces an empty cell, and a formula reads one as 0.
+- **An included file is a whole `ParsedModel`**, kept in `resolved_includes` by its `as` name and calculated first. A formula reads it as `@costs.ingredients.flour_per_kg`; a scenario can override it under the same name.
+- **`ParsedModel` derives `Serialize`.** forge-wasm's `model` tool and several MCP answers return parts of it as JSON.
 
-### Type Coercion Rules
+## Names
 
-**Forge NEVER implicitly converts types.**
+| A formula writes | It means | Resolved in |
+| --- | --- | --- |
+| `assumptions.price_per_dozen` | The scalar with that full name | `src/core/array_calculator/names.rs` |
+| `price_per_dozen` | In order: the scalar of the formula's own group with that name, a top-level scalar with that name, the one scalar in any group whose last part it is (an error if there are several) | `src/core/array_calculator/names.rs` |
+| `revenue` in a row formula | The current row of the table's own column | `src/core/array_calculator/mod.rs` (`evaluate_in_context`) |
+| `months.revenue` | Another table's column: the current row in a row formula, the whole column in an aggregate (ADR-058) | `src/core/array_calculator/whole_column.rs` |
+| `@costs.ingredients.flour_per_kg` | A scalar of the file included as `costs` | `src/core/array_calculator/includes.rs` |
+| `price_war.equilibria` | A game's result, named under the game (ADR-068) | `src/core/array_calculator/games.rs` |
 
-```yaml
+Names are Unicode (`hypothèses.coût_unitaire`, `假设.单价`): anything that matches a name must use `char::is_alphanumeric`, never an ASCII class.
 
-# ✗ Invalid - mixed types in column
+## Format versions
 
-revenue:
+Every file states the format it is written in. A newer format only adds; a file of an older format reads exactly as before. `forge upgrade` moves a file to a newer one, and the writer writes in the file's own format (a date as a date only from 5.4.0).
 
-  - 100000      # Number
-  - "Q2"        # Text
-  - true        # Boolean
+| Format | Adds | Decision |
+| --- | --- | --- |
+| 1.0.0 | Scalars only | ADR-014 |
+| 5.0.0 | Tables, row formulas, includes, the analysis sections | ADR-014 |
+| 5.1.0 | Plain-number inputs and `{formula: ...}` without `value: null` | ADR-051 |
+| 5.2.0 | Period columns (`{start: 2026-12, count: 300, unit: month}`) | ADR-053 |
+| 5.3.0 | The empty cell, `null` in a number column | ADR-059 |
+| 5.4.0 | A date as a scalar; `format:` beside `unit:` | ADR-060, ADR-061 |
+| 5.5.0 | `games:` | ADR-068, ADR-073 |
+| 5.6.0 | `expect:`, at the top and in each scenario | ADR-074 |
 
-# Parser error: "Expected Number, found Text"
+[10 - Extending Forge](10-EXTENDING-FORGE.md#add-a-key-or-a-model-format-version) lists every place a new format version touches.
 
-```
+## Writing results back
 
-**xlformula_engine handles conversions:**
-
-```rust
-// Excel-style type coercion (inside xlformula_engine)
-=IF(revenue > 100000, "High", "Low")  // Number → Boolean, result is Text
-=TEXT(date, "YYYY-MM")                // Date → Text
-=VALUE("123.45")                      // Text → Number
-```
-
-**Forge preserves result types:**
-
-```rust
-// Formula returns Text
-let result = calculate("=IF(revenue > 100000, \"High\", \"Low\")", ...)?;
-
-// Store as Text column
-ColumnValue::Text(vec!["High".to_string(), "Low".to_string(), ...])
-```
-
----
-
-## Data Flow Through System
-
-### Parse → Calculate → Write Pipeline
+`forge calculate` (without `--dry-run`) writes each formula scalar's result into its `value:`, rounded to 15 significant digits as Excel shows it, and changes nothing else in the file: comments, quotes, blank lines and key order stay byte for byte (ADR-051).
 
 ```mermaid
 sequenceDiagram
-    participant File as YAML File
-    participant Parser
-    participant Model as ParsedModel
-    participant Calc as Calculator
-    participant Writer
+    participant Core as calculate_core
+    participant W as writer::write_calculated_results
+    participant IP as writer::in_place
+    participant V as in_place::verify
+    participant F as model.yaml
 
-    File->>Parser: Read file
-    Parser->>Parser: Parse YAML
-    Parser->>Parser: Detect version
-    Parser->>Model: Create ParsedModel
-    Parser->>Model: Add tables/scalars
-    Model-->>Parser: Populated model
-
-    Parser->>Calc: new(model)<br/>Transfer ownership
-    Note over Calc: Phase 1: Calculate tables
-    Note over Calc: Phase 2: Calculate scalars
-    Calc->>Model: Update values
-    Calc-->>Parser: Return calculated model<br/>Restore ownership
-
-    Parser->>Writer: update_files(&model)<br/>Borrow model
-    Writer->>File: Write updated YAML
-    Writer-->>Parser: Success
-
-    Note over Model: Model still owned<br/>by parser
+    Core->>W: path, calculated ParsedModel
+    W->>F: read the text
+    W->>IP: edit each result's line, document by document
+    IP->>V: read the edited text back
+    V-->>IP: only the values changed?
+    alt nothing else changed
+        W->>F: write model.yaml.bak, then the new text
+    else a layout the editor does not handle
+        W-->>Core: error, the file left as it was
+    end
 ```
 
-### Memory Ownership Transfer
+Table columns are never written back: a row formula's results are recalculated each time. Under a scenario (`--scenario`) nothing is written, since the file holds the base case.
 
-```rust
-// 1. Parser creates and owns ParsedModel
-let model: ParsedModel = parse_model(&file)?;
+## Changing the model's text
 
-// 2. Calculator takes ownership
-let calculator = ArrayCalculator::new(model);  // model moved
-
-// 3. Calculator returns ownership with calculated values
-let calculated_model = calculator.calculate_all()?;  // ownership returned
-
-// 4. Writer borrows model (doesn't take ownership)
-write_model(&file, &calculated_model)?;  // borrow
-
-// 5. Model still available for other operations
-export_to_excel(&calculated_model, &excel_file)?;
-```
-
-**Why this pattern?**
-
-- **Efficiency**: No unnecessary clones
-- **Safety**: Cannot use model while being calculated
-- **Clarity**: Explicit ownership transfer
-
----
-
-## Memory Layout and Performance
-
-### Stack vs Heap Allocation
-
-**ParsedModel Layout:**
-
-```text
-ParsedModel (stack)
-├─ version: ForgeVersion              8 bytes (enum + padding)
-├─ tables: HashMap<String, Table>     48 bytes (3 pointers)
-├─ scalars: HashMap<String, Variable> 48 bytes
-├─ includes: Vec<Include>             24 bytes
-└─ aggregations: HashMap<...>         48 bytes
-
-Total stack: ~176 bytes
-Heap: All strings, vectors, hashmaps
-```
-
-**Table Layout:**
-
-```text
-Table (stack)
-├─ name: String                       24 bytes
-├─ columns: HashMap<String, Column>   48 bytes
-└─ row_formulas: HashMap<...>         48 bytes
-
-Total stack: ~120 bytes
-Heap: name string + all columns + formulas
-```
-
-**Column Layout:**
-
-```text
-Column (stack)
-├─ name: String                       24 bytes
-└─ values: ColumnValue                25 bytes
-   ├─ enum discriminant               1 byte
-   └─ Vec<T>                          24 bytes
-
-Total stack: ~49 bytes
-Heap: name string + Vec data
-```
-
-### Performance Characteristics
-
-**Time Complexity:**
-
-| Operation | Best Case | Average Case | Worst Case |
-|-----------|-----------|--------------|------------|
-| `parse_model()` | O(n) | O(n) | O(n) |
-| `validate_lengths()` | O(c) | O(c) | O(c) |
-| `calculate_all()` | O(t + s) | O(t·r + s) | O(t·r·f + s) |
-| `export()` | O(t·r·c) | O(t·r·c) | O(t·r·c) |
-
-Where:
-
-- n = size of YAML file
-- c = number of columns
-- t = number of tables
-- r = rows per table
-- s = number of scalars
-- f = complexity of formula
-
-**Space Complexity:**
-
-| Structure | Stack | Heap | Total |
-|-----------|-------|------|-------|
-| `ParsedModel` | 176 bytes | O(t + s) | O(t·r·c + s) |
-| `Table` | 120 bytes | O(c·r) | O(c·(r + name_len)) |
-| `Column` | 49 bytes | O(r + name_len) | O(r·sizeof(T)) |
-
-**Memory Optimization Strategies:**
-
-1. **String Interning** (not yet implemented)
-
-   ```rust
-   // Current: Each column name is a separate String
-   // Future: Use Rc<str> for shared strings
-   pub struct Column {
-       pub name: Rc<str>,  // Shared reference
-       pub values: ColumnValue,
-   }
-```
-
-2. **Copy-on-Write** (used in calculator)
-
-   ```rust
-   // Clone only when needed
-   let table = self.model.tables.get(&table_name).unwrap().clone();
-```
-
-3. **Streaming Serialization** (future optimization)
-
-   ```rust
-   // Current: Load entire model into memory
-   // Future: Stream large tables to disk
-```
-
----
-
-## Serialization and Deserialization
-
-### YAML Serialization
-
-**Serde Integration:**
-
-```rust
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-
-pub struct Table {
-    pub name: String,
-    pub columns: HashMap<String, Column>,
-    pub row_formulas: HashMap<String, String>,
-}
-```
-
-**YAML Representation:**
-
-```yaml
-pl_2025:
-  columns:
-    revenue:
-      - 100000
-      - 120000
-      - 150000
-    cogs:
-      - 30000
-      - 36000
-      - 45000
-  row_formulas:
-    profit: "=revenue - cogs"
-```
-
-**Custom Serialization (future):**
-
-```rust
-// Custom serializer for compact representation
-impl Serialize for Column {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // Serialize as just the values array, not the full struct
-        self.values.serialize(serializer)
-    }
-}
-```
-
-### Excel Serialization
-
-**rust_xlsxwriter Integration:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/excel/exporter.rs:99-122
-for row_idx in 0..row_count {
-    let excel_row = (row_idx + 1) as u32 + 1;  // Excel is 1-indexed
-
-    for (col_idx, col_name) in column_names.iter().enumerate() {
-        if let Some(formula) = table.row_formulas.get(col_name) {
-            // Write formula
-            let excel_formula = translator.translate_row_formula(formula, excel_row)?;
-            worksheet.write_formula(excel_row - 1, col_idx as u16,
-                                    Formula::new(&excel_formula))?;
-        } else if let Some(column) = table.columns.get(col_name) {
-            // Write data value
-            self.write_cell_value(worksheet, excel_row - 1, col_idx as u16,
-                                  &column.values, row_idx)?;
-        }
-    }
-}
-```
-
-**Type Mapping:**
-
-| Forge Type | Excel Type | Serialization |
-|------------|-----------|---------------|
-| `Number(f64)` | Number | `worksheet.write_number()` |
-| `Text(String)` | String | `worksheet.write_string()` |
-| `Date(String)` | String | `worksheet.write_string()` (ISO format) |
-| `Boolean(bool)` | Boolean | `worksheet.write_boolean()` |
-| Formula | Formula | `worksheet.write_formula()` |
-
----
-
-## Error Types
-
-### ForgeError Enum
-
-**Definition:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/error.rs:1-33
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-
-pub enum ForgeError {
-    #[error("IO error: {0}")]
-    IO(String),
-
-    #[error("Parse error: {0}")]
-    Parse(String),
-
-    #[error("Evaluation error: {0}")]
-    Eval(String),
-
-    #[error("Circular dependency: {0}")]
-    CircularDependency(String),
-
-    #[error("Validation error: {0}")]
-    Validation(String),
-
-    #[error("Export error: {0}")]
-    Export(String),
-
-    #[error("Import error: {0}")]
-    Import(String),
-}
-
-pub type ForgeResult<T> = Result<T, ForgeError>;
-
-// Automatic conversions
-impl From<std::io::Error> for ForgeError {
-    fn from(err: std::io::Error) -> Self {
-        ForgeError::IO(err.to_string())
-    }
-}
-
-impl From<yaml_serde::Error> for ForgeError {
-    fn from(err: yaml_serde::Error) -> Self {
-        ForgeError::Parse(err.to_string())
-    }
-}
-```
-
-### Error Hierarchy
+Results are one kind of write; a change to the model itself (a new input value, a new formula, an added or deleted input, formula or column) is another. `src/edit/` makes those (ADR-075), for `forge edit`, the MCP tool `forge_edit` and forge-wasm's `edit`:
 
 ```mermaid
-graph TB
-    Result["Result&lt;T, ForgeError&gt;<br/>Type alias: ForgeResult&lt;T&gt;"]
-
-    ForgeError["ForgeError<br/>Main error enum"]
-
-    subgraph "Error Variants"
-        IO["IO(std::io::Error)<br/>File not found, permission denied"]
-        Parse["Parse(yaml_serde::Error)<br/>Invalid YAML syntax"]
-        Validation["Validation(String)<br/>Schema validation failed"]
-        Eval["Eval(String)<br/>Formula evaluation error"]
-        Circular["CircularDependency(String)<br/>Circular reference detected"]
-        Export["Export(String)<br/>Excel export failed"]
-        Import["Import(String)<br/>Excel import failed"]
-    end
-
-    subgraph "External Error Types"
-        StdIO["std::io::Error"]
-        SerdeYAML["yaml_serde::Error"]
-        JSONSchema["jsonschema::ValidationError"]
-        XLFormula["xlformula_engine::Error"]
-    end
-
-    Result --> ForgeError
-    ForgeError --> IO
-    ForgeError --> Parse
-    ForgeError --> Validation
-    ForgeError --> Eval
-    ForgeError --> Circular
-    ForgeError --> Export
-    ForgeError --> Import
-
-    StdIO -.->|From| IO
-    SerdeYAML -.->|From| Parse
-    JSONSchema -.->|Manual| Validation
-    XLFormula -.->|Manual| Eval
+flowchart LR
+    req["changes, each named and typed:<br/>set_value, set_formula, add, delete<br/>(in the model, or @alias.name in an include)"] --> text["edit/text.rs<br/>find the place in yaml-edit's<br/>lossless tree, write in the file's style"]
+    text --> check["edit/check.rs<br/>read the model back: valid, with<br/>that change and nothing else?"]
+    check -- yes --> out["the new text of each changed file<br/>(forge edit writes it, with a .bak)"]
+    check -- no --> none["no file changes; the message says why"]
 ```
 
-### Error Usage Examples
-
-```rust
-// IO error (automatic conversion)
-let content = std::fs::read_to_string(&path)?;  // ForgeError::IO
-
-// Parse error (automatic conversion)
-let yaml: Value = yaml_serde::from_str(&content)?;  // ForgeError::Parse
-
-// Validation error (manual)
-if column.len() != row_count {
-    return Err(ForgeError::Validation(format!(
-        "Column '{}' has {} rows, expected {}",
-        name, column.len(), row_count
-    )));
-}
-
-// Evaluation error (manual)
-if !table.columns.contains_key(col_name) {
-    return Err(ForgeError::Eval(format!(
-        "Column '{}' not found in table",
-        col_name
-    )));
-}
-
-// Circular dependency (from petgraph)
-let order = toposort(&graph, None).map_err(|_| {
-    ForgeError::CircularDependency(
-        "Circular dependency detected".to_string()
-    )
-})?;
-```
-
----
-
-## Related Documentation
-
-### Architecture Deep Dives
-
-- [00-OVERVIEW.md](00-OVERVIEW.md) - High-level architecture
-- [01-COMPONENT-ARCHITECTURE.md](01-COMPONENT-ARCHITECTURE.md) - Component interactions
-- [03-FORMULA-EVALUATION.md](03-FORMULA-EVALUATION.md) - Calculation pipeline
-- [04-DEPENDENCY-RESOLUTION.md](04-DEPENDENCY-RESOLUTION.md) - Graph algorithms
-- [05-EXCEL-INTEGRATION.md](05-EXCEL-INTEGRATION.md) - Excel conversion
-- [06-CLI-ARCHITECTURE.md](06-CLI-ARCHITECTURE.md) - Command structure
-- [07-TESTING-ARCHITECTURE.md](07-TESTING-ARCHITECTURE.md) - Test strategy
-
-### Source Files Referenced
-
-- `/home/rex/src/utils/forge/src/types.rs` - All data structures
-- `/home/rex/src/utils/forge/src/error.rs` - Error types
-- `/home/rex/src/utils/forge/src/parser/mod.rs` - Deserialization
-- `/home/rex/src/utils/forge/src/writer/mod.rs` - Serialization
-- `/home/rex/src/utils/forge/src/excel/exporter.rs` - Excel serialization
-
----
-
-**Previous:** [← Component Architecture](01-COMPONENT-ARCHITECTURE.md)
-**Next:** [Formula Evaluation →](03-FORMULA-EVALUATION.md)
+Every byte outside a change stays as it was, comments included. `edit` never writes results; `forge calculate` does. Forge Studio still changes its YAML with `studio/text.js`; moving it onto `edit` is a later step of ADR-075.

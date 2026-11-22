@@ -97,7 +97,7 @@ The number column is `ColumnValue::Number(Vec<f64>)`, matched in 328 places in 4
 
 **Acceptance**
 
-- The rolling forecast's four actual columns hold null for the open months, `is_actual` is `=ISNUMBER(actual_standard_units)`, and its numbers do not change (`src/cli/commands/examples.rs` (its `demo_examples` tests)).
+- The rolling forecast's four actual columns hold null for the open months, `is_actual` is `=ISNUMBER(actual_standard_units)`, and its numbers do not change (`src/cli/commands/examples/mod.rs` (its `demo_examples` tests)).
 - For each row of the table above, a case in `validation/gnumeric` with an empty cell, and Forge gives the engines' answer before export, after export and after import.
 - A model without null gives byte-identical output to rc.19 for `calculate`, `--format json` and `export` (apart from the time), on every file in `examples/`.
 - `forge import` of the measured workbook gives `[10, null, 30, null, 0]` and `AVERAGE` 13.33.

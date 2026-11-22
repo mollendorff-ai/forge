@@ -205,7 +205,7 @@ For errors:
 
 ### Rust Module API
 
-**`src/cli_runner.rs`** - Forge CLI executor:
+**`validation/r/src/cli_runner.rs`** - Forge CLI executor:
 
 ```rust
 pub struct ForgeCommand {
@@ -222,7 +222,7 @@ pub struct AnalyticsOutput {
 pub fn run_forge_command(cmd: &ForgeCommand) -> Result<AnalyticsOutput>;
 ```
 
-**`src/r_validator.rs`** - R script bridge:
+**`validation/r/src/r_validator.rs`** - R script bridge:
 
 ```rust
 pub struct RParams {
@@ -243,7 +243,7 @@ pub fn validate_with_r(validator: &str, params: &RParams) -> Result<RResult>;
 pub fn compare_results(forge: &AnalyticsOutput, r: &RResult, tol: &Tolerance) -> ValidationResult;
 ```
 
-**`src/stats.rs`** - Statistical comparison:
+**`validation/r/src/stats.rs`** - Statistical comparison:
 
 ```rust
 pub fn within_tolerance(actual: f64, expected: f64, pct: f64) -> bool;
@@ -319,9 +319,9 @@ For deterministic outputs (Tornado, Sensitivity, Goal Seek):
 
 ### Phase 1: Framework (Week 1)
 
-- [ ] Add `src/cli_runner.rs` - Run forge CLI commands
-- [ ] Add `src/r_validator.rs` - Call R scripts
-- [ ] Add `src/stats.rs` - Statistical comparisons
+- [ ] Add `validation/r/src/cli_runner.rs` - Run forge CLI commands
+- [ ] Add `validation/r/src/r_validator.rs` - Call R scripts
+- [ ] Add `validation/r/src/stats.rs` - Statistical comparisons
 - [ ] Update `run-e2e.sh` with `--analytics` mode
 - [ ] Rename `tests/e2e/enterprise/` → `tests/e2e/analytics/`
 

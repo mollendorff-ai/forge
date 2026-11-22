@@ -1,8 +1,10 @@
 # ADR-042: Property-Based Fuzzing Strategy
 
-> **Note (2026-11-08):** Not implemented: there is no fuzzing in Forge or in the end-to-end suites.
+> **Note (2026-11-22):** The decision below, generated inputs with Gnumeric as the oracle, is built another way: ADR-062's generated cases (`validation/sweep`) compare Forge with Gnumeric and LibreOffice on arguments drawn from a seed, on every pull request and weekly, and the property tests in `src/lib.rs` (its `properties` tests, roadmap T1-PROPERTIES) check rules that hold for any generated model. The scripts, folders and Makefile targets described below were not built.
+>
+> **Note (2026-11-08):** Not implemented: there is no fuzzing in Forge or in the end-to-end suites. (No longer true: see the note above.)
 
-**Status:** Not implemented
+**Status:** Superseded by ADR-062 and the property tests (2026-11-22); the design below was not built
 **Date:** 2025-12-17
 **Author:** Claude Opus 4.5
 
