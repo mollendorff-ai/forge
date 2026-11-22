@@ -247,4 +247,25 @@ mod tests {
         // Replace all characters
         assert_eq!(var.value, Some(5.0));
     }
+
+    /// Nothing to find leaves the text as it is, also for one instance; an
+    /// error in any argument is the error
+    #[test]
+    fn an_empty_old_text_and_errors_in_arguments() {
+        use crate::core::array_calculator::evaluator::tests::{each_argument, text};
+        assert_eq!(text("SUBSTITUTE(\"abc\", \"\", \"x\", 1)"), "abc");
+        each_argument(
+            "REPLACE",
+            &[("\"abc\"", None), ("1", None), ("1", None), ("\"x\"", None)],
+        );
+        each_argument(
+            "SUBSTITUTE",
+            &[
+                ("\"abc\"", None),
+                ("\"b\"", None),
+                ("\"x\"", None),
+                ("1", None),
+            ],
+        );
+    }
 }

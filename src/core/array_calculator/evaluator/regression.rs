@@ -141,10 +141,7 @@ mod tests {
     }
 
     fn number(formula: &str, ctx: &EvalContext) -> f64 {
-        match eval(formula, ctx).unwrap() {
-            Value::Number(n) => n,
-            other => panic!("{formula}: {other:?}"),
-        }
+        crate::core::array_calculator::evaluator::tests::number_in(formula, ctx)
     }
 
     fn close(a: f64, b: f64) -> bool {
@@ -190,5 +187,31 @@ mod tests {
         let flat = context(&[("a", &[1.0, 2.0, 3.0]), ("b", &[4.0, 4.0, 4.0])]);
         assert!(message(&flat, "SLOPE(t.a, t.b)").contains("#DIV/0!"));
         assert!(message(&flat, "RSQ(t.b, t.a)").contains("zero variance"));
+    }
+
+    /// Each function of two arrays passes on what its points refuse, and those
+    /// of a line what a vertical line refuses
+    #[test]
+    fn every_function_refuses_what_its_points_refuse() {
+        let message = |ctx: &EvalContext, f: &str| eval(f, ctx).unwrap_err().to_string();
+        let unequal = context(&[("a", &[1.0, 2.0, 3.0]), ("b", &[1.0, 2.0])]);
+        let flat = context(&[("a", &[1.0, 2.0, 3.0]), ("b", &[4.0, 4.0, 4.0])]);
+        for f in [
+            "INTERCEPT(t.a, t.b)",
+            "RSQ(t.a, t.b)",
+            "COVARIANCE.P(t.a, t.b)",
+            "FORECAST(1, t.a, t.b)",
+        ] {
+            let said = message(&unequal, f);
+            assert!(said.contains("same size"), "{f}: {said}");
+        }
+        for f in ["INTERCEPT(t.a, t.b)", "FORECAST(1, t.a, t.b)"] {
+            let said = message(&flat, f);
+            assert!(said.contains("#DIV/0!"), "{f}: {said}");
+        }
+        let said = message(&flat, "FORECAST(\"x\", t.a, t.b)");
+        assert!(said.contains("FORECAST: x must be a number"), "{said}");
+        let said = message(&flat, "FORECAST(1/0, t.a, t.b)");
+        assert!(said.contains("Division by zero"), "{said}");
     }
 }

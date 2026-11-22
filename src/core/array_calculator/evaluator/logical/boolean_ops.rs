@@ -84,7 +84,7 @@ mod tests {
         let ctx = EvalContext::new();
         // AND(TRUE, TRUE) = TRUE
         assert_eq!(
-            eval("AND(TRUE(), TRUE())", &ctx).unwrap_or_else(|_| eval("AND(1, 1)", &ctx).unwrap()),
+            eval("AND(TRUE(), TRUE())", &ctx).unwrap(),
             Value::Boolean(true)
         );
         // AND(TRUE, FALSE) = FALSE
@@ -142,6 +142,28 @@ mod tests {
         assert_eq!(
             eval("SUM(NOT(p.a > 1) * p.b)", &ctx).unwrap(),
             Value::Number(10.0)
+        );
+    }
+
+    /// An error in any argument is the function's error; `AND` and `OR`
+    /// read every argument when none decides them early
+    #[test]
+    fn an_error_in_any_argument_is_the_error() {
+        use super::super::super::tests::each_argument;
+        each_argument("AND", &[("1", None), ("TRUE", None)]);
+        each_argument("OR", &[("0", None), ("FALSE", None)]);
+        each_argument("XOR", &[("1", None), ("0", None)]);
+        each_argument("NOT", &[("1", None)]);
+    }
+
+    /// One value in an array is that value; more are negated one by one
+    #[test]
+    fn not_of_an_array() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("NOT({TRUE})", &ctx).unwrap(), Value::Boolean(false));
+        assert_eq!(
+            eval("NOT({TRUE, 0})", &ctx).unwrap(),
+            Value::Array(vec![Value::Boolean(false), Value::Boolean(true)].into())
         );
     }
 }

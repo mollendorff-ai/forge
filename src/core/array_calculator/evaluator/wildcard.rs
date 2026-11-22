@@ -145,4 +145,13 @@ mod tests {
             h::sweep_is_exactly("SEARCH(\"b?c\", \"a*b?c\")", 3.0);
         }
     }
+
+    /// A tilde before any other character, or at the end, is a tilde
+    #[test]
+    fn a_tilde_that_escapes_nothing_is_itself() {
+        assert!(matches("a~b", "A~B"));
+        assert!(matches("a~", "a~"));
+        assert!(!matches("a~b", "ab"));
+        assert_eq!(find("~a", "x~ay", 0), Some(1));
+    }
 }

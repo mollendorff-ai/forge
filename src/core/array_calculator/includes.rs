@@ -135,7 +135,7 @@ mod tests {
     }
 
     fn calculate_at(path: &Path) -> Result<ParsedModel, String> {
-        let model = crate::parser::parse_model(path).map_err(|e| e.to_string())?;
+        let model = crate::parser::parse_model(path).expect("the model parses");
         super::ArrayCalculator::new(model)
             .calculate_all()
             .map_err(|e| e.to_string())
@@ -179,10 +179,8 @@ fx:
     fn row_formula_reads_an_included_value() {
         let main = main_with("t:\n  usd: [10, 20, 30]\n  eur: \"=usd * @rates.fx.usd_eur\"\n");
         let model = calculate(&[("main.yaml", &main), ("rates.yaml", RATES)]).unwrap();
-        let crate::types::ColumnValue::Number(eur) = &model.tables["t"].columns["eur"].values
-        else {
-            panic!("eur should be numbers");
-        };
+        let eur = numbers(&model, "t", "eur");
+        assert_eq!(eur.len(), 3);
         for (got, want) in eur.iter().zip([10.0 * 0.92, 20.0 * 0.92, 30.0 * 0.92]) {
             assert!((got - want).abs() < 1e-12, "{eur:?}");
         }
@@ -266,10 +264,11 @@ list:
     }
 
     fn numbers(model: &ParsedModel, table: &str, column: &str) -> Vec<f64> {
-        match &model.tables[table].columns[column].values {
-            crate::types::ColumnValue::Number(v) => v.clone(),
-            other => panic!("{table}.{column}: {other:?}"),
-        }
+        model.tables[table].columns[column]
+            .values
+            .numbers()
+            .expect("a column of numbers")
+            .into_owned()
     }
 
     /// Checked outside Forge: 120 kg x 1.15 x 1.15, 6 x 9.40 x 1.15, 3 x 0.80 x 1.15.
@@ -332,6 +331,60 @@ list:
         assert!(
             err.contains("Unknown included value: @prices.list.nope"),
             "{err}"
+        );
+    }
+
+    /// An included file that cannot be calculated for a reason other than a
+    /// formula's error says so, with the file; a scalar it gives no value is
+    /// no value to read
+    #[test]
+    fn an_included_cycle_and_an_included_scalar_without_a_value() {
+        let cycle = "_forge_version: \"5.0.0\"\nfx:\n  a:\n    value: null\n    formula: \"=fx.b\"\n  b:\n    value: null\n    formula: \"=fx.a\"\n";
+        let main = main_with("s:\n  x:\n    value: null\n    formula: \"=@rates.fx.a\"\n");
+        let err = calculate(&[("main.yaml", &main), ("rates.yaml", cycle)]).unwrap_err();
+        assert!(
+            err.contains("included file 'rates.yaml' (as rates): Circular dependency"),
+            "{err}"
+        );
+        assert!(err.contains("fx.a, fx.b depend on each other"), "{err}");
+        let empty = "_forge_version: \"5.0.0\"\nfx:\n  none:\n    value: null\n";
+        let main = main_with("s:\n  x:\n    value: null\n    formula: \"=@rates.fx.none\"\n");
+        let err = calculate(&[("main.yaml", &main), ("rates.yaml", empty)]).unwrap_err();
+        assert!(
+            err.contains("Unknown included value: @rates.fx.none"),
+            "{err}"
+        );
+    }
+
+    /// Only the evaluator's row count mismatch of an included column is
+    /// explained; any other error, or a mismatch it cannot read, is passed
+    /// on as it is. A column of no included table, and a model read from no
+    /// file, are named as such
+    #[test]
+    fn only_a_readable_mismatch_of_an_included_column_is_explained() {
+        use crate::error::ForgeError;
+        let calc = super::ArrayCalculator::new(ParsedModel::new());
+        let explain = |err: ForgeError| calc.explain_included_mismatch(err, "order").to_string();
+        let eval = |msg: &str| ForgeError::Eval(msg.to_string());
+        assert_eq!(
+            explain(ForgeError::Parse("bad".into())),
+            ForgeError::Parse("bad".into()).to_string()
+        );
+        for unread in [
+            "Division by zero",
+            "Row count mismatch: @p.l.c 3 rows",
+            "Row count mismatch: @p.l.c has 3 rows",
+            "Row count mismatch: @p.l.c has three rows but expected 2",
+            "Row count mismatch: @p.l.c has 3 rows but expected two",
+        ] {
+            assert_eq!(explain(eval(unread)), eval(unread).to_string(), "{unread}");
+        }
+        let explained = explain(eval("Row count mismatch: @p.l.c has 3 rows but expected 2"));
+        assert!(
+            explained.contains(
+                "@p.l.c has 3 rows (in an included file), but table 'order' has 2 (in this model)"
+            ),
+            "{explained}"
         );
     }
 }
