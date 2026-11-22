@@ -23,7 +23,7 @@ const S = {
   error: null, generation: 0, open: new Set(), prev: {}, yamlFile: "", tab: "model",
   analyze: {}, tools: {}, kinds: {},
   // The answers of a decision tree, real options, a bootstrap or a Bayesian
-  // network the file holds (ADR-076); a network's nodes and what was seen
+  // network the file holds (ADR-077); a network's nodes and what was seen
   answers: {}, bnNodes: null, evidence: {},
 };
 
@@ -91,7 +91,7 @@ function restore() {
   } catch (e) { /* nothing saved */ }
   return false;
 }
-// ---------- a set's models (ADR-076) ----------
+// ---------- a set's models (ADR-077) ----------
 const setOf = () => S.sets.find((x) => x.id === S.set);
 // The open set's models as [file, short name, question], when it has several
 // and they are still among the open files
@@ -222,7 +222,7 @@ $("#status").addEventListener("click", () => {
       : `<p class="note">Forge ${esc(S.version)} calculated this model in your browser. Nothing left this device.</p>`);
 });
 $("#sheet-close").addEventListener("click", () => { $("#sheet").hidden = true; });
-// ---------- help (ADR-076, studio/help.js): a "?" in each slot, a sheet on a tap ----------
+// ---------- help (ADR-077, studio/help.js): a "?" in each slot, a sheet on a tap ----------
 let HELP = null;
 // A group of scalars is helped as inputs when it has any, as results otherwise
 const helpSlot = (list) => `<span data-help-slot="${list.some((s) => s.formula == null) ? "inputs" : "results"}"></span>`;
@@ -1216,7 +1216,7 @@ $("#view-mcp").addEventListener("click", async (e) => {
     if (args.files) args.files = S.files;
     busy(box, "Running…");
     try {
-      // The whole answer, never cut (ADR-076)
+      // The whole answer, never cut (ADR-077)
       S.tools.answer = JSON.stringify(await call(name, args), null, 2);
       S.tools.out = [name, answerHtml(name, S.tools.answer)];
     } catch (err) { S.tools.out = [name, `<div class="msg bad">${esc(err.message)}</div>`]; }

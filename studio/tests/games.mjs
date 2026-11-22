@@ -268,7 +268,7 @@ await page.click('[data-run="game"]');
 await page.waitForFunction(() => /<pre|msg bad/.test(document.querySelector('[data-out="game"]').innerHTML), null, { timeout: 60000 });
 const answer = await page.textContent('[data-out="game"] pre');
 if (!answer.includes('"game": "price_war"') || !answer.includes('"cells"') || !answer.includes('"dynamics"')) fail(`the Tools tab's forge_game answered: ${answer.slice(0, 200)}`);
-// The whole answer, never cut (ADR-076): what is on screen is the tool's JSON
+// The whole answer, never cut (ADR-077): what is on screen is the tool's JSON
 // for the files as they are now (0.55 typed, in the plan)
 {
   const direct = await page.evaluate(async () => {

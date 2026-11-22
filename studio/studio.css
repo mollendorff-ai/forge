@@ -368,7 +368,7 @@ table.grid.scalars .g-formula { max-width: 15rem }
 .welcome ul { margin: 0 0 14px; padding-left: 18px }
 .welcome li { margin: 6px 0 }
 
-/* A set's models (ADR-076): questions on the welcome card, a strip on the
+/* A set's models (ADR-077): questions on the welcome card, a strip on the
    Model view, each with the kind of model Forge says it is */
 .questions { display: flex; flex-direction: column; margin: 0 0 10px }
 .question { display: flex; gap: 10px; align-items: center; padding: 10px 0; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer }
@@ -388,7 +388,7 @@ table.grid.scalars .g-formula { max-width: 15rem }
 .set-strip .chip { align-items: center }
 .set-strip .chip[aria-pressed="true"] .kind { background: color-mix(in srgb, var(--accent-ink) 22%, transparent); color: var(--accent-ink) }
 
-/* The analyses that are models of their own (ADR-076) */
+/* The analyses that are models of their own (ADR-077) */
 .analysis .lead-num { font-size: 15px; margin: 8px 0 }
 .analysis .lead-num > .num { font-family: var(--f-display); font-weight: 600; font-size: 22px }
 .analysis tr.best th, .analysis tr.best td { font-weight: 600 }
@@ -408,7 +408,7 @@ table.grid.scalars .g-formula { max-width: 15rem }
 .analysis .report { width: 100% }
 .analysis .report th, .analysis .report td { white-space: normal; overflow-wrap: anywhere }
 
-/* Help (ADR-076): a "?" on a heading, the sheet's terms, and what Forge says
+/* Help (ADR-077): a "?" on a heading, the sheet's terms, and what Forge says
    of the first function or key offered */
 .qm { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: 600 12px var(--f-body); padding: 0; cursor: pointer }
 .eyebrow .qm { margin-left: auto; align-self: center }

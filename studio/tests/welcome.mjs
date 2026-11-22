@@ -1,7 +1,7 @@
 // The welcome card on a first visit (ADR-056 addendum), in a headless browser:
 //
 // - a first visit shows it above the model with Got it: for the bagel, a
-//   set of several models, its questions (tests/sets.mjs checks them, ADR-076);
+//   set of several models, its questions (tests/sets.mjs checks them, ADR-077);
 //   for a set of one model, the three tips;
 // - Got it removes it, and it stays away after a reload (a flag on the
 //   device, in localStorage);

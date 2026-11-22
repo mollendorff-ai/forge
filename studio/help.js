@@ -1,4 +1,4 @@
-// Help where it is needed (ADR-076): a "?" on each section heading opens a
+// Help where it is needed (ADR-077): a "?" on each section heading opens a
 // sheet with a few sentences, the terms the section uses, examples to open
 // and a link to the manual on GitHub at the release that is running; and,
 // while a formula or a key is typed, the syntax and description Forge gives

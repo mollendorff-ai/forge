@@ -1,9 +1,9 @@
-# ADR-074: Forge Writes the Model
+# ADR-075: Forge Writes the Model
 
 **Status:** Accepted (2026-11-22), not yet built
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who agreed that changes of more than one line to a model are written by Forge rather than by Forge Studio's page; the analysis is Claude's
-**For:** ADR-075 (simulations and games edited on Studio's cards). It extends ADR-056 and changes none of its decisions
+**For:** ADR-076 (simulations and games edited on Studio's cards). It extends ADR-056 and changes none of its decisions
 
 ---
 
@@ -28,7 +28,7 @@ Each of these could be written in `text.js` as more line searches. Each would th
    - `rename` (a scalar, a group, a column, a table, a game, a player, a strategy): the name and every reference to it, in every file of the model, found by Forge's formula reader.
    - `make_uncertain` (an input becomes a distribution with its value kept as `value:`) and `make_certain` (back again).
    - `add_strategy`, `delete_strategy`, `add_player`, `delete_player` on a game.
-   - `insert` of a named template (ADR-075, step 6).
+   - `insert` of a named template (ADR-076, step 6).
 3. **Kept only when Forge agrees.** After writing, `edit` reads the model again. It answers the new text only if the model is valid and the only change is the one asked for: the same rule S9 applies in the page today, moved into the engine. Otherwise the files are unchanged and the message says why.
 4. **Comments and layout are kept.** Every byte outside the change stays as it was. The tests that hold `text.js` to this today (`studio/tests/text.mjs`, `formulas.mjs`, `elements.mjs`) are run again against `edit` for the same changes, byte for byte.
 5. **A library first** (CLAUDE.md, ADR-070). The text is edited through a lossless YAML syntax tree, not by searching lines. The first candidate is `yaml-edit` (0.3.6, Apache-2.0, built on `rowan`: <https://github.com/jelmer/yaml-edit>). Before it is adopted, a spike checks:
@@ -58,7 +58,7 @@ Each of these could be written in `text.js` as more line searches. Each would th
 1. The spike in decision 5, with its findings added to this ADR.
 2. `src/edit/` with `set_value`, `set_formula`, `add` and `delete`, held to the bytes `text.js` writes. The forge-wasm `edit` tool, the `forge_edit` MCP tool, and `forge edit`.
 3. `rename`.
-4. `make_uncertain` and `make_certain` (ADR-075, step 4).
-5. The game changes (ADR-075, step 5).
-6. `insert` of a template (ADR-075, step 6).
+4. `make_uncertain` and `make_certain` (ADR-076, step 4).
+5. The game changes (ADR-076, step 5).
+6. `insert` of a template (ADR-076, step 6).
 7. Studio's one-line changes moved to `edit`; `text.js` keeps only the colours.

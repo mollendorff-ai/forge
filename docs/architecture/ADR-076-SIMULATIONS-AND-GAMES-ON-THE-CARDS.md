@@ -1,9 +1,9 @@
-# ADR-075: Simulations and Games on Forge Studio's Cards
+# ADR-076: Simulations and Games on Forge Studio's Cards
 
 **Status:** Accepted (2026-11-22), not yet built
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who found that a calculation is edited on its cards while a simulation or a game is changed only in the YAML view, and who left the choice of how an uncertain model behaves on the Model view to Claude (decision 1); the analysis is Claude's
-**For:** roadmap S-UNCERTAIN, S-GAMES-EDIT and S-TEMPLATES. It extends ADR-056 and ADR-068 and builds on ADR-074
+**For:** roadmap S-UNCERTAIN, S-GAMES-EDIT and S-TEMPLATES. It extends ADR-056 and ADR-068 and builds on ADR-075
 
 ---
 
@@ -73,7 +73,7 @@ An input whose formula is a distribution is drawn as an input, not as a result.
 - **One field per parameter**, named as in Forge's function list (`=MC.PERT(min, mode, max)` gives min, mode and max). The page keeps no list of distributions or parameters of its own.
 - **Its plan** (`value:`) and its mean from the last run.
 
-A change writes the formula (`set_formula`, ADR-074), or `make_certain` when "fixed" is chosen. Every number on the card is Forge's. No shape is drawn in this step: drawing one from the parameters would be calculating in the page, and a histogram from the samples would need an engine answer it does not give yet.
+A change writes the formula (`set_formula`, ADR-075), or `make_certain` when "fixed" is chosen. Every number on the card is Forge's. No shape is drawn in this step: drawing one from the parameters would be calculating in the page, and a histogram from the samples would need an engine answer it does not give yet.
 
 ### 3. Analyze's Simulate, small fixes
 
@@ -82,7 +82,7 @@ A change writes the formula (`set_formula`, ADR-074), or `make_certain` when "fi
 
 ### 4. Make an input uncertain
 
-Every number input card gets "Make uncertain", which is ADR-074's `make_uncertain`.
+Every number input card gets "Make uncertain", which is ADR-075's `make_uncertain`.
 
 - **The default is a triangle** from 80% to 120% of the value, with the value as both the mode and the plan. The person then edits it on its distribution card.
 - **If the model has no `monte_carlo:` block,** one is added, with the model's results as its outputs (`iterations: 5000`, `seed: 7`, `sampling: latin_hypercube`, as the examples use).
@@ -90,7 +90,7 @@ Every number input card gets "Make uncertain", which is ADR-074's `make_uncertai
 
 ### 5. A game edited on its card
 
-All of these are written by ADR-074's `edit`, and each is kept only when Forge accepts it.
+All of these are written by ADR-075's `edit`, and each is kept only when Forge accepts it.
 
 - **Each payoff cell shows its formula under its value** when the card is in Edit mode. A tap opens the formula editor Studio already has, with its suggestions (`set_formula` on the cell).
 - **Players and strategies are renamed** on the card, with every reference to them (`rename`). A strategy or a player is added or deleted from the card. A new cell starts at 0.
@@ -112,7 +112,7 @@ Add on the Model view offers, besides an input, a formula and a column:
 - play this game again and again (a tournament);
 - watch it spread (`dynamics:`).
 
-Each inserts a commented block (ADR-074's `insert`), which Forge checks. The person then edits the block on the cards, with decisions 2 and 5. The templates are served by Forge (a `templates` tool: a name, one line, and the YAML). Each is tested to be valid when inserted into every example, so the CLI and MCP have the same blocks.
+Each inserts a commented block (ADR-075's `insert`), which Forge checks. The person then edits the block on the cards, with decisions 2 and 5. The templates are served by Forge (a `templates` tool: a name, one line, and the YAML). Each is tested to be valid when inserted into every example, so the CLI and MCP have the same blocks.
 
 Why not a wizard: on a phone, a wizard of several steps holds a second copy of what the schema already knows, is used once, and leaves the person in the YAML view afterwards. A template plus the cards is the same thing, and the cards stay the place to edit it.
 
@@ -128,6 +128,6 @@ Why not a wizard: on a phone, a wizard of several steps holds a second copy of w
 1. Analyze's fixes (decision 3).
 2. `calculate` with `plan: true`. The Model view of an uncertain model: the plan, the bands, "uncertain" in place of "Problem". Held against `forge simulate` in `studio/tests/screen.mjs`'s way.
 3. The distribution card (decision 2).
-4. Make uncertain and make certain, after ADR-074 step 4.
-5. Games on the card (decision 5): `game` with its inputs, and the folded included groups first; the edits after ADR-074 steps 3 and 5.
-6. Templates (decision 6), after ADR-074 step 6.
+4. Make uncertain and make certain, after ADR-075 step 4.
+5. Games on the card (decision 5): `game` with its inputs, and the folded included groups first; the edits after ADR-075 steps 3 and 5.
+6. Templates (decision 6), after ADR-075 step 6.

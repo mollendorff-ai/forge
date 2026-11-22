@@ -1,4 +1,4 @@
-// A set's models (ADR-076), in a headless browser:
+// A set's models (ADR-077), in a headless browser:
 //
 // - the bagel's first visit lists its nine models as questions on the welcome
 //   card, in the set's order, each with the kind of model Forge says its

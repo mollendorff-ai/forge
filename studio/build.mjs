@@ -64,7 +64,7 @@ export const SETS = [
 ];
 
 // A set of several models shows them as questions, in this order, on the
-// welcome card and in the strip under the title (ADR-076): each is [file,
+// welcome card and in the strip under the title (ADR-077): each is [file,
 // short name for the strip, question]. A file only included by another
 // (costs.yaml) is not a model of its own and is not listed. The badge beside
 // each comes from Forge (`model` answers `analyses`), not from here.
@@ -172,7 +172,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     files: Object.fromEntries(files.map((f) => [f, readFileSync(join(examples, dir, f), "utf8")])),
   }));
   writeFileSync(join(out, "examples.json"), JSON.stringify(sets));
-  // The help sheets' text (ADR-076)
+  // The help sheets' text (ADR-077)
   copyFileSync(join(here, "help.json"), join(out, "help.json"));
   writeFileSync(join(out, "formula-rules.json"), JSON.stringify(formulaRules(JSON.parse(readFileSync(GRAMMAR, "utf8")))));
   // GitHub Pages runs Jekyll on a site unless told not to

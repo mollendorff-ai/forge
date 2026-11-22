@@ -319,7 +319,7 @@ expenses:
     }
 
     /// A file's analysis sections, over all its documents, each once
-    /// (ADR-076)
+    /// (ADR-077)
     #[test]
     fn the_analysis_sections_of_every_document_are_noted_once() {
         let content = "---\n_forge_version: \"5.1.0\"\nprice: 16\nbootstrap:\n  data: [1, 2, 3]\n---\n_forge_version: \"5.1.0\"\nunits: 3\nbootstrap:\n  data: [4, 5, 6]\nmonte_carlo:\n  iterations: 100\n";

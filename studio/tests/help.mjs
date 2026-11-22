@@ -1,4 +1,4 @@
-// Help in Forge Studio (ADR-076):
+// Help in Forge Studio (ADR-077):
 //
 // - every entry of studio/help.json has a title, a text and a link to the
 //   manual, and the link names a document of this repository and a heading

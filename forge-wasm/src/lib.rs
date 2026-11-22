@@ -308,7 +308,7 @@ fn structure(model: &ParsedModel) -> Value {
         "includes": includes,
         "scenarios": scenarios,
         "games": games,
-        // The analysis sections, for the kind of model Studio shows (ADR-076)
+        // The analysis sections, for the kind of model Studio shows (ADR-077)
         "analyses": model.analyses,
     })
 }
@@ -733,7 +733,7 @@ mod tests {
 
         /// Each of the bagel's files names its analysis sections, so Studio
         /// can tell a decision tree from a plan without reading the YAML
-        /// (ADR-076)
+        /// (ADR-077)
         #[test]
         fn each_bagel_file_names_its_analyses() {
             let dir = examples().join("bagel");

@@ -1,4 +1,4 @@
-# ADR-076: What Forge Studio Shows First, and How It Helps
+# ADR-077: What Forge Studio Shows First, and How It Helps
 
 **Status:** Accepted (2026-11-22); built (2026-11-22), steps 1 to 5
 **Date:** 2026-11-22
@@ -66,7 +66,7 @@ Each card says in a sentence what the analysis answers, and has a "?" (decision 
 
 ### 3. A "?" on each section, and help where you type
 
-- **Each section heading has a "?"**: scenarios, inputs, results, tables, games, a tournament, dynamics, each of Analyze's tools, each kind of model in decision 2, and an uncertain model (ADR-075). It opens a sheet with:
+- **Each section heading has a "?"**: scenarios, inputs, results, tables, games, a tournament, dynamics, each of Analyze's tools, each kind of model in decision 2, and an uncertain model (ADR-076). It opens a sheet with:
   - two or three sentences;
   - the terms the section uses;
   - the examples that show it, which open on a tap;

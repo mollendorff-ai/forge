@@ -440,7 +440,7 @@ pub struct ParsedModel {
     /// The analysis sections the file has, in the file's order, each once:
     /// `monte_carlo`, `tornado`, `decision_tree`, `real_options`, `bootstrap`
     /// and `bayesian_network`. Their commands read them; Forge Studio shows a
-    /// file's kind of model by them (ADR-076)
+    /// file's kind of model by them (ADR-077)
     #[serde(default)]
     pub analyses: Vec<String>,
 

@@ -1,4 +1,4 @@
-// A set's models (ADR-076): the welcome card lists them as questions, and a
+// A set's models (ADR-077): the welcome card lists them as questions, and a
 // strip at the top of the Model view opens any of them. The questions are
 // the set's own (studio/build.mjs); the kind of each model is what Forge's
 // `model` answers about its file, never read from the YAML here.

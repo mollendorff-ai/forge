@@ -41,6 +41,6 @@ export function toolsHtml(open, out, m) {
         <div class="btns"><button type="button" class="btn primary" data-run="${name}">Run</button></div><div data-out="${name}">${out && out[0] === name ? out[1] : ""}</div></div>` : ""}</div>`).join("")}</div>`).join("");
 }
 
-// An answer, whole (ADR-076): the box scrolls, and Copy and Download take all of it
+// An answer, whole (ADR-077): the box scrolls, and Copy and Download take all of it
 export const answerHtml = (name, text) => `<p class="sub">answer</p><pre class="code">${esc(text)}</pre>
   <div class="btns"><button type="button" class="btn" data-copy="${name}">Copy</button><button type="button" class="btn" data-dl-answer="${name}">Download</button><span class="note" data-copied></span></div>`;

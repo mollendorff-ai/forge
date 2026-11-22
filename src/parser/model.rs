@@ -52,7 +52,7 @@ fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 continue;
             }
             // An analysis section is read by its command; the model notes
-            // that the file has one (ADR-076)
+            // that the file has one (ADR-077)
             if ANALYSES.contains(&key_str) {
                 model.analyses.push(key_str.to_string());
                 continue;
@@ -949,7 +949,7 @@ sales:
     }
 
     /// The analysis sections are noted in the file's order, and read as
-    /// neither tables nor scalars (ADR-076)
+    /// neither tables nor scalars (ADR-077)
     #[test]
     fn a_files_analysis_sections_are_noted_in_its_order() {
         let model =
