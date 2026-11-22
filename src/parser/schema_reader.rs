@@ -12,7 +12,7 @@ use serde_json::{Number, Value};
 use std::sync::OnceLock;
 
 /// The model formats and their schemas, built in.
-const FORMATS: [(&str, &str); 7] = [
+const FORMATS: [(&str, &str); 8] = [
     (
         "1.0.0",
         include_str!("../../schema/forge-v1.0.0.schema.json"),
@@ -41,12 +41,16 @@ const FORMATS: [(&str, &str); 7] = [
         "5.5.0",
         include_str!("../../schema/forge-v5.5.0.schema.json"),
     ),
+    (
+        "5.6.0",
+        include_str!("../../schema/forge-v5.6.0.schema.json"),
+    ),
 ];
 
 /// The schema of a model format, compiled once; `None` for a format Forge
 /// does not have.
 pub(super) fn for_format(version: &str) -> Option<&'static Schema> {
-    static COMPILED: [OnceLock<Schema>; 7] = [const { OnceLock::new() }; 7];
+    static COMPILED: [OnceLock<Schema>; 8] = [const { OnceLock::new() }; 8];
     let index = FORMATS.iter().position(|(v, _)| *v == version)?;
     Some(COMPILED[index].get_or_init(|| Schema::from_text(FORMATS[index].1)))
 }

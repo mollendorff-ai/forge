@@ -16,7 +16,7 @@ use crate::cli::{audit_core, export_buffer_core, export_core, import_core, valid
 impl ForgeMcpServer {
     #[tool(
         name = "forge_validate",
-        description = "Validate a Forge YAML model file for formula errors, circular dependencies, and type mismatches."
+        description = "Validate a Forge YAML model file for formula errors, circular dependencies, and type mismatches, and check each stored value against its formula. When the model states its results (expect:, format 5.6.0), it calculates the file and each scenario that has one, and lists every result that differs, with the scenario, the name and both numbers."
     )]
     pub(super) fn validate(
         &self,
@@ -54,8 +54,9 @@ impl ForgeMcpServer {
         let mut json_val: serde_json::Value =
             serde_json::to_value(&result).map_err(|e| format!("Serialization failed: {e}"))?;
 
-        // When using inline content with dry_run=false, read back the calculated file
-        if is_inline && !req.dry_run {
+        // When using inline content with dry_run=false, read back the calculated
+        // file; under a scenario nothing is written (ADR-074)
+        if is_inline && !req.dry_run && req.scenario.is_none() {
             if let Ok(calculated) = std::fs::read_to_string(&path) {
                 json_val["calculated_content"] = serde_json::Value::String(calculated);
             }
@@ -270,6 +271,34 @@ mod tests {
         assert!(parsed.get("tables_valid").is_some());
         assert!(parsed.get("scalars_valid").is_some());
         assert!(parsed.get("table_count").is_some());
+    }
+
+    #[test]
+    fn validate_returns_each_expectation_that_differs() {
+        // The same report as the command (ADR-074), as data, not a tool error
+        let server = ForgeMcpServer::new();
+        let text = ok_text(
+            server.validate(Parameters(ValidateRequest {
+                file_path: None,
+                content: Some(
+                    "_forge_version: \"5.6.0\"\nw: 0.6\nout:\n  twice: {formula: \"=w * 2\"}\n\
+                 expect: {out.twice: 1.2}\n\
+                 scenarios:\n  short:\n    scalars: {w: 0.4}\n    expect: {out.twice: =9/10}\n"
+                        .into(),
+                ),
+                includes: None,
+                verbose: false,
+            })),
+        );
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(parsed["expectations_checked"], 2);
+        assert_eq!(parsed["expectations_met"], false);
+        let d = &parsed["expectation_differences"][0];
+        assert_eq!(d["scenario"], "short");
+        assert_eq!(d["name"], "out.twice");
+        assert_eq!(d["expected"], 0.9);
+        assert_eq!(d["formula"], "=9/10");
+        assert_eq!(d["got"], 0.8);
     }
 
     #[test]
@@ -652,6 +681,31 @@ scalars:
                 "inline {inline}: {ret}"
             );
         }
+    }
+
+    #[test]
+    fn calculate_under_a_scenario_writes_nothing_back() {
+        let server = ForgeMcpServer::new();
+        let text = "_forge_version: \"5.5.0\"\nw: 0.6\nout:\n  twice: {formula: \"=w * 2\"}\n\
+                    scenarios:\n  short:\n    scalars: {w: 0.4}\n";
+        let answer = |scenario: Option<&str>| {
+            json(&ok_text(server.calculate(Parameters(CalculateRequest {
+                file_path: None,
+                content: Some(text.into()),
+                includes: None,
+                dry_run: false,
+                scenario: scenario.map(str::to_string),
+            }))))
+        };
+        let under = answer(Some("short"));
+        assert_eq!(under["scalars"]["out.twice"], 0.8);
+        assert_eq!(under["file_updated"], false);
+        assert!(under.get("calculated_content").is_none(), "{under}");
+        let plan = answer(None);
+        assert!(plan["calculated_content"]
+            .as_str()
+            .unwrap()
+            .contains("value: 1.2"));
     }
 
     #[test]
