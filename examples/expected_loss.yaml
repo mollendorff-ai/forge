@@ -1,0 +1,124 @@
+# A Bayesian Network That Feeds the Model
+# =======================================
+# Run in the examples folder:
+#   forge calculate expected_loss.yaml --dry-run   # the posteriors and the losses
+#   forge validate expected_loss.yaml              # every figure under expect:
+#   forge bayesian expected_loss.yaml --scenario recession
+#
+# A lender's loan defaults more often when the company's revenue is low, and
+# revenue is low more often when the economy is bad:
+#
+#   [economy] ──► [revenue] ──► [default]
+#
+# The chances of a bad and a neutral year are scalars of the model, so the
+# network's prior is a formula over them (ADR-074). Scenarios move them, and
+# so would an MC.* input in forge simulate, or a range in forge tornado.
+#
+# Each query under `queries` gives the posterior of one node, given evidence,
+# as scalars of the model: bayesian_network.<query>.<state>. Formulas read
+# them like any scalar: here the probability of default feeds the expected
+# loss. A network that read its own results would be a cycle, and is refused.
+#
+# `by_hand` works the same probabilities out with Bayes' rule, from the same
+# table numbers, and `expect:` pins both: two pieces of code (variable
+# elimination, and arithmetic) agreeing on a figure stated once.
+
+_forge_version: "5.6.0"
+
+outlook:
+  p_bad: 0.2       # the chance of a bad year
+  p_neutral: 0.5   # the chance of a neutral one; a good year is the rest
+
+loan:
+  exposure: 1000000   # owed when the company defaults
+  recovery: 0.4       # the share of it the lender gets back
+
+bayesian_network:
+  name: "Default given the economy"
+  nodes:
+    economy:
+      type: discrete
+      states: [good, neutral, bad]
+      prior: ["=1 - outlook.p_neutral - outlook.p_bad", "=outlook.p_neutral", "=outlook.p_bad"]
+    revenue:
+      type: discrete
+      states: [high, medium, low]
+      parents: [economy]
+      cpt:
+        good:    [0.60, 0.30, 0.10]
+        neutral: [0.30, 0.50, 0.20]
+        bad:     [0.10, 0.30, 0.60]
+    default:
+      type: discrete
+      states: ["no", "yes"]
+      parents: [revenue]
+      cpt:
+        high:   [0.98, 0.02]
+        medium: [0.93, 0.07]
+        low:    [0.75, 0.25]
+  queries:
+    any_year: {node: default}
+    bad_year: {node: default, evidence: {economy: bad}}
+    after_default: {node: economy, evidence: {default: "yes"}}
+
+loss:
+  expected:
+    formula: "=bayesian_network.any_year.yes * loan.exposure * (1 - loan.recovery)"
+  in_a_bad_year:
+    formula: "=bayesian_network.bad_year.yes * loan.exposure * (1 - loan.recovery)"
+
+# Bayes' rule by hand. P(default | economy) sums over revenue:
+#   good:    0.6 x 0.02 + 0.3 x 0.07 + 0.1 x 0.25 = 0.058
+#   neutral: 0.3 x 0.02 + 0.5 x 0.07 + 0.2 x 0.25 = 0.091
+#   bad:     0.1 x 0.02 + 0.3 x 0.07 + 0.6 x 0.25 = 0.173
+# then P(default) weights them by the prior, and P(bad | default) is the bad
+# year's share of it.
+by_hand:
+  if_good:
+    formula: "=0.6 * 0.02 + 0.3 * 0.07 + 0.1 * 0.25"
+  if_neutral:
+    formula: "=0.3 * 0.02 + 0.5 * 0.07 + 0.2 * 0.25"
+  if_bad:
+    formula: "=0.1 * 0.02 + 0.3 * 0.07 + 0.6 * 0.25"
+  default:
+    formula: "=(1 - outlook.p_neutral - outlook.p_bad) * by_hand.if_good + outlook.p_neutral * by_hand.if_neutral + outlook.p_bad * by_hand.if_bad"
+  bad_after_default:
+    formula: "=outlook.p_bad * by_hand.if_bad / by_hand.default"
+  # Zero when the network and Bayes' rule agree
+  gap:
+    formula: "=ABS(bayesian_network.any_year.yes - by_hand.default) + ABS(bayesian_network.after_default.bad - by_hand.bad_after_default)"
+
+# The file as written: 0.3 x 0.058 + 0.5 x 0.091 + 0.2 x 0.173 = 0.0975, so
+# the expected loss is 0.0975 x 1,000,000 x 0.6 = 58,500; a bad year's is
+# 0.173 x 600,000 = 103,800, whatever the outlook; and a default makes a bad
+# year 0.0346 / 0.0975 = 346/975 likely, up from 0.2.
+expect:
+  bayesian_network.any_year.yes: =39/400
+  by_hand.default: =39/400
+  loss.expected: 58500
+  bayesian_network.bad_year.yes: 0.173
+  loss.in_a_bad_year: 103800
+  bayesian_network.after_default.bad: =346/975
+  by_hand.bad_after_default: =346/975
+  by_hand.gap: 0
+
+scenarios:
+  recession:
+    description: Half the years bad, a fifth good
+    scalars: {outlook.p_bad: 0.5, outlook.p_neutral: 0.3}
+    # 0.2 x 0.058 + 0.3 x 0.091 + 0.5 x 0.173 = 0.1254; 0.0865 / 0.1254
+    expect:
+      bayesian_network.any_year.yes: 0.1254
+      loss.expected: 75240
+      loss.in_a_bad_year: 103800
+      bayesian_network.after_default.bad: =865/1254
+      by_hand.gap: 0
+  boom:
+    description: A good year most often
+    scalars: {outlook.p_bad: 0.05, outlook.p_neutral: 0.35}
+    # 0.6 x 0.058 + 0.35 x 0.091 + 0.05 x 0.173 = 0.0753; 0.00865 / 0.0753
+    expect:
+      bayesian_network.any_year.yes: 0.0753
+      loss.expected: 45180
+      bayesian_network.after_default.bad: =865/7530
+      by_hand.gap: 0

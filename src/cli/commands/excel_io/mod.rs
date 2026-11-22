@@ -46,11 +46,17 @@ mod round_trip_tests {
             .iter()
             .filter_map(|(name, var)| var.value.map(|a| (name, a)))
         {
-            // Import may lower-case a name
+            // Import may lower-case a name, and brings a network's results
+            // back under another group, since a model's bayesian_network is
+            // its network
+            let wanted = name.strip_prefix("bayesian_network.").map_or_else(
+                || name.to_lowercase(),
+                |rest| format!("network_results.{rest}"),
+            );
             let found = back
                 .scalars
                 .iter()
-                .find(|(k, _)| k.to_lowercase() == name.to_lowercase())
+                .find(|(k, _)| k.to_lowercase() == wanted)
                 .map(|(_, v)| v.value);
             assert!(
                 found.flatten().is_some_and(|b| close(a, b)),
@@ -685,12 +691,13 @@ g:
             let text = fs::read_to_string(root.join(name)).unwrap();
             assert!(text.contains("MC."), "{name} has no MC. distribution");
         }
-        // The rest, 53 models, all round-trip with no difference. The ten
+        // The rest, 54 models, all round-trip with no difference. The ten
         // in games/, bagel/price_war.yaml, bagel/street_fund.yaml and
         // acquisition/deal_game.yaml come
         // back as their results, numbers as of the export: the export warns
-        // that the games themselves are not written
-        assert_eq!(results.len() - skipped.len(), 53);
+        // that the games themselves are not written. So does the network of
+        // expected_loss.yaml, under group network_results
+        assert_eq!(results.len() - skipped.len(), 54);
     }
 }
 

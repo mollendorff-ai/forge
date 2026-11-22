@@ -59,7 +59,7 @@
     },
     "bayesian_network": {
       "type": "object",
-      "description": "Bayesian network configuration. Checked by `forge bayesian`, not by this schema"
+      "description": "Bayesian network: nodes with states, a prior or a table of numbers or formulas over the model's scalars, and named queries whose posteriors are scalars bayesian_network.<query>.<state> (ADR-074). Checked when the model is read, not by this schema"
     }
   },
 

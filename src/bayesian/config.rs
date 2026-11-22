@@ -16,10 +16,12 @@ pub enum NodeType {
     Continuous,
 }
 
-/// A node in the Bayesian network
+/// A node in the Bayesian network. `P` is how a probability is written: a
+/// number (`f64`, what inference reads), or in a model a number or a formula
+/// over its scalars ([`super::Probability`], ADR-074)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BayesianNode {
+#[serde(deny_unknown_fields, bound(deserialize = "P: Deserialize<'de>"))]
+pub struct BayesianNode<P = f64> {
     /// Node type
     #[serde(default, rename = "type")]
     pub node_type: NodeType,
@@ -28,7 +30,7 @@ pub struct BayesianNode {
     pub states: Vec<String>,
     /// Prior probabilities (for root nodes)
     #[serde(default)]
-    pub prior: Vec<f64>,
+    pub prior: Vec<P>,
     /// Parent node names
     #[serde(default)]
     pub parents: Vec<String>,
@@ -38,7 +40,7 @@ pub struct BayesianNode {
     /// of that parent (`good`). With several parents it lists one state of each
     /// parent, in the order of `parents`, separated by commas (`yes, off`).
     #[serde(default)]
-    pub cpt: BTreeMap<String, Vec<f64>>,
+    pub cpt: BTreeMap<String, Vec<P>>,
     /// For continuous nodes: mean
     #[serde(default)]
     pub mean: f64,
@@ -109,19 +111,56 @@ impl BayesianNode {
     /// Returns an error if the node configuration is invalid (e.g., missing
     /// states, incorrect prior/CPT dimensions, or probabilities not summing to 1).
     pub fn validate(&self, name: &str) -> Result<(), String> {
-        match self.node_type {
-            NodeType::Discrete => self.validate_discrete(name),
-            NodeType::Continuous => Self::validate_continuous(name),
-        }
+        self.validate_shape(name)?;
+        self.validate_probabilities(name)
     }
 
-    fn validate_discrete(&self, name: &str) -> Result<(), String> {
+    /// Each probability is from 0 to 1, and each row adds up to 1: checked
+    /// once the probabilities are numbers (in a model, after their formulas
+    /// are worked out).
+    fn validate_probabilities(&self, name: &str) -> Result<(), String> {
+        let rows: Vec<(String, &Vec<f64>)> = if self.is_root() {
+            vec![("prior probabilities".to_string(), &self.prior)]
+        } else {
+            self.cpt
+                .iter()
+                .map(|(key, row)| (format!("CPT entry '{key}'"), row))
+                .collect()
+        };
+        for (what, row) in rows {
+            for (state, p) in self.states.iter().zip(row) {
+                if !(0.0..=1.0).contains(p) {
+                    return Err(format!(
+                        "Node '{name}': in its {what}, state '{state}' has {p}; a probability \
+                         is from 0 to 1"
+                    ));
+                }
+            }
+            let sum: f64 = row.iter().sum();
+            if (sum - 1.0).abs() > 0.001 {
+                return Err(format!("Node '{name}': {what} must sum to 1.0, got {sum}"));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<P> BayesianNode<P> {
+    /// The node's shape, whatever its probabilities are: states, a prior or
+    /// a table, rows as long as the states.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error naming the node when it is continuous, has no
+    /// states, or has a prior or table rows of the wrong length.
+    pub fn validate_shape(&self, name: &str) -> Result<(), String> {
+        if self.node_type == NodeType::Continuous {
+            return Err(continuous_refused(name));
+        }
         if self.states.is_empty() {
             return Err(format!("Node '{name}': discrete node must have states"));
         }
-
-        // If root node, check prior
-        if self.parents.is_empty() {
+        if self.is_root() {
             if self.prior.is_empty() {
                 return Err(format!(
                     "Node '{name}': root node must have prior probabilities"
@@ -135,48 +174,23 @@ impl BayesianNode {
                     self.states.len()
                 ));
             }
-            let sum: f64 = self.prior.iter().sum();
-            if (sum - 1.0).abs() > 0.001 {
+            return Ok(());
+        }
+        if self.cpt.is_empty() {
+            return Err(format!("Node '{name}': child node must have CPT"));
+        }
+        for (key, probs) in &self.cpt {
+            if probs.len() != self.states.len() {
                 return Err(format!(
-                    "Node '{name}': prior probabilities must sum to 1.0, got {sum}"
+                    "Node '{}': CPT entry '{}' length ({}) must match states ({})",
+                    name,
+                    key,
+                    probs.len(),
+                    self.states.len()
                 ));
             }
-        } else {
-            // Child node, check CPT
-            if self.cpt.is_empty() {
-                return Err(format!("Node '{name}': child node must have CPT"));
-            }
-            for (key, probs) in &self.cpt {
-                if probs.len() != self.states.len() {
-                    return Err(format!(
-                        "Node '{}': CPT entry '{}' length ({}) must match states ({})",
-                        name,
-                        key,
-                        probs.len(),
-                        self.states.len()
-                    ));
-                }
-                let sum: f64 = probs.iter().sum();
-                if (sum - 1.0).abs() > 0.001 {
-                    return Err(format!(
-                        "Node '{name}': CPT entry '{key}' must sum to 1.0, got {sum}"
-                    ));
-                }
-            }
         }
-
         Ok(())
-    }
-
-    /// A continuous node is refused: inference works on discrete states only
-    /// (ADR-023 lists continuous nodes as future work), and before this a
-    /// network with one failed inside the engine with "No factors remaining".
-    fn validate_continuous(name: &str) -> Result<(), String> {
-        Err(format!(
-            "Node '{name}': continuous nodes are not supported yet; Bayesian networks in Forge \
-             are discrete. Give the node states and probabilities instead, such as \
-             states: [low, medium, high]"
-        ))
     }
 
     /// Check if this is a root node
@@ -184,7 +198,20 @@ impl BayesianNode {
     pub const fn is_root(&self) -> bool {
         self.parents.is_empty()
     }
+}
 
+/// A continuous node is refused: inference works on discrete states only
+/// (ADR-023 lists continuous nodes as future work), and before this a
+/// network with one failed inside the engine with "No factors remaining".
+fn continuous_refused(name: &str) -> String {
+    format!(
+        "Node '{name}': continuous nodes are not supported yet; Bayesian networks in Forge \
+         are discrete. Give the node states and probabilities instead, such as \
+         states: [low, medium, high]"
+    )
+}
+
+impl BayesianNode {
     /// The CPT row for one combination of parent states, given in the order
     /// of `parents`. Spaces around the commas in a key do not matter.
     #[must_use]
@@ -212,10 +239,11 @@ impl BayesianNode {
     }
 }
 
-/// Configuration for Bayesian network
+/// Configuration for Bayesian network. `P` is how a probability is written,
+/// as in [`BayesianNode`]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BayesianConfig {
+#[serde(deny_unknown_fields, bound(deserialize = "P: Deserialize<'de>"))]
+pub struct BayesianConfig<P = f64> {
     /// Network name
     #[serde(default)]
     pub name: String,
@@ -223,7 +251,23 @@ pub struct BayesianConfig {
     /// order, so a map in an order of its own (a `HashMap`'s is random) moved
     /// the last digit of a probability from one run to the next
     #[serde(default)]
-    pub nodes: BTreeMap<String, BayesianNode>,
+    pub nodes: BTreeMap<String, BayesianNode<P>>,
+    /// Named queries, whose posteriors are scalars of the model
+    /// (`bayesian_network.<query>.<state>`, ADR-074)
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub queries: BTreeMap<String, Query>,
+}
+
+/// A named query: the posterior of `node` given `evidence`, a state of each
+/// node named (ADR-074).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Query {
+    /// The node whose posterior the query gives
+    pub node: String,
+    /// The state each node is known to be in
+    #[serde(default)]
+    pub evidence: BTreeMap<String, String>,
 }
 
 impl BayesianConfig {
@@ -233,6 +277,7 @@ impl BayesianConfig {
         Self {
             name: name.to_string(),
             nodes: BTreeMap::new(),
+            queries: BTreeMap::new(),
         }
     }
 
@@ -250,13 +295,32 @@ impl BayesianConfig {
     /// Returns an error if the network is empty, any node is invalid,
     /// parent references are missing, or the graph contains cycles.
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_shape()?;
+        for (name, node) in &self.nodes {
+            node.validate_probabilities(name)?;
+        }
+        Ok(())
+    }
+}
+
+impl<P> BayesianConfig<P> {
+    /// The network's shape, whatever its probabilities are: each node's,
+    /// the parents and table entries named, no cycle, and each query's node,
+    /// evidence and states.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the network is empty, a node's shape is wrong, a
+    /// parent or table entry names nothing, the graph has a cycle, or a
+    /// query names a node or state the network does not have.
+    pub fn validate_shape(&self) -> Result<(), String> {
         if self.nodes.is_empty() {
             return Err("Network must have at least one node".to_string());
         }
 
         // Validate each node
         for (name, node) in &self.nodes {
-            node.validate(name)?;
+            node.validate_shape(name)?;
 
             // Check parent references
             for parent in &node.parents {
@@ -273,13 +337,16 @@ impl BayesianConfig {
         // Check for cycles
         self.check_cycles()?;
 
+        for (name, query) in &self.queries {
+            self.check_query(name, query)?;
+        }
         Ok(())
     }
 
     /// Each CPT row must name a state of every parent, and every combination
     /// of parent states must have exactly one row; otherwise inference would
     /// use a probability of 0 for the missing rows without saying so.
-    fn check_cpt_matches_parents(&self, name: &str, node: &BayesianNode) -> Result<(), String> {
+    fn check_cpt_matches_parents(&self, name: &str, node: &BayesianNode<P>) -> Result<(), String> {
         if node.node_type != NodeType::Discrete || node.parents.is_empty() {
             return Ok(());
         }
@@ -392,9 +459,9 @@ impl BayesianConfig {
     /// Get topological order of nodes
     #[must_use]
     pub fn topological_order(&self) -> Vec<String> {
-        fn visit(
+        fn visit<P>(
             name: &str,
-            config: &BayesianConfig,
+            config: &BayesianConfig<P>,
             visited: &mut std::collections::HashSet<String>,
             order: &mut Vec<String>,
         ) {

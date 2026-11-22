@@ -1,6 +1,6 @@
 # ADR-075: Forge Writes the Model
 
-**Status:** Accepted (2026-11-22); built: the spike (decision 5), and step 2 (`set_value`, `set_formula`, `add`, `delete`; forge-wasm's `edit`, `forge_edit`, `forge edit`). The maintainer allowed `hashbrown` twice for yaml-edit (2026-11-22)
+**Status:** Accepted (2026-11-22); built: the spike (decision 5), step 2 (`set_value`, `set_formula`, `add`, `delete`; forge-wasm's `edit`, `forge_edit`, `forge edit`), and step 3 (`rename` of a scalar, a group, a table and a column; a game, a player and a strategy are left for step 5). The maintainer allowed `hashbrown` twice for yaml-edit (2026-11-22)
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who agreed that changes of more than one line to a model are written by Forge rather than by Forge Studio's page; the analysis is Claude's
 **For:** ADR-076 (simulations and games edited on Studio's cards). It extends ADR-056 and changes none of its decisions
@@ -67,6 +67,8 @@ The other candidates were looked at, not run: `yaml-edit-rp` (0.3.1) is an older
 
 **What step 2 found.** Two things the tree does not do as `text.js` did, and Forge does instead. A snippet set with `Mapping::set` is indented by yaml-edit's own step of 2, under a group indented by 4 too, where the file's style is 4 more: so the tree gives the place (the end of the group's last entry, whose span runs to the end of its last line, comment included) and Forge writes the lines, as `text.js` did. And a bare `value:` gets its space. Each change is checked by reading the model back as Forge Studio did (S9): the model's JSON, and each included file's, before and after, equal once the changed entry is set aside, and the entry as asked. An uncertain model is checked at plan, as `forge calculate --plan` calculates it. A distribution is read only as a whole formula (`=MC.Normal(0, 1)`, not `=(MC.Normal(0, 1))`), and `edit` refuses the second as Forge does.
 
+**What step 3 found.** A rename is the name's key, and every name that reads it, in every file of the model. What a name in a formula reads is found by the calculator's own reader (`src/core/array_calculator/references.rs`), at the place the formula is written: Forge's tokenizer gives each name and where it is (`tokenizer::names`, the identifiers that are not a function's), and the calculator's name resolution says what it reads (a column's bare name reads its own table's columns first, a scalar's short name its group first, then the top level, then the only scalar of that last name; `@alias.name` reads the included file). A name outside formulas (a scenario's override and expectation, the file's `expect:`, a simulation's outputs and correlated inputs, a tornado's output and inputs) is read as those commands read it: a full name, or the last part of only one scalar. Each is written again as it was, full or short; a short name that would read something else once renamed (`units` in a table that now has a column `units`; `price` once there are two) is written in full, and one that cannot be is refused. The file's bytes are changed only at those names: yaml-edit's tree gives each key and scalar with its span, and the new text is spliced in, in the quotes the file uses; a formula folded over several lines is refused. A text under `notes:`, `description:` and the other keys of text is never read as a formula, even when it starts with `=`. The check is the model read back: every formula, override and expectation of every file, each name in it replaced by what it reads, equals the same before with the rename applied, and so do the analyses' names, read from the file; the model calculates. Two things this refuses rather than guesses: a key read under two names (`g: *base`, a YAML alias, renames both), and a name of `LET` that would read the renamed scalar. Every scalar, group, table and column of the 62 example models, and each scalar of a file one includes, is renamed and back to its files byte for byte (`every_name_of_every_example_is_renamed_and_back`). A game, a player and a strategy are named in a game's keys, its results and its tournaments, and are renamed with the game changes (step 5).
+
 ## Alternatives considered
 
 - **More line work in `text.js`.** Rejected, for the reasons in Context. A rename cannot be done without reading formulas, and the CLI and MCP would not get any of it.
@@ -83,8 +85,8 @@ The other candidates were looked at, not run: `yaml-edit-rp` (0.3.1) is an older
 
 1. The spike in decision 5, with its findings added to this ADR (done, 2026-11-22).
 2. `src/edit/` with `set_value`, `set_formula`, `add` and `delete`, held to the bytes `text.js` writes. The forge-wasm `edit` tool, the `forge_edit` MCP tool, and `forge edit` (done, 2026-11-22).
-3. `rename`.
+3. `rename` of a scalar, a group, a table and a column (done, 2026-11-22); of a game, a player and a strategy with step 5.
 4. `make_uncertain` and `make_certain` (ADR-076, step 4).
-5. The game changes (ADR-076, step 5).
+5. The game changes (ADR-076, step 5), and `rename` of a game, a player and a strategy.
 6. `insert` of a template (ADR-076, step 6).
 7. Studio's one-line changes moved to `edit`; `text.js` keeps only the colours.

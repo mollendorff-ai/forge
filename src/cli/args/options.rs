@@ -421,6 +421,11 @@ pub struct BayesianArgs {
     #[arg(short, long, value_delimiter = ',')]
     pub evidence: Vec<String>,
 
+    /// Work the network out under a scenario's overrides (a probability may
+    /// be a formula over the model's scalars)
+    #[arg(short, long)]
+    pub scenario: Option<String>,
+
     /// Output file (.yaml)
     #[arg(short, long)]
     pub output: Option<PathBuf>,

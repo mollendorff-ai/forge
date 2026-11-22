@@ -9,6 +9,7 @@ const EXAMPLE_REAL_OPTIONS: &str = include_str!("../../../../examples/real-optio
 const EXAMPLE_TORNADO: &str = include_str!("../../../../examples/tornado.yaml");
 const EXAMPLE_BOOTSTRAP: &str = include_str!("../../../../examples/bootstrap.yaml");
 const EXAMPLE_BAYESIAN: &str = include_str!("../../../../examples/bayesian.yaml");
+const EXAMPLE_EXPECTED_LOSS: &str = include_str!("../../../../examples/expected_loss.yaml");
 const EXAMPLE_VARIANCE: &str = include_str!("../../../../examples/variance.yaml");
 const EXAMPLE_BREAKEVEN: &str = include_str!("../../../../examples/breakeven.yaml");
 
@@ -84,6 +85,12 @@ pub(super) const EXAMPLES: &[Example] = &[
         description: "Probabilistic graphical models",
         command: "forge bayesian",
         content: EXAMPLE_BAYESIAN,
+    },
+    Example {
+        name: "expected-loss",
+        description: "A network's posterior feeding an expected loss, checked by hand",
+        command: "forge validate",
+        content: EXAMPLE_EXPECTED_LOSS,
     },
     Example {
         name: "variance",

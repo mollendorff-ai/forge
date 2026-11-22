@@ -123,18 +123,21 @@ pub fn edit(
 /// The arguments of `forge edit`.
 #[derive(clap::Args)]
 #[command(
-    about = "Change a model's text: values, formulas, names added and deleted, comments kept",
+    about = "Change a model's text: values, formulas, names added, deleted and renamed, comments kept",
     long_about = "Change a model's text: set an input's value or a formula, add or delete an
-input, a formula or a table's column, in the model or in a file it includes
-(@alias.name). Every byte outside the change stays as it was, comments and
-layout included. A change is made only when Forge reads the model back valid,
-with that change and nothing else; when one cannot be made, no file is
-written and the message says why. Each file that changes is kept as it was
-next to it (model.yaml.bak). Results are not written: forge calculate does.
+input, a formula or a table's column, or rename a scalar, a group, a table or
+a column and every name that reads it (formulas, scenarios, expectations, a
+simulation's outputs, a tornado's inputs, in every file of the model), in the
+model or in a file it includes (@alias.name). Every byte outside the change
+stays as it was, comments and layout included. A change is made only when
+Forge reads the model back valid, with that change and nothing else; when one
+cannot be made, no file is written and the message says why. Each file that
+changes is kept as it was next to it (model.yaml.bak). Results are not
+written: forge calculate does.
 
 A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
-made in this order: --changes, --set, --formula, --add, --delete.
+made in this order: --changes, --set, --formula, --add, --delete, --rename.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -142,6 +145,7 @@ EXAMPLES:
   forge edit model.yaml --add year.tax=0.15 --add 'year.net==year.profit * 0.85'
   forge edit model.yaml --add fee=25 --after rate          # At the top level
   forge edit model.yaml --delete year.old_fee --dry-run
+  forge edit model.yaml --rename year.price=unit_price   # And every name that reads it
   forge edit model.yaml --changes '[{\"op\": \"add\", \"path\": \"year.fee\", \"value\": 25, \"unit\": \"CAD\"}]'"
 )]
 pub struct EditArgs {
@@ -167,6 +171,11 @@ pub struct EditArgs {
     /// Delete an input, a formula or a column, with the lines under it
     #[arg(long = "delete", value_name = "PATH")]
     pub delete: Vec<String>,
+
+    /// Rename a scalar, a group, a table or a column, and every name that
+    /// reads it: PATH=NAME, the new name one word (year.price=cost)
+    #[arg(long = "rename", value_name = "PATH=NAME")]
+    pub rename: Vec<String>,
 
     /// Changes as JSON, as Forge's MCP edit tool takes them
     #[arg(long, value_name = "JSON")]
@@ -203,6 +212,7 @@ impl EditArgs {
             formula: None,
             unit: None,
             after: None,
+            new_name: None,
         };
         for arg in &self.set {
             let (path, v) = pair("set", arg)?;
@@ -237,9 +247,16 @@ impl EditArgs {
                 .iter()
                 .map(|path| change(Op::Delete, path.clone())),
         );
+        for arg in &self.rename {
+            let (path, new_name) = pair("rename", arg)?;
+            changes.push(Change {
+                new_name: Some(new_name),
+                ..change(Op::Rename, path)
+            });
+        }
         if changes.is_empty() {
             return Err(ForgeError::Validation(
-                "name a change: --set, --formula, --add, --delete or --changes".into(),
+                "name a change: --set, --formula, --add, --delete, --rename or --changes".into(),
             ));
         }
         Ok(changes)
@@ -389,6 +406,33 @@ year:
     }
 
     #[test]
+    fn a_rename_renames_every_name_that_reads_it_in_every_file() {
+        let dir = folder();
+        let model = dir.path().join("model.yaml");
+        let ran = forge(&[
+            "edit",
+            model.to_str().unwrap(),
+            "--rename",
+            "year.price=unit_price",
+            "--rename",
+            "@costs.rent=lease",
+        ]);
+        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert!(ran.out.contains("   rename year.price\n"), "{}", ran.out);
+        assert_eq!(
+            read(&dir, "model.yaml"),
+            MODEL
+                .replace("price: 16", "unit_price: 16")
+                .replace("year.price", "year.unit_price")
+                .replace("@costs.rent", "@costs.lease")
+        );
+        assert_eq!(
+            read(&dir, "data/costs.yaml"),
+            COSTS.replace("rent:", "lease:")
+        );
+    }
+
+    #[test]
     fn changes_can_be_given_as_json() {
         let dir = folder();
         let model = dir.path().join("model.yaml");
@@ -413,8 +457,9 @@ year:
         };
         refused(
             &[],
-            "name a change: --set, --formula, --add, --delete or --changes",
+            "name a change: --set, --formula, --add, --delete, --rename or --changes",
         );
+        refused(&["--rename", "rate"], "--rename rate: write it PATH=...");
         refused(&["--set", "price"], "--set price: write it PATH=...");
         refused(&["--set", "=17"], "--set =17: write it PATH=...");
         refused(&["--formula", "x"], "--formula x: write it PATH=...");

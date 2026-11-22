@@ -10,6 +10,7 @@
 //! Studio (forge-wasm's `edit`) share it.
 
 mod check;
+mod rename;
 pub mod text;
 
 use crate::error::{ForgeError, ForgeResult};
@@ -36,6 +37,10 @@ pub enum Op {
     Add,
     /// An input, a formula or a column, with the lines under it
     Delete,
+    /// A scalar, a group, a table or a column called `new_name`, and every
+    /// name that reads it renamed, in every file of the model: formulas,
+    /// scenarios, expectations, a simulation's outputs, a tornado's inputs
+    Rename,
 }
 
 impl Op {
@@ -47,6 +52,7 @@ impl Op {
             Self::SetFormula => "set_formula",
             Self::Add => "add",
             Self::Delete => "delete",
+            Self::Rename => "rename",
         }
     }
 }
@@ -66,7 +72,7 @@ pub enum Value {
 #[cfg_attr(feature = "cli", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Change {
-    /// `set_value`, `set_formula`, `add` or `delete`
+    /// `set_value`, `set_formula`, `add`, `delete` or `rename`
     pub op: Op,
     /// The name as formulas read it: `price`, `year.price`, a table's column
     /// `months.sales`, or `@costs.rent` in the file included as `costs`
@@ -83,6 +89,9 @@ pub struct Change {
     /// The top-level name a new top-level name follows (`add`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
+    /// The name it gets, one word: `cost` for `year.price` (`rename`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_name: Option<String>,
 }
 
 /// The model's files after each change in turn.
@@ -191,7 +200,11 @@ fn locate<'m>(model: &'m ParsedModel, main: &str, path: &str) -> Result<Target<'
 fn apply(files: &mut HashMap<String, String>, main: &str, change: &Change) -> Result<(), String> {
     let before =
         check::read(files, main).map_err(|e| format!("Forge cannot read the model: {e}"))?;
+    fields(change)?;
     let target = locate(&before, main, &change.path)?;
+    if change.op == Op::Rename {
+        return rename::apply(files, main, &before, &target, change);
+    }
     let kind = target.kind();
     let text = write(&files[&target.file], &target, kind, change)
         .map_err(|why| format!("{why} ({})", target.file))?;
@@ -205,23 +218,32 @@ fn apply(files: &mut HashMap<String, String>, main: &str, change: &Change) -> Re
     Ok(())
 }
 
-/// The new text of the target's file, before Forge reads it back
-fn write(text: &str, target: &Target<'_>, kind: Kind, change: &Change) -> Result<String, String> {
+/// Whether the change gives only the fields its op takes
+fn fields(change: &Change) -> Result<(), String> {
     let given = [
         ("value", change.value.is_some()),
         ("formula", change.formula.is_some()),
         ("unit", change.unit.is_some()),
         ("after", change.after.is_some()),
+        ("new_name", change.new_name.is_some()),
     ];
     let takes: &[&str] = match change.op {
         Op::SetValue => &["value"],
         Op::SetFormula => &["formula"],
         Op::Add => &["value", "formula", "unit", "after"],
         Op::Delete => &[],
+        Op::Rename => &["new_name"],
     };
-    if let Some((field, _)) = given.iter().find(|(f, g)| *g && !takes.contains(f)) {
-        return Err(format!("{} does not take `{field}`", change.op.name()));
-    }
+    given
+        .iter()
+        .find(|(f, g)| *g && !takes.contains(f))
+        .map_or(Ok(()), |(field, _)| {
+            Err(format!("{} does not take `{field}`", change.op.name()))
+        })
+}
+
+/// The new text of the target's file, before Forge reads it back
+fn write(text: &str, target: &Target<'_>, kind: Kind, change: &Change) -> Result<String, String> {
     let names: Vec<&str> = target.name.split('.').collect();
     match (change.op, kind) {
         (Op::SetValue, Kind::Input) => {
@@ -401,6 +423,7 @@ months:
             formula: None,
             unit: None,
             after: None,
+            new_name: None,
         }
     }
 
@@ -782,7 +805,13 @@ months:
             serde_json::to_value(&read[0]).unwrap(),
             serde_json::json!({"op": "set_value", "path": "year.price", "value": 17.0})
         );
-        for op in [Op::SetValue, Op::SetFormula, Op::Add, Op::Delete] {
+        for op in [
+            Op::SetValue,
+            Op::SetFormula,
+            Op::Add,
+            Op::Delete,
+            Op::Rename,
+        ] {
             assert_eq!(
                 serde_json::to_value(op).unwrap(),
                 serde_json::json!(op.name())
@@ -813,7 +842,7 @@ months:
     }
 
     /// Each folder of examples, its YAML files by their path in it
-    fn example_sets() -> Vec<(std::path::PathBuf, HashMap<String, String>)> {
+    pub(super) fn example_sets() -> Vec<(std::path::PathBuf, HashMap<String, String>)> {
         fn walk(dir: &Path, root: &Path, files: &mut HashMap<String, String>) {
             for entry in std::fs::read_dir(dir).unwrap() {
                 let path = entry.unwrap().path();

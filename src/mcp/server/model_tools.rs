@@ -74,7 +74,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_edit",
-        description = "Change a model's text: set an input's value (set_value) or a formula (set_formula), add an input, a formula or a table's column (add), or delete one (delete), in the model or in a file it includes (@alias.name). Every byte outside the change stays as it was, comments and layout included. A change is made only when Forge reads the model back valid with that change and nothing else; if one cannot be made, none is. Answers the new text of each file that changed, by its path from the model's folder; with file_path it also writes them, each kept as it was in a .bak, unless dry_run. Results are not written: forge_calculate does."
+        description = "Change a model's text: set an input's value (set_value) or a formula (set_formula), add an input, a formula or a table's column (add), delete one (delete), or rename a scalar, a group, a table or a column to new_name with every name that reads it, in every file (rename), in the model or in a file it includes (@alias.name). Every byte outside the change stays as it was, comments and layout included. A change is made only when Forge reads the model back valid with that change and nothing else; if one cannot be made, none is. Answers the new text of each file that changed, by its path from the model's folder; with file_path it also writes them, each kept as it was in a .bak, unless dry_run. Results are not written: forge_calculate does."
     )]
     pub(super) fn edit(&self, Parameters(req): Parameters<EditRequest>) -> Result<String, String> {
         let inline = req.content.is_some();
