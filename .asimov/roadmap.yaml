@@ -651,6 +651,7 @@ studio:
   - id: S-HELP
     title: "A ? on each section, function and key help, and the manual linked on GitHub at the release's tag (ADR-076, step 5)"
     acceptance: "studio/help.json covers every section heading the page draws; each link names a document and heading that exist (studio/tests/help.mjs); a function's suggestion shows Forge's syntax and description; a key's shows the schema's description"
+    built: "2026-11-22: studio/help.js and help.json (15 entries), the ? on each heading, the function and key line under the suggestions; studio/tests/help.mjs"
   - id: S-UNCERTAIN
     title: "An uncertain model on the Model view: the plan on every card, the range under each output; distributions on their own cards (ADR-075, steps 1 to 3)"
     why: "bagel_simulate.yaml opens on a Problem pill and 'Not calculated' on every result"

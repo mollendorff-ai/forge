@@ -172,6 +172,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     files: Object.fromEntries(files.map((f) => [f, readFileSync(join(examples, dir, f), "utf8")])),
   }));
   writeFileSync(join(out, "examples.json"), JSON.stringify(sets));
+  // The help sheets' text (ADR-076)
+  copyFileSync(join(here, "help.json"), join(out, "help.json"));
   writeFileSync(join(out, "formula-rules.json"), JSON.stringify(formulaRules(JSON.parse(readFileSync(GRAMMAR, "utf8")))));
   // GitHub Pages runs Jekyll on a site unless told not to
   writeFileSync(join(out, ".nojekyll"), "");

@@ -407,3 +407,17 @@ table.grid.scalars .g-formula { max-width: 15rem }
 .option.best b { color: var(--accent) }
 .analysis .report { width: 100% }
 .analysis .report th, .analysis .report td { white-space: normal; overflow-wrap: anywhere }
+
+/* Help (ADR-076): a "?" on a heading, the sheet's terms, and what Forge says
+   of the first function or key offered */
+.qm { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: 600 12px var(--f-body); padding: 0; cursor: pointer }
+.eyebrow .qm { margin-left: auto; align-self: center }
+.eyebrow .qm + .add-btn { margin-left: 6px }
+.sub .qm, .game-head .qm { margin-left: 6px; vertical-align: middle; text-transform: none }
+.sheet-panel .terms { margin: 10px 0 0 }
+.sheet-panel .doc { color: var(--accent) }
+.suggest { display: block }
+.sug-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch }
+.sug-row::-webkit-scrollbar { display: none }
+.sug-help { margin: 6px 2px 0; font-size: 12px; color: var(--muted); font-family: var(--f-mono); overflow-wrap: anywhere }
+.sheet-panel .sub { margin-top: 16px }

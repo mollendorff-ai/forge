@@ -11,6 +11,7 @@ The first visit opens with a short welcome card: what the page is, and for an ex
 - **Grid:** the model as a spreadsheet reads it, read-only. A tap shows a cell's formula and leads to its card.
 - **YAML:** the model's text, with Forge's formula colours, and suggestions for the keys of the model format and for names and functions inside a formula. On a phone the edit is applied with a button; above 900 px the editor sits beside the cards and a number typed in one changes the other.
 - **Analyze:** goal seek, break-even, scenarios, a tornado, a simulation and budget against actual. **Tools:** the MCP server's tools, run on the open model.
+- **Help:** a "?" on each heading opens a few sentences, the terms the section uses, an example to open and the manual on GitHub at the release that is running; while a formula or a key is typed, the line under the suggestions gives Forge's syntax and description for it (ADR-076).
 - **Files:** the examples, opening and saving. A link can open one model of an example set: `?example=bagel` opens the bagel's plan, and `?example=bagel&model=price_war.yaml` its price war, as Files' Open button would (a file the set does not have opens the set's own model). Save opens the share sheet on an iPhone or iPad (Save to Files, iCloud Drive) for the model's YAML or its Excel workbook.
 
 ## Your model stays on your device
@@ -29,6 +30,7 @@ Every number is Forge's. The page reads no YAML itself: a change on a card is wr
 | `app.js` | State, the six views, events; the parts below are its modules |
 | `forge.js`, `worker.js` | The only way to a number: `call(tool, request)` to forge-wasm, in a worker |
 | `text.js` | Text work on YAML: changing one input's or one formula's line, colouring the editor with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
+| `help.js`, `help.json` | The "?" on each heading and its sheet (the text is `help.json`; the manual is linked on GitHub at the running release's tag), and the line under the suggestions with Forge's own syntax and description of a function or a key (ADR-076) |
 | `tools.js` | The Tools view: the MCP server's tools, the request each is shown with, and an answer shown whole |
 | `analyses.js` | A decision tree, real options, a bootstrap and a Bayesian network drawn on the Model view from their tools' answers, each number with the place in the answer it comes from (ADR-076) |
 | `sets.js` | A set's models: its questions on the welcome card, the strip, and each model's kind from Forge's `model` answer (ADR-076) |
@@ -74,6 +76,7 @@ All of these run in CI, in the `forge-wasm` job, which keeps the built site as t
 | `highlight.mjs`, `format.mjs` | The formula colours are the VS Code extension's rules, unchanged; the percent rule and how typed numbers are read |
 | `welcome.mjs` | A first visit shows the welcome card (a set's questions, or a single model's three tips), the model still recalculates under it, Got it keeps it away after a reload, and the Files tab brings it back |
 | `analyses.mjs` | Every example file that is a decision tree, real options, a bootstrap or a Bayesian network opens on a card whose every number is its tool's, at the place in the answer the card names; on a network a state tapped is evidence, as the tool answers it, and tapped again is not; no card is wider than 390 px |
+| `help.mjs` | Every entry of `help.json` links a document of this repository and a heading in it, by GitHub's rule for anchors, and is opened by a "?" on some heading; a sheet links the manual at the running release's tag and opens its example; under a function or a key being typed, Forge's syntax and description |
 | `sets.mjs` | A set of several models lists them as questions on the welcome card, each with the kind of model Forge's `model` says its file is; a question, a chip of the strip at the top of the Model view and Files open each model of every such set (ADR-076) |
 | `live.mjs` | After each release, the published page runs the release's Forge and the bagel example's `year.profit` is 786.32 |
 

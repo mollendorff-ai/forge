@@ -10,6 +10,7 @@ import { tableCard, tournamentCard, pathHover } from "./games.js";
 import { kindOf, questionsCard, setStrip, drawKinds } from "./sets.js";
 import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js";
 import { toolArgs, toolsHtml, answerHtml } from "./tools.js";
+import { helpButton, helpBody, suggestionStrip } from "./help.js";
 import { scopeOf, namesFor, gameResults, functionsOf, suggest, apply, schemaOf, suggestKeys, formulaContext, suggestInFormula } from "./suggest.js";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -221,6 +222,19 @@ $("#status").addEventListener("click", () => {
       : `<p class="note">Forge ${esc(S.version)} calculated this model in your browser. Nothing left this device.</p>`);
 });
 $("#sheet-close").addEventListener("click", () => { $("#sheet").hidden = true; });
+// ---------- help (ADR-076, studio/help.js): a "?" in each slot, a sheet on a tap ----------
+let HELP = null;
+// A group of scalars is helped as inputs when it has any, as results otherwise
+const helpSlot = (list) => `<span data-help-slot="${list.some((s) => s.formula == null) ? "inputs" : "results"}"></span>`;
+function fillHelp(root = document) {
+  for (const slot of root.querySelectorAll("[data-help-slot]")) slot.outerHTML = helpButton(HELP, slot.dataset.helpSlot);
+}
+document.addEventListener("click", async (e) => {
+  const q = e.target.closest("[data-help]");
+  if (q && HELP) { openSheet(HELP[q.dataset.help].title, helpBody(HELP[q.dataset.help], S.version)); return; }
+  const ex = e.target.closest("#sheet [data-example]");
+  if (ex) { $("#sheet").hidden = true; openSet(ex.dataset.example, ex.dataset.exampleModel); save(); show("model"); window.scrollTo(0, 0); await load(); }
+});
 $("#sheet").addEventListener("click", (e) => { if (e.target.id === "sheet") $("#sheet").hidden = true; });
 $("#title-btn").addEventListener("click", () => show("files"));
 
@@ -288,7 +302,7 @@ function tableCards(tables, inc = "") {
   for (const t of tables) {
     const rows = Math.max(0, ...t.columns.map((c) => c.rows || 0));
     const ns = /^@([^.]+)\./.exec(t.name), tname = t.name.replace(/^@[^.]+\./, "");
-    h += `<div class="eyebrow"><h2>${esc(tname)}</h2><span class="tag">table${rows ? ` · ${rows} rows` : ""}</span>${inc}${addButton(ns && ns[1], tname, null)}</div>${addSlot(ns && ns[1], tname)}<div class="card stack">`;
+    h += `<div class="eyebrow"><h2>${esc(tname)}</h2><span class="tag">table${rows ? ` · ${rows} rows` : ""}</span>${inc}<span data-help-slot="tables"></span>${addButton(ns && ns[1], tname, null)}</div>${addSlot(ns && ns[1], tname)}<div class="card stack">`;
     for (const c of t.columns) {
       const key = `${t.name}.${c.name}`;
       const open = S.open.has(key);
@@ -322,7 +336,7 @@ function renderModel() {
   h += S.structure.analyses.filter((a) => ANALYSES[a]).map(analysisSlot).join("");
   if (S.structure.scenarios.length) {
     const info = (n) => (S.scenarios ? S.scenarios.scenarios.find((s) => s.name === n) : null);
-    h += `<div class="eyebrow"><h2>scenarios</h2><span class="tag">tap to apply</span></div>
+    h += `<div class="eyebrow"><h2>scenarios</h2><span class="tag">tap to apply</span><span data-help-slot="scenarios"></span></div>
       <div class="chips" role="group" aria-label="Scenarios"><button type="button" class="chip" data-scn="" aria-pressed="${S.scenario === null}">plan</button>${S.structure.scenarios.map((n) => {
         const p = info(n) && info(n).probability;
         return `<button type="button" class="chip" data-scn="${esc(n)}" aria-pressed="${n === S.scenario}">${esc(n)}${p != null ? `<small>${Math.round(p * 100)}%</small>` : ""}</button>`;
@@ -331,13 +345,13 @@ function renderModel() {
   h += reportCards();
   h += gameCards();
   for (const [g, list] of groupsOf(S.structure.scalars)) {
-    h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${addButton(null, g, list)}</div>${addSlot(null, g)}<div class="card stack">${scalarCards(list)}</div>`;
+    h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${helpSlot(list)}${addButton(null, g, list)}</div>${addSlot(null, g)}<div class="card stack">${scalarCards(list)}</div>`;
   }
   h += tableCards(S.structure.tables);
   for (const inc of S.structure.includes) {
     const badge = `<span class="inc">@${esc(inc.as)} · ${esc(inc.file)}</span>`;
     for (const [g, list] of groupsOf(inc.scalars)) {
-      h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${badge}${addButton(inc.as, g, list)}</div>${addSlot(inc.as, g)}<div class="card stack">${scalarCards(list)}</div>`;
+      h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${badge}${helpSlot(list)}${addButton(inc.as, g, list)}</div>${addSlot(inc.as, g)}<div class="card stack">${scalarCards(list)}</div>`;
     }
     h += tableCards(inc.tables, badge);
   }
@@ -422,6 +436,7 @@ function updateValues() {
     const answer = S.answers[slot.dataset.analysis];
     if (answer) drawAnalysis(slot, slot.dataset.analysis, answer, S.bnNodes, S.evidence);
   }
+  fillHelp($("#view-model"));
 }
 // ---------- games (ADR-068): forge game's answer, drawn ----------
 // Every number here is in the answer of the `game` tool; the page only lays
@@ -430,7 +445,7 @@ function updateValues() {
 function gameCards() {
   const names = S.structure.games || [];
   if (!names.length) return "";
-  return `<div class="eyebrow" id="games"><h2>games</h2><span class="tag">forge game · moves with the inputs</span></div>` +
+  return `<div class="eyebrow" id="games"><h2>games</h2><span class="tag">forge game · moves with the inputs</span><span data-help-slot="games"></span></div>` +
     names.map((n) => `<div class="card row game" data-game="${esc(n)}"><p class="note">Forge is working out ${esc(n)}…</p></div>`).join("");
 }
 function drawGames() {
@@ -585,7 +600,7 @@ function showSuggestions(input) {
   if (!strip || !S.structure) return;
   if (!functionList) loadFunctions().then(() => { if (input.isConnected) showSuggestions(input); });
   const list = suggest({ names: namesFor(S.structure, scopeFor(input), gameResults(S.structure, S.calc)), functions: functionList || [] }, input.value, input.selectionStart ?? input.value.length);
-  strip.innerHTML = list.map((x, i) => `<button type="button" class="sug ${x.kind}" data-sug="${i}" title="${esc(x.title)}">${esc(x.label)}</button>`).join("");
+  strip.innerHTML = suggestionStrip(list, (x, i) => `<button type="button" class="sug ${x.kind}" data-sug="${i}" title="${esc(x.title)}">${esc(x.label)}</button>`);
   strip._list = list;
   strip.hidden = !list.length;
 }
@@ -637,7 +652,7 @@ async function showKeySuggestions(editor) {
     if (token !== keysFor || !editor.isConnected) return;
     list = suggestKeys(schema, text, caret);
   }
-  strip.innerHTML = list.map((x, i) => `<button type="button" class="sug ${x.kind}${x.used ? " used" : ""}" data-sug="${i}" title="${esc(x.title)}">${esc(x.label)}</button>`).join("");
+  strip.innerHTML = suggestionStrip(list, (x, i) => `<button type="button" class="sug ${x.kind}${x.used ? " used" : ""}" data-sug="${i}" title="${esc(x.title)}">${esc(x.label)}</button>`);
   strip._list = list;
   strip.hidden = !list.length;
 }
@@ -1037,7 +1052,7 @@ function renderAnalyze() {
   if (!S.structure) { v.innerHTML = `<div class="msg bad">${esc(S.error || "No model")}</div>`; return; }
   const A = defaults(), outs = results(), ins = inputs();
   v.innerHTML = `<div class="jump"><a href="#an-seek">Goal seek</a><a href="#an-scn">Scenarios</a><a href="#an-tor">Tornado</a><a href="#an-sim">Simulate</a><a href="#an-var">Budget against actual</a></div>
-  <div class="eyebrow" id="an-seek"><h2>goal seek</h2><span class="tag">forge goal-seek · break-even</span></div>
+  <div class="eyebrow" id="an-seek"><h2>goal seek</h2><span class="tag">forge goal-seek · break-even</span><span data-help-slot="goal-seek"></span></div>
   <div class="card row form">
     ${outs.length && ins.length ? `<div><label class="lab" for="sk-out">Result</label><select class="sel" id="sk-out">${outs.map((s) => opt(s.path, A.out)).join("")}</select></div>
     <div class="grid2"><div><label class="lab" for="sk-target">Target</label><input class="txt" id="sk-target" inputmode="decimal" value="${esc(A.target ?? "")}" placeholder="0 for break-even"></div>
@@ -1046,17 +1061,17 @@ function renderAnalyze() {
     <div class="btns"><button class="btn primary" type="button" id="sk-run">Find the value</button><button class="btn" type="button" id="be-run">Break-even</button></div>
     <div id="sk-result"></div>` : `<p class="note">Goal seek needs an input and a result in the model's scalars.</p>`}
   </div>
-  <div class="eyebrow" id="an-scn"><h2>scenarios</h2><span class="tag">forge scenarios</span></div>
+  <div class="eyebrow" id="an-scn"><h2>scenarios</h2><span class="tag">forge scenarios</span><span data-help-slot="scenarios"></span></div>
   <div class="card row" id="scn-box">${S.scenarios ? "" : `<p class="note">${S.scenarioError ? esc(S.scenarioError) : "This model has no scenarios section."}</p>`}</div>
-  <div class="eyebrow" id="an-tor"><h2>tornado</h2><span class="tag">forge tornado</span></div>
+  <div class="eyebrow" id="an-tor"><h2>tornado</h2><span class="tag">forge tornado</span><span data-help-slot="tornado"></span></div>
   <div class="card row"><div class="btns"><button class="btn" type="button" id="tor-run">Rank the inputs</button></div><div id="tor-box"></div></div>
-  <div class="eyebrow" id="an-sim"><h2>simulate</h2><span class="tag">forge simulate · Latin hypercube</span></div>
+  <div class="eyebrow" id="an-sim"><h2>simulate</h2><span class="tag">forge simulate · Latin hypercube</span><span data-help-slot="simulate"></span></div>
   <div class="card row form">
     <div class="grid2"><div><label class="lab" for="sim-n">Runs</label><select class="sel" id="sim-n">${[1000, 5000, 10000].map((n) => `<option ${n === (A.runs || 5000) ? "selected" : ""}>${n}</option>`).join("")}</select></div>
     <div><label class="lab" for="sim-seed">Seed</label><input class="txt" id="sim-seed" inputmode="numeric" value="${A.seed ?? 7}"></div></div>
     <div class="btns"><button class="btn primary" type="button" id="sim-run">Run the simulation</button></div><div id="sim-box"></div>
   </div>
-  <div class="eyebrow" id="an-var"><h2>budget against actual</h2><span class="tag">forge variance</span></div>
+  <div class="eyebrow" id="an-var"><h2>budget against actual</h2><span class="tag">forge variance</span><span data-help-slot="variance"></span></div>
   <div class="card row form">${A.others.length ? `<div class="grid2"><div><label class="lab" for="var-file">Actual</label><select class="sel" id="var-file">${A.others.map((f) => `<option ${f === A.actual ? "selected" : ""}>${esc(f)}</option>`).join("")}</select></div>
     <div><label class="lab" for="var-th">Alert above (%)</label><input class="txt" id="var-th" inputmode="decimal" value="${A.threshold ?? 10}"></div></div>
     <div class="btns"><button class="btn primary" type="button" id="var-run">Compare with ${esc(S.main)}</button></div><div id="var-box"></div>`
@@ -1346,7 +1361,9 @@ vf.addEventListener("change", async (e) => {
 // YAML editor on the left, the other views on the right, a divider between
 // them that can be dragged, and controls to hide either side (ADR-056).
 const VIEWS = ["model", "grid", "yaml", "analyze", "mcp", "files"];
-const RENDER = { model: () => { renderModel(); updateValues(); }, grid: renderGrid, yaml: renderYaml, analyze: renderAnalyze, mcp: renderTools, files: renderFiles };
+// Each view drawn, then its help slots filled
+const RENDER = Object.fromEntries(Object.entries({ model: () => { renderModel(); updateValues(); }, grid: renderGrid, yaml: renderYaml, analyze: renderAnalyze, mcp: renderTools, files: renderFiles })
+  .map(([tab, draw]) => [tab, () => { draw(); fillHelp(); }]));
 const WIDE = matchMedia("(min-width: 900px)");
 const LAYOUT = "forge-studio-layout";
 const layout = (() => { try { return JSON.parse(localStorage.getItem(LAYOUT)) || {}; } catch (e) { return {}; } })();
@@ -1423,6 +1440,7 @@ async function boot() {
   } catch (e) {
     S.error = "The examples could not be loaded."; S.sets = [];
   }
+  try { HELP = await (await fetch("help.json")).json(); } catch (e) { /* no "?" then */ }
   try {
     useFormulaRules(await (await fetch("formula-rules.json")).json());
   } catch (e) { /* formulas stay plain in the editor; the cards do not need the colours */ }

@@ -1,6 +1,6 @@
 # ADR-076: What Forge Studio Shows First, and How It Helps
 
-**Status:** Accepted (2026-11-22); built: steps 1 to 4 (2026-11-22). Step 5, the help, is next
+**Status:** Accepted (2026-11-22); built (2026-11-22), steps 1 to 5
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who found that the bagel's simulation and games are reached only through Files and that the page links to no documentation, and who chose the readers: people who use GitHub. The analysis and the measurements are Claude's
 **For:** roadmap S-SETS, S-ANALYSES and S-HELP. It extends ADR-056 and its 2026-11-14 addendum (the welcome card)

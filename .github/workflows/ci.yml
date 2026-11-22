@@ -359,6 +359,10 @@ jobs:
         working-directory: studio
         run: node tests/analyses.mjs ../studio-site
 
+      - name: Studio's help opens from every heading, and every link lands on a heading of the manual
+        working-directory: studio
+        run: node tests/help.mjs ../studio-site
+
       - name: Studio's grid shows what Forge returns
         working-directory: studio
         run: node tests/grid.mjs ../studio-site

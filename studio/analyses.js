@@ -67,7 +67,7 @@ function bayesian(r, nodes, evidence) {
 }
 
 // A card's slot, before the answer comes
-export const analysisSlot = (section) => `<div class="eyebrow"><h2>${esc(ANALYSES[section].title)}</h2><span class="tag">forge ${esc(ANALYSES[section].tool.replace("_", "-"))}</span></div>
+export const analysisSlot = (section) => `<div class="eyebrow"><h2>${esc(ANALYSES[section].title)}</h2><span class="tag">forge ${esc(ANALYSES[section].tool.replace("_", "-"))}</span><span data-help-slot="${esc(section)}"></span></div>
   <div class="card row analysis" data-analysis="${esc(section)}"><p class="note">${esc(ANALYSES[section].about)}</p><div data-answer><p class="note">Forge is working it out…</p></div></div>`;
 
 // The answer drawn into its slot; `nodes` and `evidence` for a network
