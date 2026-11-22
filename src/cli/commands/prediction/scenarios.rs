@@ -337,6 +337,21 @@ scalars:
         }
     }
 
+    #[test]
+    fn a_weighed_scenario_may_state_what_it_should_give() {
+        // `expect:` is for forge validate (ADR-074); the weighing ignores it
+        let yaml =
+            "_forge_version: \"5.6.0\"\ngrowth: 0.05\nout:\n  twice: {formula: \"=growth * 2\"}\n\
+                    scenarios:\n  low:\n    probability: 0.5\n    scalars: {growth: 0.02}\n    \
+                    expect: {out.twice: 0.04}\n  high:\n    probability: 0.5\n    \
+                    scalars: {growth: 0.08}\n";
+        let mut file = NamedTempFile::new().unwrap();
+        write!(file, "{yaml}").unwrap();
+        let results = super::scenarios_core(file.path(), None).unwrap();
+        let expected = results.expected_values["out.twice"];
+        assert!((expected - 0.1).abs() < 1e-12, "{expected}");
+    }
+
     mod printed_numbers {
         //! The numbers `forge scenarios` prints
         //! follow `forge report`'s rule (Session Prompt part 1, item 5): two decimals

@@ -2,7 +2,7 @@
 //!
 //! Forge's own checks first, with messages that name the format a feature
 //! needs, then the schema file of the model's `_forge_version` (1.0.0 and
-//! 5.0.0 to 5.5.0), read by `schema_reader` (ADR-069).
+//! 5.0.0 to 5.6.0), read by `schema_reader` (ADR-069).
 
 use super::schema_reader::Schema;
 use crate::error::{ForgeError, ForgeResult};
@@ -21,14 +21,14 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
             ForgeError::Validation(
-                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\", \"5.1.0\", \"5.2.0\", \"5.3.0\", \"5.4.0\" or \"5.5.0\""
+                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\", \"5.1.0\", \"5.2.0\", \"5.3.0\", \"5.4.0\", \"5.5.0\" or \"5.6.0\""
                     .to_string(),
             )
         })?;
 
     let Some(schema) = super::schema_reader::for_format(version) else {
         return Err(ForgeError::Validation(format!(
-            "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns), 5.3.0 (5.2.0 plus empty cells), 5.4.0 (5.3.0 plus dates as scalars), 5.5.0 (5.4.0 plus games). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
+            "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns), 5.3.0 (5.2.0 plus empty cells), 5.4.0 (5.3.0 plus dates as scalars), 5.5.0 (5.4.0 plus games), 5.6.0 (5.5.0 plus `expect:`). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
         )));
     };
 
@@ -43,6 +43,7 @@ fn validate_with(yaml: &Value, version: &str, schema: &Schema) -> ForgeResult<()
     check_date_scalars(yaml, version)?;
     check_formats(yaml, version)?;
     check_games(yaml, version)?;
+    check_expect(yaml, version)?;
     // Tables in a 1.0.0 model: say so before the schema reports the shapes
     if version == "1.0.0" {
         validate_v1_0_0_no_tables(yaml)?;
@@ -84,6 +85,31 @@ fn check_games(yaml: &Value, version: &str) -> ForgeResult<()> {
         },
         _ => Ok(()),
     }
+}
+
+/// A scenario's `expect:` in a model of an earlier format: say which format
+/// has it (ADR-074). A top-level group named `expect` before 5.6.0 is a
+/// group, as it was.
+fn check_expect(yaml: &Value, version: &str) -> ForgeResult<()> {
+    if format_at_least(version, "5.6.0") {
+        return Ok(());
+    }
+    let Some(Value::Mapping(scenarios)) = yaml.get("scenarios") else {
+        return Ok(());
+    };
+    let stated = scenarios.iter().find_map(|(name, scenario)| {
+        scenario
+            .as_mapping()
+            .filter(|m| m.contains_key("expect"))
+            .and(name.as_str())
+    });
+    stated.map_or(Ok(()), |name| {
+        Err(ForgeError::Validation(format!(
+            "'scenarios.{name}.expect' states what the scenario should give, which model \
+             format 5.6.0 adds (ADR-074). Set `_forge_version: \"5.6.0\"` (this file says \
+             {version})"
+        )))
+    })
 }
 
 /// A period column in a model of an earlier format: say which format has it,
@@ -285,6 +311,7 @@ fn check_short_form(yaml: &Value, version: &str) -> ForgeResult<()> {
         if SECTIONS.contains(&key)
             || key == "bayesian_network"
             || (key == "games" && format_at_least(version, "5.5.0"))
+            || (key == "expect" && format_at_least(version, "5.6.0"))
         {
             continue;
         }

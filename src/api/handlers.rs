@@ -213,16 +213,34 @@ pub async fn validate(
         .resolve(&state)
         .and_then(|(path, _tmp)| validate_core(&path).map_err(|e| e.to_string()));
 
-    Json(ApiResponse::ok(match outcome {
-        Ok(result) => ValidateResponse {
-            valid: result.tables_valid && result.scalars_valid,
-            file_path,
-            message: if result.tables_valid && result.scalars_valid {
+    Json(ApiResponse::ok(validate_response(file_path, outcome)))
+}
+
+/// What `POST /api/v1/validate` answers: valid when every stored value
+/// matches its formula and every expectation is met (ADR-074).
+fn validate_response(
+    file_path: String,
+    outcome: Result<ValidationResult, String>,
+) -> ValidateResponse {
+    match outcome {
+        Ok(result) => {
+            let message = if !result.scalars_valid {
+                "Some values differ from their formulas".to_string()
+            } else if result.expectations_met {
                 "Validation successful".to_string()
             } else {
-                "Some values differ from their formulas".to_string()
-            },
-            result: Some(result),
+                format!(
+                    "{} of {} expected results differ",
+                    result.expectation_differences.len(),
+                    result.expectations_checked
+                )
+            };
+            ValidateResponse {
+                valid: result.tables_valid && result.scalars_valid && result.expectations_met,
+                file_path,
+                message,
+                result: Some(result),
+            }
         },
         Err(e) => ValidateResponse {
             valid: false,
@@ -230,7 +248,7 @@ pub async fn validate(
             message: e,
             result: None,
         },
-    }))
+    }
 }
 
 /// Calculate request
@@ -812,6 +830,32 @@ mod tests {
 
         // Should return 200 with error in body (API convention)
         assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[test]
+    fn a_validate_response_counts_the_expectations() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("m.yaml");
+        let text = "_forge_version: \"5.6.0\"\nw: 0.6\nout:\n  twice: {formula: \"=w * 2\"}\n\
+                    scenarios:\n  short:\n    scalars: {w: 0.4}\n    expect: {out.twice: 0.8}\n";
+        let answer = |text: &str| {
+            std::fs::write(&path, text).unwrap();
+            validate_response(
+                String::new(),
+                validate_core(&path).map_err(|e| e.to_string()),
+            )
+        };
+        let met = answer(text);
+        assert!(met.valid);
+        assert_eq!(met.message, "Validation successful");
+        let differ = answer(&text.replace("0.8}", "0.9}"));
+        assert!(!differ.valid);
+        assert_eq!(differ.message, "1 of 1 expected results differ");
+        let d = &differ.result.unwrap().expectation_differences[0];
+        assert_eq!((d.scenario.as_deref(), d.got), (Some("short"), Some(0.8)));
+        let stale = answer(&text.replace("=w * 2\"}", "=w * 2\", value: 3}"));
+        assert!(!stale.valid);
+        assert_eq!(stale.message, "Some values differ from their formulas");
     }
 
     #[tokio::test]

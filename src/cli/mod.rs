@@ -37,7 +37,7 @@ pub use commands::{
     audit_core, bayesian_core, bootstrap_core, calculate_core, compare_core, comparison_json,
     decision_tree_core, examples_core, functions_core, game_core, goal_seek_core,
     pct_is_meaningful, real_options_core, scenarios_core, schema_core, sensitivity_core,
-    simulate_core, tornado_core, validate_core, variance_core, SimulateOptions,
+    simulate_core, tornado_core, validate_core, validate_core_with, variance_core, SimulateOptions,
 };
 #[cfg(feature = "excel")]
 pub use commands::{

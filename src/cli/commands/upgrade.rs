@@ -189,18 +189,19 @@ pub fn upgrade_file_recursive(
     // then the version line. A 5.1.0 file only changes that line. 5.3.0 is
     // 5.2.0 plus the empty cell (ADR-059), and 5.4.0 is 5.3.0 plus the date as
     // a scalar (ADR-060), the same again, and so is 5.5.0, 5.4.0 plus games
-    // (ADR-068).
+    // (ADR-068), and 5.6.0, 5.5.0 plus `expect:` (ADR-074).
     if matches!(
         target_version,
-        "5.1.0" | "5.2.0" | "5.3.0" | "5.4.0" | "5.5.0"
+        "5.1.0" | "5.2.0" | "5.3.0" | "5.4.0" | "5.5.0" | "5.6.0"
     ) {
+        refuse_a_group_named_expect(file, &yaml, current_version, target_version)?;
         let versions = (current_version, target_version);
         upgrade_to_short_form(c, file, &content, &yaml, versions, dry_run, verbose)?;
         return Ok(changes + 1);
     }
     if target_version != "5.0.0" {
         return Err(ForgeError::Validation(format!(
-            "Unknown target format '{target_version}'; use 5.1.0 (default), 5.2.0, 5.3.0, 5.4.0, 5.5.0 or 5.0.0"
+            "Unknown target format '{target_version}'; use 5.1.0 (default), 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0 or 5.0.0"
         )));
     }
 
@@ -238,6 +239,30 @@ pub fn upgrade_file_recursive(
     Ok(changes + 1)
 }
 
+/// Before 5.6.0 a top-level `expect` is a group; from 5.6.0 it is what the
+/// file should give (ADR-074), so the upgrade would change what the file
+/// means: refused, with the group named.
+fn refuse_a_group_named_expect(
+    file: &Path,
+    yaml: &yaml_serde::Value,
+    current_version: &str,
+    target_version: &str,
+) -> ForgeResult<()> {
+    let at_least = crate::parser::format_at_least;
+    if yaml.get("expect").is_some()
+        && !at_least(current_version, "5.6.0")
+        && at_least(target_version, "5.6.0")
+    {
+        return Err(ForgeError::Validation(format!(
+            "{}: 'expect' is a group in format {current_version}, and from 5.6.0 a top-level \
+             `expect:` states what the file should give (ADR-074). Rename the group, then \
+             upgrade",
+            file.display()
+        )));
+    }
+    Ok(())
+}
+
 /// Convert one file to model format 5.1.0, in place (ADR-051).
 ///
 /// A 5.0.0 file, or a 1.0.0 file that is valid 5.x as written, is converted
@@ -253,7 +278,7 @@ fn upgrade_to_short_form(
     verbose: bool,
 ) -> ForgeResult<()> {
     let rank = |v: &str| {
-        ["5.1.0", "5.2.0", "5.3.0", "5.4.0", "5.5.0"]
+        ["5.1.0", "5.2.0", "5.3.0", "5.4.0", "5.5.0", "5.6.0"]
             .iter()
             .position(|known| *known == v)
     };
@@ -613,6 +638,38 @@ no_value:
         let (result, out) = run(&file, true, "5.0.0", false);
         result.unwrap();
         assert!(out.contains("1 file(s) would be upgraded"), "{out}");
+    }
+
+    #[test]
+    fn a_group_named_expect_is_not_upgraded_to_5_6_0() {
+        let dir = tempfile::tempdir().unwrap();
+        let text = "_forge_version: \"5.5.0\"\nexpect:\n  growth: 0.05\n";
+        let file = write(dir.path(), "m.yaml", text);
+        let (result, _) = run(&file, false, "5.6.0", false);
+        let err = message(result);
+        assert!(
+            err.contains(
+                "'expect' is a group in format 5.5.0, and from 5.6.0 a top-level `expect:`"
+            ),
+            "{err}"
+        );
+        assert_eq!(fs::read_to_string(&file).unwrap(), text);
+        // To 5.5.0 it is a group as before, and a file without one upgrades
+        run(&file, true, "5.5.0", false).0.unwrap();
+        let other = write(
+            dir.path(),
+            "n.yaml",
+            "_forge_version: \"5.5.0\"\ngrowth: 0.05\n",
+        );
+        run(&other, false, "5.6.0", false).0.unwrap();
+        assert!(fs::read_to_string(&other).unwrap().contains("5.6.0"));
+        // A file already at 5.6.0 has `expect:` as what it should give
+        let stated = write(
+            dir.path(),
+            "s.yaml",
+            "_forge_version: \"5.6.0\"\ngrowth: 0.05\nexpect:\n  growth: 0.05\n",
+        );
+        run(&stated, true, "5.6.0", false).0.unwrap();
     }
 
     #[test]

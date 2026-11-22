@@ -18,7 +18,7 @@ use mollendorff_forge::cli::{
     audit_core, bayesian_core, bootstrap_core, calculate_core, compare_core, decision_tree_core,
     examples_core, functions_core, game_core, goal_seek_core, probability_seek_core,
     real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
-    validate_core, variance_core, SeekGoal, SimulateOptions,
+    validate_core_with, variance_core, SeekGoal, SimulateOptions,
 };
 use mollendorff_forge::cli::{
     commands::render, commands::report_core, ReportFormat, ReportOptions,
@@ -154,7 +154,14 @@ pub fn run_on_disk(tool: &str, request: &Value, dir: &Path) -> Result<Value, Str
 fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Value, String> {
     let fail = |e: mollendorff_forge::ForgeError| e.to_string();
     match tool {
-        "validate" => to_value(validate_core(main).map_err(fail)?),
+        // Studio checks an edit without the expectations (ADR-074)
+        "validate" => {
+            let expectations = args
+                .get("expectations")
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
+            to_value(validate_core_with(main, expectations).map_err(fail)?)
+        },
         "export" => export(main),
         "model" => parse_model(main)
             .map(|model| structure(&model))
@@ -647,6 +654,31 @@ mod tests {
                 (actual - expected).abs() <= tolerance,
                 "{actual} is not {expected} (within {tolerance})"
             );
+        }
+
+        /// What `expect:` states is checked as the command checks it, and
+        /// Studio's edit check can leave it out (ADR-074)
+        #[test]
+        fn validate_checks_the_expectations_unless_asked_not_to() {
+            let model = "_forge_version: \"5.6.0\"\nw: 0.6\nout:\n  twice: {formula: \"=w * 2\"}\n\
+                         scenarios:\n  short:\n    scalars: {w: 0.4}\n    expect: {out.twice: 0.9}\n";
+            let request = |extra: Value| {
+                let mut r = serde_json::json!({ "files": { "m.yaml": model }, "main": "m.yaml" });
+                if let Value::Object(more) = extra {
+                    r.as_object_mut().unwrap().extend(more);
+                }
+                r
+            };
+            let checked = run("validate", &request(serde_json::json!({}))).unwrap();
+            assert_eq!(checked["expectations_met"], false);
+            assert_eq!(checked["expectation_differences"][0]["got"], 0.8);
+            let gate = run(
+                "validate",
+                &request(serde_json::json!({ "expectations": false })),
+            )
+            .unwrap();
+            assert_eq!(gate["expectations_checked"], 0);
+            assert_eq!(gate["expectations_met"], true);
         }
 
         #[test]

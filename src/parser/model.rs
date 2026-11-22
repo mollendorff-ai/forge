@@ -27,6 +27,10 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
 /// The tables, scalars and scenarios of a model the schema has accepted.
 fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     let mut model = ParsedModel::new();
+    let version = yaml
+        .get("_forge_version")
+        .and_then(Value::as_str)
+        .unwrap_or("");
 
     // Parse each top-level key as either a table or scalar
     if let Value::Mapping(map) = yaml {
@@ -52,17 +56,17 @@ fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
 
             // Games (5.5.0, ADR-068); before 5.5.0 a group named `games`
             // reads as a group (the schema check refused a game section)
-            if key_str == "games"
-                && super::schema::format_at_least(
-                    yaml.get("_forge_version")
-                        .and_then(Value::as_str)
-                        .unwrap_or(""),
-                    "5.5.0",
-                )
-            {
+            if key_str == "games" && super::schema::format_at_least(version, "5.5.0") {
                 for game in crate::games::parse_games(value)? {
                     model.games.insert(game.name().to_string(), game);
                 }
+                continue;
+            }
+
+            // What the file as written should give (5.6.0, ADR-074); before
+            // 5.6.0 a group named `expect` reads as a group
+            if key_str == "expect" && super::schema::format_at_least(version, "5.6.0") {
+                model.expect = super::expect::parse_expect(value, "expect")?;
                 continue;
             }
 
@@ -291,15 +295,21 @@ pub fn parse_scenarios(
         if let Value::Mapping(overrides_map) = scenario_value {
             let mut scenario = Scenario::new();
 
-            // Detect structured format: has reserved keys "probability" or "scalars"
-            let is_structured =
-                overrides_map.contains_key("probability") || overrides_map.contains_key("scalars");
+            // Detect structured format: has reserved keys "probability",
+            // "scalars" or "expect" (ADR-074)
+            let is_structured = ["probability", "scalars", "expect"]
+                .iter()
+                .any(|key| overrides_map.contains_key(*key));
 
             if is_structured {
                 scenario.description = overrides_map
                     .get("description")
                     .and_then(Value::as_str)
                     .map(str::to_string);
+                if let Some(expect) = overrides_map.get("expect") {
+                    scenario.expect =
+                        super::expect::parse_expect(expect, &format!("scenarios.{name}.expect"))?;
+                }
                 // Structured ScenarioDefinition format: extract overrides from "scalars" only.
                 // "probability" and "description" are intentionally skipped here;
                 // they are consumed by ScenarioEngine via serde deserialization.

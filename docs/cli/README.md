@@ -117,6 +117,10 @@ CROSS-FILE REFERENCES:
 When a value changes, the file as it was is kept next to it as
 model.yaml.bak. Use --dry-run to preview changes without modifying files.
 
+Under --scenario nothing is written: the stored values are the file's own.
+To state what a scenario gives, list it under the scenario's expect: and run
+forge validate (ADR-074).
+
 Usage: forge calculate [OPTIONS] <FILE>
 
 Arguments:
@@ -140,10 +144,11 @@ Options:
 ## validate
 
 ```
-Validate formulas without calculating.
+Validate a model's stored results, and what it states it should give.
 
 Checks that the result stored next to each formula is what the formula
-calculates to, with the included files calculated first.
+calculates to, with the included files calculated first, and that each
+expectation (expect:) is met.
 
 CROSS-FILE REFERENCES:
   Formulas may read included files with @alias.name:
@@ -158,6 +163,13 @@ CROSS-FILE REFERENCES:
 NOTE: Only the stored results of the files given are checked. To check an
   included file's own stored results, give it too:
   forge validate model.yaml pricing.yaml
+
+EXPECTED RESULTS (format 5.6.0, ADR-074): what the file and each scenario
+  should give, by any name forge calculate prints (a game's results too), as
+  a number or a formula over numbers. Each scenario with one is calculated,
+  and every result that differs by more than 1e-6 (relative above 1) is named
+  with the scenario and both numbers:
+  scenarios: {costly: {scalars: {c: 0.5}, expect: {kinship.barrier: =2/11}}}
 
 BATCH VALIDATION:
   forge validate file1.yaml file2.yaml file3.yaml
@@ -775,6 +787,8 @@ The versions are model formats (_forge_version), not Forge versions:
   v5.3.0 - v5.2.0 plus the empty cell, null in a column of numbers (ADR-059)
   v5.4.0 - v5.3.0 plus a date as a scalar (ADR-060) and format: (ADR-061)
   v5.5.0 - v5.4.0 plus games: payoff tables of formulas, and their equilibria (ADR-068)
+  v5.6.0 - v5.5.0 plus expect: what the file and each scenario should give,
+           checked by forge validate (ADR-074)
 
 EXAMPLES:
   forge schema                # List available versions
@@ -785,7 +799,7 @@ Usage: forge schema [OPTIONS] [VERSION]
 
 Arguments:
   [VERSION]
-          Schema version to display (v1, v5, v5.1 ... v5.5, 1.0.0, 5.0.0, 5.1.0 ... 5.5.0)
+          Schema version to display (v1, v5, v5.1 ... v5.6, 1.0.0, 5.0.0, 5.1.0 ... 5.6.0)
 
 Options:
   -l, --list
@@ -850,10 +864,12 @@ TO 5.1.0 (default, ADR-051):
   - Edited in place: comments, quotes and layout are kept
   - Checked: the converted file must read as the same model, or it is not written
 
-TO 5.2.0, 5.3.0, 5.4.0 OR 5.5.0 (ADR-053, ADR-059, ADR-060, ADR-061, ADR-068):
+TO 5.2.0, 5.3.0, 5.4.0, 5.5.0 OR 5.6.0 (ADR-053, ADR-059, ADR-060, ADR-061,
+ADR-068, ADR-074):
   - As to 5.1.0, with the _forge_version a period column (5.2.0), an empty
-    cell (5.3.0), a date or a format: (5.4.0) or a game (5.5.0) needs. 5.1.0
-    changes that line.
+    cell (5.3.0), a date or a format: (5.4.0), a game (5.5.0) or expect:
+    (5.6.0) needs. 5.1.0 changes that line. A file with a group named
+    expect is not upgraded to 5.6.0: rename the group first.
 
 TO 5.0.0 (from 1.0.0):
   - Splits scalars into inputs/outputs by formula presence, keeping metadata

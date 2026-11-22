@@ -116,7 +116,7 @@ Comments, quotes, blank lines, key order and inputs stay as you typed them, and 
 
 How Forge reads a group under a top-level key: it is a **table** if any entry is a list or a period column (`{start, count, unit}`, below); otherwise a **group of scalars** if any entry is a number or has `value:` or `formula:`. In a group of scalars, a formula needs the `formula:` form, because a bare string has no place to hold its result.
 
-**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads seven formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included), `5.1.0` (5.0.0 plus the short form above), `5.2.0` (5.1.0 plus the period column, needed only by a file that has one; `forge upgrade --to 5.2.0`), `5.3.0` (5.2.0 plus the empty cell, below; `forge upgrade --to 5.3.0`) `5.4.0` (5.3.0 plus a date as a scalar and `format:`, below; `forge upgrade --to 5.4.0`) and `5.5.0` (5.4.0 plus games, below; `forge upgrade --to 5.5.0`). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
+**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads eight formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included), `5.1.0` (5.0.0 plus the short form above), `5.2.0` (5.1.0 plus the period column, needed only by a file that has one; `forge upgrade --to 5.2.0`), `5.3.0` (5.2.0 plus the empty cell, below; `forge upgrade --to 5.3.0`) `5.4.0` (5.3.0 plus a date as a scalar and `format:`, below; `forge upgrade --to 5.4.0`) `5.5.0` (5.4.0 plus games, below; `forge upgrade --to 5.5.0`) and `5.6.0` (5.5.0 plus `expect:`, below; `forge upgrade --to 5.6.0`). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
 
 ---
 
@@ -585,6 +585,33 @@ A scenario's overrides are numbers. To see a scenario's spread, give the uncerta
 
 A key under `scalars:` can be a bare name (`growth`, when exactly one group has a `growth`), a full name (`assumptions.growth`), or a value from an included file (`"@costs.prices.flour"`, quoted because YAML keys cannot start with `@`). The included file is then calculated with the new value, so formulas that read it change too. A name that matches nothing is an error that suggests the closest scalar; it used to be ignored, which gave the base numbers under the scenario's name.
 
+### Stating what a scenario gives (`expect:`, format 5.6.0, ADR-074)
+
+A model can say what it should give, for the file as written and for each scenario, and `forge validate` checks it. `value:` beside a formula is the result `forge calculate` last stored, so `validate` asks whether the file is up to date. `expect:` is written by a person and never by Forge, so `validate` asks whether the model still gives what was checked somewhere else: by hand, in a spreadsheet, with another library.
+
+```yaml
+_forge_version: "5.6.0"
+c: 0
+
+expect:                          # the file as written
+  kinship.stag_share: =3/4
+  kinship.crossover_c: 1
+
+scenarios:
+  c3:
+    scalars: {c: 1.5}
+    expect: {kinship.stag_share: =3/8, kinship.coop_wins: 1}
+```
+
+- **A name** is any scalar the calculation gives, named as `forge calculate` prints it: an input, a formula, or a game's result (`stag_hunt.equilibrium_3.me.stag`). A bare name is found as a scenario's override is. A name the model does not give is a difference, not a pass.
+- **A value** is a number, or a formula over numbers only (`=2/11`, `=-19/15`). A formula that reads a name is refused: an expectation is stated, not worked out by the model.
+- **The tolerance** is 10⁻⁶ × max(1, |expected|): absolute below 1, relative above. `value:` keeps its 0.0001.
+- **`forge validate`** calculates the file and each scenario that has an `expect:`, and lists every result that differs, with the scenario, the name and both numbers: `❌ 1 of 11 expected results differ (the file as written and 4 scenarios)`, then `scenario c1`, `kinship.stag_share`, `Expected: 0.555556 (=5/9)`, `Forge: 0.625`. A scenario that does not calculate fails it, named. A scenario without an `expect:` is not calculated. The MCP tool `forge_validate`, `POST /api/v1/validate` and Forge Studio give the same report as data (`expectation_differences`), and `forge_calculate` gives the expectations of the run it calculates (`expectations`). Studio shows each one on its card, under the scenario applied, and keeps an edit that moves a result away from it.
+- **`forge calculate --scenario` writes nothing.** It wrote the scenario's results into the file's own `value:`s, which `validate` then reported as out of date; under a scenario it now prints the results and says why it wrote none. `expect:` is never written by Forge: an expectation Forge rewrote would follow a bug.
+- **Before 5.6.0**, a scenario's `expect:` is refused with the format that has it, and a top-level group named `expect` is a group, as it was. `forge upgrade --to 5.6.0` refuses a file with such a group, so that nothing reads differently.
+
+[`examples/games/stag-hunt.yaml`](../examples/games/stag-hunt.yaml) states its mixed equilibrium, (3 − c) / 4, at each cost, and where the population ends, all worked out by hand.
+
 ### CLI Usage
 
 ```bash
@@ -594,8 +621,11 @@ forge scenarios revenue_model.yaml --output results.yaml
 # Show one scenario (the expected values still cover all of them)
 forge scenarios revenue_model.yaml --scenario bull_case
 
-# Calculate the whole model under one scenario
-forge calculate revenue_model.yaml --scenario bull_case --dry-run
+# Calculate the whole model under one scenario (nothing is written)
+forge calculate revenue_model.yaml --scenario bull_case
+
+# Check what the file and each scenario state they should give (expect:)
+forge validate revenue_model.yaml
 ```
 
 ### Output
