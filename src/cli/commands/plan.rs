@@ -287,4 +287,15 @@ scenarios:
         let (result, _) = capture(|c| super::super::calculate(c, &bad, false, false, None, true));
         assert!(result.unwrap_err().to_string().contains("inputs.price"));
     }
+
+    /// A file that cannot be read is an error at plan too, from the core and
+    /// from the command.
+    #[test]
+    fn a_file_that_cannot_be_read_is_an_error_at_plan() {
+        let missing = Path::new("no-such-folder/m.yaml");
+        let core = calculate_plan_core(missing, None).unwrap_err().to_string();
+        let (result, _) =
+            capture(|c| super::super::calculate(c, missing, false, false, None, true));
+        assert_eq!(result.unwrap_err().to_string(), core);
+    }
 }

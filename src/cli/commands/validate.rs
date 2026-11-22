@@ -796,4 +796,38 @@ mod tests {
         assert!(!meets(3.2e10, 3.2e10 + 40_000.0));
         assert!(meets(-19.0 / 15.0, -1.266_666_7));
     }
+
+    /// A file of scenarios alone has nothing to check unless one of them
+    /// states what it should give.
+    #[test]
+    fn scenarios_alone_are_checked_only_when_one_states_its_results() {
+        let dir = tempfile::tempdir().unwrap();
+        let bare = model(
+            dir.path(),
+            "bare.yaml",
+            "_forge_version: \"5.6.0\"\nscenarios:\n  s:\n    scalars: {}\n",
+        );
+        let (result, captured) = capture(|c| validate(c, &[bare]));
+        result.unwrap();
+        assert!(
+            captured.out.contains("No tables or scalars"),
+            "{}",
+            captured.out
+        );
+        let stated = model(
+            dir.path(),
+            "stated.yaml",
+            "_forge_version: \"5.6.0\"\nscenarios:\n  s:\n    scalars: {}\n    expect: {x: 1}\n",
+        );
+        let (result, captured) = capture(|c| validate(c, &[stated]));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("1 of 1 expected results differ"));
+        assert!(
+            captured.out.contains("Found 0 tables, 0 scalars"),
+            "{}",
+            captured.out
+        );
+    }
 }

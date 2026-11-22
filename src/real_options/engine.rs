@@ -397,12 +397,6 @@ impl RealOptionsEngine {
 
         parts.join(". ")
     }
-
-    /// Get the configuration
-    #[must_use]
-    pub const fn config(&self) -> &RealOptionsConfig {
-        &self.config
-    }
 }
 
 #[cfg(test)]
