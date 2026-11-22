@@ -1,7 +1,9 @@
 # What validation/games compares Forge with (see README.md): Gambit, a separate
 # implementation of the pure and mixed solvers, and the axelrod library, which
 # plays the strategies; sympy, the exact roots of a polynomial for the
-# symmetric mixed equilibria. numpy comes with pygambit.
+# symmetric mixed equilibria; egttools, the replicator equation of a game of
+# n players for the dynamics. numpy comes with pygambit.
 pygambit==16.7.0
 axelrod==4.14.0
 sympy==1.14.0
+egttools==0.2.1

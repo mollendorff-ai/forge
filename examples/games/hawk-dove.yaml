@@ -1,0 +1,61 @@
+# Hawk and Dove
+# =============
+# Run in the examples folder: forge game games/hawk-dove.yaml
+#   forge game games/hawk-dove.yaml --scenario costly
+#
+# Two animals contest a resource worth V. A hawk fights for it; a dove
+# threatens, and backs off if the other fights. Two hawks fight: one wins V,
+# the other is hurt at a cost C, so each expects (V - C) / 2. A hawk takes
+# all from a dove, and two doves share, V / 2 each.
+#
+# With V = 4 and C = 6 the pure equilibria are one hawk and one dove, and in
+# the mixed one each plays hawk with V / C = 2/3. Which is reached by a
+# population in which each meets a stranger? The dynamics say: with a share x
+# of hawks, a hawk expects -x + 4 (1 - x) = 4 - 5x and a dove 2 (1 - x), so
+# hawks do better below x = 2/3, and spread, and worse above it. From 10% of
+# hawks the share rises to 2/3 (by hand, and by egttools, every generation).
+#
+# A share is multiplied by (payoff + baseline) / (average + baseline) in each
+# generation. Hawk against hawk pays -1, so the baseline must be above 1 to
+# keep every share above 0; 5 also makes the steps smaller.
+
+_forge_version: "5.5.0"
+
+V: 4      # what the resource is worth
+C: 6      # what an injury costs
+
+games:
+  hawk_dove:
+    description: Fight for the resource, or back off
+    players: [me, you]
+    strategies: [hawk, dove]
+    symmetric: true
+    payoffs:
+      hawk: {hawk: =(V - C) / 2, dove: =V}
+      dove: {hawk: 0, dove: =V / 2}
+    dynamics:
+      start: {hawk: 0.1, dove: 0.9}   # the shares in the first generation
+      generations: 200
+      baseline: 5                     # added to every payoff in the equation
+
+population:
+  hawks:
+    formula: "=hawk_dove.dynamics.share.hawk"
+    value: 0.666666666655228
+    notes: The share of hawks after 200 generations, V / C = 2/3 to ten digits
+  by_hand:
+    formula: "=V / C"
+    value: 0.666666666666667
+    notes: The share at which hawk and dove pay the same
+  payoff:
+    formula: "=hawk_dove.dynamics.payoff"
+    value: 0.666666666712422
+    notes: What each expects then, 2 (1 - 2/3) = 2/3
+
+scenarios:
+  costly:
+    description: A worse injury, so fewer hawks (V / C = 1/2)
+    scalars: {C: 8}
+  deadly:
+    description: An injury three times the prize (V / C = 1/3)
+    scalars: {C: 12}

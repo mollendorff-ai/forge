@@ -7,6 +7,7 @@ use super::names::ScalarName;
 use super::order::{formula_words, Cell};
 use super::{evaluator, ArrayCalculator};
 use crate::error::{ForgeError, ForgeResult};
+use crate::games::dynamics::run;
 use crate::games::{analyse, standings, Game, GameReport};
 use crate::types::{Table, Variable};
 
@@ -103,7 +104,12 @@ impl ArrayCalculator {
         let report = match self.model.games[name].clone() {
             Game::Table(game) => {
                 let table = game.table(|formula, at, others| value(self, formula, at, others))?;
-                let report = analyse(name, &table, game.symmetric);
+                let mut report = analyse(name, &table, game.symmetric);
+                if let Some(dynamics) = &game.dynamics {
+                    let settings =
+                        dynamics.work_out(name, |formula, at| value(self, formula, at, &[]))?;
+                    report.dynamics = Some(run(name, &table, &settings)?);
+                }
                 self.game_tables.insert(name.to_string(), table);
                 GameReport::Table(report)
             },
@@ -581,6 +587,135 @@ out:
         assert!(
             clash.contains("game 'g' has the name of the group of scalar 'g.k'"),
             "{clash}"
+        );
+    }
+
+    /// Hawk and dove with value 4 and cost `C`, and dynamics that read the
+    /// model.
+    fn hawk_dove(dynamics: &str, extra: &str) -> String {
+        format!(
+            "_forge_version: \"5.5.0\"
+C: 6
+first: 0.1
+games:
+  hd:
+    players: [me, you]
+    strategies: [hawk, dove]
+    symmetric: true
+    payoffs:
+      hawk: {{hawk: =(4 - C) / 2, dove: 4}}
+      dove: {{hawk: 0, dove: 2}}
+    dynamics:
+{dynamics}
+{extra}"
+        )
+    }
+
+    const SPREAD: &str = "      start: {hawk: =first, dove: =1 - first}
+      generations: 300
+      baseline: =C";
+
+    #[test]
+    fn the_dynamics_read_the_model_and_formulas_read_their_end() {
+        // By hand: hawks settle at V / C, 2/3 at C = 6 and 1/2 at C = 8,
+        // where each expects 2 (1 - V / C)
+        let reads = "out:\n  hawks:\n    formula: \"=hd.dynamics.share.hawk * 3\"\n";
+        let model = calculate(&hawk_dove(SPREAD, reads)).unwrap();
+        assert!((value(&model, "out.hawks") - 2.0).abs() < 1e-10);
+        assert!((value(&model, "hd.dynamics.payoff") - 2.0 / 3.0).abs() < 1e-10);
+        let mut again = model;
+        again.scalars.get_mut("C").unwrap().value = Some(8.0);
+        let again = ArrayCalculator::new(again).calculate_all().unwrap();
+        assert!((value(&again, "hd.dynamics.share.hawk") - 0.5).abs() < 1e-10);
+        assert!((value(&again, "hd.dynamics.payoff") - 1.0).abs() < 1e-10);
+        // A one-output command reads the end too
+        let one = ArrayCalculator::new(parse(&hawk_dove(SPREAD, "")).unwrap())
+            .calculate_scalar("hd.dynamics.share.dove")
+            .unwrap();
+        assert!((one - 1.0 / 3.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn dynamics_that_cannot_be_worked_out_say_where() {
+        let err = calculate(&hawk_dove(&SPREAD.replace("=first,", "=first / 0,"), "")).unwrap_err();
+        assert!(
+            err.contains("game 'hd': games.hd.dynamics.start.hawk: Division by zero"),
+            "{err}"
+        );
+        let err = calculate(&hawk_dove(&SPREAD.replace("=1 - first", "=0.5"), "")).unwrap_err();
+        assert!(
+            err.contains(
+                "game 'hd': the shares of games.hd.dynamics.start add up to 0.6; the shares of \
+                 every strategy add up to 1"
+            ),
+            "{err}"
+        );
+        // Hawk against hawk pays -1, so with baseline 0 a start of hawks
+        // only is refused, with the baseline that is enough
+        let err = calculate(&hawk_dove(
+            &SPREAD
+                .replace("=C", "0")
+                .replace("=first,", "1,")
+                .replace("=1 - first", "0"),
+            "",
+        ))
+        .unwrap_err();
+        assert!(
+            err.contains("game 'hd': in generation 0 (0 is the start), hawk pays -1")
+                && err.contains("a baseline above 1 is enough"),
+            "{err}"
+        );
+        // What reads the dynamics' results names what there is
+        let reads = "out:\n  owls:\n    formula: \"=hd.dynamics.share.owl\"\n";
+        let err = calculate(&hawk_dove(SPREAD, reads)).unwrap_err();
+        assert!(
+            err.contains(
+                "'hd.dynamics.share.owl' is not a result of game 'hd': its dynamics give \
+                 dynamics.share.hawk, dynamics.share.dove and dynamics.payoff, after the last \
+                 generation"
+            ),
+            "{err}"
+        );
+        let none = stag_hunt(0.0).replace(
+            "stag_hunt.even_mix.me.stag > stag_hunt.even_mix.me.hare",
+            "stag_hunt.dynamics.share.stag > 0.5",
+        );
+        let err = calculate(&none).unwrap_err();
+        assert!(
+            err.contains(
+                "'stag_hunt.dynamics.share.stag' is not a result of game 'stag_hunt': the \
+                 dynamics' results come from a dynamics: key, with start and generations, and \
+                 games.stag_hunt has none"
+            ),
+            "{err}"
+        );
+        // A start that reads the game's own results would wait for itself
+        let err = calculate(&hawk_dove(
+            &SPREAD.replace("=first,", "=hd.equilibrium_3.me.hawk,"),
+            "",
+        ))
+        .unwrap_err();
+        assert!(
+            err.contains("Circular dependency detected: games.hd refers to itself"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn dynamics_are_for_a_symmetric_game() {
+        let text = hawk_dove(SPREAD, "")
+            .replace("    symmetric: true\n", "")
+            .replace(
+                "hawk: {hawk: =(4 - C) / 2, dove: 4}\n      dove: {hawk: 0, dove: 2}",
+                "hawk: {hawk: [-1, -1], dove: [4, 0]}\n      dove: {hawk: [0, 4], dove: [2, 2]}",
+            );
+        let err = parse(&text).unwrap_err();
+        assert!(
+            err.contains(
+                "'games.hd.dynamics': the dynamics follow one population whose members all play \
+                 the same game, so the game must be marked symmetric: true, and games.hd is not"
+            ),
+            "{err}"
         );
     }
 

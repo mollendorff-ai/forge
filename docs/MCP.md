@@ -386,7 +386,7 @@ Generate tornado sensitivity diagram. Varies each input one-at-a-time to show wh
 
 #### `forge_game`
 
-Find the equilibria of the games in a model's `games` section, and play its tournaments (ADR-068). The same as `forge game`. Each report has `kind`: `table` for a game played once (its strictly and weakly dominated strategies, pure equilibria, mixed equilibria for two players, the ties of a degenerate game, and each strategy's payoff against an even mix), or `tournament` (each player's score, rank and cooperation, the match table, and the collectively stable players, as exact expected values).
+Find the equilibria of the games in a model's `games` section, and play its tournaments (ADR-068). The same as `forge game`. Each report has `kind`: `table` for a game played once (its strictly and weakly dominated strategies, pure equilibria, mixed equilibria for two players and, in a symmetric game of two strategies of any number of players, the mixes in which all play alike with `stable`, the ties of a degenerate game, each strategy's payoff against an even mix, and with a `dynamics:` key every generation's shares in `dynamics.path`, ADR-073), or `tournament` (each player's score, rank and cooperation, the match table, and the collectively stable players, as exact expected values).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
