@@ -30,7 +30,10 @@
 //   shops is drawn by count, all keeping, and all paying when the borough
 //   matches;
 // - the acquisition's sealed bids (deal_game.yaml) are Forge's, with both
-//   bidding 30% and both 40% marked, and only 30% in its scenario.
+//   bidding 30% and both 40% marked, and only 30% in its scenario;
+// - a link names one model of a set (`?example=bagel&model=price_war.yaml`)
+//   and opens on its games, and a model the set does not have opens the
+//   set's own.
 //
 //   node studio/tests/games.mjs <built Studio dir or address>
 
@@ -438,10 +441,31 @@ if (gamesSeen < files.length) fail(`only ${gamesSeen} games in the ${files.lengt
   await p.close();
 }
 
+// A link opens one model of a set (`?example=bagel&model=price_war.yaml`), so
+// a post can link to the price war itself: the game is on the Model view with
+// no tap on Files. A model the set does not have opens the set's own.
+{
+  const p = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  p.on("pageerror", (e) => fail(`link to price_war.yaml: ${e.message}`));
+  page = p;
+  await p.goto(`${base}/?example=bagel&model=price_war.yaml`);
+  await ready(p);
+  const title = await p.textContent("#model-title");
+  if (title !== "price_war.yaml") fail(`a link to price_war.yaml opened ${title}`);
+  await p.waitForSelector('[data-game="price_war"] table');
+  await p.waitForFunction(() => !/Forge is working out/.test(document.querySelector('[data-game="price_war"]').textContent), null, { timeout: 60000 });
+  await checkAll("link to price_war.yaml", "bagel", "price_war.yaml", null);
+  await p.goto(`${base}/?example=bagel&model=no_such_file.yaml`);
+  await ready(p);
+  const fallback = await p.evaluate(() => [document.querySelector("#model-title").textContent, document.querySelectorAll("[data-game]").length]);
+  if (fallback[0] !== "Bagel Lune" || fallback[1] !== 0) fail(`a link to a model the set does not have opened ${fallback[0]} with ${fallback[1]} games`);
+  await p.close();
+}
+
 await browser.close();
 if (!remote) server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log(`Games: the bagel's price war shows Forge's payoffs, equilibria, ranking, stable players and matches in the plan and both scenarios, an input typed on a card moves them, and the Tools tab runs forge_game; the ${gamesSeen} games of the Games set's ${files.length} files are Forge's, the games of five players are drawn by count, the dynamics end where Forge's do (hawks at 2/3, the stag hunt all stag or all hare), and the stag hunt's scenario and a typed cost move its mixed equilibrium.`);
+console.log(`Games: a link opens the bagel's price war directly; the price war shows Forge's payoffs, equilibria, ranking, stable players and matches in the plan and both scenarios, an input typed on a card moves them, and the Tools tab runs forge_game; the ${gamesSeen} games of the Games set's ${files.length} files are Forge's, the games of five players are drawn by count, the dynamics end where Forge's do (hawks at 2/3, the stag hunt all stag or all hare), and the stag hunt's scenario and a typed cost move its mixed equilibrium.`);

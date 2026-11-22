@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A link opens one model of an example set in Forge Studio.** `?example=` opened a set on its own main model, so the bagel's price war was two taps away from any link (Files, then Open), and a post could not link to it. `https://forge.mollendorff.ai/?example=bagel&model=price_war.yaml` now opens the price war on its games, as Open does; a file the set does not have opens the set's own model, as before. `studio/tests/games.mjs` opens the link, checks every cell of the game against `forge game` with no tap on Files, and checks the fallback.
+
 ## [10.0.0-rc.33] - 2026-11-22
 
 Games of many players, and strategies that spread (ADR-073). A symmetric game of any number of players is written as one payoff for each strategy over how many of the others play each, not as its whole table: kinship-protocol's public goods game of five players is two lines, not 32 cells. Forge finds the mixed equilibria in which every player plays alike, for games of two strategies, and says whether a population returns to each; the `dynamics:` key follows the shares of a population generation by generation. Forge Studio draws a game of five players by count and the dynamics as a chart, and the bagel example has a price war that spreads through the city and a festival five shops will not pay for. All of it is checked against Gambit, egttools and R. Wrong answers fixed: `forge export` wrote a range `a:b` as an Excel range, `forge real-options` gave Black-Scholes prices off by up to 1.2e-7, correlated draws and BCa intervals used a normal distribution off by up to 9e-11, and a decision tree with a chance node at its root listed no outcomes in its optimal path. Wrong answers fixed, so the two weeks in docs/STABILITY.md start again from rc.33 (no earlier than 2026-12-06).
