@@ -20,7 +20,17 @@
 
 state:
   version: >-
-    10.0.0-rc.33, released 2026-11-22: games of many players (a symmetric
+    10.0.0-rc.34, released 2026-11-22: a model states what it and each
+    scenario should give (expect:, model format 5.6.0), checked by forge
+    validate, the MCP server, the REST API and Forge Studio (ADR-074); a
+    Bayesian network that reads the model (formulas in its priors and
+    tables, --scenario, named queries whose posteriors are scalars) and a
+    worked example, examples/expected_loss.yaml; forge edit (ADR-075); an
+    uncertain model on Studio's cards (ADR-076). Wrong answer fixed:
+    forge calculate --scenario wrote the scenario's results into the file's
+    own stored values. The two weeks in docs/STABILITY.md start again from
+    rc.34: no earlier than 2026-12-06.
+    rc.33 (2026-11-22): games of many players (a symmetric
     game written as one payoff for each strategy over how many of the
     others play each), the mixed equilibria in which every player plays
     alike with their stability, strategies that spread (dynamics:), Forge
@@ -29,8 +39,7 @@ state:
     export of a range a:b, Black-Scholes prices of forge real-options, the
     normal distribution's last digits in correlated draws and BCa
     intervals, the optimal path of a decision tree with a chance node at
-    its root). Wrong answers fixed, so the two weeks in docs/STABILITY.md
-    start again from rc.33: no earlier than 2026-12-06.
+    its root).
     rc.32 (2026-11-21): wrong answers fixed (forge import read
     a range over part of a table's column as the whole column, SWITCH with
     two arguments, NaN and infinity in a model), a YAML merge key refused
