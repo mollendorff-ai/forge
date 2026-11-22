@@ -1486,6 +1486,9 @@ Options:
   -e, --evidence <EVIDENCE>
           Evidence in format var=state (can repeat)
 
+  -s, --scenario <SCENARIO>
+          Work the network out under a scenario's overrides (a probability may be a formula over the model's scalars)
+
   -o, --output <OUTPUT>
           Output file (.yaml)
 

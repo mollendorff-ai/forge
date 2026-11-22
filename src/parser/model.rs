@@ -59,6 +59,13 @@ fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
             // that the file has one (ADR-077)
             if ANALYSES.contains(&key_str) {
                 model.analyses.push(key_str.to_string());
+                // The network is a cell of the model too: its probabilities
+                // may read scalars, and its queries give scalars (ADR-074)
+                if key_str == crate::bayesian::written::SECTION {
+                    model.network = Some(
+                        crate::bayesian::WrittenNetwork::read(value).map_err(ForgeError::Parse)?,
+                    );
+                }
                 continue;
             }
 
@@ -969,6 +976,26 @@ sales:
         assert_eq!(model.scalars.keys().collect::<Vec<_>>(), ["price"]);
         assert_eq!(model.tables.len(), 0);
         assert_eq!(read("price: 16\n").unwrap().analyses, Vec::<String>::new());
+    }
+
+    /// The network is read into the model in any format, its probabilities
+    /// numbers or formulas (ADR-074: a string was refused before, so no file
+    /// reads differently), and one that cannot be read says why
+    #[test]
+    fn the_network_is_read_with_the_model() {
+        let model = read(
+            "_forge_version: \"5.1.0\"\np: 0.5\nbayesian_network:\n  nodes:\n    a: {states: [x, y], prior: [=p, 0.5]}\n",
+        )
+        .unwrap();
+        assert_eq!(model.analyses, ["bayesian_network"]);
+        assert_eq!(model.network.unwrap().formulas(), ["=p"]);
+        assert!(read("p: 1\n").unwrap().network.is_none());
+        assert_eq!(
+            reason(read(
+                "bayesian_network:\n  nodes:\n    a: {states: [], prior: []}\n"
+            )),
+            "Parse error: Node 'a': discrete node must have states"
+        );
     }
 
     #[test]

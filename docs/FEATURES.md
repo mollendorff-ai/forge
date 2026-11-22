@@ -1262,7 +1262,7 @@ bayesian_network:
 
 ### Inference Queries
 
-Queries are command-line options. The file holds only the network.
+`forge bayesian` asks the network what the command line asks. The file can also name queries of its own, whose answers are scalars of the model (see [A network that reads and feeds the model](#a-network-that-reads-and-feeds-the-model)).
 
 ```bash
 # Probabilities for every node
@@ -1290,6 +1290,47 @@ forge bayesian examples/bayesian.yaml -o inference.yaml
 | `economic_conditions` given `default_probability=high` | good 16.73%, neutral 46.26%, bad 37.01% |
 
 These match a hand enumeration of the joint distribution. A bad economy is 20% likely beforehand; seeing a high default risk raises it to 37%.
+
+### A network that reads and feeds the model
+
+A network is part of the model (ADR-074). Three things make it so:
+
+- **A probability can be a formula over the model's scalars.** Any entry of a `prior` or a `cpt` row is a number or a formula (`"=outlook.p_bad"`). The formulas are worked out after the scalars they read, under the scenario applied. Each row must then still add up to 1, with every entry from 0 to 1. Otherwise the calculation fails, naming the node (and, in `forge validate` or `forge bayesian --scenario`, the scenario). Text that is not a formula is refused when the file is read.
+- **`forge bayesian --scenario <name>`** works the network out under a scenario's overrides. The MCP tool `forge_bayesian` and forge-wasm's `bayesian` take `scenario` too.
+- **Named queries give posteriors as scalars.** Each query under `queries` names a `node` and, optionally, `evidence` (a state of each node known). It gives `bayesian_network.<query>.<state>` for each state of the node, which formulas, `expect:`, `forge simulate` outputs and `forge tornado` read like any scalar. The network is calculated as a game is: after the cells its formulas read, before the formulas that read its results. A network that reads its own results is a cycle, and is refused. Queries are checked when the file is read: a node or state that does not exist is named, with the query.
+
+`examples/expected_loss.yaml` feeds a probability of default given the economy into an expected loss:
+
+```yaml
+_forge_version: "5.6.0"
+outlook: {p_bad: 0.2, p_neutral: 0.5}
+loan: {exposure: 1000000, recovery: 0.4}
+
+bayesian_network:
+  nodes:
+    economy:
+      states: [good, neutral, bad]
+      prior: ["=1 - outlook.p_neutral - outlook.p_bad", "=outlook.p_neutral", "=outlook.p_bad"]
+    revenue: {states: [high, medium, low], parents: [economy], cpt: {...}}
+    default: {states: ["no", "yes"], parents: [revenue], cpt: {...}}
+  queries:
+    any_year: {node: default}
+    bad_year: {node: default, evidence: {economy: bad}}
+    after_default: {node: economy, evidence: {default: "yes"}}
+
+loss:
+  expected:
+    formula: "=bayesian_network.any_year.yes * loan.exposure * (1 - loan.recovery)"
+```
+
+| Result | As written | Recession (`p_bad` 0.5, `p_neutral` 0.3) |
+|--------|-----------:|------------------------------------------:|
+| `bayesian_network.any_year.yes` | 0.0975 | 0.1254 |
+| `loss.expected` | 58,500 | 75,240 |
+| `bayesian_network.bad_year.yes` | 0.173 | 0.173 |
+| `bayesian_network.after_default.bad` | 346/975 | 865/1254 |
+
+The file works the same figures out with Bayes' rule in formulas of its own (`by_hand`), and its `expect:` pins both, in the file and in each scenario, so `forge validate` checks variable elimination against arithmetic. An included file's network gives its results by the include's alias, as its other scalars do: `@alias.bayesian_network.<query>.<state>`. A file has one network, in any of its documents. Left out (ADR-074): `=BAYES()`, evidence that changes by scenario or comes from a formula, and soft evidence.
 
 ### Network Topology
 

@@ -321,6 +321,7 @@ impl BayesianArgs {
             &self.file,
             self.query.as_deref(),
             &self.evidence,
+            self.scenario.as_deref(),
             self.output,
             self.verbose,
         )

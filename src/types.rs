@@ -455,6 +455,12 @@ pub struct ParsedModel {
     #[serde(default)]
     pub games: IndexMap<String, crate::games::Game>,
 
+    /// The Bayesian network, with its probabilities as written (a number or
+    /// a formula) and its named queries, calculated as a cell of the model
+    /// (ADR-074)
+    #[serde(default)]
+    pub network: Option<crate::bayesian::WrittenNetwork>,
+
     /// The analysis sections the file has, in the file's order, each once:
     /// `monte_carlo`, `tornado`, `decision_tree`, `real_options`, `bootstrap`
     /// and `bayesian_network`. Their commands read them; Forge Studio shows a
@@ -504,6 +510,7 @@ impl ParsedModel {
             resolved_includes: HashMap::new(),
             documents: Vec::new(),
             games: IndexMap::new(),
+            network: None,
             analyses: Vec::new(),
             expect: Vec::new(),
         }
@@ -593,12 +600,15 @@ impl ParsedModel {
         ))
     }
 
-    /// Whether `name` is under a game (`stag_hunt.equilibria`): a result the
-    /// game gives once calculated (ADR-068), which is not a scalar before.
+    /// Whether `name` is under a game (`stag_hunt.equilibria`, ADR-068) or
+    /// the network (`bayesian_network.one.defector`, ADR-074): a result
+    /// worked out when the model is calculated, which is not a scalar before.
     #[must_use]
-    pub fn names_game_result(&self, name: &str) -> bool {
-        name.split_once('.')
-            .is_some_and(|(game, _)| self.games.contains_key(game))
+    pub fn names_calculated_result(&self, name: &str) -> bool {
+        name.split_once('.').is_some_and(|(section, _)| {
+            self.games.contains_key(section)
+                || (section == crate::bayesian::written::SECTION && self.network.is_some())
+        })
     }
 
     /// The scalar whose name is closest to `name`, if one is close enough to

@@ -451,7 +451,7 @@ Non-parametric bootstrap resampling for confidence intervals. Returns original e
 
 #### `forge_bayesian`
 
-Bayesian network inference. Query posterior probabilities with optional evidence.
+Bayesian network inference. Query posterior probabilities with optional evidence, optionally under a scenario. A prior or table entry may be a formula over the model's scalars, worked out under the scenario. Named queries in the file (`bayesian_network.queries`) give their posteriors as scalars, `bayesian_network.<query>.<state>`, which `forge_calculate` and `forge_validate` report with the other results (ADR-074).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -460,6 +460,7 @@ Bayesian network inference. Query posterior probabilities with optional evidence
 | `includes` | object | no | Inline include content as namespace-to-YAML map |
 | `query_var` | string | no | Specific variable to query (omit for all nodes) |
 | `evidence` | array of strings | no | Evidence as `variable=state` pairs (e.g., `["economy=growth"]`) |
+| `scenario` | string | no | A scenario whose overrides apply before the network is worked out |
 
 *One of `file_path` or `content` is required.
 

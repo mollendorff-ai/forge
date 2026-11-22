@@ -156,7 +156,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_bayesian",
-        description = "Bayesian network inference. Query posterior probabilities with optional evidence. Returns probability distributions for each variable state."
+        description = "Bayesian network inference. Query posterior probabilities with optional evidence, optionally under a scenario. A prior or table entry may be a formula over the model's scalars; named queries under bayesian_network.queries also give scalars bayesian_network.<query>.<state>, which forge_calculate and forge_validate report. Returns probability distributions for each variable state."
     )]
     fn bayesian(&self, Parameters(req): Parameters<BayesianRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
@@ -166,9 +166,14 @@ impl ForgeMcpServer {
             req.includes.as_ref(),
         )?;
         let evidence = req.evidence.unwrap_or_default();
-        bayesian_core(&path, req.query_var.as_deref(), &evidence)
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Bayesian inference failed: {e}"))
+        bayesian_core(
+            &path,
+            req.query_var.as_deref(),
+            &evidence,
+            req.scenario.as_deref(),
+        )
+        .map(|r| to_json(&r))
+        .map_err(|e| format!("Bayesian inference failed: {e}"))
     }
 }
 
@@ -358,6 +363,7 @@ scalars:
             includes: None,
             query_var: None,
             evidence: None,
+            scenario: None,
         })));
         assert!(e.contains("bayesian_network"));
     }
@@ -372,6 +378,7 @@ scalars:
             includes: None,
             query_var: None,
             evidence: Some(vec!["economy=growth".into()]),
+            scenario: None,
         }));
     }
 
@@ -642,6 +649,7 @@ scalars:
                         includes,
                         query_var: Some("roadwork".into()),
                         evidence: Some(evidence.iter().map(ToString::to_string).collect()),
+                        scenario: None,
                     },
                 ))));
                 let query = &result["queries"]["roadwork"];
@@ -654,6 +662,34 @@ scalars:
                 "inline {inline}"
             );
         }
+    }
+
+    /// `examples/expected_loss.yaml`: under its recession the prior reads the
+    /// scenario's outlook, so P(default) = 0.1254 by Bayes' rule by hand; a
+    /// scenario the model does not have is named
+    #[test]
+    fn bayesian_takes_a_scenario() {
+        let ask = |scenario: &str| {
+            ForgeMcpServer::new().bayesian(Parameters(BayesianRequest {
+                file_path: Some("examples/expected_loss.yaml".into()),
+                content: None,
+                includes: None,
+                query_var: Some("default".into()),
+                evidence: None,
+                scenario: Some(scenario.into()),
+            }))
+        };
+        let result = json(&ok_text(ask("recession")));
+        let yes = result["queries"]["default"]["probabilities"][1]
+            .as_f64()
+            .unwrap();
+        assert!(close(yes, 0.1254, 1e-12), "{yes}");
+        let err = err_text(ask("slump"));
+        assert!(
+            err.starts_with("Bayesian inference failed: ")
+                && err.contains("Scenario 'slump' not found"),
+            "{err}"
+        );
     }
 
     /// examples/vineyard: 10,000 seasons in which the crop and the price are
