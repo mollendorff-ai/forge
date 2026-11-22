@@ -1181,6 +1181,18 @@
         }
       ]
     },
+    "GameNumber": {
+      "description": "A number, or a formula over the model starting with =",
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string",
+          "pattern": "^=.+"
+        }
+      ]
+    },
     "TableGame": {
       "type": "object",
       "description": "A game played once: players, their strategies, and a payoff table nested one level per player",
@@ -1225,6 +1237,32 @@
         "payoffs": {
           "type": "object",
           "description": "The first player's strategy, then the second's, and so on; a cell is a list of one payoff per player (a number or a formula starting with =), or one payoff in a symmetric game. A symmetric game may instead give one payoff for each strategy, over how many of the other players play each (<game>.others.<strategy>, ADR-073); with three or more players it must"
+        },
+        "dynamics": {
+          "type": "object",
+          "description": "In a symmetric game: how the share of each strategy changes from generation to generation, by the discrete replicator equation x' = x (f + baseline) / (average + baseline) (ADR-073). The results are <game>.dynamics.share.<strategy> and <game>.dynamics.payoff, after the last generation",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "generations"
+          ],
+          "properties": {
+            "start": {
+              "type": "object",
+              "description": "Every strategy's share in the first generation, from 0 to 1, adding up to 1",
+              "additionalProperties": {
+                "$ref": "#/definitions/GameNumber"
+              }
+            },
+            "generations": {
+              "$ref": "#/definitions/GameNumber",
+              "description": "How many times the shares change: a whole number from 1 to 100,000"
+            },
+            "baseline": {
+              "$ref": "#/definitions/GameNumber",
+              "description": "Added to every payoff in the equation (0 if not given); every strategy played must pay more than minus the baseline"
+            }
+          }
         }
       },
       "required": [

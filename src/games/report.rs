@@ -1,6 +1,7 @@
 //! What `forge game` reports for a game played once, and the same numbers
 //! as scalars named under the game (ADR-068, sections 2 and 3).
 
+use super::dynamics::DynamicsReport;
 use super::mixed::{equilibria, Equilibrium};
 use super::population::{population, Population};
 use super::pure::{even_mix, iterated_dominance, weakly_dominated};
@@ -75,6 +76,10 @@ pub struct TableReport {
     /// Every cell of the table, the first player's strategy outermost, as
     /// the model writes them: what Forge Studio draws
     pub cells: Vec<Cell>,
+    /// The shares of the strategies, generation by generation, when the
+    /// game has a `dynamics:` key (ADR-073)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamics: Option<DynamicsReport>,
 }
 
 /// What was worked out for a game of either kind.
@@ -181,6 +186,7 @@ pub fn analyse(game: &str, table: &Table, symmetric: bool) -> TableReport {
                 payoffs: table.payoffs[table.index(profile)].clone(),
             })
             .collect(),
+        dynamics: None,
     }
 }
 
@@ -310,6 +316,13 @@ impl TableReport {
                 out.push((format!("{g}.even_mix.{player}.{strategy}"), *payoff));
             }
         }
+        if let Some(dynamics) = &self.dynamics {
+            let end = dynamics.end();
+            for (strategy, share) in &end.shares {
+                out.push((format!("{g}.dynamics.share.{strategy}"), *share));
+            }
+            out.push((format!("{g}.dynamics.payoff"), end.payoff));
+        }
         out
     }
 
@@ -354,6 +367,29 @@ impl TableReport {
                  has no count of them all; pure_equilibria counts the pure ones",
                 self.players.len()
             );
+        } else if rest == "dynamics" || rest.starts_with("dynamics.") {
+            reason = self.dynamics.as_ref().map_or_else(
+                || {
+                    format!(
+                        "{reason}: the dynamics' results come from a dynamics: key, with start \
+                         and generations, and games.{} has none",
+                        self.game
+                    )
+                },
+                |dynamics| {
+                    let shares: Vec<String> = dynamics
+                        .end()
+                        .shares
+                        .keys()
+                        .map(|s| format!("dynamics.share.{s}"))
+                        .collect();
+                    format!(
+                        "{reason}: its dynamics give {} and dynamics.payoff, after the last \
+                         generation",
+                        shares.join(", ")
+                    )
+                },
+            );
         } else if (rest == "equilibria" || rest == "degenerate")
             && !self.mixed_searched
             && !self.symmetric_searched
@@ -367,8 +403,9 @@ impl TableReport {
             reason.push_str(
                 ": a game's results are pure_equilibria, equilibria, degenerate, \
                  equilibrium_<k>.<player>.<strategy>, equilibrium_<k>.<player>.payoff, \
-                 equilibrium_<k>.stable, dominated.<player>.<strategy> and \
-                 even_mix.<player>.<strategy>",
+                 equilibrium_<k>.stable, dominated.<player>.<strategy>, \
+                 even_mix.<player>.<strategy>, and with a dynamics: key \
+                 dynamics.share.<strategy> and dynamics.payoff",
             );
         }
         reason

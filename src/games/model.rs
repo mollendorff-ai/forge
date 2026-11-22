@@ -5,6 +5,7 @@
 //! calculator.
 
 use super::counts;
+use super::dynamics::{self, Dynamics};
 use super::table::Table;
 use super::tournament::{self, Tournament};
 use crate::error::{ForgeError, ForgeResult};
@@ -84,18 +85,30 @@ pub struct TableGame {
     pub symmetric: bool,
     /// For each profile in table order, one cell per player
     pub cells: Vec<Vec<Cell>>,
+    /// How the strategies' shares change from generation to generation, in
+    /// a symmetric game (ADR-073)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dynamics: Option<Dynamics>,
 }
 
 impl TableGame {
-    /// Every formula in the payoff table, once each.
+    /// Every formula in the payoff table and the dynamics, once each.
     #[must_use]
     pub fn formulas(&self) -> Vec<&str> {
         let mut all: Vec<&str> = Vec::new();
-        for cell in self.cells.iter().flatten() {
-            if let Payoff::Formula(f) = &cell.payoff {
-                if !all.contains(&f.as_str()) {
-                    all.push(f);
-                }
+        let dynamics = self.dynamics.iter().flat_map(Dynamics::formulas);
+        for formula in self
+            .cells
+            .iter()
+            .flatten()
+            .filter_map(|cell| match &cell.payoff {
+                Payoff::Formula(f) => Some(f.as_str()),
+                Payoff::Number(_) => None,
+            })
+            .chain(dynamics)
+        {
+            if !all.contains(&formula) {
+                all.push(formula);
             }
         }
         all
@@ -264,14 +277,15 @@ fn parse_table_game(name: &str, map: &Mapping) -> ForgeResult<TableGame> {
                 "symmetric",
                 "payoffs",
                 "description",
+                "dynamics",
             ]
             .contains(&k)
         });
         if !known {
             return Err(error(format!(
                 "games.{name} has {}, which a game does not have: it has players, \
-                 strategies, payoffs, and symmetric or description if wanted (or a \
-                 tournament)",
+                 strategies, payoffs, and symmetric, dynamics or description if wanted \
+                 (or a tournament)",
                 describe(key)
             )));
         }
@@ -312,12 +326,17 @@ fn parse_table_game(name: &str, map: &Mapping) -> ForgeResult<TableGame> {
             "games.{name} has {count} cells; a game may have at most {MOST_CELLS}"
         )));
     }
+    let dynamics = map
+        .get("dynamics")
+        .map(|d| dynamics::parse(name, d, symmetric, &strategies[0]))
+        .transpose()?;
     let mut game = TableGame {
         name: name.to_string(),
         players,
         strategies,
         symmetric,
         cells: Vec::with_capacity(count),
+        dynamics,
     };
     let payoffs = field("payoffs")?;
     let counted = counts::count_form(payoffs).filter(|_| symmetric);
@@ -653,7 +672,9 @@ g:
             ),
             (
                 "g: {players: [a, b], rules: 1}",
-                "games.g has \"rules\", which a game does not have",
+                "games.g has \"rules\", which a game does not have: it has players, \
+                 strategies, payoffs, and symmetric, dynamics or description if wanted (or a \
+                 tournament)",
             ),
             ("g: {strategies: [x]}", "games.g has no players"),
             (

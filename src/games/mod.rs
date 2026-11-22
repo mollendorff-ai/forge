@@ -3,6 +3,7 @@
 //! (ADR-068).
 
 pub mod counts;
+pub mod dynamics;
 pub mod linear;
 pub mod mixed;
 pub mod model;

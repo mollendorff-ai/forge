@@ -1,6 +1,6 @@
 """Forge's games against Gambit, axelrod and R (ADR-068, T2-GAME-THEORY-E2E).
 
-  python3 -I run.py [--only specs tournaments generated r counted symmetric] [--seed N]
+  python3 -I run.py [--only specs tournaments generated r counted symmetric dynamics] [--seed N]
                     [--games N] [--runs N] [--work DIR] [--fail]
 
 specs        named games (specs.py) and the shipped examples, against Gambit
@@ -17,9 +17,13 @@ symmetric    the mixed equilibria in which every player plays alike, of
              symmetric games of two strategies (ADR-073): the volunteer's
              dilemma of 2 to 8 players against its closed form, and seeded
              games of 3 to 5 players against Gambit's enumpoly_solve
+dynamics     the dynamics: key (ADR-073): every generation of the discrete
+             replicator equation against egttools' gradient, in hawk-dove,
+             the stag hunt, the volunteer's dilemma, rock, paper, scissors,
+             the examples and seeded games of 2 to 5 players
 
-Needs `forge` (FORGE, default `forge` on the path), pygambit 16.7.0 and the
-axelrod library for the Python parts, and Rscript with jsonlite for `r`.
+Needs `forge` (FORGE, default `forge` on the path), pygambit 16.7.0, the
+axelrod library and egttools for the Python parts, and Rscript with jsonlite for `r`.
 """
 import argparse
 import json
@@ -34,6 +38,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)  # python3 -I leaves the script's folder off the path
 
 import counted
+import dynamics
 import generated
 import symmetric
 import specs
@@ -138,6 +143,28 @@ def run_symmetric(work, seed, count):
     return failures
 
 
+def run_dynamics(work, seed, count):
+    failures, steps, games = [], 0, 0
+    for name, kind, text, n, strategies, pay, known in dynamics.cases(seed, count):
+        path = write(work, f"dynamics_{name}_{games}.yaml", text)
+        bad, compared = dynamics.check(only(tables.run_forge(path), name), n, strategies, pay, known)
+        steps += compared
+        games += 1
+        failures += [f"{name} ({kind}): {b}" for b in bad]
+    for file, game, scenario, n, strategies, pay, known in dynamics.examples():
+        report = only(tables.run_forge(os.path.join(HERE, specs.EXAMPLES, file), game, scenario), game)
+        bad, compared = dynamics.check(report, n, strategies, pay, known)
+        steps += compared
+        games += 1
+        failures += [f"examples/games/{file} ({scenario or 'no scenario'}): {b}" for b in bad]
+    failures += dynamics.refused(work)
+    print(f"dynamics: seed {seed}, {games} games (7 named, {count} drawn, 6 runs of the examples), {steps} generations "
+          f"compared with egttools' replicator gradient, one refusal, {len(failures)} failed")
+    if failures:
+        print(f"replay: python3 -I run.py --only dynamics --seed {seed} --games {count * 10}")
+    return failures
+
+
 def run_tournaments(work, runs):
     failures, compared = [], 0
     for k, (rounds, continuation, noise) in enumerate(tournaments.SETTINGS):
@@ -179,14 +206,15 @@ def run_closed_forms(work, seed, count):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--only", nargs="*", choices=["specs", "tournaments", "generated", "r", "counted", "symmetric"])
+    p.add_argument("--only", nargs="*", choices=["specs", "tournaments", "generated", "r", "counted", "symmetric",
+                                                 "dynamics"])
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--games", type=int, default=300, help="generated games")
     p.add_argument("--runs", type=int, default=200, help="seeded axelrod matches of each pair")
     p.add_argument("--work", default="work")
     p.add_argument("--fail", action="store_true", help="exit 1 when anything fails (CI)")
     a = p.parse_args()
-    parts = a.only or ["specs", "tournaments", "generated", "r", "counted", "symmetric"]
+    parts = a.only or ["specs", "tournaments", "generated", "r", "counted", "symmetric", "dynamics"]
     os.makedirs(a.work, exist_ok=True)
     failures = []
     if "specs" in parts:
@@ -198,6 +226,8 @@ def main():
     if "symmetric" in parts:
         # Gambit's enumpoly_solve takes seconds a game of five players: at most 100
         failures += run_symmetric(a.work, a.seed, min(max(a.games // 10, 10), 100))
+    if "dynamics" in parts:
+        failures += run_dynamics(a.work, a.seed, max(a.games // 10, 10))
     if "tournaments" in parts:
         failures += run_tournaments(a.work, a.runs)
     if "r" in parts:
