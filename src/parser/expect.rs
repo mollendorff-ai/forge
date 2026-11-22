@@ -229,7 +229,7 @@ mod tests {
             "{err}"
         );
         let m = model("_forge_version: \"5.5.0\"\nexpect:\n  growth: 0.05\n").unwrap();
-        assert!(m.expect.is_empty());
+        assert_eq!(m.expect, Vec::new());
         assert_eq!(m.scalars["expect.growth"].value, Some(0.05));
         // A scenario of the short form, and no scenarios at all, are as before
         model("_forge_version: \"5.5.0\"\nw: 0.6\nscenarios:\n  short: {w: 0.4}\n").unwrap();
