@@ -235,6 +235,7 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
                 main,
                 opt_str(args, "query")?,
                 &opt_strings(args, "evidence")?,
+                opt_str(args, "scenario")?,
             )
             .map_err(fail)?,
         ),
@@ -779,6 +780,21 @@ mod tests {
                 24.27,
                 0.005,
             );
+        }
+
+        /// `examples/expected_loss.yaml` in its recession: the prior reads the
+        /// scenario's outlook (ADR-074), so a default makes a bad year
+        /// 0.0865 / 0.1254 likely, by Bayes' rule by hand
+        #[test]
+        fn a_network_under_a_scenario() {
+            let answer = case("bayesian expected loss, recession");
+            let economy = &answer["queries"]["economy"];
+            assert_eq!(
+                economy["states"],
+                serde_json::json!(["good", "neutral", "bad"])
+            );
+            close(number(economy, "/probabilities/2"), 0.0865 / 0.1254, 1e-12);
+            assert_eq!(answer["evidence"], serde_json::json!({"default": "yes"}));
         }
 
         /// kinship-protocol's tournament with c = 0.2 (examples/games): the

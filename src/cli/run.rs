@@ -320,6 +320,7 @@ impl BayesianArgs {
             &self.file,
             self.query.as_deref(),
             &self.evidence,
+            self.scenario.as_deref(),
             self.output,
             self.verbose,
         )
@@ -789,7 +790,7 @@ mod tests {
         //! What five fresh agents stumbled on while running docs/PROMPTS.md
         //! (roadmap T1-AGENT-FRICTION). Each test is one of the things they reported.
         //! The help text's own examples and the short flags are checked in
-        //! `src/cli/args.rs`.
+        //! `src/cli/args/mod.rs`.
 
         use super::*;
         use std::path::Path;

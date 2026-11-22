@@ -299,6 +299,9 @@ pub struct BayesianRequest {
     pub query_var: Option<String>,
     /// Evidence as variable=state pairs (e.g., "economy=growth", "market=bull")
     pub evidence: Option<Vec<String>>,
+    /// Optional: a scenario whose overrides apply first; a prior or table
+    /// entry may be a formula over the model's scalars
+    pub scenario: Option<String>,
 }
 
 /// Parameters for the `forge_schema` tool.

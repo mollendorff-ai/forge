@@ -84,9 +84,11 @@ pub(super) fn parse_multi_document_from(
     path: &Path,
 ) -> ForgeResult<ParsedModel> {
     let mut merged_model = ParsedModel::new();
-    // Which document defined each name, for the collision message
+    // Which document defined each name, and the network, for the collision
+    // message
     let mut defined_in: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
+    let mut network_in: Option<String> = None;
     let mut doc_index = 0;
 
     for doc_content in split_yaml_documents(content) {
@@ -136,6 +138,16 @@ pub(super) fn parse_multi_document_from(
         for (game_name, game) in doc_model.games {
             claim("Game", &game_name)?;
             merged_model.games.insert(game_name, game);
+        }
+        if let Some(network) = doc_model.network {
+            if let Some(first) = &network_in {
+                return Err(ForgeError::Validation(format!(
+                    "A file has one Bayesian network, and documents '{first}' and '{doc_name}' \
+                     each have one. Put one of them in a file of its own"
+                )));
+            }
+            network_in = Some(doc_name.clone());
+            merged_model.network = Some(network);
         }
         for analysis in doc_model.analyses {
             if !merged_model.analyses.contains(&analysis) {
@@ -326,6 +338,33 @@ expenses:
         let model = parse_multi_document_yaml(content, Path::new("m.yaml")).unwrap();
         assert_eq!(model.analyses, ["bootstrap", "monte_carlo"]);
         assert_eq!(model.documents.len(), 2);
+    }
+
+    /// A file has one network, in any of its documents (ADR-074)
+    #[test]
+    fn a_file_has_one_network() {
+        let net = "bayesian_network:\n  nodes:\n    a: {states: [x, y], prior: [=p, =1 - p]}\n";
+        let doc = |name: &str, extra: &str| {
+            format!("---\n_forge_version: \"5.6.0\"\n_name: {name}\n{extra}")
+        };
+        let one = format!("{}{}", doc("inputs", "p: 0.25\n"), doc("network", net));
+        let model = parse_multi_document_yaml(&one, Path::new("m.yaml")).unwrap();
+        assert_eq!(
+            model.network.unwrap().formulas(),
+            ["=p", "=1 - p"],
+            "the network reads a scalar of another document"
+        );
+        let two = format!("{}{}", doc("one", net), doc("two", net));
+        let err = parse_multi_document_yaml(&two, Path::new("m.yaml"))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains(
+                "A file has one Bayesian network, and documents 'one' and 'two' each have one. \
+                 Put one of them in a file of its own"
+            ),
+            "{err}"
+        );
     }
 
     #[test]

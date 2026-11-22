@@ -298,6 +298,9 @@ impl ArrayCalculator {
         for name in self.model.games.keys() {
             cells.insert(Cell::Game(name.clone()));
         }
+        if self.model.network.is_some() {
+            cells.insert(Cell::Network);
+        }
 
         let (full, same_row, any_lagged) = self.dependency_graphs(&cells);
         let index: BTreeMap<&Cell, usize> = cells.iter().zip(0..).collect();

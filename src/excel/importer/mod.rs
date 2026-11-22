@@ -14,6 +14,7 @@ use std::io::{Cursor, Read, Seek};
 use std::path::Path;
 
 mod layout;
+mod reserved;
 mod runs;
 mod scalars;
 mod sheet;
@@ -125,6 +126,7 @@ impl ExcelImporter {
                 Self::import_table(sheet, read, &mut model, &mut warnings);
             }
         }
+        reserved::rename_network_results(&mut model, &mut warnings);
         Ok((model, warnings))
     }
 

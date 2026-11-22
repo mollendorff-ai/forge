@@ -47,7 +47,17 @@ mod round_trip_tests {
         for (path, var) in &original.scalars {
             if let Some(a) = var.value {
                 let lower = path.to_lowercase();
-                match back.scalars.get(path).or_else(|| back.scalars.get(&lower)) {
+                // A network's results come back under another group, since a
+                // model's bayesian_network is its network
+                let renamed = path
+                    .strip_prefix("bayesian_network.")
+                    .map(|rest| format!("network_results.{rest}"));
+                match back
+                    .scalars
+                    .get(path)
+                    .or_else(|| back.scalars.get(&lower))
+                    .or_else(|| renamed.and_then(|r| back.scalars.get(&r)))
+                {
                     Some(v) if v.value.is_some_and(|b| close(a, b)) => {},
                     Some(v) => diffs.push(format!("{path}: {a} vs {:?}", v.value)),
                     None => diffs.push(format!("{path}: missing")),
@@ -698,12 +708,13 @@ g:
             let text = fs::read_to_string(root.join(name)).unwrap();
             assert!(text.contains("MC."), "{name} has no MC. distribution");
         }
-        // The rest, 53 models, all round-trip with no difference. The ten
+        // The rest, 54 models, all round-trip with no difference. The ten
         // in games/, bagel/price_war.yaml, bagel/street_fund.yaml and
         // acquisition/deal_game.yaml come
         // back as their results, numbers as of the export: the export warns
-        // that the games themselves are not written
-        assert_eq!(results.len() - skipped.len(), 53);
+        // that the games themselves are not written. So does the network of
+        // expected_loss.yaml, under group network_results
+        assert_eq!(results.len() - skipped.len(), 54);
     }
 }
 
