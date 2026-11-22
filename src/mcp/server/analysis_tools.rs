@@ -1216,4 +1216,48 @@ scenarios:
             "Variance analysis failed: Formula evaluation error: out.total: Unknown variable: nope (formula: =nope + 1)"
         );
     }
+
+    #[test]
+    fn a_failed_goal_seek_break_even_or_tornado_says_why() {
+        let server = ForgeMcpServer::new();
+        let content = Some(
+            "_forge_version: \"5.1.0\"\nprice: 4\nout:\n  total: {formula: \"=price * 2\"}\n"
+                .to_string(),
+        );
+        assert_eq!(
+            err_text(server.goal_seek(Parameters(GoalSeekRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+                target: "nope".into(),
+                value: 1.0,
+                vary: "price".into(),
+                min: Some(0.0),
+                max: Some(10.0),
+                tolerance: 0.01,
+            }))),
+            "Goal seek failed: Validation error: Output variable 'nope' not found in model"
+        );
+        assert_eq!(
+            err_text(server.break_even(Parameters(BreakEvenRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+                output: "nope".into(),
+                vary: "price".into(),
+                min: Some(0.0),
+                max: Some(10.0),
+            }))),
+            "Break-even analysis failed: Validation error: Output variable 'nope' not found in model"
+        );
+        assert_eq!(
+            err_text(server.tornado(Parameters(TornadoRequest {
+                file_path: None,
+                content,
+                includes: None,
+                output_var: None,
+            }))),
+            "Tornado analysis failed: Validation error: No 'tornado' section found in YAML"
+        );
+    }
 }

@@ -25,30 +25,29 @@ use crate::cli::{
 fn compact_bootstrap(result: &crate::bootstrap::BootstrapResult) -> serde_json::Value {
     let mut value = serde_json::to_value(result).unwrap_or_default();
     let sorted = &result.distribution;
-    if let Some(map) = value.as_object_mut() {
-        map.remove("distribution");
-        if !sorted.is_empty() {
-            let at = |p: f64| {
-                let i = (p * precision::count(sorted.len() - 1))
-                    .round()
-                    .to_usize()
-                    .unwrap_or(0)
-                    .min(sorted.len() - 1);
-                sorted[i]
-            };
-            let percentiles: Vec<serde_json::Value> = [1, 5, 10, 25, 50, 75, 90, 95, 99]
-                .iter()
-                .map(|p| serde_json::json!({"percentile": p, "value": at(f64::from(*p) / 100.0)}))
-                .collect();
-            map.insert(
-                "distribution_percentiles".to_string(),
-                serde_json::Value::Array(percentiles),
-            );
-            map.insert(
-                "distribution_size".to_string(),
-                serde_json::json!(sorted.len()),
-            );
-        }
+    let map = value.as_object_mut().expect("a result is an object");
+    map.remove("distribution");
+    if !sorted.is_empty() {
+        let at = |p: f64| {
+            let i = (p * precision::count(sorted.len() - 1))
+                .round()
+                .to_usize()
+                .unwrap_or(0)
+                .min(sorted.len() - 1);
+            sorted[i]
+        };
+        let percentiles: Vec<serde_json::Value> = [1, 5, 10, 25, 50, 75, 90, 95, 99]
+            .iter()
+            .map(|p| serde_json::json!({"percentile": p, "value": at(f64::from(*p) / 100.0)}))
+            .collect();
+        map.insert(
+            "distribution_percentiles".to_string(),
+            serde_json::Value::Array(percentiles),
+        );
+        map.insert(
+            "distribution_size".to_string(),
+            serde_json::json!(sorted.len()),
+        );
     }
     value
 }
@@ -841,6 +840,29 @@ scalars:
                 max: Some(1.0),
             }))),
             "Seek failed: Validation error: --seek: 'out.total' is not an output of monte_carlo (outputs: )"
+        );
+    }
+
+    #[test]
+    fn a_seek_that_is_not_a_probability_goal_is_refused() {
+        let server = ForgeMcpServer::new();
+        let error = err_text(server.simulate(Parameters(SimulateRequest {
+            file_path: None,
+            content: Some("_forge_version: \"5.1.0\"\nprice: 4\n".to_string()),
+            includes: None,
+            iterations: None,
+            seed: None,
+            sampling: None,
+            scenario: None,
+            outputs: None,
+            seek: Some("nonsense".into()),
+            vary: Some("price".into()),
+            min: Some(0.0),
+            max: Some(1.0),
+        })));
+        assert_eq!(
+            error,
+            "--seek 'nonsense': write it as \"P(year.profit > 0) = 0.8\" (or = 80%)"
         );
     }
 }

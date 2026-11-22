@@ -62,9 +62,8 @@ impl ForgeMcpServer {
         // When using inline content with dry_run=false, read back the calculated
         // file; under a scenario nothing is written (ADR-074)
         if is_inline && !dry_run && req.scenario.is_none() {
-            if let Ok(calculated) = std::fs::read_to_string(&path) {
-                json_val["calculated_content"] = serde_json::Value::String(calculated);
-            }
+            json_val["calculated_content"] =
+                serde_json::Value::String(std::fs::read_to_string(&path).unwrap_or_default());
         }
 
         Ok(to_json(&json_val))
@@ -406,16 +405,18 @@ mod tests {
                 continue; // file_path examples name files that do not exist here
             }
             let server = ForgeMcpServer::new();
-            let result = match name {
-                "forge_validate" => server.validate(Parameters(
+            assert!(
+                ["forge_validate", "forge_calculate"].contains(&name),
+                "{name} is an inline example this test does not run"
+            );
+            let result = if name == "forge_validate" {
+                server.validate(Parameters(
                     serde_json::from_value(args).expect("validate arguments"),
-                )),
-                "forge_calculate" => server.calculate(Parameters(
+                ))
+            } else {
+                server.calculate(Parameters(
                     serde_json::from_value(args).expect("calculate arguments"),
-                )),
-                other => Err(format!(
-                    "{other} is an inline example this test does not run"
-                )),
+                ))
             };
             ran.push((name.to_string(), result.map(|_| line.to_string())));
         }

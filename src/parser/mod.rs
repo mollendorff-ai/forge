@@ -184,11 +184,21 @@ mod tests {
 
     #[test]
     fn a_model_that_cannot_be_read_has_no_included_files_to_check() {
-        let check = |_: &Path| Err("no file may be opened".to_string());
+        let calls = std::cell::Cell::new(0);
+        let check = |_: &Path| {
+            calls.set(calls.get() + 1);
+            Err("no file may be opened".to_string())
+        };
+        assert_eq!(
+            check(Path::new("a.yaml")),
+            Err("no file may be opened".to_string())
+        );
         assert_eq!(
             check_included_files(Path::new("/nonexistent/path/file.yaml"), &check),
             Ok(())
         );
+        // Only the call above: reading the model failed first
+        assert_eq!(calls.get(), 1);
     }
 
     #[test]

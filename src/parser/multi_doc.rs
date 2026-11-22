@@ -592,6 +592,10 @@ sales:
             "Parse error: Failed to parse document 2: did not find expected node content at line 3 column 1, while parsing a flow node"
         );
         assert_eq!(
+            refused("t:\n  x: [1]\n", "1:\n  value: 5\n"),
+            "Parse error: Table name must be a string"
+        );
+        assert_eq!(
             refused("t:\n  x: [1]\n", "t:\n  y: [2]\n"),
             again("Table", "t")
         );

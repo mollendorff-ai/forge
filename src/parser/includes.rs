@@ -421,6 +421,7 @@ data:
             "Validation error: outside the folder"
         );
         assert!(!source.exists(Path::new("secret.yaml")));
+        assert!(!source.exists(Path::new("absent.yaml")));
         assert_eq!(
             source.refused.borrow().as_deref(),
             Some("outside the folder")
