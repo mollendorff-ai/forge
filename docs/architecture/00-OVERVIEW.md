@@ -378,7 +378,7 @@ Excel Workbook
 
 - [roadmap.yaml](../../roadmap.yaml) - Future features, milestones
 - [warmup.yaml](../../warmup.yaml) - Development protocol
-- [GLOSSARY.md](../../GLOSSARY.md) - Canonical terminology
+- [GLOSSARY.md](../GLOSSARY.md) - Canonical terminology
 
 ### Diagrams
 

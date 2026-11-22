@@ -555,6 +555,7 @@ tier2:
     why: "Asked 2026-11-15 whether Forge's Bayesian networks are 'too basic' (a Grok review). Read from the code: exact inference on discrete nodes by variable elimination with hard evidence, checked against R's bnlearn on ten networks; no learning from data, no continuous nodes (now refused with a reason; before, 'No factors remaining'), no soft evidence, no joint most-probable explanation. Competing with pgmpy or bnlearn on inference features would be scope creep. What is missing for an FP&A user is that the network sits beside the model: its probabilities cannot come from formulas, and its results cannot feed formulas, scenarios or a simulation, as the other engines' do (the probability of default given the economy feeding expected loss is the use no spreadsheet does)"
     how: "ADR-074 (accepted 2026-11-22, not built yet) decides it: a prior or table entry may be a formula over scalars, forge bayesian takes --scenario, and named queries in the network give each posterior as a scalar of the model (bayesian_network.<query>.<state>), which formulas, expect:, simulate and tornado read; =BAYES() is left out, since a query is easier for an agent to write and check. An ADR first: a node's prior or table entries written as formulas, and a query result readable from a formula (such as =BAYES(network, node, state, evidence)), without a second model format. Decide it with a real use in front of it (T2-FIRST-USER), not before. A real use has come (2026-11-22): kinship-protocol's mistake_or_defection.yaml is checked at nine settings of the prior and the noise by a script that rewrites the network's numbers, because forge bayesian refuses a formula in a prior or a table ('invalid type: string, expected f64') and takes no --scenario. A first step smaller than =BAYES(): a node's prior and table entries may be formulas over scalars, and forge bayesian takes --scenario, so the nine settings are scenarios of one file; decide it in the same ADR as T2-SCENARIO-CHECKS or beside it"
     acceptance: "A worked example in examples/ where a posterior feeds a result in the model, calculated and checked against a hand calculation, and the ADR says what was left out. For the first step: kinship-protocol's nine settings are scenarios of one file, and forge bayesian --scenario gives each of them, checked against Bayes' rule worked out by hand"
+    studio: "When forge_bayesian takes a scenario (ADR-074 step 7), Forge Studio's Bayesian card must pass the scenario chosen on the Model view (runAnalyses in studio/app.js), as the game card does; today it is drawn at the plan in every scenario"
 
   - id: T2-GAME-THEORY
     title: "Games: a payoff table, and which strategies are an equilibrium"
@@ -630,6 +631,51 @@ studio:
     why: "The page exists (mollendorff-ai.github.io, no scripts or cookies). On 2026-11-15 https://www.mollendorff.ai showed 'This Connection Is Not Private' on an iPhone: DNS is right, the GitHub Pages certificate does not cover www"
     how: "Settings, Pages in mollendorff-ai.github.io: remove the custom domain, save, add mollendorff.ai again, wait for the certificate, tick Enforce HTTPS. Then open mollendorff.com and mollendorff.ca on the phone and see where they land (EasyDNS forwards if they do not reach mollendorff.ai)"
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
+  # Decided 2026-11-22 with the maintainer (a brainstorm on how people create,
+  # edit and run calculations, simulations and games in Studio, and learn
+  # Forge): ADR-075, ADR-076 and ADR-077. Built in this order.
+  - id: S-DOCS-ANCHORS
+    title: "The documentation's dead ends fixed, and the headings Studio's help links to (ADR-077, step 1)"
+    why: "GLOSSARY.md is linked and missing; EXAMPLES.md names MC.Correlated, which is not a function; FEATURES.md shows _forge_version 8.x; goal seek and break-even have no FEATURES section; dynamics: and format: have no heading. A help link needs a heading to land on"
+    acceptance: "docs/GLOSSARY.md exists; no MC.Correlated or 8.x version in docs/; FEATURES.md has sections for goal seek and break-even, dynamics: and format:; docs/architecture/README.md says ADR-055 and ADR-056 are built"
+    built: "2026-11-22: docs/GLOSSARY.md; MC.Correlated, test-data/v1.0 and the 8.x versions gone; FEATURES.md sections for goal seek, break-even and sensitivity, format: and dynamics:; ADR-055 and ADR-056 marked built"
+  - id: S-TOOLS-WHOLE
+    title: "The Tools tab shows a whole answer, with Copy and Download (ADR-077, step 2)"
+    why: "An answer is cut at 6,000 characters; the bagel price war's is"
+    acceptance: "A studio test runs forge_game on price_war.yaml in the Tools tab and finds the whole answer on screen, equal to the tool's JSON"
+    built: "2026-11-22: the whole answer in a box that scrolls, with Copy and Download; studio/tests/games.mjs compares it with forge_game's JSON"
+  - id: S-SETS
+    title: "A set's models as questions, with badges, on the welcome card and in a strip under the title (ADR-077, step 3)"
+    why: "The bagel's simulation and games are reached only through Files, by file name"
+    how: "model answers analyses (monte_carlo, games, scenarios, decision_tree, real_options, bootstrap, bayesian); build.mjs gives each model of a set a question; the welcome card lists them; chips under the title open each"
+    acceptance: "For every set, each model's badge is what model answers; a tap on a question or a chip opens that model; welcome.mjs and layout.mjs pass at 320 px"
+    built: "2026-11-22: model answers analyses; studio/sets.js; questions for the 7 sets of several models; studio/tests/sets.mjs"
+  - id: S-ANALYSES
+    title: "Decision trees, real options, bootstrap and Bayesian networks get a Model view (ADR-077, step 4)"
+    why: "second_shop, wait_option, first_month and slow_week open on an empty Model view with no message"
+    acceptance: "Each opens on a card drawn from its tool's answer, every number held against the tool's answer by a studio test; evidence on a Bayesian network is set by a tap"
+    built: "2026-11-22: studio/analyses.js; 9 example files drawn from their tools; studio/tests/analyses.mjs"
+  - id: S-HELP
+    title: "A ? on each section, function and key help, and the manual linked on GitHub at the release's tag (ADR-077, step 5)"
+    acceptance: "studio/help.json covers every section heading the page draws; each link names a document and heading that exist (studio/tests/help.mjs); a function's suggestion shows Forge's syntax and description; a key's shows the schema's description"
+    built: "2026-11-22: studio/help.js and help.json (15 entries), the ? on each heading, the function and key line under the suggestions; studio/tests/help.mjs"
+  - id: S-UNCERTAIN
+    title: "An uncertain model on the Model view: the plan on every card, the range under each output; distributions on their own cards (ADR-076, steps 1 to 3)"
+    why: "bagel_simulate.yaml opens on a Problem pill and 'Not calculated' on every result"
+    how: "calculate takes plan: true; simulate with the model's own settings after each change; Analyze's output list in the model's order"
+    acceptance: "Every plan figure on screen equals simulate's at_plan, every band equals forge simulate natively (mean, P5, P95, thresholds), for every uncertain example; the distribution card's fields come from Forge's function list"
+    built: "2026-11-22: forge calculate --plan (CLI, forge_calculate, REST, forge-wasm; src/cli/commands/plan.rs), simulate's output_order, studio/uncertain.js (the plan, the bands, the distribution card), Analyze's order and scenarios reason; studio/tests/uncertain.mjs against forge-wasm's expected.json. Left for ADR-076 step 4: 'fixed' on the distribution card (make_certain), after S-EDIT"
+  - id: S-EDIT
+    title: "forge edit: Forge writes a model's text, comments kept (ADR-075)"
+    how: "The yaml-edit spike first, its findings in ADR-075; then set_value, set_formula, add, delete held to text.js's bytes; then rename, make_uncertain, the game changes, insert; the forge-wasm edit tool, forge_edit over MCP, forge edit on the command line"
+    acceptance: "Each change is kept only when Forge reads back exactly it; every example goes through each change and back byte for byte outside the change; Studio's one-line changes moved to it"
+    spike: "2026-11-22, in ADR-075: yaml-edit 0.3.6 (no default features) keeps all 174 YAML files byte for byte, changes 771 formulas and 1,326 numbers in place, matches text.mjs's 39 cases byte for byte, Unicode names; +155,687 bytes gzipped; brings hashbrown 0.14 beside 0.17, which waits on the maintainer"
+  - id: S-GAMES-EDIT
+    title: "A game edited on its card: cells, names, strategies, players, a tournament's habits, dynamics, and the inputs it reads (ADR-076, step 5)"
+    acceptance: "Every change on a game card is written by edit and checked as S9's are; game answers each game's inputs; an included file's groups fold when it is not the open model"
+  - id: S-TEMPLATES
+    title: "Add from a template: uncertainty, a game of two, of many, a tournament, dynamics (ADR-076, step 6)"
+    acceptance: "Forge serves the templates (a templates tool); each inserted into every example is valid; Studio's Add offers them"
   # Decided 2026-11-12, not to be added: editing in the Grid tab. The cards
   # and the YAML editor already edit values and formulas, a column has one
   # formula and a grid invites one per cell, and Studio is not an imitation of

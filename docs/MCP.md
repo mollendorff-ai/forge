@@ -138,6 +138,7 @@ Calculate all formulas in a Forge YAML model and optionally update the file.
 | `includes` | object | no | Inline include content as namespace-to-YAML map |
 | `dry_run` | boolean | no | Perform a dry run without updating file (default: false) |
 | `scenario` | string | no | Scenario name to apply |
+| `plan` | boolean | no | Calculate an uncertain model at plan: each `MC.*` input at its plan figure, as `forge_simulate` does for `at_plan`; the answer's `at_plan` lists the inputs and their figures, and nothing is written (default: false, which refuses an uncertain model) |
 
 *One of `file_path` or `content` is required. When using `content` with `dry_run: false`, the response includes a `calculated_content` field. Under a `scenario` nothing is written, and there is no `calculated_content`: a scenario's results are not the file's (ADR-074). When the run has an `expect:` (the file's, or the scenario's), `expectations` lists each, checked as `forge_validate` checks it, with its full name (`path`) and `met`.
 
@@ -297,7 +298,7 @@ Compare calculation results across multiple scenarios side-by-side.
 
 #### `forge_simulate`
 
-Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular, Uniform, PERT, Lognormal, Discrete). Returns statistics, percentiles, threshold probabilities, and drivers (each `MC.*` input's rank correlation with each output), each output's `at_plan` (the model calculated once with every uncertain input at its plan value), and under `inputs` each input's sampled `mean` beside its `plan` and `plan_from` (the `value:` written beside its formula, or else its distribution's mode, mean, midpoint or likeliest value). An `MC.*` input may be in an included file.
+Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular, Uniform, PERT, Lognormal, Discrete). Returns statistics, percentiles, threshold probabilities, and drivers (each `MC.*` input's rank correlation with each output), each output's `at_plan` (the model calculated once with every uncertain input at its plan value), and under `inputs` each input's sampled `mean` beside its `plan` and `plan_from` (the `value:` written beside its formula, or else its distribution's mode, mean, midpoint or likeliest value). An `MC.*` input may be in an included file. `outputs` is keyed by name, and a JSON object has no order; `output_order` lists the outputs in the order of `monte_carlo.outputs`, a column's rows in order.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|

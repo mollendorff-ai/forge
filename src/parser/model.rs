@@ -24,6 +24,16 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     read_model(yaml)
 }
 
+/// The top-level sections that are analyses, read by their own commands
+const ANALYSES: [&str; 6] = [
+    "monte_carlo",
+    "tornado",
+    "decision_tree",
+    "real_options",
+    "bootstrap",
+    "bayesian_network",
+];
+
 /// The tables, scalars and scenarios of a model the schema has accepted.
 fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     let mut model = ParsedModel::new();
@@ -42,15 +52,13 @@ fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
             // Skip special keys (handled by specific commands)
             // Note: scenarios is NOT skipped here - it has special handling below
             // to distinguish scenario overrides from tables named "scenarios"
-            if key_str == "_forge_version"
-                || key_str == "_name"
-                || key_str == "monte_carlo"
-                || key_str == "tornado"
-                || key_str == "decision_tree"
-                || key_str == "real_options"
-                || key_str == "bootstrap"
-                || key_str == "bayesian_network"
-            {
+            if key_str == "_forge_version" || key_str == "_name" {
+                continue;
+            }
+            // An analysis section is read by its command; the model notes
+            // that the file has one (ADR-077)
+            if ANALYSES.contains(&key_str) {
+                model.analyses.push(key_str.to_string());
                 continue;
             }
 
@@ -948,6 +956,19 @@ sales:
 
     fn reason<T>(result: ForgeResult<T>) -> String {
         result.err().unwrap().to_string()
+    }
+
+    /// The analysis sections are noted in the file's order, and read as
+    /// neither tables nor scalars (ADR-077)
+    #[test]
+    fn a_files_analysis_sections_are_noted_in_its_order() {
+        let model =
+            read("bootstrap:\n  data: [1, 2]\nprice: 16\ntornado:\n  output: price\n_name: x\n")
+                .unwrap();
+        assert_eq!(model.analyses, ["bootstrap", "tornado"]);
+        assert_eq!(model.scalars.keys().collect::<Vec<_>>(), ["price"]);
+        assert_eq!(model.tables.len(), 0);
+        assert_eq!(read("price: 16\n").unwrap().analyses, Vec::<String>::new());
     }
 
     #[test]

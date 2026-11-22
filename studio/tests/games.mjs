@@ -8,7 +8,8 @@
 //   scores, the stable players are Forge's, and every match is Forge's;
 // - an input typed on a card moves the games: 0.55 for the share a cheaper
 //   shop takes is the loyal_regulars scenario, and gives its equilibrium;
-// - the Tools tab runs forge_game on the open model;
+// - the Tools tab runs forge_game on the open model and shows the whole
+//   answer, the tool's JSON, with Copy and Download;
 // - in the Games set (examples/games), every game of each of its ten files,
 //   opened from the Files tab, is Forge's: each cell, each equilibrium with
 //   its chances and its stability, each ranking, stable list and match; the
@@ -265,8 +266,22 @@ await page.click('.tab[data-tab="mcp"]');
 await page.click('[data-tool="game"]');
 await page.click('[data-run="game"]');
 await page.waitForFunction(() => /<pre|msg bad/.test(document.querySelector('[data-out="game"]').innerHTML), null, { timeout: 60000 });
-const answer = await page.textContent('[data-out="game"]');
+const answer = await page.textContent('[data-out="game"] pre');
 if (!answer.includes('"game": "price_war"') || !answer.includes('"cells"') || !answer.includes('"dynamics"')) fail(`the Tools tab's forge_game answered: ${answer.slice(0, 200)}`);
+// The whole answer, never cut (ADR-077): what is on screen is the tool's JSON
+// for the files as they are now (0.55 typed, in the plan)
+{
+  const direct = await page.evaluate(async () => {
+    const { call } = await import("./forge.js");
+    const saved = JSON.parse(localStorage.getItem("forge-studio-v3"));
+    return call("game", { files: saved.files, main: saved.main, scenario: null });
+  });
+  let shown = null;
+  try { shown = JSON.parse(answer); } catch (e) { fail(`the Tools tab's forge_game answer is not whole JSON (${answer.length} characters, ends ${JSON.stringify(answer.slice(-20))})`); }
+  if (shown && JSON.stringify(shown) !== JSON.stringify(direct)) fail("the Tools tab's forge_game answer is not the tool's answer");
+  const copy = await page.$('[data-out="game"] [data-copy]'), dl = await page.$('[data-out="game"] [data-dl-answer]');
+  if (!copy || !dl) fail("the Tools tab's answer has no Copy or no Download button");
+}
 await page.close();
 
 // The street's festival (bagel/street_fund.yaml): five shops, drawn by count,
@@ -468,4 +483,4 @@ if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log(`Games: a link opens the bagel's price war directly; the price war shows Forge's payoffs, equilibria, ranking, stable players and matches in the plan and both scenarios, an input typed on a card moves them, and the Tools tab runs forge_game; the ${gamesSeen} games of the Games set's ${files.length} files are Forge's, the games of five players are drawn by count, the dynamics end where Forge's do (hawks at 2/3, the stag hunt all stag or all hare), and the stag hunt's scenario and a typed cost move its mixed equilibrium.`);
+console.log(`Games: a link opens the bagel's price war directly; the price war shows Forge's payoffs, equilibria, ranking, stable players and matches in the plan and both scenarios, an input typed on a card moves them, and the Tools tab runs forge_game and shows its whole answer; the ${gamesSeen} games of the Games set's ${files.length} files are Forge's, the games of five players are drawn by count, the dynamics end where Forge's do (hawks at 2/3, the stag hunt all stag or all hare), and the stag hunt's scenario and a typed cost move its mixed equilibrium.`);

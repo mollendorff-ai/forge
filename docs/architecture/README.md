@@ -61,14 +61,14 @@ Technical documentation for Forge's architecture.
 | [ADR-046](ADR-046-R-VALIDATED-ANALYTICS.md) | R-Validated Analytics E2E Tests | Accepted |
 | [ADR-047](ADR-047-MCP-CORE-EXTRACTION.md) | Dual CLI/MCP Output (Core Extraction) | Accepted |
 | [ADR-048](ADR-048-RMCP-MIGRATION.md) | rmcp Migration | Accepted |
-| [ADR-049](adr-049-mcp-inline-content.md) | MCP Inline Content for Sandboxed Clients | Accepted |
+| [ADR-049](ADR-049-MCP-INLINE-CONTENT.md) | MCP Inline Content for Sandboxed Clients | Accepted |
 | [ADR-050](ADR-050-KEEP-ALL-ANALYSIS-ENGINES.md) | Keep All Analysis Engines Supported | Accepted |
 | [ADR-051](ADR-051-SCALAR-SHORT-FORM.md) | Scalar Short Form, No Nulls, Results Written Back in Place | Accepted |
 | [ADR-052](ADR-052-MULTI-DOCUMENT-ONE-NAMESPACE.md) | The Documents of a File Share One Namespace | Accepted |
 | [ADR-053](ADR-053-PERIODS-AND-THE-ROW-ABOVE.md) | Periods and the Row Above | Accepted |
 | [ADR-054](ADR-054-A-DATE-IS-A-DATE.md) | A Date Is a Date | Accepted |
-| [ADR-055](ADR-055-FORGE-IN-THE-BROWSER.md) | Forge in the Browser (forge-wasm) | Accepted, not yet built |
-| [ADR-056](ADR-056-FORGE-STUDIO.md) | Forge Studio, a Web Interface in This Repository | Accepted, not yet built |
+| [ADR-055](ADR-055-FORGE-IN-THE-BROWSER.md) | Forge in the Browser (forge-wasm) | Accepted; built (forge-wasm, in Forge Studio since 2026-11-12) |
+| [ADR-056](ADR-056-FORGE-STUDIO.md) | Forge Studio, a Web Interface in This Repository | Accepted; built, at <https://forge.mollendorff.ai/> |
 | [ADR-057](ADR-057-VALIDATION-IN-THIS-REPOSITORY.md) | The Validation Suites Live in This Repository | Accepted; built |
 | [ADR-058](ADR-058-AGGREGATES-IN-A-ROW-FORMULA.md) | Aggregates in a Row Formula | Accepted; built |
 | [ADR-059](ADR-059-AN-EMPTY-CELL.md) | An Empty Cell in a Number Column | Accepted; built |
@@ -87,6 +87,9 @@ Technical documentation for Forge's architecture.
 | [ADR-072](ADR-072-VALIDATOR-REVISITED.md) | jsonschema Checks Every Model Again | Accepted; built |
 | [ADR-073](ADR-073-GAMES-OF-MANY-PLAYERS.md) | Games of Many Players, and Strategies That Spread | Accepted; built: the count form, the symmetric mixed equilibria, the `dynamics:` key and Forge Studio's view of them (2026-11-22) |
 | [ADR-074](ADR-074-A-SCENARIO-STATES-ITS-RESULTS.md) | A Scenario States Its Results, and a Bayesian Network Reads the Model | Accepted (2026-11-22), all seven questions as recommended; built: `expect:`, `forge validate`, `calculate --scenario`, MCP, REST and Studio (steps 1 to 4); the Bayesian steps not yet |
+| [ADR-075](ADR-075-FORGE-WRITES-THE-MODEL.md) | Forge Writes the Model | Accepted; the yaml-edit spike done (passes; `hashbrown` twice, for the maintainer to allow); not yet built |
+| [ADR-076](ADR-076-SIMULATIONS-AND-GAMES-ON-THE-CARDS.md) | Simulations and Games on Forge Studio's Cards | Accepted, not yet built |
+| [ADR-077](ADR-077-WHAT-STUDIO-SHOWS-FIRST-AND-HOW-IT-HELPS.md) | What Forge Studio Shows First, and How It Helps | Accepted; built (the docs, Tools' whole answer, a set's questions, every model's Model view, the help) |
 
 ## Architecture Principles
 

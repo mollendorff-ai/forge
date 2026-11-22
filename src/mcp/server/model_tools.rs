@@ -9,8 +9,8 @@ use crate::inline_model::resolve_model_input;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{tool, tool_router};
 
-use crate::cli::calculate_core;
 use crate::cli::{audit_core, export_buffer_core, export_core, import_core, validate_core};
+use crate::cli::{calculate_core, calculate_plan_core};
 
 #[tool_router(router = model_tools, vis = "pub(super)")]
 impl ForgeMcpServer {
@@ -35,7 +35,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_calculate",
-        description = "Calculate all formulas in a Forge YAML model. Unless dry_run, writes each formula's result next to it in the file, changing nothing else (comments kept)."
+        description = "Calculate all formulas in a Forge YAML model. Unless dry_run, writes each formula's result next to it in the file, changing nothing else (comments kept). An uncertain model (MC.* inputs) is refused unless plan, which calculates it with each uncertain input at its plan figure and writes nothing."
     )]
     pub(super) fn calculate(
         &self,
@@ -48,15 +48,20 @@ impl ForgeMcpServer {
             req.content.as_deref(),
             req.includes.as_ref(),
         )?;
-        let result = calculate_core(path.as_path(), req.dry_run, req.scenario.as_deref())
-            .map_err(|e| format!("Calculation failed: {e}"))?;
+        let dry_run = req.dry_run || req.plan;
+        let result = if req.plan {
+            calculate_plan_core(path.as_path(), req.scenario.as_deref())
+        } else {
+            calculate_core(path.as_path(), dry_run, req.scenario.as_deref())
+        }
+        .map_err(|e| format!("Calculation failed: {e}"))?;
 
         let mut json_val: serde_json::Value =
             serde_json::to_value(&result).map_err(|e| format!("Serialization failed: {e}"))?;
 
         // When using inline content with dry_run=false, read back the calculated
         // file; under a scenario nothing is written (ADR-074)
-        if is_inline && !req.dry_run && req.scenario.is_none() {
+        if is_inline && !dry_run && req.scenario.is_none() {
             if let Ok(calculated) = std::fs::read_to_string(&path) {
                 json_val["calculated_content"] = serde_json::Value::String(calculated);
             }
@@ -190,6 +195,7 @@ mod tests {
             includes: None,
             dry_run: true,
             scenario: None,
+            plan: false,
         }));
         assert!(result.is_ok());
     }
@@ -203,6 +209,7 @@ mod tests {
             includes: None,
             dry_run: true,
             scenario: None,
+            plan: false,
         }));
         assert!(result.is_err());
     }
@@ -310,6 +317,7 @@ mod tests {
             includes: None,
             dry_run: true,
             scenario: None,
+            plan: false,
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(parsed.get("tables").is_some());
@@ -339,6 +347,7 @@ mod tests {
             includes: None,
             dry_run: true,
             scenario: None,
+            plan: false,
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(parsed.get("scalars").is_some());
@@ -356,6 +365,7 @@ mod tests {
             includes: None,
             dry_run: false,
             scenario: None,
+            plan: false,
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         // Non-dry-run with inline content should include calculated_content
@@ -621,6 +631,7 @@ scalars:
                 includes,
                 dry_run: true,
                 scenario: scenario.map(Into::into),
+                plan: false,
             },
         ))))
     }
@@ -695,6 +706,7 @@ scalars:
                 includes: None,
                 dry_run: false,
                 scenario: scenario.map(str::to_string),
+                plan: false,
             }))))
         };
         let under = answer(Some("short"));
@@ -813,6 +825,7 @@ scalars:
                 includes: None,
                 dry_run: true,
                 scenario: None,
+                plan: false,
             }))));
             let profit = back["scalars"]["year.profit"].as_f64().unwrap();
             assert!(close(profit, 786.320_361_7, 1e-6), "{name}: {profit}");
@@ -839,6 +852,7 @@ scalars:
             includes: None,
             dry_run: true,
             scenario: None,
+            plan: false,
         }))));
         let net = back["scalars"]["summary.net_income"].as_f64().unwrap();
         assert!(close(net, 656_435.464_438_365, 1e-9), "{net}");
@@ -863,6 +877,7 @@ scalars:
                     includes,
                     dry_run: true,
                     scenario: None,
+                    plan: false,
                 },
             ))));
             let value = result["scalars"]["valuation.value_created"]

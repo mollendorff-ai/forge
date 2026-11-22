@@ -125,6 +125,7 @@ impl CalculateArgs {
             self.dry_run,
             self.verbose,
             self.scenario.as_deref(),
+            self.plan,
         )
     }
 }

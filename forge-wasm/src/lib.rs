@@ -15,10 +15,10 @@
 //! function's result, or `{"error": "..."}` with Forge's message.
 
 use mollendorff_forge::cli::{
-    audit_core, bayesian_core, bootstrap_core, calculate_core, compare_core, decision_tree_core,
-    examples_core, functions_core, game_core, goal_seek_core, probability_seek_core,
-    real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
-    validate_core_with, variance_core, SeekGoal, SimulateOptions,
+    audit_core, bayesian_core, bootstrap_core, calculate_core, calculate_plan_core, compare_core,
+    decision_tree_core, examples_core, functions_core, game_core, goal_seek_core,
+    probability_seek_core, real_options_core, scenarios_core, schema_core, sensitivity_core,
+    simulate_core, tornado_core, validate_core_with, variance_core, SeekGoal, SimulateOptions,
 };
 use mollendorff_forge::cli::{
     commands::render, commands::report_core, ReportFormat, ReportOptions,
@@ -166,9 +166,15 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
         "model" => parse_model(main)
             .map(|model| structure(&model))
             .map_err(fail),
-        // Results are never written back: there is no file to write to
+        // Results are never written back: there is no file to write to.
+        // `plan`: an uncertain model at its plan figures (ADR-076)
         "calculate" => {
-            to_value(calculate_core(main, true, opt_str(args, "scenario")?).map_err(fail)?)
+            let scenario = opt_str(args, "scenario")?;
+            to_value(if opt_bool(args, "plan")? {
+                calculate_plan_core(main, scenario).map_err(fail)?
+            } else {
+                calculate_core(main, true, scenario).map_err(fail)?
+            })
         },
         "audit" => to_value(audit_core(main, str_arg(args, "variable")?).map_err(fail)?),
         "scenarios" => {
@@ -315,6 +321,8 @@ fn structure(model: &ParsedModel) -> Value {
         "includes": includes,
         "scenarios": scenarios,
         "games": games,
+        // The analysis sections, for the kind of model Studio shows (ADR-077)
+        "analyses": model.analyses,
     })
 }
 
@@ -462,6 +470,15 @@ fn opt_f64(args: &Map<String, Value>, key: &str) -> Result<Option<f64>, String> 
             .as_f64()
             .map(Some)
             .ok_or_else(|| format!("'{key}' must be a number")),
+    }
+}
+
+fn opt_bool(args: &Map<String, Value>, key: &str) -> Result<bool, String> {
+    match args.get(key) {
+        None | Some(Value::Null) => Ok(false),
+        Some(v) => v
+            .as_bool()
+            .ok_or_else(|| format!("'{key}' must be true or false")),
     }
 }
 
@@ -734,6 +751,26 @@ mod tests {
             );
         }
 
+        /// The simulation's model at plan is the plan: every uncertain input at
+        /// its value:, and the year at the plan's profit (ADR-076)
+        #[test]
+        fn bagel_simulate_at_plan_is_the_plan() {
+            let plan = case("calculate bagel simulate at plan");
+            close(number(&plan, "/scalars/year.profit"), 786.32, 0.005);
+            let simulated = case("simulate bagel");
+            let inputs = simulated["monte_carlo_results"]["inputs"]
+                .as_object()
+                .unwrap();
+            assert_eq!(plan["at_plan"].as_object().unwrap().len(), inputs.len());
+            for (name, input) in inputs {
+                close(
+                    number(&plan, &format!("/at_plan/{name}")),
+                    number(input, "/plan"),
+                    0.0,
+                );
+            }
+        }
+
         #[test]
         fn bagel_break_even_and_goal_seek() {
             close(number(&case("break-even price"), "/solution"), 15.97, 0.005);
@@ -759,6 +796,36 @@ mod tests {
                 .find(|s| s["player"] == "ad")
                 .unwrap();
             close(number(ad, "/score"), 2.008, 1e-12);
+        }
+
+        /// Each of the bagel's files names its analysis sections, so Studio
+        /// can tell a decision tree from a plan without reading the YAML
+        /// (ADR-077)
+        #[test]
+        fn each_bagel_file_names_its_analyses() {
+            let dir = examples().join("bagel");
+            for (file, analyses) in [
+                ("bagel.yaml", serde_json::json!(["tornado"])),
+                ("bagel_simulate.yaml", serde_json::json!(["monte_carlo"])),
+                ("second_shop.yaml", serde_json::json!(["decision_tree"])),
+                ("wait_option.yaml", serde_json::json!(["real_options"])),
+                ("first_month.yaml", serde_json::json!(["bootstrap"])),
+                ("slow_week.yaml", serde_json::json!(["bayesian_network"])),
+                ("price_war.yaml", serde_json::json!([])),
+            ] {
+                let files: serde_json::Map<String, Value> = std::fs::read_dir(&dir)
+                    .unwrap()
+                    .map(|e| e.unwrap().path())
+                    .filter(|p| p.extension().is_some_and(|x| x == "yaml"))
+                    .map(|p| {
+                        let name = p.file_name().unwrap().to_string_lossy().into_owned();
+                        (name, Value::String(std::fs::read_to_string(&p).unwrap()))
+                    })
+                    .collect();
+                let model = run("model", &serde_json::json!({"files": files, "main": file}))
+                    .unwrap_or_else(|e| panic!("{file}: {e}"));
+                assert_eq!(model["analyses"], analyses, "{file}");
+            }
         }
 
         /// `examples/bagel/price_war.yaml`: the model names its two games, and

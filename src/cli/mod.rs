@@ -31,6 +31,7 @@ pub use commands::{probability_seek, simulate};
 pub use commands::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
 
 // Core function re-exports (structured results, no printing)
+pub use commands::calculate_plan_core;
 #[cfg(feature = "cli")]
 pub use commands::export_buffer_core;
 pub use commands::{
