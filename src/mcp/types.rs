@@ -36,6 +36,9 @@ pub struct CalculateRequest {
     pub dry_run: bool,
     /// Scenario name to apply (uses variable overrides from 'scenarios' section)
     pub scenario: Option<String>,
+    /// Calculate an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge_simulate` does for `at_plan`; the answer's `at_plan` lists them. Never writes the file
+    #[serde(default)]
+    pub plan: bool,
 }
 
 /// Parameters for the `forge_audit` tool.

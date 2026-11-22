@@ -50,6 +50,26 @@ pub struct PlanInput {
     pub from: &'static str,
 }
 
+/// The plan figure of each uncertain input of `model`, in name order.
+///
+/// The model's own and its included files' (`@namespace.name`): the figures
+/// `forge simulate` calculates each output's value at plan with
+/// ([`MonteCarloEngine::plan_inputs`]).
+///
+/// # Errors
+///
+/// Returns an error if an `MC.*` formula does not parse.
+///
+/// # Panics
+///
+/// Never: the default settings are valid.
+pub fn plan_of(model: &ParsedModel) -> Result<IndexMap<String, PlanInput>, String> {
+    let mut engine = MonteCarloEngine::new(MonteCarloConfig::default())
+        .expect("the default Monte Carlo settings are valid");
+    engine.parse_distributions_from_model(model)?;
+    Ok(engine.plan_inputs())
+}
+
 /// Result of a Monte Carlo simulation
 #[derive(Debug, Clone)]
 pub struct SimulationResult {
@@ -675,6 +695,9 @@ impl SimulationResult {
                 "seed": self.config.seed,
                 "inputs": inputs_json,
                 "outputs": outputs_json,
+                // `outputs` is keyed by name, sorted as text; this is the
+                // order of `monte_carlo.outputs`, a column's rows in order
+                "output_order": self.outputs.keys().collect::<Vec<_>>(),
             }
         });
 
@@ -888,6 +911,26 @@ mod tests {
         assert!(json.contains("\"monte_carlo_results\""));
         assert!(json.contains("\"iterations\": 10000"));
         assert!(json.contains("\"mean\""));
+    }
+
+    /// A JSON object has no order, and `serde_json` writes its keys sorted as
+    /// text (row 1, row 10, row 2): `output_order` lists them as configured.
+    #[test]
+    fn the_json_lists_the_outputs_in_the_order_configured() {
+        let mut config = test_config();
+        config.iterations = 10;
+        let names = ["profit (row 2)", "profit (row 10)", "cost"];
+        config.outputs = names.iter().map(|n| output(n)).collect();
+        let mut engine = MonteCarloEngine::new(config).unwrap();
+        engine.add_distribution("revenue", Distribution::normal(100.0, 10.0).unwrap());
+        let result = engine
+            .run_with_evaluator(|_| Ok(names.iter().map(|n| ((*n).to_string(), 1.0)).collect()))
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_str(&result.to_json()).unwrap();
+        let results = &json["monte_carlo_results"];
+        assert_eq!(results["output_order"], serde_json::json!(names));
+        let keys: Vec<&String> = results["outputs"].as_object().unwrap().keys().collect();
+        assert_eq!(keys, ["cost", "profit (row 10)", "profit (row 2)"]);
     }
 
     #[test]

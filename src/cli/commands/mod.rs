@@ -32,7 +32,9 @@ mod excel_io;
 mod functions;
 mod game;
 mod names;
+mod plan;
 pub(crate) use names::{input_name, scalar};
+pub use plan::calculate_plan_core;
 mod prediction;
 mod probability_seek;
 mod report;
@@ -222,7 +224,16 @@ pub fn calculate_core(
     if let Some(scenario_name) = scenario {
         apply_scenario(&mut model, scenario_name)?;
     }
+    calculated(file, model, dry_run, std::collections::BTreeMap::new())
+}
 
+/// `model` calculated, as [`calculate_core`] answers it.
+pub(super) fn calculated(
+    file: &Path,
+    model: crate::types::ParsedModel,
+    dry_run: bool,
+    at_plan: std::collections::BTreeMap<String, f64>,
+) -> ForgeResult<results::CalculationResult> {
     // Unit consistency validation
     let unit_validator = UnitValidator::new(&model);
     let unit_warnings: Vec<String> = unit_validator
@@ -302,6 +313,7 @@ pub fn calculate_core(
         unit_warnings,
         file_updated,
         dry_run,
+        at_plan,
     })
 }
 
@@ -328,7 +340,7 @@ fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
     }
     names.sort_unstable();
     Err(ForgeError::Validation(format!(
-        "{} use MC.* distributions, which calculate and validate cannot evaluate. Run `forge simulate` on this file instead.",
+        "{} use MC.* distributions, which calculate and validate cannot evaluate. Run `forge simulate` on this file instead, or `forge calculate --plan` for its plan.",
         names.join(", ")
     )))
 }
@@ -461,6 +473,7 @@ pub fn calculate(
     dry_run: bool,
     verbose: bool,
     scenario: Option<&str>,
+    plan: bool,
 ) -> ForgeResult<()> {
     outln!(c, "{}", "🔥 Forge - Calculating formulas".bold().green());
     outln!(c, "   File: {}", file.display());
@@ -469,7 +482,9 @@ pub fn calculate(
     }
     outln!(c);
 
-    if dry_run {
+    if plan {
+        plan::print_plan_banner(c);
+    } else if dry_run {
         outln!(
             c,
             "{}",
@@ -483,7 +498,9 @@ pub fn calculate(
     }
 
     let mut model = parser::parse_model(file)?;
-    reject_distributions(&model)?;
+    if !plan {
+        reject_distributions(&model)?;
+    }
 
     if verbose {
         outln!(
@@ -515,6 +532,11 @@ pub fn calculate(
         }
     }
 
+    if plan {
+        let at_plan = plan::set_at_plan(&mut model)?;
+        plan::print_at_plan(c, &at_plan);
+    }
+
     print_unit_warnings(c, &model);
 
     // Calculate using ArrayCalculator
@@ -533,7 +555,9 @@ pub fn calculate(
     print_scalar_results(c, &result);
     outln!(c);
 
-    write_back(c, file, &result, dry_run)?;
+    if !plan {
+        write_back(c, file, &result, dry_run)?;
+    }
 
     Ok(())
 }
@@ -834,7 +858,7 @@ mod calculate_tests {
             "_forge_version: \"5.0.0\"\nassumptions:\n  growth:\n    value: null\n    formula: \"=MC.Normal(0.15, 0.05)\"\n  doubled:\n    value: null\n    formula: \"=assumptions.growth * 2\"\n"
         )
         .unwrap();
-        let err = capture(|c| calculate(c, file.path(), true, false, None))
+        let err = capture(|c| calculate(c, file.path(), true, false, None, false))
             .0
             .unwrap_err()
             .to_string();
@@ -1225,7 +1249,7 @@ mod command_output {
             "m.yaml",
             "_forge_version: \"5.1.0\"\nrate: 2\ndouble: {formula: \"=rate * 2\"}\nscenarios:\n  high:\n    probability: 1\n    scalars:\n      rate: 5\n",
         );
-        let (result, captured) = capture(|c| calculate(c, &file, true, true, Some("high")));
+        let (result, captured) = capture(|c| calculate(c, &file, true, true, Some("high"), false));
         result.unwrap();
         for line in [
             "Scenario: high",
@@ -1238,14 +1262,14 @@ mod command_output {
         ] {
             assert!(captured.out.contains(line), "{line} in {}", captured.out);
         }
-        let (result, captured) = capture(|c| calculate(c, &file, true, false, Some("high")));
+        let (result, captured) = capture(|c| calculate(c, &file, true, false, Some("high"), false));
         result.unwrap();
         assert!(
             !captured.out.contains("Applied scenario"),
             "{}",
             captured.out
         );
-        let (result, _) = capture(|c| calculate(c, &file, true, false, Some("absent")));
+        let (result, _) = capture(|c| calculate(c, &file, true, false, Some("absent"), false));
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
@@ -1257,10 +1281,10 @@ mod command_output {
             "m.yaml",
             &GOOD.replace("value: 4", "value: null"),
         );
-        let (result, captured) = capture(|c| calculate(c, &file, false, false, None));
+        let (result, captured) = capture(|c| calculate(c, &file, false, false, None, false));
         result.unwrap();
         assert!(captured.out.contains("1 value updated"), "{}", captured.out);
-        let (result, captured) = capture(|c| calculate(c, &file, false, false, None));
+        let (result, captured) = capture(|c| calculate(c, &file, false, false, None, false));
         result.unwrap();
         assert!(captured.out.contains("is up to date"), "{}", captured.out);
     }
@@ -1344,7 +1368,7 @@ mod command_output {
             "t.yaml",
             "_forge_version: \"5.1.0\"\nt:\n  n: [1, 2]\n  label: '=IF(n > 1, \"big\", \"small\")'\nempty: {value: null, formula: null}\n",
         );
-        let (result, captured) = capture(|c| calculate(c, &file, true, true, None));
+        let (result, captured) = capture(|c| calculate(c, &file, true, true, None, false));
         result.unwrap();
         assert!(
             captured.out.contains("label = [\"small\", \"big\"]"),
@@ -1368,7 +1392,7 @@ mod command_output {
         );
         // A folder where the backup goes
         fs::create_dir(dir.path().join("m.yaml.bak")).unwrap();
-        let (result, _) = capture(|c| calculate(c, &file, false, false, None));
+        let (result, _) = capture(|c| calculate(c, &file, false, false, None, false));
         assert!(result.is_err());
         assert!(calculate_core(&file, false, None).is_err());
         assert!(fs::read_to_string(&file).unwrap().contains("value: null"));

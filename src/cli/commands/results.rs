@@ -42,6 +42,10 @@ pub struct CalculationResult {
     pub unit_warnings: Vec<String>,
     pub file_updated: bool,
     pub dry_run: bool,
+    /// The uncertain (`MC.*`) inputs, each with the plan figure it was
+    /// calculated at, in name order: empty unless the model was calculated at
+    /// plan (ADR-076)
+    pub at_plan: BTreeMap<String, f64>,
 }
 
 impl CalculationResult {
@@ -68,6 +72,8 @@ struct CalculationWire {
     unit_warnings: Vec<String>,
     file_updated: bool,
     dry_run: bool,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    at_plan: BTreeMap<String, f64>,
 }
 
 impl From<CalculationResult> for CalculationWire {
@@ -93,6 +99,7 @@ impl From<CalculationResult> for CalculationWire {
             unit_warnings: r.unit_warnings,
             file_updated: r.file_updated,
             dry_run: r.dry_run,
+            at_plan: r.at_plan,
         }
     }
 }
@@ -126,6 +133,7 @@ impl From<CalculationWire> for CalculationResult {
             unit_warnings: w.unit_warnings,
             file_updated: w.file_updated,
             dry_run: w.dry_run,
+            at_plan: w.at_plan,
         }
     }
 }

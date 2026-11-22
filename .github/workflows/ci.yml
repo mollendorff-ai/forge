@@ -327,6 +327,10 @@ jobs:
           timeout 180 npx playwright install-deps chromium || echo "system packages not installed; continuing"
           node tests/screen.mjs ../studio-site ../forge-wasm/expected.json
 
+      - name: An uncertain model shows its plan, and each output its range from forge simulate
+        working-directory: studio
+        run: node tests/uncertain.mjs ../studio-site ../forge-wasm/expected.json
+
       - name: Formulas edited on their cards change their one line, and Forge refuses invalid ones
         working-directory: studio
         run: node tests/formulas.mjs ../studio-site

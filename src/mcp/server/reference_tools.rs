@@ -204,6 +204,7 @@ mod tests {
             includes: None,
             dry_run: true,
             scenario: None,
+            plan: false,
         }))));
         let scalar = |name: &str| result["scalars"][name].as_f64().unwrap();
         assert!(close(scalar("plan.profit"), 1800.0, 1e-9));

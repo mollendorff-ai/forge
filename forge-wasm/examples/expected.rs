@@ -3,13 +3,28 @@
 //!
 //! `cargo run -p forge-wasm --release --example expected > expected.json`
 //!
+//! It also gives, under `uncertain: <dir>/<file>`, each uncertain example
+//! Forge Studio opens calculated at plan and simulated with the model's own
+//! runs, seed and sampling, for `studio/tests/uncertain.mjs` (ADR-076).
+//!
 //! With a directory as argument it also writes there what `forge export` writes
 //! for each example Forge Studio exports (`bagel.xlsx`, `mortgage.xlsx`), with
 //! the command line's own function, for the workbook comparisons.
 
-use forge_wasm::{cases, run};
+use forge_wasm::{cases, run, run_on_disk};
 use serde_json::{Map, Value};
 use std::path::Path;
+
+/// The uncertain models of Forge Studio's example sets, by directory and file.
+const UNCERTAIN: [(&str, &str); 7] = [
+    ("bagel", "bagel_simulate.yaml"),
+    ("microgrid", "microgrid_risk.yaml"),
+    ("realestate", "realestate_risk.yaml"),
+    ("realestate", "realestate_flex.yaml"),
+    ("acquisition", "deal_risk.yaml"),
+    ("vineyard", "vineyard_risk.yaml"),
+    ("vineyard", "vineyard_independent.yaml"),
+];
 
 fn main() {
     let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples");
@@ -22,6 +37,22 @@ fn main() {
             Err(message) => serde_json::json!({ "error": message }),
         };
         results.insert(name, answer);
+    }
+    for (dir, main) in UNCERTAIN {
+        let request = serde_json::json!({ "main": main });
+        let answer = |tool: &str, request: &Value| {
+            run_on_disk(tool, request, &examples.join(dir))
+                .unwrap_or_else(|e| panic!("{tool} {dir}/{main}: {e}"))
+        };
+        let mut plan = request.clone();
+        plan["plan"] = Value::Bool(true);
+        results.insert(
+            format!("uncertain: {dir}/{main}"),
+            serde_json::json!({
+                "calculate": answer("calculate", &plan),
+                "simulate": answer("simulate", &request),
+            }),
+        );
     }
     println!("{}", Value::Object(results));
 

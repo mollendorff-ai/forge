@@ -83,7 +83,10 @@ CROSS-FILE REFERENCES:
   results of an included file in it.
 
 When a value changes, the file as it was is kept next to it as
-model.yaml.bak. Use --dry-run to preview changes without modifying files.")]
+model.yaml.bak. Use --dry-run to preview changes without modifying files.
+
+An uncertain model (MC.* inputs) is simulated, not calculated: use --plan
+to calculate it once with each uncertain input at its plan figure.")]
     /// Calculate all formulas in a YAML file
     Calculate(CalculateArgs),
 
@@ -876,6 +879,12 @@ pub struct CalculateArgs {
     /// Scenario name to apply (uses variable overrides from 'scenarios' section)
     #[arg(short, long)]
     pub scenario: Option<String>,
+
+    /// Calculate an uncertain model at plan: each MC.* input at its plan
+    /// figure (its value:, or else its distribution's likeliest value), as
+    /// `forge simulate` does for its value at plan. Never writes the file
+    #[arg(long)]
+    pub plan: bool,
 }
 
 #[derive(Args)]

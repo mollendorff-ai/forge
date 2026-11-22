@@ -5,7 +5,9 @@
 //   returns, the note below it names all_cash and all_shares, and their chips
 //   show no percentage while base shows 45%;
 // - deal_risk.yaml, whose one scenario has no probability: the Analyze card
-//   gives Forge's reason, not "This model has no scenarios section".
+//   gives Forge's reason, not "This model has no scenarios section", and
+//   says what it means (choices to compare, not chances), with no
+//   "Validation error" (ADR-076).
 //
 //   node studio/tests/scenarios.mjs <built Studio dir or address>
 
@@ -70,6 +72,9 @@ await page.waitForSelector("#scn-box");
 const reason = await page.textContent("#scn-box");
 if (!reason.includes("No scenario has a probability")) fail(`deal_risk.yaml: the Analyze card does not give Forge's reason: "${reason}"`);
 if (reason.includes("no scenarios section")) fail("deal_risk.yaml: the Analyze card says the model has no scenarios");
+// What Forge's message means, in the page's words, and not its error kind (ADR-076)
+if (!reason.includes("choices to compare, not chances")) fail(`deal_risk.yaml: the Analyze card does not say what Forge's message means: "${reason}"`);
+if (/Validation error/.test(reason)) fail(`deal_risk.yaml: the Analyze card shows "Validation error": "${reason}"`);
 await page.close();
 
 await browser.close();

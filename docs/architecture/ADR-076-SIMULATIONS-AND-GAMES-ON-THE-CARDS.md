@@ -1,6 +1,6 @@
 # ADR-076: Simulations and Games on Forge Studio's Cards
 
-**Status:** Accepted (2026-11-22), not yet built
+**Status:** Accepted (2026-11-22). Steps 1 to 3 built (2026-11-22, roadmap S-UNCERTAIN); "fixed" on the distribution card comes with step 4
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who found that a calculation is edited on its cards while a simulation or a game is changed only in the YAML view, and who left the choice of how an uncertain model behaves on the Model view to Claude (decision 1); the analysis is Claude's
 **For:** roadmap S-UNCERTAIN, S-GAMES-EDIT and S-TEMPLATES. It extends ADR-056 and ADR-068 and builds on ADR-075

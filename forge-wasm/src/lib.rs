@@ -15,10 +15,10 @@
 //! function's result, or `{"error": "..."}` with Forge's message.
 
 use mollendorff_forge::cli::{
-    audit_core, bayesian_core, bootstrap_core, calculate_core, compare_core, decision_tree_core,
-    examples_core, functions_core, game_core, goal_seek_core, probability_seek_core,
-    real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
-    validate_core, variance_core, SeekGoal, SimulateOptions,
+    audit_core, bayesian_core, bootstrap_core, calculate_core, calculate_plan_core, compare_core,
+    decision_tree_core, examples_core, functions_core, game_core, goal_seek_core,
+    probability_seek_core, real_options_core, scenarios_core, schema_core, sensitivity_core,
+    simulate_core, tornado_core, validate_core, variance_core, SeekGoal, SimulateOptions,
 };
 use mollendorff_forge::cli::{
     commands::render, commands::report_core, ReportFormat, ReportOptions,
@@ -159,9 +159,15 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
         "model" => parse_model(main)
             .map(|model| structure(&model))
             .map_err(fail),
-        // Results are never written back: there is no file to write to
+        // Results are never written back: there is no file to write to.
+        // `plan`: an uncertain model at its plan figures (ADR-076)
         "calculate" => {
-            to_value(calculate_core(main, true, opt_str(args, "scenario")?).map_err(fail)?)
+            let scenario = opt_str(args, "scenario")?;
+            to_value(if opt_bool(args, "plan")? {
+                calculate_plan_core(main, scenario).map_err(fail)?
+            } else {
+                calculate_core(main, true, scenario).map_err(fail)?
+            })
         },
         "audit" => to_value(audit_core(main, str_arg(args, "variable")?).map_err(fail)?),
         "scenarios" => {
@@ -460,6 +466,15 @@ fn opt_f64(args: &Map<String, Value>, key: &str) -> Result<Option<f64>, String> 
     }
 }
 
+fn opt_bool(args: &Map<String, Value>, key: &str) -> Result<bool, String> {
+    match args.get(key) {
+        None | Some(Value::Null) => Ok(false),
+        Some(v) => v
+            .as_bool()
+            .ok_or_else(|| format!("'{key}' must be true or false")),
+    }
+}
+
 fn opt_u64(args: &Map<String, Value>, key: &str) -> Result<Option<u64>, String> {
     match args.get(key) {
         None | Some(Value::Null) => Ok(None),
@@ -702,6 +717,26 @@ mod tests {
                 -16_943.27,
                 0.005,
             );
+        }
+
+        /// The simulation's model at plan is the plan: every uncertain input at
+        /// its value:, and the year at the plan's profit (ADR-076)
+        #[test]
+        fn bagel_simulate_at_plan_is_the_plan() {
+            let plan = case("calculate bagel simulate at plan");
+            close(number(&plan, "/scalars/year.profit"), 786.32, 0.005);
+            let simulated = case("simulate bagel");
+            let inputs = simulated["monte_carlo_results"]["inputs"]
+                .as_object()
+                .unwrap();
+            assert_eq!(plan["at_plan"].as_object().unwrap().len(), inputs.len());
+            for (name, input) in inputs {
+                close(
+                    number(&plan, &format!("/at_plan/{name}")),
+                    number(input, "/plan"),
+                    0.0,
+                );
+            }
         }
 
         #[test]

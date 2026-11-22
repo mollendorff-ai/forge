@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::cli::commands::results::{AuditResult, CalculationResult, ValidationResult};
-use crate::cli::{audit_core, calculate_core, validate_core};
+use crate::cli::{audit_core, calculate_core, calculate_plan_core, validate_core};
 use crate::cli::{export as cli_export, import as cli_import, Console};
 use crate::error::ForgeError;
 use crate::inline_model::resolve_model_input;
@@ -242,6 +242,9 @@ pub struct CalculateRequest {
     pub dry_run: bool,
     /// Scenario to apply
     pub scenario: Option<String>,
+    /// Each uncertain input at its plan figure (ADR-076); never writes
+    #[serde(default)]
+    pub plan: bool,
 }
 
 /// Calculate response
@@ -265,11 +268,15 @@ pub async fn calculate(
     Json(req): Json<CalculateRequest>,
 ) -> impl IntoResponse {
     let file_path = req.source.label();
-    let dry_run = req.dry_run;
+    let dry_run = req.dry_run || req.plan;
     let is_inline = req.source.content.is_some();
     let outcome = req.source.resolve(&state).and_then(|(path, _tmp)| {
-        let result = calculate_core(&path, dry_run, req.scenario.as_deref())
-            .map_err(|e| format!("Error: {e}"))?;
+        let result = if req.plan {
+            calculate_plan_core(&path, req.scenario.as_deref())
+        } else {
+            calculate_core(&path, dry_run, req.scenario.as_deref())
+        }
+        .map_err(|e| format!("Error: {e}"))?;
         let content = if is_inline && !dry_run {
             std::fs::read_to_string(&path).ok()
         } else {
@@ -842,12 +849,52 @@ mod tests {
             },
             dry_run: true,
             scenario: None,
+            plan: false,
         };
 
         let response = calculate(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    /// `plan`: the simulation's model at its plan figures, written nowhere
+    #[tokio::test]
+    async fn the_calculate_handler_calculates_an_uncertain_model_at_plan() {
+        use axum::response::IntoResponse;
+        let request = |plan: bool| CalculateRequest {
+            source: ModelSource {
+                file_path: Some("examples/bagel/bagel_simulate.yaml".to_string()),
+                ..Default::default()
+            },
+            dry_run: false,
+            scenario: None,
+            plan,
+        };
+        let body = |response: axum::response::Response| async move {
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()
+        };
+        let at_plan = body(
+            calculate(no_root(), Json(request(true)))
+                .await
+                .into_response(),
+        )
+        .await;
+        let profit = at_plan["data"]["result"]["scalars"]["year.profit"]
+            .as_f64()
+            .unwrap();
+        assert!((profit - 786.320_361_7).abs() < 1e-6, "{at_plan}");
+        assert_eq!(at_plan["data"]["dry_run"], true, "{at_plan}");
+        let refused = body(
+            calculate(no_root(), Json(request(false)))
+                .await
+                .into_response(),
+        )
+        .await;
+        assert!(refused.to_string().contains("--plan"), "{refused}");
     }
 
     #[tokio::test]
@@ -861,6 +908,7 @@ mod tests {
             },
             dry_run: true,
             scenario: None,
+            plan: false,
         };
 
         let response = calculate(no_root(), Json(req)).await;
