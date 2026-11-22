@@ -236,6 +236,50 @@ results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 
 *Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): the inspection game's one mixed equilibrium (the AI cheats a third of the time, the human audits a third of the time), each side's indifference shown by hand; with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third, explained as each side's mix being set by the other side's payoffs; in the tournament grim trigger first at 2.596 a round, tit for tat second at 2.448, grim, tit for tat and always defect collectively stable; tit for tat against always defect worked out by hand as 0.995 (and always defect's 1.020), as the match table says. It wrote one copy, `inspection-penalty8.yaml`. No command failed; about 16 s of commands. The only question it had was the folder: it ran from `forge-examples/`, which the prompt now says.*
 
+## 7. A price war: games from the model's own numbers
+
+The games of prompt 6, built from a real plan: the bagel shop's margins become the payoffs, played once, month after month, and across a city of shops.
+
+```text
+Use Forge, the financial-modelling engine from Möllendorff AI
+(https://github.com/mollendorff-ai/forge; the crate is mollendorff-forge).
+Do not build it from source; install it with:
+
+  curl -fsSL https://raw.githubusercontent.com/mollendorff-ai/forge/main/install.sh | sh -s -- --examples
+
+The bagel shop again: forge-examples/bagel/price_war.yaml, a price war with
+the shop across the street. Run the commands from forge-examples/. Use
+`forge game --help` and `forge <command> --help` when you need the options.
+
+1. `forge calculate bagel/price_war.yaml --dry-run`, then
+   `forge game bagel/price_war.yaml`: played once, should Bagel Lune hold
+   $16 a dozen or cut to $14, and what does that cost each shop a month?
+   Show which formulas the four payoffs come from.
+2. In the same output, the tournament (`rivalry`): month after month, who
+   earns most, who is "collectively stable", and why are those not the same
+   strategies? Check one cell yourself, by hand: grim trigger against the
+   discounter, with a 0.95 chance each month that both shops are still open.
+3. The dynamics: if a tenth of the city's bagel shops cut today and owners
+   copy whoever earns more, where is the city in two years?
+4. Run it again with `--scenario loyal_regulars` and `--scenario lease_ending`.
+   What changes, and what would you tell the owner to do in each case?
+
+Explain everything in plain words for the owner.
+
+At the end, print every YAML file you wrote or changed, in full, each in its
+own code block with its file name, so I can open it in Forge Studio. If you
+changed none, say so.
+
+After this I will keep asking you questions about this model and what-ifs;
+answer from the model and Forge itself, and use `forge --help` and
+`forge <command> --help` for anything else Forge can do.
+
+If you cannot run commands here, say so plainly and do not invent any
+results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
+```
+
+*Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): played once, cutting dominates and both shops lose 2,300 a month against both holding, with the four payoffs traced to their formulas (food 2.56 a dozen, margins 13.02 and 11.08); in the tournament the discounter earns most (21,065) by feeding on the shops that always hold or forgive, while tit for tat, grim trigger and the discounter are collectively stable, the threshold 0.640; grim trigger against the discounter worked out by hand as 0.05 x 12,893.63 + 0.95 x 19,188.94 = 18,874.17, as Forge's cell; across the city 99.1% of the shops cut in two years; with loyal regulars holding dominates and the cutters fall to 2.4%; with the lease ending (0.6) only the tournament changes and the discounter is the only stable strategy. No file changed, no command failed, under 5 s of commands. It noticed that the example's comment said grim trigger "cannot be beaten by a discounter" when it is beaten head to head; the comment now says collectively stable.*
+
 ## Writing your own
 
 What makes these prompts work, and what to keep in one of your own:

@@ -14,9 +14,11 @@ _forge_version: "5.5.0"
 # each earns 2,300 a month less than if both had held: a prisoner's dilemma
 # the plan's own numbers make. Played month after month (rivalry), a shop
 # that matches the rival's last price (tit for tat), or holds until the
-# first cut and then cuts for good (grim trigger), cannot be beaten by a
-# discounter, as long as both shops are likely to be there next month:
-# continuation above (T - R) / (T - P), 0.640 here.
+# first cut and then cuts for good (grim trigger), is collectively stable: a
+# street of such shops is not invaded by a discounter, who wins the first
+# month and then earns the low price, though it still beats each of them
+# head to head. That holds as long as both shops are likely to be there
+# next month: continuation above (T - R) / (T - P), 0.640 here.
 #
 # And across the city? Say a tenth of Montreal's bagel shops already sell at
 # $14, and each month a shop's owner is likelier to copy the prices of shops
