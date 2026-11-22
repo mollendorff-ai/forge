@@ -1,0 +1,76 @@
+_forge_version: "5.5.0"
+# Bagel Lune: the street's winter festival (fictional).
+# Run in the examples folder: forge game bagel/street_fund.yaml
+#   forge game bagel/street_fund.yaml --scenario borough_matches
+#
+# Five food shops on the street, Bagel Lune among them, are asked to pay
+# 1,000 each into a December festival: lights, music and a weekend market.
+# Each 1,000 paid in brings 8 more dozen a day to the street for the month,
+# sold by all five shops alike, whoever paid. A dozen earns Bagel Lune's
+# margin at $16 (from bagel.yaml and costs.yaml), and the other shops are
+# assumed to earn the same. So each 1,000 brings the street 3,125.73 of
+# margin, 625.15 to each shop: a shop that pays in gets back 625.15 of its
+# own 1,000, whatever the others do. Keeping the 1,000 pays 374.85 more in
+# every case, so no one pays and there is no festival, although if all five
+# paid each would be 2,125.73 better off: a public goods game of five
+# players (ADR-073), written as one payoff for each choice over how many of
+# the other four pay (street.others.pay).
+#
+# If the borough matches every dollar, each 1,000 brings twice the lift, a
+# shop's own 1,000 earns it 1,250.29, and everyone pays. A lift of 12.8
+# dozen a day for each 1,000 is where paying starts to pay.
+
+_includes:
+  - file: bagel.yaml
+    as: plan
+  - file: costs.yaml
+    as: costs
+
+festival:
+  shops: 5                  # on the street, Bagel Lune included
+  fee: 1000                 # what each shop is asked to pay in
+  lift_per_fee: 8           # more dozen a day on the street for each fee paid
+  match: 1                  # the borough's match: 2 doubles each fee
+  days:
+    formula: "=@plan.assumptions.open_days_per_month"
+  food_per_dozen:
+    formula: "=12 / @plan.assumptions.bagels_per_kg_flour * @costs.ingredients.flour_per_kg + 12 * @plan.assumptions.sesame_grams_per_bagel / 1000 * @costs.ingredients.sesame_per_kg + @costs.ingredients.honey_water_per_dozen"
+  margin:
+    formula: "=@plan.assumptions.price_per_dozen * (1 - @plan.assumptions.card_fee_rate) - food_per_dozen"
+  # What one fee paid in brings each of the five shops over the month
+  share_of_a_fee:
+    formula: "=lift_per_fee * match * days * margin / shops"
+
+games:
+  street:
+    description: Pay into the festival, or keep the money
+    players: [lune, deli, cafe, fromagerie, fruiterer]
+    strategies: [pay, keep]
+    symmetric: true
+    payoffs:                        # a shop's gain over the month, for its own choice
+      pay: =festival.share_of_a_fee * (street.others.pay + 1) - festival.fee
+      keep: =festival.share_of_a_fee * street.others.pay
+
+outcome:
+  each_gets:
+    formula: "=street.equilibrium_1.lune.payoff"
+    notes: What each shop gains in the equilibrium (0 while no one pays)
+  if_all_paid:
+    formula: "=festival.shops * festival.share_of_a_fee - festival.fee"
+    notes: What each would gain if all five paid in (2,125.73 at a lift of 8)
+  keeping_pays_more_by:
+    formula: "=festival.fee - festival.share_of_a_fee"
+    notes: What keeping the 1,000 gains a shop over paying, whatever the others do (374.85)
+  lift_that_pays:
+    formula: "=festival.fee * festival.shops / (festival.match * festival.days * festival.margin)"
+    notes: The lift per fee, in dozen a day, above which paying in pays a shop on its own (12.80)
+
+scenarios:
+  borough_matches:
+    description: The borough matches every dollar paid in; everyone pays
+    scalars:
+      festival.match: 2
+  bigger_lift:
+    description: A festival that brings 16 dozen a day for each fee; everyone pays
+    scalars:
+      festival.lift_per_fee: 16

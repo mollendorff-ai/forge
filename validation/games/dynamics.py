@@ -191,6 +191,23 @@ def examples():
     yield "stag-hunt.yaml", "stag_hunt", None, 2, ["stag", "hare"], sh(0), [1, 0]
     yield "stag-hunt.yaml", "stag_hunt", "few_stags", 2, ["stag", "hare"], sh(0), [0, 1]
     yield "stag-hunt.yaml", "stag_hunt", "c3", 2, ["stag", "hare"], sh(F(3, 2)), [1, 0]
+    # The bagel's price war across the city (examples/bagel/price_war.yaml):
+    # a month's margins from the plan's numbers, exactly; no end by hand
+    for scenario, share in ((None, F("0.70")), ("loyal_regulars", F("0.55"))):
+        yield "../bagel/price_war.yaml", "price_war", scenario, 2, ["hold", "cut"], price_war(share), None
+
+
+def price_war(share):
+    """R, S, T and P of the bagel's price war, as its file works them out."""
+    food = F(12, 9) * F("1.15") + F(12 * 6, 1000) * F("9.40") + F("0.35")
+    hold, cut = 16 * F("0.974") - food, 14 * F("0.974") - food
+    r, s = F(1, 2) * 110 * hold * 30, (1 - share) * 110 * hold * 30
+    t, p = share * 110 * cut * 30, F(1, 2) * F("115.5") * cut * 30
+
+    def pay(own, others):
+        holds, cuts = others
+        return (r * holds + s * cuts) if own == 0 else (t * holds + p * cuts)
+    return pay
 
 
 def cases(seed, count):

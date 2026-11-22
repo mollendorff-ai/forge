@@ -17,8 +17,8 @@ const examples = join(here, "..", "examples");
 // screen test compares the page's numbers with it.
 export const SETS = [
   { id: "bagel", title: "Bagel Lune", case: "calculate bagel", dir: "bagel", main: "bagel.yaml",
-    blurb: "A bagel shop's first year: seasonal months, costs in an included file, scenarios, a tornado, the year's actuals, an uncertain version to simulate, and a price war with the shop across the street.",
-    files: ["bagel.yaml", "costs.yaml", "actual.yaml", "bagel_simulate.yaml", "costs_risk.yaml", "second_shop.yaml", "wait_option.yaml", "first_month.yaml", "slow_week.yaml", "price_war.yaml"] },
+    blurb: "A bagel shop's first year: seasonal months, costs in an included file, scenarios, a tornado, the year's actuals, an uncertain version to simulate, a price war with the shop across the street that spreads through the city, and the street's five shops deciding whether to fund a festival.",
+    files: ["bagel.yaml", "costs.yaml", "actual.yaml", "bagel_simulate.yaml", "costs_risk.yaml", "second_shop.yaml", "wait_option.yaml", "first_month.yaml", "slow_week.yaml", "price_war.yaml", "street_fund.yaml"] },
   { id: "mortgage", title: "Canadian mortgage", case: "calculate mortgage", dir: "mortgage", main: "mortgage.yaml",
     blurb: "450,000 at 4.79% over 25 years, and what more a month saves: a 300-month schedule where each month opens with the last one's balance.",
     files: ["mortgage.yaml"] },

@@ -1082,6 +1082,61 @@ scenarios:
         );
     }
 
+    /// The games of many players and the dynamics (ADR-073), by path and as
+    /// text with their includes: the bagel's price war across the city and
+    /// the street's festival of five shops (worked out by hand in
+    /// src/cli/commands/game.rs), and the volunteer's dilemma of five
+    /// players, 1 - 0.4^(1/4) (Python 3.12)
+    #[test]
+    fn game_reports_games_of_five_players_and_the_dynamics() {
+        let server = ForgeMcpServer::new();
+        let includes = [("plan", "bagel.yaml"), ("costs", "costs.yaml")];
+        for inline in [false, true] {
+            let ask = |(file_path, content, includes): Source| {
+                json(&ok_text(server.game(Parameters(GameRequest {
+                    file_path,
+                    content,
+                    includes,
+                    game: None,
+                    scenario: None,
+                }))))
+            };
+            let war = ask(bagel_source(inline, "price_war.yaml", &includes));
+            let path = war[0]["dynamics"]["path"].as_array().unwrap();
+            assert_eq!(path.len(), 25, "inline {inline}");
+            assert_eq!(path[0]["shares"]["cut"].as_f64(), Some(0.1));
+            let cut = path[24]["shares"]["cut"].as_f64().unwrap();
+            assert!(close(cut, 0.991_336_378_216_362_2, 1e-12), "{cut}");
+
+            let street = ask(bagel_source(inline, "street_fund.yaml", &includes));
+            assert_eq!(street[0]["players"].as_array().unwrap().len(), 5);
+            assert_eq!(street[0]["cells"].as_array().unwrap().len(), 32);
+            assert_eq!(street[0]["symmetric_searched"], true);
+            assert_eq!(street[0]["equilibria"].as_array().unwrap().len(), 1);
+            assert_eq!(
+                street[0]["equilibria"][0]["players"]["deli"]["strategies"]["keep"],
+                1.0
+            );
+            assert_eq!(street[0]["equilibria"][0]["stable"], true);
+            let pay = street[0]["even_mix"]["lune"]["pay"].as_f64().unwrap();
+            assert!(close(pay, 875.4368, 1e-9), "{pay}");
+
+            let dilemma = ask(example_source(
+                inline,
+                "games",
+                "volunteers-dilemma.yaml",
+                &[],
+            ));
+            let mixed = &dilemma[0]["equilibria"][5];
+            assert_eq!(mixed["kind"], "mixed");
+            assert_eq!(mixed["stable"], true);
+            let share = mixed["players"]["a5"]["strategies"]["volunteer"]
+                .as_f64()
+                .unwrap();
+            assert!(close(share, 0.204_729_271_232_949, 1e-12), "{share}");
+        }
+    }
+
     /// What every tool that reads a model says when it is given none
     const ASKS: &str = "Either file_path or content is required";
 
