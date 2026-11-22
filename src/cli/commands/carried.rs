@@ -118,7 +118,25 @@ pub(super) fn print_import_formulas(
 
 #[cfg(test)]
 mod tests {
-    use super::has_comment;
+    use super::{has_comment, print_import_formulas, yaml_only};
+    use crate::cli::console::capture;
+    use crate::types::ParsedModel;
+
+    /// A file that cannot be read has nothing to say: the export reports it.
+    #[test]
+    fn a_file_that_cannot_be_read_carries_nothing() {
+        assert_eq!(
+            yaml_only(std::path::Path::new("no-such-folder/m.yaml")),
+            Vec::<String>::new()
+        );
+    }
+
+    /// A model with no formula has none to say were kept.
+    #[test]
+    fn a_model_without_formulas_says_nothing_of_kept_formulas() {
+        let ((), printed) = capture(|c| print_import_formulas(c, &ParsedModel::new(), &[]));
+        assert_eq!(printed.out, "");
+    }
 
     #[test]
     fn a_hash_in_quotes_or_a_word_is_not_a_comment() {
