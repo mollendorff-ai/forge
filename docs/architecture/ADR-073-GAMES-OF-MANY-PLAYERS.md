@@ -1,6 +1,6 @@
 # ADR-073: Games of Many Players, and Strategies That Spread
 
-**Status:** Accepted (2026-11-21). Questions 1 and 2 as recommended; questions 3 and 4 decided after a second look, as written. Built: steps 1 to 5 (step 4 with `polycool` in place of `roots`: see the note under question 4; step 5 with the two changes in the note under question 3). Not built: Studio's view of the path and of a game of many players
+**Status:** Accepted (2026-11-21). Questions 1 and 2 as recommended; questions 3 and 4 decided after a second look, as written. Built: steps 1 to 5 (step 4 with `polycool` in place of `roots`: see the note under question 4; step 5 with the two changes in the note under question 3). Studio's view of the path and of a game of many players built 2026-11-22 (the note under step 5)
 **Date:** 2026-11-21
 **Decided by:** the maintainer (2026-11-21), who asked of questions 3 and 4 whether each is good for people who use Forge for game theory or is scope creep, and whether a library does it; the analysis is Claude's
 **For:** roadmap T2-GAME-THEORY-MORE. It extends ADR-068 and changes none of its decisions
@@ -131,6 +131,7 @@ This is the same *g* as in question 3: its roots in (0, 1) are the dynamics' res
 3. **`validation/games`**: the public goods game and seeded symmetric games of three to five players with two or three strategies, in the count form, compared with Gambit's `enumpure_solve` on a table the suite expands itself.
 4. **The population function and its equilibria** (question 4): *g*, its roots by `polycool` (`src/games/population.rs`), the stability, the degenerate case, the volunteer's dilemma example, and the checks above.
 5. **The `dynamics:` key** (question 3): the equation, its results, `forge game` and its output, Studio's view of the path, the hawk-dove and stag-hunt examples, and `egttools` in `validation/games`. *Built 2026-11-21* (`examples/games/hawk-dove.yaml`, and dynamics in `examples/games/stag-hunt.yaml`), except Studio's view of the path, which waits for Studio's view of games of many players.
+   - **Note, 2026-11-22: Studio's view, built.** A game of three or more players whose players are alike is drawn by count: a row for a player's own strategy, a column for each split of the others, each number the payoff every player has in Forge's cells in that place (the page checks they agree, and draws the list of profiles when they do not). The pure equilibria are listed by split with their number of profiles, so the public goods game at r = n lists 6 lines, not 32. The dynamics are a chart of the shares by generation (at most 400 points a line), the last shares and average payoff beside it, a generation's shares under the pointer, and the path as a table of about 21 generations. Nothing is worked out in the page (`studio/tests/no-engine.mjs`); `studio/tests/games.mjs` checks each number against the `game` tool's report.
 6. **Docs, each step:** docs/FEATURES.md, the game section of docs/cli, the CHANGELOG, the roadmap, and a dated note in ADR-068's "What is left out".
 
 ## Consequences

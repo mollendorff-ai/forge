@@ -9,11 +9,22 @@
 // - an input typed on a card moves the games: 0.55 for the share a cheaper
 //   shop takes is the loyal_regulars scenario, and gives its equilibrium;
 // - the Tools tab runs forge_game on the open model;
-// - in the Games set (examples/games), every game of each of its seven files,
+// - in the Games set (examples/games), every game of each of its ten files,
 //   opened from the Files tab, is Forge's: each cell, each equilibrium with
-//   its chances, each ranking, stable list and match; the stag hunt's scenario
-//   c3 and a cost typed on its card move the mixed equilibrium as Forge does,
-//   from 3/4 stag to (3 - c) / 4;
+//   its chances and its stability, each ranking, stable list and match; the
+//   stag hunt's scenario c3 and a cost typed on its card move the mixed
+//   equilibrium as Forge does, from 3/4 stag to (3 - c) / 4;
+// - a game of five players alike (the public goods game, the volunteer's
+//   dilemma) is drawn by count (ADR-073), not as its 32 profiles: each number
+//   is every player's payoff in Forge's cells with that strategy and that
+//   split of the others, the cells marked are those of Forge's pure
+//   equilibria, and the equilibria are listed by split with Forge's count of
+//   profiles and payoffs; the public goods game's scenario break_even, where
+//   all 32 profiles are equilibria, lists them as 6 splits;
+// - the dynamics (ADR-073): the shares and the average payoff after the last
+//   generation are Forge's; hawks end at 2/3 in hawk-dove, the stag hunt ends
+//   all stag from 0.8 and all hare in its scenario few_stags; pointing at the
+//   chart shows a generation's shares from Forge's path;
 // - the acquisition's sealed bids (deal_game.yaml) are Forge's, with both
 //   bidding 30% and both 40% marked, and only 30% in its scenario.
 //
@@ -73,6 +84,16 @@ const shown = (name) => page.evaluate((name) => {
     ranking: [...card.querySelectorAll("[data-standing]")].map((tr) => ({ player: tr.dataset.standing, score: tr.dataset.score })),
     stable: card.querySelector("[data-stable]") ? card.querySelector("[data-stable]").textContent : null,
     matches: Object.fromEntries([...card.querySelectorAll("[data-match]")].map((td) => [td.dataset.match, td.dataset.pay])),
+    stableEq: [...card.querySelectorAll("[data-equilibrium]")].map((li) => { const s = li.querySelector("[data-stable-eq]"); return s ? s.dataset.stableEq === "1" : null; }),
+    counts: [...card.querySelectorAll("[data-count]")].map((td) => ({ key: td.dataset.count, pay: td.dataset.pay, eq: td.dataset.eq === "1" })),
+    splits: [...card.querySelectorAll("[data-split]")].map((li) => ({ split: li.dataset.split, profiles: Number(li.dataset.profiles),
+      gets: Object.fromEntries([...li.querySelectorAll("[data-gets]")].map((x) => [x.dataset.gets, x.dataset.payoff])) })),
+    mixed: [...card.querySelectorAll('[data-equilibrium="mixed"]')].map((li) => ({ chances: li.dataset.chances, payoff: li.dataset.payoff })),
+    dynamics: card.querySelector("[data-dynamics]") ? {
+      generations: card.querySelector("[data-dynamics]").dataset.generations,
+      payoff: card.querySelector("[data-dynamics]").dataset.payoff,
+      shares: Object.fromEntries([...card.querySelectorAll("[data-share]")].map((x) => [x.dataset.share, x.dataset.value])),
+    } : null,
   };
 }, name);
 
@@ -98,6 +119,16 @@ function compare(label, want, got) {
     }
     return;
   }
+  if (want.dynamics) {
+    const last = want.dynamics.path[want.dynamics.path.length - 1];
+    if (!got.dynamics) fail(`${label}: Forge has dynamics, the card draws none`);
+    else {
+      if (got.dynamics.generations !== String(want.dynamics.generations)) fail(`${label}: ${got.dynamics.generations} generations on screen, Forge ran ${want.dynamics.generations}`);
+      if (got.dynamics.payoff !== String(last.payoff)) fail(`${label}: the last average payoff on screen is ${got.dynamics.payoff}, Forge's is ${last.payoff}`);
+      for (const [s, v] of Object.entries(last.shares)) if (got.dynamics.shares[s] !== String(v)) fail(`${label}: ${s}'s last share is ${got.dynamics.shares[s]} on screen, Forge's is ${v}`);
+    }
+  } else if (got.dynamics) fail(`${label}: the card draws dynamics Forge has not run`);
+  if (got.counts.length) { compareCounts(label, want, got); return; }
   const eqCells = new Set(pureCells(want));
   if (got.cells.length !== want.cells.length) fail(`${label}: ${got.cells.length} cells on screen, Forge has ${want.cells.length}`);
   for (const c of want.cells) {
@@ -112,6 +143,57 @@ function compare(label, want, got) {
       const on = got.equilibria[k] && got.equilibria[k][p];
       if (on !== JSON.stringify(e.players[p].strategies)) fail(`${label}: equilibrium ${k + 1} has ${p} playing ${on} on screen, Forge gives ${JSON.stringify(e.players[p].strategies)}`);
     }
+    if (got.stableEq[k] !== (e.stable === undefined ? null : e.stable)) fail(`${label}: equilibrium ${k + 1} is shown ${got.stableEq[k] === null ? "without a stability" : got.stableEq[k] ? "stable" : "unstable"}, Forge says ${e.stable}`);
+  });
+}
+
+// A game of players alike, drawn by count, against Forge's cells: the test
+// files each cell's payoffs under (own strategy | how many others play each)
+function compareCounts(label, want, got) {
+  const strategies = want.strategies[want.players[0]];
+  const counts = (list) => strategies.map((s) => list.filter((x) => x === s).length);
+  const expect = new Map();
+  for (const c of want.cells) c.strategies.forEach((own, i) => {
+    const key = `${own}|${counts(c.strategies.filter((_, j) => j !== i)).join(",")}`;
+    if (!expect.has(key)) expect.set(key, new Set());
+    expect.get(key).add(String(c.payoffs[i]));
+  });
+  if (got.cells.length) fail(`${label}: drawn by count and also as ${got.cells.length} profiles`);
+  if (got.counts.length !== expect.size) fail(`${label}: ${got.counts.length} numbers on screen, Forge's cells give ${expect.size}`);
+  const marked = new Set();
+  const groups = new Map();
+  for (const e of want.equilibria.filter((x) => x.kind === "pure")) {
+    const all = counts(want.players.map((p) => Object.entries(e.players[p].strategies).find(([, x]) => x === 1)[0]));
+    strategies.forEach((s, i) => { if (all[i]) marked.add(`${s}|${all.map((n, j) => n - (j === i ? 1 : 0)).join(",")}`); });
+    const g = groups.get(all.join(",")) || { profiles: 0, gets: {} };
+    g.profiles += 1;
+    for (const p of want.players) {
+      const s = Object.entries(e.players[p].strategies).find(([, x]) => x === 1)[0];
+      if (g.gets[s] !== undefined && g.gets[s] !== String(e.players[p].payoff)) fail(`${label}: players who play ${s} get different payoffs in one split`);
+      g.gets[s] = String(e.players[p].payoff);
+    }
+    groups.set(all.join(","), g);
+  }
+  for (const [key, pays] of expect) {
+    const on = got.counts.find((x) => x.key === key);
+    if (pays.size !== 1) fail(`${label}: Forge's cells give ${key} the payoffs ${[...pays]}, so its players are not alike`);
+    if (!on) { fail(`${label}: no number for ${key} on screen`); continue; }
+    if (!pays.has(on.pay)) fail(`${label}: ${key} shows ${on.pay}, Forge's cells give ${[...pays]}`);
+    if (on.eq !== marked.has(key)) fail(`${label}: ${key} is ${on.eq ? "" : "not "}marked as played in an equilibrium, against Forge`);
+  }
+  if (got.splits.length !== groups.size) fail(`${label}: ${got.splits.length} splits listed, Forge's pure equilibria make ${groups.size}`);
+  for (const [split, g] of groups) {
+    const on = got.splits.find((x) => x.split === split);
+    if (!on) { fail(`${label}: the split ${split} is not listed`); continue; }
+    if (on.profiles !== g.profiles) fail(`${label}: the split ${split} lists ${on.profiles} profiles, Forge has ${g.profiles}`);
+    if (JSON.stringify(on.gets) !== JSON.stringify(g.gets)) fail(`${label}: the split ${split} shows ${JSON.stringify(on.gets)}, Forge gives ${JSON.stringify(g.gets)}`);
+  }
+  const mixed = want.equilibria.filter((x) => x.kind !== "pure");
+  if (got.mixed.length !== mixed.length) fail(`${label}: ${got.mixed.length} mixed equilibria on screen, Forge has ${mixed.length}`);
+  mixed.forEach((e, k) => {
+    const play = e.players[want.players[0]];
+    for (const p of want.players) if (JSON.stringify(e.players[p].strategies) !== JSON.stringify(play.strategies)) fail(`${label}: Forge's mixed equilibrium ${k + 1} is not symmetric`);
+    if (!got.mixed[k] || got.mixed[k].chances !== JSON.stringify(play.strategies) || got.mixed[k].payoff !== String(play.payoff)) fail(`${label}: mixed equilibrium ${k + 1} shows ${JSON.stringify(got.mixed[k])}, Forge gives ${JSON.stringify(play)}`);
   });
 }
 
@@ -227,6 +309,60 @@ for (const file of files) {
     const listed = await p.$$eval('[data-results="stag_hunt"] [data-scalar]', (rows) => rows.map((r) => r.dataset.scalar));
     if (!listed.includes("stag_hunt.even_mix.me.stag") || !listed.includes("stag_hunt.equilibrium_3.me.stag")) fail(`the stag hunt's card lists ${listed.length} results: ${listed.slice(0, 5)}`);
   }
+  if (file === "stag-hunt.yaml") {
+    // The dynamics: from 0.8 every hunter goes for the stag; from 0.7, the
+    // scenario few_stags, every hunter hunts hare (by hand and by egttools)
+    const p2 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    p2.on("pageerror", (e) => fail(`stag-hunt.yaml (dynamics): ${e.message}`));
+    page = p2;
+    await p2.goto(`${base}/?example=games`);
+    await ready(p2);
+    await p2.waitForSelector('[data-dynamics="stag_hunt"]');
+    await drawn(p2);
+    const all = await checkAll("stag-hunt.yaml (dynamics)", "games", file, null);
+    const end = (g) => g.stag_hunt.dynamics.path[g.stag_hunt.dynamics.path.length - 1].shares.stag;
+    if (!(end(all) > 1 - 1e-9)) fail(`stag hunt from 0.8: Forge ends with stag ${end(all)}, not all stag`);
+    const before = await generation(p2);
+    await p2.click('[data-scn="few_stags"]');
+    await settle(p2, before);
+    await drawn(p2);
+    const few = await checkAll("stag-hunt.yaml (few_stags)", "games", file, "few_stags");
+    if (end(few) !== 0) fail(`stag hunt from 0.7: Forge ends with stag ${end(few)}, not all hare`);
+    const shownShare = (await shown("stag_hunt")).dynamics.shares.stag;
+    if (shownShare !== "0") fail(`stag hunt from 0.7: the screen ends with stag ${shownShare}, not 0`);
+    await p2.close();
+    page = p;
+  }
+  if (file === "hawk-dove.yaml") {
+    // Hawks end at V / C = 2/3, and the chart shows a generation from the path
+    const hd = games.hawk_dove;
+    const last = hd && hd.dynamics.path[hd.dynamics.path.length - 1].shares.hawk;
+    if (!(Math.abs(last - 2 / 3) < 1e-9)) fail(`hawk-dove: Forge ends with hawk ${last}, not 2/3`);
+    const chart = p.locator('[data-dynamics="hawk_dove"] .path-chart');
+    await chart.scrollIntoViewIfNeeded();
+    const box = await chart.boundingBox();
+    await p.mouse.move(box.x + box.width * 0.6, box.y + box.height / 2);
+    const tip = await p.$eval('[data-dynamics="hawk_dove"] .path-tip', (el) => ({ gen: Number(el.dataset.gen), shares: el.dataset.shares, text: el.textContent }));
+    const at = hd && hd.dynamics.path[tip.gen];
+    if (!at || !(tip.gen > 0 && tip.gen < hd.dynamics.generations)) fail(`pointing at 60% of hawk-dove's chart shows generation ${tip.gen}`);
+    else if (tip.shares !== JSON.stringify(at.shares) || !tip.text.startsWith(`Generation ${tip.gen}: hawk `)) fail(`pointing at hawk-dove's chart shows ${tip.shares} ("${tip.text}"), Forge's generation ${tip.gen} is ${JSON.stringify(at.shares)}`);
+  }
+  if (file === "public-goods.yaml") {
+    // At r = 5 all 32 profiles are equilibria: 6 splits on screen
+    const before = await generation(p);
+    await p.click('[data-scn="break_even"]');
+    await settle(p, before);
+    await drawn(p);
+    const even = await checkAll("public-goods.yaml (break_even)", "games", file, "break_even");
+    const got = await shown("pg");
+    if (even.pg && even.pg.equilibria.length !== 32) fail(`public goods at r = 5: Forge has ${even.pg.equilibria.length} equilibria, not 32`);
+    if (got.splits.length !== 6) fail(`public goods at r = 5: ${got.splits.length} splits on screen, not 6`);
+  }
+  if (file === "public-goods.yaml" || file === "volunteers-dilemma.yaml") {
+    const name = file === "public-goods.yaml" ? "pg" : "vd";
+    const got = await shown(name);
+    if (!got || got.cells.length || got.counts.length !== 10) fail(`${file}: ${name} is not drawn by count (${got && got.counts.length} numbers, ${got && got.cells.length} profiles)`);
+  }
   await p.close();
 }
 if (gamesSeen < files.length) fail(`only ${gamesSeen} games in the ${files.length} files of the Games set`);
@@ -267,4 +403,4 @@ if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log(`Games: the bagel's price war shows Forge's payoffs, equilibria, ranking, stable players and matches in the plan and both scenarios, an input typed on a card moves them, and the Tools tab runs forge_game; the ${gamesSeen} games of the Games set's ${files.length} files are Forge's, and the stag hunt's scenario and a typed cost move its mixed equilibrium.`);
+console.log(`Games: the bagel's price war shows Forge's payoffs, equilibria, ranking, stable players and matches in the plan and both scenarios, an input typed on a card moves them, and the Tools tab runs forge_game; the ${gamesSeen} games of the Games set's ${files.length} files are Forge's, the games of five players are drawn by count, the dynamics end where Forge's do (hawks at 2/3, the stag hunt all stag or all hare), and the stag hunt's scenario and a typed cost move its mixed equilibrium.`);

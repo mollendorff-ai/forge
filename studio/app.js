@@ -6,6 +6,7 @@
 import { call, start } from "./forge.js";
 import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
+import { tableCard, tournamentCard, pathHover } from "./games.js";
 import { scopeOf, namesFor, gameResults, functionsOf, suggest, apply, schemaOf, suggestKeys, formulaContext, suggestInFormula } from "./suggest.js";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -362,7 +363,6 @@ function updateValues() {
 // Every number here is in the answer of the `game` tool; the page only lays
 // them out. A cell's payoffs and an equilibrium's chances are also kept in
 // data- attributes, in full, for the screen test (tests/games.mjs).
-const pct = (p) => fmt(p, "", "%");
 function gameCards() {
   const names = S.structure.games || [];
   if (!names.length) return "";
@@ -388,51 +388,6 @@ function resultsList(game) {
     paths.map((p) => { const v = valueOf(p); return `<tr data-scalar="${esc(p)}" data-value="${esc(v === undefined || v === null ? "" : String(v))}"><th scope="row" class="mono">${esc(p)}</th><td>${esc(fmt(v))}</td></tr>`; }).join("") +
     `</tbody></table></details>`;
 }
-// The pure strategy a player plays in an equilibrium, or null in a mixed one
-const pureOf = (play) => { const on = Object.entries(play.strategies).find(([, p]) => p === 1); return on ? on[0] : null; };
-function tableCard(r) {
-  const key = (list) => list.join("\u0001");
-  const pure = new Set(r.equilibria.filter((e) => e.kind === "pure").map((e) => key(r.players.map((p) => pureOf(e.players[p])))));
-  const cellHtml = (c) => {
-    const eq = pure.has(key(c.strategies));
-    return `<td class="${eq ? "eq" : ""}" data-cell="${esc(c.strategies.join(","))}" data-pay="${c.payoffs.join(",")}"${eq ? ' data-eq="1"' : ""}>${c.payoffs.map((v) => `<span class="pay">${esc(fmt(v))}</span>`).join("")}${eq ? '<span class="eq-mark">equilibrium</span>' : ""}</td>`;
-  };
-  let h = `<div class="game-head"><b>${esc(r.game)}</b><span class="note">${esc(r.players.join(" vs "))}, played once</span></div>`;
-  if (r.players.length === 2) {
-    const [a, b] = r.players, cols = r.strategies[b];
-    h += `<div class="scroll-x"><table class="report payoffs"><thead><tr><th scope="col">${esc(a)} ╲ ${esc(b)}</th>${cols.map((c) => `<th scope="col">${esc(c)}</th>`).join("")}</tr></thead><tbody>` +
-      r.strategies[a].map((x) => `<tr><th scope="row">${esc(x)}</th>${cols.map((y) => cellHtml(r.cells.find((c) => c.strategies[0] === x && c.strategies[1] === y))).join("")}</tr>`).join("") +
-      `</tbody></table></div><p class="note">Each cell: what ${esc(a)} gets, and below it what ${esc(b)} gets.</p>`;
-  } else {
-    h += `<div class="scroll-x"><table class="report payoffs"><thead><tr>${r.players.map((p) => `<th scope="col">${esc(p)}</th>`).join("")}<th scope="col">payoffs</th></tr></thead><tbody>` +
-      r.cells.map((c) => `<tr>${c.strategies.map((x) => `<th scope="row">${esc(x)}</th>`).join("")}${cellHtml(c)}</tr>`).join("") +
-      `</tbody></table></div><p class="note">Payoffs in the order of the players.</p>`;
-  }
-  const n = r.equilibria.length;
-  h += `<p class="sub" style="margin-top:12px">${n} equilibri${n === 1 ? "um" : "a"}</p><ol class="eqs">` + r.equilibria.map((e, k) => `<li data-equilibrium="${k + 1}">${esc(e.kind)}: ${r.players.map((p) => {
-    const play = e.players[p], one = pureOf(play);
-    const how = one !== null ? one : Object.entries(play.strategies).filter(([, x]) => x > 0).map(([s, x]) => `${s} ${pct(x)}`).join(", ");
-    return `<span data-play="${esc(p)}" data-chances="${esc(JSON.stringify(play.strategies))}"><b>${esc(p)}</b> ${esc(how)} (gets ${esc(fmt(play.payoff))})</span>`;
-  }).join("; ")}</li>`).join("") + `</ol>`;
-  if (!r.mixed_searched) h += `<p class="note">With more than two players Forge lists the pure equilibria only.</p>`;
-  if (r.ties.length) h += `<p class="note">A tie makes the game degenerate: equilibria between those listed may be missing (${esc(r.ties.join("; "))}).</p>`;
-  if (r.dominated.length) h += `<p class="note" data-dominated>Strictly dominated, removed in this order: ${r.dominated.map((d) => `${esc(d.player)}'s ${esc(d.strategy)} (by ${esc(d.by)})`).join(", ")}.</p>`;
-  return h;
-}
-function tournamentCard(r) {
-  const length = r.rounds != null ? `${r.rounds} rounds a match` : `goes on after each round with chance ${fmt(r.continuation)}`;
-  let h = `<div class="game-head"><b>${esc(r.game)}</b><span class="note">${esc(r.round)} played again and again: ${esc(length)}${r.noise ? `, a move flipped with chance ${esc(fmt(r.noise))}` : ""}${r.self_play ? ", each also against itself" : ""}</span></div>`;
-  h += `<div class="scroll-x"><table class="report ranking"><thead><tr><th scope="col">player</th><th scope="col">rank</th><th scope="col">a round</th><th scope="col">cooperates</th></tr></thead><tbody>` +
-    r.ranking.map((s) => `<tr data-standing="${esc(s.player)}" data-score="${s.score}"><th scope="row">${esc(s.player)}<span class="plays">${esc(s.plays.replace(/_/g, " "))}</span></th><td>${s.rank}</td><td>${esc(fmt(s.score))}</td><td>${esc(pct(s.cooperation))}</td></tr>`).join("") +
-    `</tbody></table></div>`;
-  h += `<p class="note" data-stable>Collectively stable (nobody does better against it than it does against itself): ${r.stable.length ? esc(r.stable.join(", ")) : "none"}.</p>`;
-  // In the ranking's order (the object's keys come back sorted)
-  const names = r.ranking.map((s) => s.player);
-  h += `<p class="sub" style="margin-top:12px">a round, row against column</p><div class="scroll-x"><table class="report"><thead><tr><th scope="col"></th>${names.map((x) => `<th scope="col">${esc(x)}</th>`).join("")}</tr></thead><tbody>` +
-    names.map((a) => `<tr><th scope="row">${esc(a)}</th>${names.map((b) => `<td data-match="${esc(a)},${esc(b)}" data-pay="${r.matches[a][b]}">${esc(fmt(r.matches[a][b]))}</td>`).join("")}</tr>`).join("") + `</tbody></table></div>`;
-  return h;
-}
-
 let typing = 0;
 function setInput(path, value) {
   const { ns, group, name } = split(path);
@@ -450,6 +405,9 @@ function setInput(path, value) {
   clearTimeout(typing);
   typing = setTimeout(recalc, 120);
 }
+// The generation under the pointer on a game's dynamics chart
+$("#view-model").addEventListener("pointermove", pathHover);
+$("#view-model").addEventListener("pointerdown", pathHover);
 // A game's list of results stays open or shut while the games are drawn again
 $("#view-model").addEventListener("toggle", (e) => {
   const d = e.target.closest && e.target.closest("[data-results]");
