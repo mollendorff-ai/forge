@@ -117,7 +117,7 @@ Each ADR records one decision: the context, the options, what was decided and wh
 | [ADR-072](ADR-072-VALIDATOR-REVISITED.md) | jsonschema Checks Every Model Again | Accepted; built |
 | [ADR-073](ADR-073-GAMES-OF-MANY-PLAYERS.md) | Games of Many Players, and Strategies That Spread | Accepted; built: the count form, the symmetric mixed equilibria, the `dynamics:` key and Forge Studio's view of them (2026-11-22) |
 | [ADR-074](ADR-074-A-SCENARIO-STATES-ITS-RESULTS.md) | A Scenario States Its Results, and a Bayesian Network Reads the Model | Accepted (2026-11-22), all seven questions as recommended; built: `expect:`, `forge validate`, `calculate --scenario`, MCP, REST and Studio (steps 1 to 4); the Bayesian steps not yet |
-| [ADR-075](ADR-075-FORGE-WRITES-THE-MODEL.md) | Forge Writes the Model | Accepted; built: the yaml-edit spike, `set_value`, `set_formula`, `add`, `delete` in `forge edit`, `forge_edit` and forge-wasm (steps 1 and 2), and `rename` of a scalar, a group, a table and a column (step 3) |
+| [ADR-075](ADR-075-FORGE-WRITES-THE-MODEL.md) | Forge Writes the Model | Accepted; built: the yaml-edit spike, `set_value`, `set_formula`, `add`, `delete` in `forge edit`, `forge_edit` and forge-wasm (steps 1 and 2), `rename` of a scalar, a group, a table and a column (step 3), and `make_uncertain` and `make_certain` (step 4) |
 | [ADR-076](ADR-076-SIMULATIONS-AND-GAMES-ON-THE-CARDS.md) | Simulations and Games on Forge Studio's Cards | Accepted; steps 1 to 3 built (2026-11-22), step 4 not yet |
 | [ADR-077](ADR-077-WHAT-STUDIO-SHOWS-FIRST-AND-HOW-IT-HELPS.md) | What Forge Studio Shows First, and How It Helps | Accepted; built (the docs, Tools' whole answer, a set's questions, every model's Model view, the help) |
 
