@@ -1,9 +1,9 @@
 # ADR-074: A Scenario States Its Results, and a Bayesian Network Reads the Model
 
-**Status:** Proposed (2026-11-22). Nothing is built. Each question below has a recommendation, and the maintainer decides
+**Status:** Accepted (2026-11-22), all seven questions as recommended; question 7 as all three parts built together, with `=BAYES()` left out. Nothing is built yet
 **Date:** 2026-11-22
-**Decided by:** the maintainer, to decide; the analysis and the recommendations are Claude's
-**For:** roadmap T2-SCENARIO-CHECKS, and the first step of T2-BAYESIAN-LINK
+**Decided by:** the maintainer (2026-11-22), who asked of question 5 what export does with scenarios and stored values, and of question 7 what makes more sense for an LLM in an AI pipeline; the analysis is Claude's
+**For:** roadmap T2-SCENARIO-CHECKS, and T2-BAYESIAN-LINK (more than its first step: see question 7)
 
 ---
 
@@ -36,13 +36,13 @@ What `check_models.py` pins, counted from the script:
 | `ANALYTICS` and inspection's tornado: Monte Carlo, tornado, real options, bootstrap | 11 | each command's printed report | left out (see "What is left out") |
 | Text the docs must still contain | 39 | the docs | left out: shell (`grep -F`) in kinship's workflow |
 
-Under the recommendations below, 332 of the 382 checks move into the models, and `forge validate` checks them. The other 50 are 11 lines of a seeded report and 39 quotes in the docs, matched as plain text by a few lines of shell.
+Under the decisions below, 332 of the 382 checks move into the models, and `forge validate` checks them. The other 50 are 11 lines of a seeded report and 39 quotes in the docs, matched as plain text by a few lines of shell.
 
-## The questions, and what is recommended
+## The questions, and what was decided
 
 ### 1. Where a scenario's expected results are written
 
-**Recommended: an `expect:` mapping in the scenario, and a top-level `expect:` for the file as written.**
+**Decided: an `expect:` mapping in the scenario, and a top-level `expect:` for the file as written.**
 
 ```yaml
 _forge_version: "5.6.0"
@@ -72,7 +72,7 @@ _Instead:_ a section of its own keyed by scenario (`expect: {base: …, costly: 
 
 ### 2. What an expectation may name, and what it may be
 
-**Recommended: any scalar the calculation gives, named as `forge calculate` prints it. The value is a number, or a formula over numbers only.**
+**Decided: any scalar the calculation gives, named as `forge calculate` prints it. The value is a number, or a formula over numbers only.**
 
 - **Names:** inputs, formulas, and the results of a game (`<game>.…`) or of a network (question 7), each written in full as `calculate` prints it. A short name, or `@namespace.name` from an included file, is resolved as a scenario's overrides are (`apply_scenario`).
 - **A name the calculation does not give fails.** It does not pass silently. `kinship.thresold` fails with "`expect` names 'kinship.thresold', which the model does not give". A game's result exists only once the game is calculated, so the check runs after the calculation. Without this rule, a misspelt name would pass forever.
@@ -81,7 +81,7 @@ _Instead:_ a section of its own keyed by scenario (`expect: {base: …, costly: 
 
 ### 3. The tolerance
 
-**Recommended: |Forge − expected| ≤ 10⁻⁶ × max(1, |expected|). That is absolute below 1 and relative above it. One tolerance for every expectation, not written in the model.**
+**Decided: |Forge − expected| ≤ 10⁻⁶ × max(1, |expected|). That is absolute below 1 and relative above it. One tolerance for every expectation, not written in the model.**
 
 - `validate`'s 0.0001 for `value:` is too loose for a stated figure. In ecology's `careful_long`, Pavlov's share is 0.000125454, and at 0.0001 absolute an expectation of 0 would pass.
 - 10⁻⁶ is the script's own `GAME_TOL`. Every figure it pins passes at 10⁻⁶ when written as Forge prints it (six decimals, or all fifteen). A fraction passes when written as a formula. The Axelrod crossover the script pinned to ±0.0005 is exactly 0.108.
@@ -92,7 +92,7 @@ _Left out:_ a tolerance for each figure (`{value: 0.71, within: 0.01}`). No figu
 
 ### 4. What `forge validate` does, and what it says
 
-**Recommended: it calculates the file as written and each scenario that has an `expect:`, and lists every difference with the scenario, the name and both numbers. It fails if there is one.**
+**Decided: it calculates the file as written and each scenario that has an `expect:`, and lists every difference with the scenario, the name and both numbers. It fails if there is one.**
 
 ```text
 ✅ All scalar values match their formulas!
@@ -119,17 +119,18 @@ _Left out:_ a tolerance for each figure (`{value: 0.71, within: 0.01}`). No figu
 
 ### 5. Whether `forge calculate --scenario` writes anything
 
-**Recommended: `calculate` never writes `expect:`. Under `--scenario` it writes nothing: it prints the results and says why it wrote none.**
+**Decided: `calculate` never writes `expect:`. Under `--scenario` it writes nothing: it prints the results and says why it wrote none.**
 
 - An expectation written by Forge would be the regenerated golden file the maintainer set aside.
 - Writing a scenario's results into the base `value:`s is the trap measured above: the file then claims results it does not give, and `validate` fails. Under a scenario, `calculate` will say: `📋 Under a scenario, nothing is written: the stored values are the file's own. To state what this scenario gives, list it under scenarios.short.expect`.
 - The MCP tool `forge_calculate` takes a `scenario` and writes unless `dry_run`. It follows the same rule.
+- **Export needs no written values.** `forge export` reads no stored `value:`: it calculates the model when it runs. Measured on rc.33: with `value: 99` stored for `=w * 2` and `w: 0.6`, the workbook has the formula and 1.2. It leaves scenarios out, with a warning ("scenarios: not exported (short); Excel has no equivalent"), and writes a game's results as numbers as of the export. So a scenario's results written into `value:` would serve no reader, export included.
 
 _Instead:_ refuse `--scenario` without `--dry-run`. That is clearer, but it breaks a call that works today in order to stop it writing, when writing nothing gives the same safety.
 
 ### 6. MCP, REST and Forge Studio
 
-**Recommended: the same report everywhere. Studio's edit check does not wait on expectations.**
+**Decided: the same report everywhere. Studio's edit check does not wait on expectations.**
 
 - **`ValidationResult`** gains `expectations_checked`, `expectations_met` and `expectation_differences`: a list of `{scenario, name, expected, got, diff}`, where `scenario` is `null` for the file as written. `scalars_valid` and `mismatches` keep their meaning. The MCP tool `forge_validate` and `POST /api/v1/validate` return it, so a difference is data, as a value mismatch is today, not a tool error.
 - **Studio's edit gate stays as it is.** Studio calls `validate` before it keeps an edit and refuses only when the call fails (`studio/app.js`, `check`). An edit that moves a figure away from its expectation is how a model is explored, so it is kept. The gate asks `validate` not to check expectations. That is the one option of `validate_core`, because ecology's ten scenarios take about 2 seconds natively, and longer in the browser.
@@ -137,7 +138,7 @@ _Instead:_ refuse `--scenario` without `--dry-run`. That is clearer, but it brea
 
 ### 7. A Bayesian network that reads the model, and `--scenario`
 
-**Recommended, in three parts. Parts (a) and (b) are the roadmap's first step. Part (c) is one step more, and it is needed if the nine settings are to be checked by Forge alone.**
+**Decided: all three parts, (a), (b) and (c), built together as one change. Parts (a) and (b) were the roadmap's first step; (c) is needed if the nine settings are to be checked by Forge alone, and it is what an agent in an AI pipeline needs (below).**
 
 **(a) A `prior` or `cpt` entry is a number or a formula over the model's scalars.** It is worked out after the scenario's overrides, through the calculator, as a game's payoff is (ADR-068). Each row must still add up to 1, checked after the formulas are worked out, with the node and the scenario named. A string was refused before, so no file reads differently, and the network needs no new format version.
 
@@ -181,24 +182,34 @@ scenarios:
 - **(c) is most of T2-BAYESIAN-LINK, not only its first step.** A posterior then feeds a result of the model, which is that item's acceptance. `forge simulate` and `forge tornado` calculate the model, so they would move a prior that reads an `MC.*` input or a scalar. That follows from the network being calculated like a game, and step 6 below tests it.
 - **Found with kinship's figures in front of it:** two of the nine settings tie exactly at 1/2 after the first defection (prior = noise: 1/100 and 1/100, 1/10 and 1/10). The script decides "more likely than not" in exact fractions. A formula comparing a floating-point posterior with 0.5 could tip either way, so kinship's `takes` must compare with a margin (`> 0.5 + 1e-9`, as above). This needs no change in Forge, but the worked example should show it.
 
-_Instead of (c):_ `=BAYES(node, state, evidence…)`, the function the roadmap names. It is more flexible, because the evidence is in the formula. But it needs the network inside the formula evaluator, evidence written as text inside a formula, and a function Excel does not have. Named queries say the same in the section that already holds the network, and they leave `=BAYES()` open for later.
+**Why (c), seen from an agent in an AI pipeline.** The maintainer asked what makes more sense for an LLM that builds and checks models through the MCP server:
+
+- **One call gives every result.** An agent calls `forge_calculate` or `forge_validate` and reads one JSON. With named queries the posteriors are in it, beside every other result. Without them, the agent calls `forge_bayesian` once for each set of evidence and joins the answers itself, which is where its own arithmetic, and its mistakes, come back.
+- **A mapping is easier to get right than text in a formula.** `evidence: {move_1: defect}` is YAML that `forge_schema` describes and the parser checks before anything runs: "query 'one': move_1 has no state 'defects' (cooperate, defect)". In `=BAYES("partner", "defector", "move_1=defect")` the evidence is text inside a formula inside YAML: the quoting goes wrong, and a typo shows only when the formula is evaluated.
+- **It is the pattern Forge already has.** A game is a section whose results are named scalars (`<game>.equilibrium_1…`). An agent that has learnt that reads `bayesian_network.<query>.<state>` with nothing new to learn. A function would be a second pattern, and one Excel does not have either.
+- **The results can be followed and pinned.** `forge audit` follows `bayesian_network.one.defector`, `expect:` pins it, and a formula of Bayes' rule sits beside it. That is kinship's check, and the one a pipeline needs.
+- **The FP&A use still works.** For the probability of default given the economy, feeding an expected loss, the economy's prior comes from a scalar (part a), and a query with no evidence gives the probability of default, which scenarios and `MC.*` inputs move. What named queries cannot do is change the evidence by scenario. An agent writes one query for each state and picks one with `IF`, which is plain and checkable.
+- **(b) costs almost nothing once (a) exists.** The network is worked out under a scenario anyway, and `forge bayesian --scenario` is for evidence that is explored, not yet written as a query.
+
+_Instead of (c):_ `=BAYES(node, state, evidence…)`, the function the roadmap named. It is more flexible, because the evidence is in the formula, but it needs the network inside the formula evaluator, the evidence as text, and a function Excel does not have. **Left out, not kept for later:** named queries say the same in the section that already holds the network, for the reasons above.
 
 ## What is left out
 
 - **Expectations of the analyses' reports:** `simulate`, `tornado`, `real-options`, `bootstrap`, `decision-tree`, `sensitivity` and `goal-seek` print reports, not scalars of the model. kinship's 11 such figures (a seeded run, so the same every time) are matched by a few lines of shell. If a second user needs it, `expect:` inside those sections would be a later decision. The 3 goal-seek figures need none: a scenario at each w* pins `kinship.defector_edge` at 0.
 - **`goal-seek --scenario`**, for the same reason.
+- **`forge export --scenario`**, a workbook of the model calculated under one scenario. It would be the clean way to give Excel a scenario (question 5), and it is small, but no one has asked for it.
 - **Checking prose.** Forge does not read the docs that quote its figures. kinship's 39 quotes stay as `grep -F` in its workflow.
 - **Calculating every scenario in `validate`** (question 4), **a tolerance for each figure** (question 3), **expectations of table columns** (question 2), and **`calculate` writing `expect:`** (question 5), each with its reason above.
-- **Beyond (c):** `=BAYES()`, soft evidence, evidence from a formula, learning a network from data and continuous nodes. T2-BAYESIAN-LINK's own "why" says these are scope creep.
+- **Beyond (c):** `=BAYES()` (question 7), soft evidence, evidence that changes by scenario, evidence from a formula, learning a network from data and continuous nodes. T2-BAYESIAN-LINK's own "why" says these are scope creep.
 
-## What is built, in order, if accepted
+## What is built, in order
 
 1. **`expect:`** in the parser and the 5.6.0 schema, `forge upgrade` to 5.6.0, and the formula over numbers. Tests: a scenario's and the file's expectations are read; a misspelt name, a formula that names a scalar, `expect:` at 5.5.0 and a group called `expect` on upgrade are each refused with their place.
 2. **`validate_core` checks them, and the command prints what it returns** (questions 3 and 4). Tests: a broken expectation fails with the scenario, the name and both numbers; the tolerance either side of 1; a scenario with an `MC.*` override and an `expect:` is refused; the MCP tool and the REST endpoint return the same differences.
 3. **`calculate --scenario` writes nothing** (question 5), on the command line and in `forge_calculate`. A test that fails before the change: the measured trap above.
 4. **Studio** (question 6): the gate without expectations, and the expected figure on the Model view. `studio/tests` checks each number against `validate`.
-5. **A network reads the model, and `--scenario`** (question 7, a and b): the command, `forge_bayesian`, forge-wasm.
-6. **Named queries** (question 7, c), calculated in the order of a game, with the cycle refused. A worked example in `examples/`, where a posterior feeds a result of the model (the probability of default given the economy, feeding an expected loss), checked against Bayes' rule by hand, and a test that `simulate` moves a prior that reads an `MC.*` input.
+5. **A network reads the model, and `--scenario`** (question 7, a and b): the command, `forge_bayesian`, forge-wasm. Steps 5 and 6 are one change, released together.
+6. **Named queries** (question 7, c), checked when the model is read (each node, state and piece of evidence named, with the query's place), calculated in the order of a game, with the cycle refused. A worked example in `examples/`, where a posterior feeds a result of the model (the probability of default given the economy, feeding an expected loss), checked against Bayes' rule by hand, and a test that `simulate` moves a prior that reads an `MC.*` input.
 7. **Docs, each step:** docs/FEATURES.md, docs/cli, the CHANGELOG, the roadmap, docs/STABILITY.md for the new names.
 
 Then a release, and then kinship's v0.8.0: its figures move into `expect:`, the nine settings become scenarios of one file, the two files typed to two decimals store Forge's values, and `scripts/check_models.py` and its `pip install` are deleted.
