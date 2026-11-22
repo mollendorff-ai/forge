@@ -504,6 +504,9 @@ mod tests {
         );
         for (formula, why) in [
             ("=LAMBDA(a, a * 2)", "not called"),
+            // A LET's value or calculation that is a LAMBDA, not called
+            ("=LET(f, LAMBDA(a, a * 2), f)", "not called"),
+            ("=LET(f, 1, LAMBDA(a, a * 2))", "not called"),
             (
                 "=LAMBDA(a, a * 2)(1, 2)",
                 "1 parameters and is called with 2",

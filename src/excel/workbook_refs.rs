@@ -1086,6 +1086,19 @@ mod tests {
         assert!(err.contains("guess"), "{err}");
     }
 
+    /// A name `irr` that is not a call is a name like any other.
+    #[test]
+    fn a_name_irr_is_not_the_function() {
+        let refs = WorkbookRefs::new([("t", vec!["irr".to_string()], 3)], ["v.irr"]);
+        let row = Context::Row { table: "t", row: 2 };
+        assert_eq!(refs.to_excel("=irr * 2", row).unwrap().formula, "=A2 * 2");
+        let scalar = Context::Scalar { group: Some("v") };
+        assert_eq!(
+            refs.to_excel("=irr + 1", scalar).unwrap().formula,
+            "=$B$2 + 1"
+        );
+    }
+
     #[test]
     fn untranslatable_formulas_say_why() {
         assert!(row("=MC.Normal(1, 2)")
@@ -1319,6 +1332,14 @@ mod tests {
             (
                 "=VARIANCE_STATUS(revenue, 100, \"cost\")",
                 "=IF((100) = 0, SIGN(A3), IF(ABS((((A3) - (100)) / ABS(100))) <= 0.01, 0, IF((((A3) - (100)) / ABS(100)) > 0, -1, 1)))",
+            ),
+            (
+                "=VARIANCE_STATUS(revenue, 100, 0.05)",
+                "=IF((100) = 0, SIGN(A3), IF(ABS((((A3) - (100)) / ABS(100))) <= (0.05), 0, IF((((A3) - (100)) / ABS(100)) > 0, 1, -1)))",
+            ),
+            (
+                "=VARIANCE_STATUS(revenue, 100, -0.05)",
+                "=IF((100) = 0, SIGN(A3), IF(ABS((((A3) - (100)) / ABS(100))) <= (-0.05), 0, IF((((A3) - (100)) / ABS(100)) > 0, 1, -1)))",
             ),
             (
                 "=ROUND(VARIANCE(MAX(revenue, 1), 2) * 3, 0)",

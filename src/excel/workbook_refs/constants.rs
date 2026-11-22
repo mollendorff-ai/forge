@@ -160,4 +160,27 @@ mod tests {
         assert!(forge("{1,x}").is_err());
         assert!(forge("{1,2").is_err());
     }
+
+    /// A sign goes out as Excel writes it (`+` is dropped); any other operator
+    /// is not part of a constant.
+    #[test]
+    fn a_sign_is_part_of_a_constant_and_no_other_operator_is() {
+        assert_eq!(excel("{+1, -2}"), "{1,-2}");
+        assert_eq!(
+            to_excel(&tokenize("{1 * 2}").unwrap(), 0).unwrap_err(),
+            "Operator(\"*\") in an array constant"
+        );
+    }
+
+    /// A space between items is read past; a text with a quote inside (`""`),
+    /// or one never closed, is refused, as in the rest of a formula.
+    #[test]
+    fn spaces_are_read_past_and_a_quote_inside_a_text_is_refused() {
+        assert_eq!(forge("{1, 2}").unwrap(), "{1, 2}");
+        assert_eq!(
+            forge("{\"a\"\"b\"}").unwrap_err(),
+            "text with a double quote"
+        );
+        assert_eq!(forge("{\"ab").unwrap_err(), "unterminated text");
+    }
 }
