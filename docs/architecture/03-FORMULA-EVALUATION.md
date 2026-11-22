@@ -1,1380 +1,173 @@
-# Formula Evaluation Architecture
+# 03 - Formula evaluation
 
-> **Superseded (2026-11-08):** This page describes Forge as it was around v1.2, and most of it no longer matches the code. Gone: `xlformula_engine` (formulas are evaluated by Forge's own evaluator in `src/core/array_calculator/`, checked against Gnumeric and R by `forge-e2e-gnumeric` and `forge-e2e-r`), the v0.2.0 format, its scalar calculator and version detection (`_forge_version` is required: 1.0.0, 5.0.0 or 5.1.0, ADR-051), `ForgeVersion`, `Variable.alias`, `columns:`/`row_formulas:` table keys, and the files `core/calculator.rs`, `core/array_calculator.rs` and `cli/commands.rs` (now directories). `@namespace.name` is the current `_includes` mechanism, not a v0.2.0 leftover. Read the code, [FEATURES.md](../FEATURES.md) and ADR-050 to ADR-052 for what Forge does today.
+How `ArrayCalculator` turns a `ParsedModel` into numbers: the steps of one calculation, how a formula is parsed and evaluated, how functions are found, how errors are collected, and how precision is kept. The order the cells are calculated in is [04 - Dependency resolution](04-DEPENDENCY-RESOLUTION.md).
 
-**Document Version:** 1.0.0
-**Forge Version:** v1.2.1
-**Last Updated:** 2025-11-24
-**Status:** Complete
+All paths below are under `src/core/array_calculator/`.
 
----
-
-## Table of Contents
-
-1. [Introduction](#introduction)
-2. [Formula Evaluation Pipeline](#formula-evaluation-pipeline)
-3. [xlformula_engine Integration](#xlformula_engine-integration)
-4. [Row-wise Formula Evaluation](#row-wise-formula-evaluation)
-5. [Aggregation Formula Evaluation](#aggregation-formula-evaluation)
-6. [Custom Function Preprocessing](#custom-function-preprocessing)
-7. [Variable Resolution](#variable-resolution)
-8. [Formula Types and Patterns](#formula-types-and-patterns)
-9. [Performance Optimization](#performance-optimization)
-10. [Error Handling](#error-handling)
-11. [Related Documentation](#related-documentation)
-
----
-
-## Introduction
-
-### Purpose
-
-This document provides a comprehensive specification of Forge's formula evaluation system, including:
-
-- **Evaluation pipeline** - How formulas are parsed, preprocessed, and calculated
-- **xlformula_engine integration** - External formula engine usage
-- **Formula types** - Row-wise, aggregations, and scalars
-- **Custom functions** - Special handling for unsupported functions
-- **Performance** - Optimization strategies and complexity analysis
-
-### Design Principles
-
-1. **Excel Compatibility** - Formulas work exactly like Excel
-2. **Type Safety** - Result types match formula semantics
-3. **Dependency Order** - Formulas evaluate after their dependencies
-4. **Error Clarity** - Clear error messages with context
-5. **Performance** - Efficient evaluation for large datasets
-
----
-
-## Formula Evaluation Pipeline
-
-### High-Level Architecture
+## One calculation
 
 ```mermaid
-graph TB
-    Start["ArrayCalculator::calculate_all()"]
+sequenceDiagram
+    autonumber
+    participant Caller as a core<br/>(calculate_core, a simulation step, ...)
+    participant AC as ArrayCalculator<br/>(mod.rs)
+    participant Plan as CalcPlan<br/>(plan.rs)
+    participant Inc as includes.rs
+    participant Ord as order.rs + graph.rs
+    participant Ev as evaluator/
 
-    subgraph "Phase 1: Row-wise Formulas"
-        BuildTableGraph["Build table dependency graph<br/>Cross-table references"]
-        TopoSortTables["Topological sort<br/>Calculation order"]
-        LoopTables["For each table in order"]
-        BuildColGraph["Build column dependency graph<br/>Within table"]
-        TopoSortCols["Topological sort columns"]
-        EvalRowFormulas["For each formula column<br/>evaluate_rowwise_formula()"]
-        LoopRows["For each row: 0..row_count"]
-        ResolveVars["Resolve column[row_idx] → value"]
-        EvalFormula["xlformula_engine::calculate()"]
-        StoreResult["Store result[row_idx]"]
+    Caller->>AC: new(model) or with_plan(model, plan)
+    Caller->>AC: calculate_all() / calculate_scalar(name) / calculate_outputs(...)
+    AC->>Plan: fingerprint of every name and formula
+    AC->>Inc: calculate each included file first
+    Inc-->>AC: @namespace values and tables
+    AC->>AC: clear every formula scalar's stored value
+    AC->>AC: check tables with row formulas have even columns
+    AC->>Plan: the order for this fingerprint?
+    alt not planned yet
+        Plan->>Ord: cells, what each reads, topological order
+        Ord-->>Plan: order, or the cycle's members
     end
-
-    subgraph "Phase 2: Aggregations"
-        LoopAggs["For each aggregation formula"]
-        ExtractRef["Extract table.column reference"]
-        GetColumn["Get full column array"]
-        ApplyAgg["Apply SUM, AVERAGE, etc."]
-        StoreScalar["Store scalar result"]
+    loop each cell in order
+        alt it reads a failed cell
+            AC->>AC: skip it, mark it failed
+        else
+            AC->>Plan: the formula's syntax tree (parsed once)
+            AC->>Ev: evaluate in the cell's context
+            Ev-->>AC: a value, or an error naming the cell
+        end
     end
-
-    Done["Return updated ParsedModel"]
-
-    Start --> BuildTableGraph
-    BuildTableGraph --> TopoSortTables
-    TopoSortTables --> LoopTables
-    LoopTables --> BuildColGraph
-    BuildColGraph --> TopoSortCols
-    TopoSortCols --> EvalRowFormulas
-    EvalRowFormulas --> LoopRows
-    LoopRows --> ResolveVars
-    ResolveVars --> EvalFormula
-    EvalFormula --> StoreResult
-    StoreResult --> LoopAggs
-    LoopAggs --> ExtractRef
-    ExtractRef --> GetColumn
-    GetColumn --> ApplyAgg
-    ApplyAgg --> StoreScalar
-    StoreScalar --> Done
+    AC->>AC: check format: against each value (formats.rs)
+    AC-->>Caller: the model with its results, or one report of every failure
 ```
 
-### Two-Phase Calculation Model
+The three entry points differ only in which failures fail the answer:
 
-#### Phase 1: Tables (Row-wise formulas)
+| Method | Fails when | Used by |
+| --- | --- | --- |
+| `calculate_all` | Any cell fails | `calculate`, `validate`, export, most commands |
+| `calculate_scalar(name)` | `name` failed or reads a failed cell | goal seek, break-even, sensitivity: a search can pass through inputs where an output it does not ask for has no answer |
+| `calculate_outputs(scalars, columns)` | One of the outputs failed | `forge simulate --seek` |
 
-```text
-For each table in dependency order:
-  For each row in table:
-    For each formula column:
-      Resolve column_ref[row_idx] → value
-      Evaluate formula with values
-      Store result in column[row_idx]
-```
+Every method still calculates every cell: the difference is only in what is reported.
 
-**Phase 2: Scalars (Aggregations)**
-
-```text
-For each scalar in dependency order:
-  Extract table.column references
-  Get entire column array
-  Apply aggregation (SUM, AVERAGE, etc.)
-  Store scalar result
-```
-
-**Code Implementation:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/core/array_calculator.rs:18-33
-pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
-    // Phase 1: Calculate all tables (row-wise formulas) in dependency order
-    let table_names: Vec<String> = self.model.tables.keys().cloned().collect();
-    let calc_order = self.get_table_calculation_order(&table_names)?;
-
-    for table_name in calc_order {
-        let table = self.model.tables.get(&table_name).unwrap().clone();
-        let calculated_table = self.calculate_table(&table_name, &table)?;
-        self.model.tables.insert(table_name, calculated_table);
-    }
-
-    // Phase 2: Calculate scalar aggregations and formulas
-    self.calculate_scalars()?;
-
-    Ok(self.model)
-}
-```
-
----
-
-## xlformula_engine Integration
-
-### External Dependency
-
-**Library:** `xlformula_engine` v0.1.18
-**Purpose:** Excel-compatible formula evaluation
-**Language:** Rust (native, no FFI)
-
-**Key Functions:**
-
-```rust
-use xlformula_engine::{calculate, parse_formula, types, NoCustomFunction};
-
-// Parse formula string to AST
-let parsed = parse_formula::parse_string_to_formula(
-    "=A1 + B1",
-    None::<NoCustomFunction>
-);
-
-// Evaluate with variable resolver
-let result = calculate::calculate_formula(parsed, Some(&resolver));
-
-// Result is types::Value enum
-match result {
-    types::Value::Number(n) => println!("Result: {}", n),
-    types::Value::Text(s) => println!("Result: {}", s),
-    types::Value::Boolean(b) => println!("Result: {:?}", b),
-    types::Value::Error(e) => eprintln!("Error: {:?}", e),
-    _ => {}
-}
-```
-
-### Supported Functions (50+)
-
-**Lookup Functions (v1.2.0):**
-
-- `MATCH(lookup_value, lookup_array, match_type)` - Find position of value in array
-- `INDEX(array, row_num)` - Return value at specific position (1-based indexing)
-- `XLOOKUP(lookup_value, lookup_array, return_array, if_not_found)` - Modern Excel lookup
-- `VLOOKUP(lookup_value, table_array, col_index_num, range_lookup)` - Classic vertical lookup (limited, use INDEX/MATCH)
-
-**Aggregation Functions:**
-
-- `SUM`, `AVERAGE`, `MAX`, `MIN`, `COUNT`, `PRODUCT`
-
-**Conditional Aggregations:**
-
-- `SUMIF`, `SUMIFS`, `COUNTIF`, `COUNTIFS`
-- `AVERAGEIF`, `AVERAGEIFS`, `MAXIFS`, `MINIFS`
-
-**Logical Functions:**
-
-- `IF`, `AND`, `OR`, `NOT`, `XOR`, `IFERROR`, `IFNA`
-
-**Math Functions:**
-
-- `ABS`, `ROUND`, `ROUNDUP`, `ROUNDDOWN`
-- `SQRT`, `POWER`, `EXP`, `LN`, `LOG`, `LOG10`
-- `MOD`, `CEILING`, `FLOOR`, `PI`, `E`
-
-**Text Functions:**
-
-- `CONCATENATE`, `LEFT`, `RIGHT`, `MID`
-- `LEN`, `UPPER`, `LOWER`, `TRIM`
-
-**Date Functions:**
-
-- `TODAY`, `NOW`, `DATE`, `YEAR`, `MONTH`, `DAY`
-
-### Type Mapping
-
-| xlformula_engine | Forge ColumnValue | Notes |
-|------------------|-------------------|-------|
-| `Value::Number(f32)` | `ColumnValue::Number(f64)` | Upcast to f64 |
-| `Value::Text(String)` | `ColumnValue::Text(String)` | Direct mapping |
-| `Value::Boolean(Boolean)` | `ColumnValue::Boolean(bool)` | Convert enum |
-| `Value::Error(Error)` | `ForgeError::Eval` | Convert to error |
-
-**Code Example:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/core/array_calculator.rs:406-443
-match result {
-    types::Value::Number(n) => {
-        let value = n as f64;  // f32 → f64 upcast
-        let rounded = (value * 1e6).round() / 1e6;  // Round to 6 decimals
-        number_results.push(rounded);
-        result_type = Some("number");
-    }
-    types::Value::Text(t) => {
-        text_results.push(t);
-        result_type = Some("text");
-    }
-    types::Value::Boolean(b) => {
-        let bool_val = match b {
-            types::Boolean::True => true,
-            types::Boolean::False => false,
-        };
-        bool_results.push(bool_val);
-        result_type = Some("boolean");
-    }
-    types::Value::Error(e) => {
-        return Err(ForgeError::Eval(format!(
-            "Formula '{}' at row {} returned error: {:?}",
-            formula_str, row_idx, e
-        )));
-    }
-    other => {
-        return Err(ForgeError::Eval(format!(
-            "Formula '{}' returned unexpected type: {:?}",
-            formula_str, other
-        )));
-    }
-}
-```
-
----
-
-## Row-wise Formula Evaluation
-
-### Concept
-
-Row-wise formulas operate on **each row independently**, similar to Excel cell formulas.
-
-**Example:**
-
-```yaml
-pl_2025:
-  columns:
-    revenue: [100000, 120000, 150000, 180000]
-    cogs: [30000, 36000, 45000, 54000]
-  row_formulas:
-    profit: "=revenue - cogs"
-    margin: "=profit / revenue"
-```
-
-**Evaluation:**
-
-```text
-Row 0: profit[0] = revenue[0] - cogs[0] = 100000 - 30000 = 70000
-Row 1: profit[1] = revenue[1] - cogs[1] = 120000 - 36000 = 84000
-Row 2: profit[2] = revenue[2] - cogs[2] = 150000 - 45000 = 105000
-Row 3: profit[3] = revenue[3] - cogs[3] = 180000 - 54000 = 126000
-
-Row 0: margin[0] = profit[0] / revenue[0] = 70000 / 100000 = 0.7
-Row 1: margin[1] = profit[1] / revenue[1] = 84000 / 120000 = 0.7
-...
-```
-
-### Evaluation Algorithm
+## From text to a syntax tree
 
 ```mermaid
-graph TB
-    Start["evaluate_rowwise_formula(table, formula)"]
-    GetRowCount["row_count = table.row_count()"]
-    ExtractRefs["extract_column_references(formula)"]
-    ValidateRefs["Validate all column refs exist"]
-
-    subgraph "For each row: 0..row_count"
-        CreateResolver["Create variable resolver closure"]
-        GetRowValues["Get column[row_idx] for each ref"]
-        CallEngine["xlformula_engine::calculate(formula, resolver)"]
-        CollectResult["Append result to results vector"]
-    end
-
-    ConvertType["Infer result type<br/>Number | Text | Boolean"]
-    CreateColumn["Create ColumnValue enum"]
-    Return["Return ColumnValue"]
-
-    Start --> GetRowCount
-    GetRowCount --> ExtractRefs
-    ExtractRefs --> ValidateRefs
-    ValidateRefs --> CreateResolver
-    CreateResolver --> GetRowValues
-    GetRowValues --> CallEngine
-    CallEngine --> CollectResult
-    CollectResult -->|More rows| CreateResolver
-    CollectResult -->|Done| ConvertType
-    ConvertType --> CreateColumn
-    CreateColumn --> Return
+flowchart LR
+    text["=SUM(revenue) * (1 + growth)"] --> tok["tokenizer.rs<br/>tokenize"]
+    tok --> tokens["Identifier SUM, OpenParen, Identifier revenue,<br/>CloseParen, Operator *, OpenParen, Number 1, ..."]
+    tokens --> par["parser.rs<br/>recursive descent,<br/>operator precedence"]
+    par --> ast["Expr::BinaryOp *<br/>├ FunctionCall SUM [Reference revenue]<br/>└ BinaryOp + [Number 1, Reference growth]"]
+    ast --> cache[("CalcPlan<br/>keyed by the formula's text")]
 ```
 
-### Code Implementation
+`Expr` (`parser.rs`) has a variant for each kind of node: `Number`, `Text`, `Boolean`, `Reference`, `FunctionCall`, `BinaryOp`, `UnaryOp`, `ArrayIndex`, `Range`, `Array` (an array constant, ADR-064) and `CallResult` (calling a `LAMBDA`'s result). A formula is parsed once per `CalcPlan`, so a simulation of thousands of iterations parses each formula once.
 
-```rust
-// From: /home/rex/src/utils/forge/src/core/array_calculator.rs:232-454
-fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str)
-    -> ForgeResult<ColumnValue>
-{
-    let formula_str = if !formula.starts_with('=') {
-        format!("={}", formula.trim())
-    } else {
-        formula.to_string()
-    };
+## Evaluating a formula
 
-    // Get the row count from the table
-    let row_count = table.row_count();
-    if row_count == 0 {
-        return Err(ForgeError::Eval(
-            "Cannot evaluate row-wise formula on empty table".to_string(),
-        ));
-    }
+The evaluator walks the tree with an `EvalContext` (`evaluator/mod.rs`) that holds everything a formula may read:
 
-    // Extract column references from the formula
-    let col_refs = self.extract_column_references(formula)?;
+| Field | Holds |
+| --- | --- |
+| `scalars` | Every calculated scalar by its full name, the included values (`@costs.x`), and, laid over them for one formula, the columns of the formula's own table and the short names that hide another name |
+| `tables` | Every table's columns, shared (`Arc`), never copied per formula |
+| `aliases` | The short names the current formula may use, resolved once per section (`names.rs`) |
+| `current_row`, `row_count` | The row a row formula is in; `None` for a scalar formula |
+| `lag`, `growing_table` | `PREV`: how many rows back a reference is read, and the table growing row by row ([04](04-DEPENDENCY-RESOLUTION.md#prev-columns-that-read-the-row-above)) |
+| `whole_args`, `hidden_row` | The arguments read as whole columns in a row formula (ADR-058): while one is evaluated, the row is hidden |
+| `scenarios` | Each scenario's overrides, for `SCENARIO()` |
 
-    // Validate all columns exist and have correct length
-    for col_ref in &col_refs {
-        if col_ref.contains('.') {
-            // Cross-table reference - validate it exists
-            let (table_name, col_name) = parse_table_column_ref(col_ref)?;
-            validate_cross_table_reference(table_name, col_name, row_count)?;
-        } else {
-            // Local column reference
-            validate_local_column(table, col_ref, row_count)?;
-        }
-    }
-
-    // Evaluate formula for each row
-    let mut number_results = Vec::new();
-    let mut text_results = Vec::new();
-    let mut bool_results = Vec::new();
-    let mut result_type: Option<&str> = None;
-
-    for row_idx in 0..row_count {
-        // Preprocess formula for custom functions
-        let processed_formula = if self.has_custom_math_function(&formula_str)
- || self.has_custom_text_function(&formula_str)
- || self.has_custom_date_function(&formula_str)
-        {
-            self.preprocess_custom_functions(&formula_str, row_idx, table)?
-        } else {
-            formula_str.clone()
-        };
-
-        // Create a resolver for this specific row
- let resolver = |var_name: String| -> types::Value {
-            // Check if this is a cross-table reference (table.column format)
-            if var_name.contains('.') {
-                let parts: Vec<&str> = var_name.split('.').collect();
-                if parts.len() == 2 {
-                    let ref_table_name = parts[0];
-                    let ref_col_name = parts[1];
-
-                    if let Some(ref_table) = self.model.tables.get(ref_table_name) {
-                        if let Some(ref_col) = ref_table.columns.get(ref_col_name) {
-                            return get_column_value_at_row(ref_col, row_idx);
-                        }
-                    }
-                }
-                return types::Value::Error(types::Error::Value);
-            }
-
-            // Local column reference
-            if let Some(col) = table.columns.get(&var_name) {
-                return get_column_value_at_row(col, row_idx);
-            }
-            types::Value::Error(types::Error::Reference)
-        };
-
-        // Parse and calculate for this row
-        let parsed = parse_formula::parse_string_to_formula(
-            &processed_formula,
-            None::<NoCustomFunction>
-        );
-        let result = calculate::calculate_formula(parsed, Some(&resolver));
-
-        // Convert result to appropriate type
-        match result {
-            types::Value::Number(n) => {
-                let value = n as f64;
-                let rounded = (value * 1e6).round() / 1e6;
-                number_results.push(rounded);
-                if result_type.is_none() {
-                    result_type = Some("number");
-                }
-            }
-            types::Value::Text(t) => {
-                text_results.push(t);
-                if result_type.is_none() {
-                    result_type = Some("text");
-                }
-            }
-            types::Value::Boolean(b) => {
-                let bool_val = match b {
-                    types::Boolean::True => true,
-                    types::Boolean::False => false,
-                };
-                bool_results.push(bool_val);
-                if result_type.is_none() {
-                    result_type = Some("boolean");
-                }
-            }
-            types::Value::Error(e) => {
-                return Err(ForgeError::Eval(format!(
-                    "Formula '{}' at row {} returned error: {:?}",
-                    formula_str, row_idx, e
-                )));
-            }
-            other => {
-                return Err(ForgeError::Eval(format!(
-                    "Formula '{}' returned unexpected type: {:?}",
-                    formula_str, other
-                )));
-            }
-        }
-    }
-
-    // Return the appropriate column type based on results
-    match result_type {
-        Some("number") => Ok(ColumnValue::Number(number_results)),
-        Some("text") => Ok(ColumnValue::Text(text_results)),
-        Some("boolean") => Ok(ColumnValue::Boolean(bool_results)),
-        _ => Err(ForgeError::Eval(
-            "Formula did not produce any valid results".to_string(),
-        )),
-    }
-}
-```
-
-### Variable Resolution
-
-**Resolver Closure Pattern:**
-
-The resolver is a closure that maps variable names to values for a specific row.
-
-```rust
-let resolver = |var_name: String| -> types::Value {
-    if let Some(col) = table.columns.get(&var_name) {
-        // Get value at current row_idx
-        match &col.values {
-            ColumnValue::Number(nums) => {
-                if let Some(&val) = nums.get(row_idx) {
-                    return types::Value::Number(val as f32);
-                }
-            }
-            ColumnValue::Text(texts) => {
-                if let Some(text) = texts.get(row_idx) {
-                    return types::Value::Text(text.clone());
-                }
-            }
-            ColumnValue::Boolean(bools) => {
-                if let Some(&val) = bools.get(row_idx) {
-                    return types::Value::Boolean(
-                        if val { types::Boolean::True } else { types::Boolean::False }
-                    );
-                }
-            }
-            ColumnValue::Date(dates) => {
-                if let Some(date) = dates.get(row_idx) {
-                    return types::Value::Text(date.clone());
-                }
-            }
-        }
-    }
-    types::Value::Error(types::Error::Reference)
-};
-```
-
-### Cross-Table References
-
-**Syntax:** `=other_table.column`
-
-**Example:**
-
-```yaml
-pl_2025:
-  columns:
-    revenue: [100000, 120000, 150000, 180000]
-
-pl_2026:
-  columns:
-    revenue: [120000, 144000, 180000, 216000]
-  row_formulas:
-    growth: "=pl_2026.revenue / pl_2025.revenue - 1"
-```
-
-**Evaluation:**
-
-```text
-Row 0: growth[0] = pl_2026.revenue[0] / pl_2025.revenue[0] - 1
-               = 120000 / 100000 - 1 = 0.2 (20% growth)
-```
-
-**Resolution Logic:**
-
-```rust
-if var_name.contains('.') {
-    let parts: Vec<&str> = var_name.split('.').collect();
-    if parts.len() == 2 {
-        let ref_table_name = parts[0];
-        let ref_col_name = parts[1];
-
-        if let Some(ref_table) = self.model.tables.get(ref_table_name) {
-            if let Some(ref_col) = ref_table.columns.get(ref_col_name) {
-                return get_column_value_at_row(ref_col, row_idx);
-            }
-        }
-    }
-    return types::Value::Error(types::Error::Value);
-}
-```
-
----
-
-### Whole Columns in a Row Formula (ADR-058)
-
-In a row formula a name is the value in the current row, except in an argument that Excel reads as a range. There it is the whole column, of another table or of the row's own:
-
-```yaml
-months:
-  quarter: [1, 1, 2, 2, 3]
-  revenue: [10, 20, 30, 40, 50]
-  share: "=revenue / SUM(revenue)"            # 10/150, 20/150, ...
-quarters:
-  quarter: [1, 2, 3]
-  revenue: "=SUMIFS(months.revenue, months.quarter, quarter)"   # 30, 70, 50
-```
-
-`months.revenue` and `months.quarter` are ranges of `SUMIFS`, so they are whole columns; `quarter`, the criterion, is the row's value. Which arguments are ranges is one table, by function and position, in `src/core/array_calculator/whole_column.rs`: the evaluator, the calculation order and `forge export` all read it.
-
-- `SUM`, `AVERAGE`, `MAX`, `MIN`, `COUNT`, `MEDIAN`, `MODE` and `GEOMEAN` read a whole column with one argument and work row by row with several (`=MAX(0, ebit)`).
-- Inside a range argument every name is a whole column, so `SUMPRODUCT((months.quarter = quarter) * months.revenue)` compares two whole columns. To use the row's value there, name it first: `=LET(q, quarter, SUMPRODUCT((months.quarter = q) * months.revenue))`.
-- A column that aggregates itself (`total: "=SUM(total)"`) is circular, and a column calculated row by row through `PREV` cannot be read whole by a column of its own group.
-- The evaluator reads a whole column by hiding the row while it evaluates that argument; it copies nothing. A `SUMIFS` in each of 5,000 rows over 5,000 rows takes about half a second.
-- `forge export` writes a range argument as an absolute range (`'months'!$B$2:$B$6`) and the row's value as its cell (`A2`); `forge import` reads them back, and refuses a range where Forge would read the row's value (`=MAX(0, $B$2:$B$6)`, `=NPV(0.1, $B$2:$B$6)`), importing that column as values.
-
----
-
-## Aggregation Formula Evaluation
-
-### Concept
-
-Aggregation formulas reduce an **entire column array** to a **single scalar value**.
-
-**Common Patterns:**
-
-```yaml
-
-# Simple aggregations
-
-total_revenue:
-  value: null
-  formula: "=SUM(pl_2025.revenue)"
-
-avg_margin:
-  value: null
-  formula: "=AVERAGE(pl_2025.margin)"
-
-max_revenue:
-  value: null
-  formula: "=MAX(pl_2025.revenue)"
-
-# Conditional aggregations
-
-high_revenue_count:
-  value: null
-  formula: "=COUNTIF(pl_2025.revenue, \">100000\")"
-
-total_high_margin:
-  value: null
-  formula: "=SUMIF(pl_2025.margin, \">0.7\", pl_2025.revenue)"
-```
-
-### Aggregation Types
-
-**1. Simple Aggregations**
-
-```text
-SUM(column)       → Σ column[i]
-AVERAGE(column)   → (Σ column[i]) / n
-MAX(column)       → max(column[i])
-MIN(column)       → min(column[i])
-COUNT(column)     → count of non-empty values
-```
-
-**2. Conditional Aggregations**
-
-```text
-SUMIF(range, criteria, sum_range)
-  → Σ sum_range[i] where range[i] meets criteria
-
-COUNTIF(range, criteria)
-  → count of range[i] where range[i] meets criteria
-
-AVERAGEIF(range, criteria, avg_range)
-  → (Σ avg_range[i] where range[i] meets criteria) / count
-```
-
-**3. Multi-Condition Aggregations**
-
-```text
-SUMIFS(sum_range, criteria_range1, criteria1, criteria_range2, criteria2, ...)
-  → Σ sum_range[i] where all criteria are met
-```
-
-### Evaluation Algorithm
+A value is `evaluator::Value`: `Number`, `Text`, `Boolean`, `Array` (a shared vector), `Lambda` or `Null`.
 
 ```mermaid
-graph TB
-    Start["evaluate_aggregation(formula)"]
-    CheckConditional{"Conditional aggregation?<br/>SUMIF, COUNTIF, etc."}
-
-    subgraph "Conditional Path"
-        ParseCriteria["Parse criteria and ranges"]
-        GetRanges["Get column arrays"]
-        FilterRows["Filter rows matching criteria"]
-        ApplyAggFunc["Apply aggregation function"]
-        ReturnCond["Return result"]
-    end
-
-    subgraph "Simple Aggregation Path"
-        ExtractFunc["Extract function name<br/>SUM, AVERAGE, MAX, MIN, COUNT"]
-        ParseRef["Parse table.column reference"]
-        GetTable["Get table from model"]
-        GetCol["Get column from table"]
-        ApplyFunc{"Apply function"}
-        SumCase["SUM: Σ values"]
-        AvgCase["AVERAGE: Σ values / count"]
-        MaxCase["MAX: max(values)"]
-        MinCase["MIN: min(values)"]
-        CountCase["COUNT: length(values)"]
-        ReturnSimple["Return result"]
-    end
-
-    Start --> CheckConditional
-    CheckConditional -->|Yes| ParseCriteria
-    ParseCriteria --> GetRanges
-    GetRanges --> FilterRows
-    FilterRows --> ApplyAggFunc
-    ApplyAggFunc --> ReturnCond
-
-    CheckConditional -->|No| ExtractFunc
-    ExtractFunc --> ParseRef
-    ParseRef --> GetTable
-    GetTable --> GetCol
-    GetCol --> ApplyFunc
-    ApplyFunc -->|SUM| SumCase
-    ApplyFunc -->|AVERAGE| AvgCase
-    ApplyFunc -->|MAX| MaxCase
-    ApplyFunc -->|MIN| MinCase
-    ApplyFunc -->|COUNT| CountCase
-    SumCase --> ReturnSimple
-    AvgCase --> ReturnSimple
-    MaxCase --> ReturnSimple
-    MinCase --> ReturnSimple
-    CountCase --> ReturnSimple
+flowchart TB
+    cell["a cell of the order"] --> kind{"its kind"}
+    kind -- "Cell::Scalar" --> sctx["context: scalars, short names<br/>of the scalar's group, no row"]
+    sctx --> seval["evaluate_cell once"]
+    seval --> one{"one value?"}
+    one -- yes --> store1["Variable.value (and is_date)"]
+    one -- "an array of several" --> err1["error: aggregate it with SUM or INDEX"]
+    kind -- "Cell::Column" --> rctx["context: the table's columns<br/>laid over the scalars"]
+    rctx --> loop["evaluate_cell for row 0, 1, ... n-1"]
+    loop --> typ["column type from row 0:<br/>Number, Text, Boolean or Date"]
+    typ --> store2["a new Column in the table"]
+    kind -- "Cell::Columns" --> rec["recursive.rs: the group's<br/>columns row by row together"]
+    kind -- "Cell::Game" --> game["games.rs: payoffs, equilibria,<br/>results as scalars"]
 ```
 
-### Code Implementation
+A name in a row formula is the value in the current row, except inside an argument Excel reads as a range (`SUM(revenue)`, `SUMIFS(months.revenue, ...)`), where it is the whole column. `whole_column.rs` holds the one table of which argument of which function is a range; the evaluator, the calculation order and the Excel export all read it.
 
-```rust
-// From: /home/rex/src/utils/forge/src/core/array_calculator.rs:672-753
-fn evaluate_aggregation(&self, formula: &str) -> ForgeResult<f64> {
-    let upper = formula.to_uppercase();
-
-    // Check for conditional aggregations first
-    if upper.contains("SUMIF(") {
-        return self.evaluate_conditional_aggregation(formula, "SUMIF");
-    } else if upper.contains("COUNTIF(") {
-        return self.evaluate_conditional_aggregation(formula, "COUNTIF");
-    } else if upper.contains("AVERAGEIF(") {
-        return self.evaluate_conditional_aggregation(formula, "AVERAGEIF");
-    }
-    // ... more conditional types ...
-
-    // Extract function name and argument for simple aggregations
-    let (func_name, arg) = if let Some(start) = upper.find("SUM(") {
-        ("SUM", self.extract_function_arg(formula, start + 4)?)
-    } else if let Some(start) = upper.find("AVERAGE(") {
-        ("AVERAGE", self.extract_function_arg(formula, start + 8)?)
-    } else if let Some(start) = upper.find("MAX(") {
-        ("MAX", self.extract_function_arg(formula, start + 4)?)
-    } else if let Some(start) = upper.find("MIN(") {
-        ("MIN", self.extract_function_arg(formula, start + 4)?)
-    } else if let Some(start) = upper.find("COUNT(") {
-        ("COUNT", self.extract_function_arg(formula, start + 6)?)
-    } else {
-        return Err(ForgeError::Eval(format!(
-            "Unknown aggregation formula: {}",
-            formula
-        )));
-    };
-
-    // Parse table.column reference
-    let (table_name, col_name) = self.parse_table_column_ref(&arg)?;
-
-    // Get the column
- let table = self.model.tables.get(table_name).ok_or_else(|| {
-        ForgeError::Eval(format!("Table '{}' not found", table_name))
-    })?;
- let column = table.columns.get(col_name).ok_or_else(|| {
-        ForgeError::Eval(format!(
-            "Column '{}' not found in table '{}'",
-            col_name, table_name
-        ))
-    })?;
-
-    // Apply aggregation based on function
-    match func_name {
-        "SUM" => {
-            if let ColumnValue::Number(nums) = &column.values {
-                Ok(nums.iter().sum())
-            } else {
-                Err(ForgeError::Eval(format!(
-                    "SUM requires numeric column, got {}",
-                    column.values.type_name()
-                )))
-            }
-        }
-        "AVERAGE" => {
-            if let ColumnValue::Number(nums) = &column.values {
-                let sum: f64 = nums.iter().sum();
-                let count = nums.len() as f64;
-                Ok(sum / count)
-            } else {
-                Err(ForgeError::Eval(format!(
-                    "AVERAGE requires numeric column, got {}",
-                    column.values.type_name()
-                )))
-            }
-        }
-        "MAX" => {
-            if let ColumnValue::Number(nums) = &column.values {
-                nums.iter().copied().fold(f64::NEG_INFINITY, f64::max)
-                    .into()
-            } else {
-                Err(ForgeError::Eval(format!(
-                    "MAX requires numeric column, got {}",
-                    column.values.type_name()
-                )))
-            }
-        }
-        "MIN" => {
-            if let ColumnValue::Number(nums) = &column.values {
-                Ok(nums.iter().copied().fold(f64::INFINITY, f64::min))
-            } else {
-                Err(ForgeError::Eval(format!(
-                    "MIN requires numeric column, got {}",
-                    column.values.type_name()
-                )))
-            }
-        }
-        "COUNT" => Ok(column.values.len() as f64),
-        _ => Err(ForgeError::Eval(format!(
-            "Unknown aggregation function: {}",
-            func_name
-        ))),
-    }
-}
-```
-
-### Conditional Aggregations
-
-**SUMIF Example:**
-
-```yaml
-
-# Sum revenue where margin > 0.7
-
-high_margin_revenue:
-  value: null
-  formula: "=SUMIF(pl_2025.margin, \">0.7\", pl_2025.revenue)"
-```
-
-**Evaluation:**
-
-```text
-For i in 0..row_count:
-  if margin[i] > 0.7:
-    sum += revenue[i]
-
-Result: sum
-```
-
-**Implementation:**
-
-```rust
-fn evaluate_sumif(&self, range: &Column, criteria: &str, sum_range: &Column)
-    -> ForgeResult<f64>
-{
-    // Parse criteria (e.g., ">0.7", "=High", "<>0")
-    let (operator, threshold) = parse_criteria(criteria)?;
-
-    // Get numeric arrays
-    let range_nums = match &range.values {
-        ColumnValue::Number(nums) => nums,
-        _ => return Err(ForgeError::Eval("SUMIF range must be numeric".to_string())),
-    };
-    let sum_nums = match &sum_range.values {
-        ColumnValue::Number(nums) => nums,
-        _ => return Err(ForgeError::Eval("SUMIF sum_range must be numeric".to_string())),
-    };
-
-    // Validate lengths match
-    if range_nums.len() != sum_nums.len() {
-        return Err(ForgeError::Eval("Range and sum_range must have equal length".to_string()));
-    }
-
-    // Apply conditional sum
-    let mut sum = 0.0;
-    for (i, &range_val) in range_nums.iter().enumerate() {
-        if meets_criteria(range_val, operator, threshold) {
-            sum += sum_nums[i];
-        }
-    }
-
-    Ok(sum)
-}
-```
-
----
-
-## Custom Function Preprocessing
-
-### Problem
-
-xlformula_engine v0.1.18 has limited function support. Some functions need preprocessing before evaluation.
-
-**Unsupported Functions:**
-
-- `ROUND`, `ROUNDUP`, `ROUNDDOWN`, `CEILING`, `FLOOR`
-- `SQRT`, `POWER` (partially supported)
-- `CONCAT`, `TRIM`, `UPPER`, `LOWER`, `LEN`, `MID`
-- `TODAY`, `DATE`, `YEAR`, `MONTH`, `DAY`
-
-### Solution: Preprocessing
-
-Convert unsupported functions to equivalent expressions before sending to xlformula_engine.
-
-**Examples:**
-
-```text
-ROUND(value, 2)           → custom Rust implementation
-SQRT(value)               → POWER(value, 0.5)
-CEILING(value)            → custom implementation
-CONCAT(a, b)              → a & b (text concatenation)
-TRIM(text)                → custom preprocessing
-TODAY()                   → "2025-11-24" (current date)
-```
-
-### Implementation
-
-```rust
-// From: /home/rex/src/utils/forge/src/core/array_calculator.rs
-fn preprocess_custom_functions(&self, formula: &str, row_idx: usize, table: &Table)
-    -> ForgeResult<String>
-{
-    let mut result = formula.to_string();
-
-    // Preprocess ROUND, ROUNDUP, ROUNDDOWN
-    if self.has_custom_math_function(formula) {
-        result = self.preprocess_math_functions(&result, row_idx, table)?;
-    }
-
-    // Preprocess text functions
-    if self.has_custom_text_function(formula) {
-        result = self.preprocess_text_functions(&result, row_idx, table)?;
-    }
-
-    // Preprocess date functions
-    if self.has_custom_date_function(formula) {
-        result = self.preprocess_date_functions(&result)?;
-    }
-
-    Ok(result)
-}
-```
-
-**ROUND Preprocessing:**
-
-```rust
-fn preprocess_round(&self, formula: &str, row_idx: usize, table: &Table)
-    -> ForgeResult<String>
-{
-    use regex::Regex;
-
-    // Match: ROUND(expression, digits)
-    let re = Regex::new(r"ROUND\(([^,]+),\s*(\d+)\)")?;
-
-    let mut result = formula.to_string();
-    for cap in re.captures_iter(formula) {
-        let expr = cap.get(1).unwrap().as_str();
-        let digits = cap.get(2).unwrap().as_str().parse::<i32>()?;
-
-        // Evaluate expression to get value
-        let value = self.evaluate_expression(expr, row_idx, table)?;
-
-        // Apply rounding
-        let rounded = if digits >= 0 {
-            let multiplier = 10_f64.powi(digits);
-            (value * multiplier).round() / multiplier
-        } else {
-            let divisor = 10_f64.powi(-digits);
-            (value / divisor).round() * divisor
-        };
-
-        // Replace ROUND(...) with the rounded value
-        result = result.replace(cap.get(0).unwrap().as_str(), &rounded.to_string());
-    }
-
-    Ok(result)
-}
-```
-
-**TODAY Preprocessing:**
-
-```rust
-fn preprocess_today(&self, formula: &str) -> String {
-    use chrono::Local;
-
-    let today = Local::now().format("%Y-%m-%d").to_string();
-    formula.replace("TODAY()", &format!("\"{}\"", today))
-}
-```
-
----
-
-## Variable Resolution
-
-### Scoping Rules
-
-**1. Row-wise Formulas (Table Context)**
-
-Variables resolve to **column values at specific row index**.
-
-```yaml
-pl_2025:
-  columns:
-    revenue: [100, 120, 150]
-  row_formulas:
-    profit: "=revenue * 0.2"  # revenue resolves to revenue[row_idx]
-```
-
-**2. Scalar Formulas (Global Context)**
-
-Variables resolve to:
-
-1. Other scalar values
-2. Aggregations over columns
-3. Array indexing (e.g., `table.column[0]`)
-
-```yaml
-summary:
-  total: "=SUM(pl_2025.revenue)"  # Aggregation
-  first: "=pl_2025.revenue[0]"     # Array indexing
-  margin: "=total / 100000"        # Scalar reference
-```
-
-**3. Cross-File References (v0.2.0)**
-
-Variables resolve via alias prefix.
-
-```yaml
-includes:
-
-  - file: pricing.yaml
-    as: pricing
-
-revenue: "=@pricing.base_price * volume"
-```
-
-### Resolution Algorithm
+## Finding a function
 
 ```mermaid
-graph TB
-    Start["Formula: '=@pricing.base_price * volume'"]
-    Parse["Parse formula"]
-    DetectRef{"Detect @alias.variable"}
-
-    subgraph "Cross-File Resolution"
-        ExtractAlias["Extract alias: 'pricing'"]
-        ExtractVar["Extract variable: 'base_price'"]
-        FindInclude["Find include with alias='pricing'"]
-        LoadFile["Load included file<br/>pricing.yaml"]
-        GetVariable["Get variable 'base_price'"]
-        GetValue["Get value: 99"]
-    end
-
-    ResolveLocal["Resolve local variable 'volume'<br/>value: 1000"]
-    SubstituteVars["Substitute: '=99 * 1000'"]
-    Evaluate["xlformula_engine::calculate()"]
-    Result["Result: 99000"]
-
-    Start --> Parse
-    Parse --> DetectRef
-    DetectRef -->|Found @alias.variable| ExtractAlias
-    ExtractAlias --> ExtractVar
-    ExtractVar --> FindInclude
-    FindInclude --> LoadFile
-    LoadFile --> GetVariable
-    GetVariable --> GetValue
-    GetValue --> ResolveLocal
-    DetectRef -->|No cross-file ref| ResolveLocal
-    ResolveLocal --> SubstituteVars
-    SubstituteVars --> Evaluate
-    Evaluate --> Result
+flowchart LR
+    call["FunctionCall NAME(args)"] --> upper["upper-case the name"]
+    upper --> m["math"] -->|"not mine"| a["aggregation"] -->|"not mine"| l["logical"] -->|"..."| more["text, dates, lookup, financial,<br/>normal, schedule, regression,<br/>statistical, trig, conditional,<br/>array, info, forge, advanced"]
+    more -->|"none"| unknown["Unknown function: NAME"]
+    m -->|"mine"| result["Value"]
+    a -->|"mine"| result
+    l -->|"mine"| result
+    more -->|"mine"| result
 ```
 
-**Note:** Cross-file references with `@alias.variable` syntax are for v0.2.0 backwards compatibility. v1.0.0 uses `table.column` references instead.
+`evaluate_function` in `evaluator/mod.rs` asks each family module's `try_evaluate(name, args, ctx)` in turn; the first to answer `Some` wins. A family module checks its arguments with the shared helpers (`require_args`, ...) and evaluates them itself, so a function decides whether an argument is read as a number, a column or a lambda.
 
----
+The **function registry** (`src/functions/definitions.rs`) is a separate list of every function's name, category, syntax and description. The calculator does not read it; `forge functions`, the MCP tool, Studio's suggestions, `docs/FUNCTIONS.md` (generated in CI) and the Excel export do. Tests tie the two together:
 
-## Formula Types and Patterns
+| Test | In | Checks |
+| --- | --- | --- |
+| `every_listed_function_is_known_to_the_calculator` | `src/functions/registry.rs` | each listed function is found by some `try_evaluate` |
+| `every_listed_excel_function_is_known_to_the_export` | `src/excel/formula_translator.rs` | each listed Excel function is in the export's list |
+| `every_function_count_written_anywhere_is_the_registry_count` | `validation/repo/src/doc_counts.rs` | the count in the README and docs matches the registry |
+| the Gnumeric suite | `validation/gnumeric/` | each function's results match Gnumeric or LibreOffice |
 
-### 1. Arithmetic Operations
+[10](10-EXTENDING-FORGE.md#add-a-function) is the checklist for adding one.
 
-```yaml
+## Errors: all of them, at once
 
-# Basic arithmetic
+A failing cell does not stop the calculation. Every cell that does not read it is still calculated, and the error names where it happened, so one run reports everything that is wrong.
 
-profit: "=revenue - costs"
-margin: "=profit / revenue"
-total: "=a + b + c"
-
-# Parentheses
-
-net: "=(revenue - cogs - opex) * (1 - tax_rate)"
+```mermaid
+flowchart LR
+    a["assumptions.rate<br/>=1/assumptions.zero"] -->|fails| f1["failure"]
+    b["months.interest<br/>=balance * assumptions.rate"] -->|reads a failed cell| s1["not calculated"]
+    c["year.total<br/>=SUM(months.interest)"] -->|reads one not calculated| s2["not calculated"]
+    d["year.revenue<br/>=SUM(months.revenue)"] -->|independent| ok["calculated"]
 ```
 
-### 2. Logical Expressions
-
-```yaml
-
-# Conditional logic
-
-category: "=IF(revenue > 100000, \"High\", \"Low\")"
-valid: "=AND(margin > 0.2, revenue > 50000)"
-
-# Nested IF
-
-tier: "=IF(revenue > 1000000, \"A\", IF(revenue > 500000, \"B\", \"C\"))"
-```
-
-### 3. Text Operations
-
-```yaml
-
-# Concatenation
-
-full_name: "=first_name & \" \" & last_name"
-
-# Text functions
-
-initials: "=LEFT(first_name, 1) & LEFT(last_name, 1)"
-upper_name: "=UPPER(full_name)"
-```
-
-### 4. Date Calculations
-
-```yaml
-
-# Date functions
-
-current_year: "=YEAR(TODAY())"
-age: "=YEAR(TODAY()) - YEAR(birthdate)"
-```
-
-### 5. Aggregations
-
-```yaml
-
-# Simple aggregations
-
-total_revenue: "=SUM(pl_2025.revenue)"
-avg_margin: "=AVERAGE(pl_2025.margin)"
-max_sales: "=MAX(sales.monthly_total)"
-
-# Conditional aggregations
-
-high_performers: "=COUNTIF(employees.rating, \">4\")"
-bonus_pool: "=SUMIF(employees.rating, \">=4\", employees.salary)"
-```
-
-### 6. Array Indexing
-
-```yaml
-
-# Indexing into arrays
-
-first_month: "=pl_2025.revenue[0]"
-last_month: "=pl_2025.revenue[3]"
-
-# Growth calculations
-
-cagr: "=(pl_2025.revenue[3] / pl_2025.revenue[0]) ^ (1/3) - 1"
-```
-
-### 7. Cross-Table References
-
-```yaml
-pl_2026:
-  row_formulas:
-    # Reference another table's column
-    growth: "=(revenue / pl_2025.revenue) - 1"
-    yoy_change: "=revenue - pl_2025.revenue"
-```
-
----
-
-## Performance Optimization
-
-### Time Complexity
-
-**Row-wise Formula Evaluation:**
+What `forge calculate` prints for that model:
 
 ```text
-Per table: O(rows * columns * formula_complexity)
-Total: O(Σ(table.rows * table.calculated_cols))
+Error: Formula evaluation error: 1 formula failed:
+  - assumptions.rate: Division by zero (formula: =1/assumptions.zero)
+  Not calculated, because they use a failed formula:
+  - months.interest (uses assumptions.rate)
+  - year.total (uses months.interest)
 ```
 
-**Example:**
+- `errors.rs` (`locate_error`) adds the cell's name, the row (one-based) and the formula to an evaluation error.
+- A failed or skipped cell gets no value, so nothing can read a stale number from it.
+- `Outcome::report` sorts the failures and the skipped cells by name, so the report is the same on every run.
+- A cycle, uneven columns in a table with row formulas, and an included file that fails stop the calculation before any cell is evaluated: there is no order to follow.
 
-- 4 tables with 12 rows each
-- 3 calculated columns per table
-- Formula complexity: O(1) (simple arithmetic)
-- Total: 4 * 12 * 3 = 144 formula evaluations
+## Precision
 
-**Aggregation Evaluation:**
+The engine calculates in `f64` and keeps full precision between formulas. At its edges it does what Excel does (`src/core/precision.rs`):
 
-```text
-Per aggregation: O(column_length)
-Total: O(Σ(aggregation.column_length))
-```
+| Rule | Where | Decision |
+| --- | --- | --- |
+| A number written to a file or printed is rounded to 15 significant digits (`418.3299999999999` is stored as `418.33`) | `precision::to_15_digits`, the writer, the cores' results | ADR-051 |
+| Two numbers compare as equal when they agree to 15 digits | `evaluator/operators.rs` (`values_equal`) | ADR-065 |
+| A formula's last `+` or `-`, and the last addition of `SUM`, are 0 when they nearly cancel | `precision::final_sum`, `evaluate_cell` | ADR-066 |
+| A test states the exact bits a result must have (`assert_exact!`), or compares with a stated tolerance | `src/lib.rs` | |
 
-### Space Complexity
+## Caching between calculations
 
-**Per Formula Evaluation:**
+A simulation, a sensitivity table or a goal seek calculates the same formulas thousands of times with different inputs. `CalcPlan` (`plan.rs`) keeps what depends only on names and formulas:
 
-- Resolver closure: O(1) stack allocation
-- Result vector: O(rows) for row-wise formulas
-- xlformula_engine AST: O(formula_length)
+- parsed syntax trees, by the formula's text;
+- the calculation order and each cell's dependencies, by a fingerprint of every name and formula in the model;
+- how each name resolves.
 
-**Total Model:**
-
-- Input model: O(tables * rows * columns)
-- Calculated values: O(calculated_cols * rows)
-- Total: O(tables * rows * (data_cols + calc_cols))
-
-### Optimization Strategies
-
-**1. Dependency Ordering**
-
-Calculate formulas in dependency order to avoid recalculation.
-
-```rust
-// Instead of: Calculate all, detect missing deps, recalculate
-// Do: Topological sort first, calculate once
-let order = toposort(&dependency_graph, None)?;
-for var in order {
-    calculate(var);  // All dependencies already calculated
-}
-```
-
-**2. Lazy Evaluation** (Not yet implemented)
-
-```rust
-// Future optimization: Only calculate requested columns
-if !requested_columns.contains(col_name) {
-    continue;  // Skip calculation
-}
-```
-
-**3. Parallel Row Evaluation** (Not yet implemented)
-
-```rust
-// Row-wise formulas are independent - can parallelize
-use rayon::prelude::*;
-
-let results: Vec<f64> = (0..row_count)
-    .into_par_iter()  // Parallel iterator
- .map(|row_idx| evaluate_formula(formula, row_idx))
-    .collect();
-```
-
-**4. Formula Caching**
-
-Cache parsed formulas to avoid re-parsing.
-
-```rust
-// Current: Parse formula string on every evaluation
-let parsed = parse_formula::parse_string_to_formula(formula, None);
-
-// Future: Cache parsed AST
-let parsed = formula_cache.get_or_insert(formula, || {
-    parse_formula::parse_string_to_formula(formula, None)
-});
-```
-
-### Performance Benchmarks
-
-**Real-world Test Case:**
-
-- File: `test-data/v1.0/quarterly_pl.yaml`
-- Tables: 4
-- Rows per table: 12
-- Total formulas: 850+
-
-**Results:**
-
-- Total time: <200ms
-- Average per formula: ~0.23ms
-- Parsing: ~50ms
-- Calculation: ~100ms
-- Writing: ~50ms
-
-**Comparison to AI Validation:**
-
-- AI validation: 128 minutes (7,680 seconds)
-- Forge: 0.2 seconds
-- Speedup: 38,400x faster
-
----
-
-## Error Handling
-
-### Error Types
-
-**1. Formula Syntax Errors**
-
-```yaml
-profit: "=revenue -"  # Incomplete expression
-
-# Error: Parse error: Unexpected end of formula
-
-```
-
-**2. Reference Errors**
-
-```yaml
-profit: "=revenue - cost"  # 'cost' doesn't exist
-
-# Error: Column 'cost' not found in table
-
-```
-
-**3. Type Errors**
-
-```yaml
-result: "=revenue + quarter"  # Number + Text
-
-# Error: Type mismatch: Cannot add Number and Text
-
-```
-
-**4. Length Mismatch Errors**
-
-```yaml
-pl_2025:
-  columns:
-    revenue: [100, 120, 150]  # 3 rows
-    costs: [30, 40, 50, 60]   # 4 rows
-  row_formulas:
-    profit: "=revenue - costs"
-
-# Error: Column 'costs' has 4 rows, expected 3 rows
-
-```
-
-**5. Circular Dependency Errors**
-
-```yaml
-a:
-  formula: "=b * 2"
-b:
-  formula: "=a + 1"
-
-# Error: Circular dependency detected: a → b → a
-
-```
-
-### Error Context
-
-Forge provides detailed error context:
-
-```rust
-ForgeError::Eval(format!(
-    "Formula '{}' at row {} in table '{}': Column '{}' not found",
-    formula, row_idx, table_name, col_name
-))
-```
-
-**Example Error Message:**
-
-```text
-Error: Evaluation error: Formula '=revenue - cost' at row 2 in table 'pl_2025':
-Column 'cost' not found
-
-Available columns: revenue, cogs, quarter
-```
-
-### Error Recovery
-
-**Fail-Fast Strategy:**
-
-Forge does not attempt to recover from formula errors. On first error:
-
-1. Stop calculation
-2. Report error with full context
-3. Return to user for correction
-
-**Why fail-fast?**
-
-- Financial calculations must be 100% accurate
-- Partial results are misleading
-- User must fix the issue, not work around it
-
----
-
-## Related Documentation
-
-### Architecture Deep Dives
-
-- [00-OVERVIEW.md](00-OVERVIEW.md) - High-level architecture
-- [01-COMPONENT-ARCHITECTURE.md](01-COMPONENT-ARCHITECTURE.md) - Component interactions
-- [02-DATA-MODEL.md](02-DATA-MODEL.md) - Type system and data structures
-- [04-DEPENDENCY-RESOLUTION.md](04-DEPENDENCY-RESOLUTION.md) - Graph algorithms
-- [05-EXCEL-INTEGRATION.md](05-EXCEL-INTEGRATION.md) - Excel conversion
-- [06-CLI-ARCHITECTURE.md](06-CLI-ARCHITECTURE.md) - Command structure
-- [07-TESTING-ARCHITECTURE.md](07-TESTING-ARCHITECTURE.md) - Test strategy
-
-### Source Files Referenced
-
-- `/home/rex/src/utils/forge/src/core/array_calculator.rs` - Main calculation engine (3,440 lines)
-- `/home/rex/src/utils/forge/src/core/calculator.rs` - v0.2.0 calculator (401 lines)
-
-### External Documentation
-
-- xlformula_engine: https://crates.io/crates/xlformula_engine
-- Excel Function Reference: https://support.microsoft.com/en-us/office/excel-functions-alphabetical
-
----
-
-**Previous:** [← Data Model](02-DATA-MODEL.md)
-**Next:** [Dependency Resolution →](04-DEPENDENCY-RESOLUTION.md)
+A model with any other name or formula gets its own entry, so a cached plan never changes a result: `ArrayCalculator::with_plan` gives the same answers as `ArrayCalculator::new`, only faster. Values are never cached.

@@ -59,7 +59,7 @@ pub(super) fn eval_xirr(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<
     let base_date = dates[0];
     let year_fracs: Vec<f64> = dates.iter().map(|d| (d - base_date) / 365.0).collect();
     let scale: f64 = values.iter().map(|v| v.abs()).sum();
-    let rate = solve_rate("XIRR", guess, scale, |rate| {
+    let rate = solve_rate("XIRR", guess, scale, &|rate| {
         values
             .iter()
             .zip(&year_fracs)

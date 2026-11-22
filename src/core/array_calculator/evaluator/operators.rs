@@ -727,4 +727,19 @@ mod tests {
             assert!(h::truth("\"2026-01-31\" = \"2026-01-31\""));
         }
     }
+
+    /// A date and its day number are equal wherever values are compared,
+    /// either way round; two empty cells are equal
+    #[test]
+    fn a_date_equals_its_day_number_and_empty_equals_empty() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("SWITCH(\"2026-01-31\", 46053, 1, 2)", 1.0);
+        h::is_exactly("SWITCH(46053, \"2026-01-31\", 1, 2)", 1.0);
+        h::is_exactly("SWITCH(\"5\", 5, 1, 2)", 2.0);
+        let ctx = h::empty_cells();
+        assert_eq!(
+            h::eval("blank = blank", &ctx).unwrap(),
+            crate::core::array_calculator::evaluator::Value::Boolean(true)
+        );
+    }
 }

@@ -48,7 +48,7 @@ pub fn eval_randbetween(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::tests::eval;
+    use super::super::super::tests::{eval, number_in};
     use super::super::super::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
@@ -57,10 +57,8 @@ mod tests {
     fn test_rand() {
         let ctx = EvalContext::new();
         for _ in 0..10 {
-            let result = eval("RAND()", &ctx).unwrap();
-            if let Value::Number(n) = result {
-                assert!((0.0..1.0).contains(&n));
-            }
+            let n = number_in("RAND()", &ctx);
+            assert!((0.0..1.0).contains(&n), "{n}");
         }
     }
 
@@ -68,11 +66,9 @@ mod tests {
     fn test_randbetween() {
         let ctx = EvalContext::new();
         for _ in 0..10 {
-            let result = eval("RANDBETWEEN(1, 10)", &ctx).unwrap();
-            if let Value::Number(n) = result {
-                assert!((1.0..=10.0).contains(&n));
-                assert!(n.fract().abs() < f64::EPSILON);
-            }
+            let n = number_in("RANDBETWEEN(1, 10)", &ctx);
+            assert!((1.0..=10.0).contains(&n), "{n}");
+            assert!(n.fract().abs() < f64::EPSILON, "{n}");
         }
     }
 
@@ -131,5 +127,22 @@ mod tests {
         h::fails_with("RANDBETWEEN(2.5, 2.7)", "no integers");
         h::fails_with("RANDBETWEEN(1, 1E+20)", "#NUM!");
         h::fails_with("RANDBETWEEN(-1E+20, 1)", "#NUM!");
+    }
+
+    #[test]
+    fn each_argument_is_checked() {
+        use super::super::super::tests::{each_argument, fails_with};
+        fails_with("RAND(1)", "RAND requires 0 argument(s), got 1");
+        fails_with(
+            "RANDBETWEEN(1)",
+            "RANDBETWEEN requires 2-2 arguments, got 1",
+        );
+        each_argument(
+            "RANDBETWEEN",
+            &[
+                ("1", Some("RANDBETWEEN requires numbers")),
+                ("2", Some("RANDBETWEEN requires numbers")),
+            ],
+        );
     }
 }

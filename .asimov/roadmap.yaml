@@ -539,6 +539,32 @@ tier1:
   # matching tool's test when they land; examples/inherited-budget has its
   # forge_import and /api/v1/import tests (2026-11-21).
 
+  # From the rewrite of docs/architecture (2026-11-22): the pages are now
+  # written from the code, and validation/repo/src/architecture_docs.rs keeps
+  # their links, anchors, paths, ADR index and module map current. What the
+  # rewrite found in the code is below.
+
+  - id: T1-CLI-FROM-CORES
+    title: "Every command line command prints from its core's result"
+    run_with: "Opus 5.5, high effort: about a dozen commands whose output must stay byte for byte the same, under the 100% coverage gate"
+    why: "Found 2026-11-22 (docs/architecture/01-COMPONENT-ARCHITECTURE.md, The layers). MCP, REST and forge-wasm call each command's *_core function, so they agree. On the command line only audit, simulate, game and compare print from their core's result; calculate, validate, goal-seek, break-even, sensitivity, tornado, scenarios, variance, bootstrap, bayesian, real-options, decision-tree, export and import repeat the core's steps and print as they go. A fix made in a core does not reach the command line unless it is made twice, so the command line and the other three doors can drift apart without a test noticing"
+    how: "One command at a time: the printing function calls the core and formats its result on the Console; whatever it prints that the result lacks is added to the result (MCP, REST and forge-wasm then get it too). The command's existing output tests are the check: the output does not change. Start with the commands whose core and printer differ most (calculate, validate). 10-EXTENDING-FORGE.md already asks new commands to do this"
+    acceptance: "Each command's printing function calls its *_core and prints nothing it does not take from the result; every command's output tests pass unchanged; the paragraph in 01-COMPONENT-ARCHITECTURE.md that lists the exceptions is removed"
+
+  - id: T1-LEFTOVERS-2026-11-22
+    title: "Remove the cfg(coverage) check-cfg and fix VALIDATION.md's missing section 5"
+    run_with: "Sonnet 5.5, low effort: mechanical, then clippy on both crates"
+    why: "Found 2026-11-22. No code uses cfg(coverage) any more (no_skipping.rs's budget for it is 0, ADR-006 retired), but Cargo.toml and forge-wasm/Cargo.toml still declare it in [lints.rust] check-cfg, under a comment citing ADR-006. VALIDATION.md jumps from section 4 to section 6 and refers to a section 5 (the Excel cases checked by hand) that is not there"
+    how: "Delete the check-cfg line and its comment in both Cargo.toml files; run cargo clippy --all-targets -D warnings and the MSRV job's clippy. Find what section 5 of VALIDATION.md held in git history (git log -p -- VALIDATION.md) and restore it, or renumber and fix the references"
+    acceptance: "Neither Cargo.toml mentions coverage; clippy passes on stable and on the oldest supported Rust; VALIDATION.md's sections run 1 to N and every 'section N' it names exists. Then update ADR-006's 2026-11-22 note, which names the leftover"
+
+  - id: T1-MERMAID-CHECK
+    title: "CI renders every Mermaid diagram in the docs"
+    run_with: "Sonnet 5.5, medium effort: a Node script and a CI step, like Studio's tests"
+    why: "Found 2026-11-22 writing docs/architecture: GitHub shows a diagram that does not parse as an error box, silently, and two of the new diagrams did not parse at first ('graph' is a reserved word as a node id; a ';' ends a sequence diagram's message). The architecture pages have 40 diagrams, and README.md and docs/WORKFLOWS.md have more; nothing checks them"
+    how: "A script that renders each mermaid block of every Markdown file with mermaid (an exact version, as GitHub's renderer is close to the latest) in the Chromium the CI image has, failing on a parse error and naming the file and the block; a step in ci.yml's repo-checks or forge-wasm job. The script used for the rewrite rendered all 40 blocks and saved a PNG of each, which reviewers can be given as an artifact"
+    acceptance: "A pull request with a diagram that does not parse fails CI with the file and the block named; every diagram on main renders"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -692,6 +718,7 @@ tier3:
     title: "REST endpoints for the analytics tools (parity with the 20 MCP tools) + OpenAPI spec"
     why: "validate, calculate and audit already take inline content; the rest only exist over MCP"
     acceptance: "Each endpoint shares its core function with the MCP tool; an OpenAPI document is generated from the handlers, not written by hand"
+    note: "Found 2026-11-22 (docs/architecture/08-API-SERVER-ARCHITECTURE.md): of the five endpoints there are, export and import do not call a core yet; they run forge export's and forge import's printing functions on a Console and discard what they print. ApiResponse::err in src/api/handlers.rs is used only by its own tests, since a failed operation answers success: true with its flag false (T1-INTERFACE-PARITY). Both go with this item"
 
   - id: T3-TRANSPORT
     title: "MCP over HTTP/SSE via rmcp"

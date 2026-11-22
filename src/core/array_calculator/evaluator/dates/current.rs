@@ -1,15 +1,10 @@
 //! Current date/time functions: TODAY, NOW
 
-use super::{EvalContext, EvalError, Expr, Value};
+use super::Value;
 
-/// Try to evaluate a current date/time function.
-// Returns Result for uniform try_evaluate dispatch pattern.
-#[allow(clippy::unnecessary_wraps)]
-pub fn try_evaluate(
-    name: &str,
-    _args: &[Expr],
-    _ctx: &EvalContext,
-) -> Result<Option<Value>, EvalError> {
+/// Evaluate a current date/time function, or `None` for another name.
+/// Neither can fail.
+pub fn try_evaluate(name: &str) -> Option<Value> {
     let result = match name {
         "TODAY" => {
             use chrono::Local;
@@ -23,10 +18,10 @@ pub fn try_evaluate(
             Value::Text(now.format("%Y-%m-%d %H:%M:%S").to_string())
         },
 
-        _ => return Ok(None),
+        _ => return None,
     };
 
-    Ok(Some(result))
+    Some(result)
 }
 
 #[cfg(test)]
@@ -47,6 +42,8 @@ mod tests {
             .insert("current".to_string(), "=TODAY()".to_string());
         model.add_table(data);
 
+        let today = || ColumnValue::Text(vec![chrono::Local::now().format("%Y-%m-%d").to_string()]);
+        let before = today();
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
 
@@ -57,10 +54,10 @@ mod tests {
             .columns
             .get("current")
             .unwrap();
-        if let ColumnValue::Text(values) = &col.values {
-            assert!(values[0].contains('-'));
-            assert_eq!(values[0].len(), 10);
-        }
+        // The day it is, also if the calculation ran across midnight
+        let after = today();
+        let got = &col.values;
+        assert!([before, after].contains(got), "{got:?}");
     }
 
     #[test]

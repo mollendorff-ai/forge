@@ -21,7 +21,7 @@ pub fn try_evaluate(
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     // Current date/time functions
-    if let Some(result) = current::try_evaluate(name, args, ctx)? {
+    if let Some(result) = current::try_evaluate(name) {
         return Ok(Some(result));
     }
 

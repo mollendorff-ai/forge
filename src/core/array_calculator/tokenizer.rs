@@ -163,11 +163,11 @@ impl<'a> Tokenizer<'a> {
                     },
 
                     // Minus could be operator or negative number
-                    '-' => self.read_minus_or_negative()?,
+                    '-' => self.read_minus_or_negative(),
 
                     // Comparison operators
-                    '<' => self.read_less_than_operator()?,
-                    '>' => self.read_greater_than_operator()?,
+                    '<' => self.read_less_than_operator(),
+                    '>' => self.read_greater_than_operator(),
                     '=' => {
                         self.advance();
                         Token::Operator("=".to_string())
@@ -364,49 +364,43 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Handle minus sign - could be operator or start of negative number
-    // Returns Result for uniform tokenizer method signature.
-    #[allow(clippy::unnecessary_wraps)]
-    fn read_minus_or_negative(&mut self) -> Result<Token, TokenizeError> {
+    fn read_minus_or_negative(&mut self) -> Token {
         self.advance(); // consume '-'
 
         // Check if followed by a digit (negative number)
         // But we need context: if previous token was a value, this is an operator
         // For simplicity in tokenizer, we'll treat '-' as always an operator
         // The parser will handle unary minus
-        Ok(Token::Operator("-".to_string()))
+        Token::Operator("-".to_string())
     }
 
     /// Read operators starting with '<'
-    // Returns Result for uniform tokenizer method signature.
-    #[allow(clippy::unnecessary_wraps)]
-    fn read_less_than_operator(&mut self) -> Result<Token, TokenizeError> {
+    fn read_less_than_operator(&mut self) -> Token {
         self.advance(); // consume '<'
 
         match self.peek() {
             Some('=') => {
                 self.advance();
-                Ok(Token::Operator("<=".to_string()))
+                Token::Operator("<=".to_string())
             },
             Some('>') => {
                 self.advance();
-                Ok(Token::Operator("<>".to_string()))
+                Token::Operator("<>".to_string())
             },
-            _ => Ok(Token::Operator("<".to_string())),
+            _ => Token::Operator("<".to_string()),
         }
     }
 
     /// Read operators starting with '>'
-    // Returns Result for uniform tokenizer method signature.
-    #[allow(clippy::unnecessary_wraps)]
-    fn read_greater_than_operator(&mut self) -> Result<Token, TokenizeError> {
+    fn read_greater_than_operator(&mut self) -> Token {
         self.advance(); // consume '>'
 
         match self.peek() {
             Some('=') => {
                 self.advance();
-                Ok(Token::Operator(">=".to_string()))
+                Token::Operator(">=".to_string())
             },
-            _ => Ok(Token::Operator(">".to_string())),
+            _ => Token::Operator(">".to_string()),
         }
     }
 }
@@ -807,6 +801,16 @@ mod tests {
                 Token::Operator("&".to_string()),
                 Token::Text(" World".to_string()),
             ]
+        );
+    }
+
+    /// An exponent with no digits, at the end of the formula, is no number
+    #[test]
+    fn an_exponent_with_nothing_after_it_is_refused() {
+        let err = tokenize("2 * 1e").unwrap_err();
+        assert_eq!(
+            (err.message.as_str(), err.position),
+            ("Invalid number: 1e", 4)
         );
     }
 }

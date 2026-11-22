@@ -13,6 +13,7 @@
 //! cargo test -p mollendorff-forge-repo
 //! ```
 
+pub mod architecture_docs;
 pub mod conventions;
 pub mod doc_counts;
 pub mod doc_examples;

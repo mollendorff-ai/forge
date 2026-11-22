@@ -255,7 +255,8 @@ mod tests {
             "MINUTE(1E+20)",
             "SECOND(1E+20)",
         ] {
-            assert!(error(text).contains("#NUM!"), "{text}: {}", error(text));
+            let said = error(text);
+            assert!(said.contains("#NUM!"), "{text}: {said}");
         }
     }
 
@@ -478,5 +479,18 @@ mod tests {
         is_exactly("HOUR(\"2024-01-01 13:45:30\")", 13.0);
         is_exactly("MINUTE(\"2024-01-01 13:45:30\")", 45.0);
         is_exactly("SECOND(\"2024-01-01 13:45:30\")", 30.0);
+    }
+
+    /// Text with a space whose second part is no time, and that is no time
+    /// or number itself, is refused
+    #[test]
+    fn text_with_no_time_after_the_space_is_refused() {
+        use crate::core::array_calculator::evaluator::tests::fails_with;
+        for name in ["HOUR", "MINUTE", "SECOND"] {
+            fails_with(
+                &format!("{name}(\"2024-01-05 noon\")"),
+                &format!("{name}: Could not parse time"),
+            );
+        }
     }
 }

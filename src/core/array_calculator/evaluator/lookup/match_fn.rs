@@ -323,14 +323,7 @@ mod tests {
         let result_table = result.tables.get("sales").unwrap();
 
         let position = result_table.columns.get("position").unwrap();
-        match &position.values {
-            ColumnValue::Number(nums) => {
-                assert_exact!(nums[0], 2.0);
-                assert_exact!(nums[1], 4.0);
-                assert_exact!(nums[2], 1.0);
-            },
-            _ => panic!("Expected Number array"),
-        }
+        assert_eq!(position.values, ColumnValue::Number(vec![2.0, 4.0, 1.0]));
     }
 
     #[test]
@@ -841,5 +834,18 @@ mod tests {
     fn xmatch_next_larger_passes_over_text() {
         use crate::core::array_calculator::evaluator::tests::is_exactly;
         is_exactly("XMATCH(4, {1, \"a\", 5}, 1)", 3.0);
+    }
+
+    /// The next larger or smaller number skips the values that are none
+    #[test]
+    fn a_closest_match_skips_text() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("XMATCH(5, {\"a\", 3, 7}, 1)", 3.0);
+        h::is_exactly("XMATCH(5, {\"a\", 3, 7}, -1)", 2.0);
+        // A text has no closest number: only an exact match finds it
+        h::fails_with(
+            "XMATCH(\"b\", {\"a\", \"c\"}, 1)",
+            "#N/A: XMATCH: value not found",
+        );
     }
 }

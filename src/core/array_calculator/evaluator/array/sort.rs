@@ -8,7 +8,8 @@ use crate::core::array_calculator::evaluator::{
 /// Evaluate SORT function - sorts numeric values in ascending or descending order
 pub fn eval_sort(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("SORT", args, 1, 2)?;
-    let mut values = collect_numeric_values(args, ctx)?;
+    // The values are the first argument's only: the order is no value to sort
+    let mut values = collect_numeric_values(&args[..1], ctx)?;
     let descending = if args.len() > 1 {
         number_or(&args[1], ctx, 1.0)? < 0.0
     } else {
@@ -52,14 +53,29 @@ mod tests {
             table.into_iter().map(|(k, v)| (k, v.into())).collect(),
         );
 
+        let numbers = |values: &[f64]| {
+            Value::Array(
+                values
+                    .iter()
+                    .copied()
+                    .map(Value::Number)
+                    .collect::<Vec<_>>()
+                    .into(),
+            )
+        };
         let result = eval("SORT(t.data)", &ctx).unwrap();
-        if let Value::Array(arr) = result {
-            assert_eq!(arr.len(), 5);
-            assert_eq!(arr[0], Value::Number(1.0));
-            assert_eq!(arr[4], Value::Number(5.0));
-        } else {
-            panic!("Expected array");
-        }
+        assert_eq!(result, numbers(&[1.0, 1.0, 3.0, 4.0, 5.0]));
+        // A negative order sorts from the largest, and the order is no value
+        // of its own (it was sorted in with them: -1 came last)
+        let result = eval("SORT(t.data, -1)", &ctx).unwrap();
+        assert_eq!(result, numbers(&[5.0, 4.0, 3.0, 1.0, 1.0]));
+        let result = eval("SORT(t.data, 1)", &ctx).unwrap();
+        assert_eq!(result, numbers(&[1.0, 1.0, 3.0, 4.0, 5.0]));
+    }
+
+    #[test]
+    fn an_error_in_any_argument_is_the_sorts_error() {
+        super::super::super::tests::each_argument("SORT", &[("1", None), ("1", None)]);
     }
 }
 

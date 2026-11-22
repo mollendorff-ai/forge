@@ -42,7 +42,8 @@ pub(super) fn solve_rate(
     name: &str,
     guess: f64,
     scale: f64,
-    npv_at: impl Fn(f64) -> f64,
+    // One function for every caller, not one copy for each closure
+    npv_at: &dyn Fn(f64) -> f64,
 ) -> Result<f64, EvalError> {
     let tolerance = 1e-9 * scale.max(1.0);
     let close_enough = |rate: f64| {
@@ -314,7 +315,7 @@ fn eval_irr(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     }
     require_sign_change("IRR", &values)?;
     let scale: f64 = values.iter().map(|v| v.abs()).sum();
-    let rate = solve_rate("IRR", guess, scale, |rate| {
+    let rate = solve_rate("IRR", guess, scale, &|rate| {
         // Each cash flow's period, counted in an i32 for powi
         (0..=i32::MAX)
             .zip(&values)
@@ -385,7 +386,7 @@ fn eval_rate(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, Eval
     };
     let due: f64 = if pmt_type == 0.0 { 0.0 } else { 1.0 };
     let scale = pmt.abs().mul_add(nper.abs(), pv.abs() + fv.abs());
-    let rate = solve_rate("RATE", guess, scale, |rate| {
+    let rate = solve_rate("RATE", guess, scale, &|rate| {
         if rate.abs() < 1e-12 {
             return pmt.mul_add(nper, pv) + fv;
         }
@@ -906,16 +907,28 @@ mod tests {
     fn test_rate_with_fv() {
         let ctx = EvalContext::new();
         // RATE with future value
-        let result = eval("RATE(12, -100, 1000, 100)", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(_)));
+        // The rate it finds takes 1,000 to the future value: FV gives -100 back
+        let back = crate::core::array_calculator::evaluator::tests::number_in(
+            "FV(RATE(12, -100, 1000, 100), 12, -100, 1000)",
+            &ctx,
+        );
+        assert!((back - 100.0).abs() < 1e-6, "{back}");
     }
 
     #[test]
     fn test_rate_with_guess() {
         let ctx = EvalContext::new();
         // RATE with guess (6th param, skip 5th for pmt_type)
-        let result = eval("RATE(12, -100, 1000, 0, 0, 0.05)", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(_)));
+        // From another guess it finds the same rate, which pays the loan off
+        let number = crate::core::array_calculator::evaluator::tests::number_in;
+        let with_guess = number("RATE(12, -100, 1000, 0, 0, 0.05)", &ctx);
+        let without = number("RATE(12, -100, 1000)", &ctx);
+        assert!(
+            (with_guess - without).abs() < 1e-9,
+            "{with_guess} {without}"
+        );
+        let paid = number("FV(RATE(12, -100, 1000, 0, 0, 0.05), 12, -100, 1000)", &ctx);
+        assert!(paid.abs() < 1e-6, "{paid}");
     }
 
     #[test]
@@ -930,8 +943,14 @@ mod tests {
     fn test_fv_with_pv() {
         let ctx = EvalContext::new();
         // FV with present value
-        let result = eval("FV(0.05, 12, -100, -1000)", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(_)));
+        // The payments' annuity and the present value, each grown 12 periods
+        let grown = 1.05_f64.powi(12);
+        let expected = 100.0f64.mul_add((grown - 1.0) / 0.05, 1000.0 * grown);
+        let got = crate::core::array_calculator::evaluator::tests::number_in(
+            "FV(0.05, 12, -100, -1000)",
+            &ctx,
+        );
+        assert!((got - expected).abs() < 1e-9 * expected, "{got}");
     }
 
     #[test]

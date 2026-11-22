@@ -130,76 +130,74 @@ mod tests {
     use super::super::super::tests::eval;
     use crate::core::array_calculator::evaluator::{EvalContext, Value};
 
+    fn numbers(values: &[f64]) -> Value {
+        Value::Array(
+            values
+                .iter()
+                .copied()
+                .map(Value::Number)
+                .collect::<Vec<_>>()
+                .into(),
+        )
+    }
+
     #[test]
     fn test_sequence() {
         let ctx = EvalContext::new();
-
-        // SEQUENCE(5) = [1, 2, 3, 4, 5]
         let result = eval("SEQUENCE(5)", &ctx).unwrap();
-        if let Value::Array(arr) = result {
-            assert_eq!(arr.len(), 5);
-            assert_eq!(arr[0], Value::Number(1.0));
-            assert_eq!(arr[4], Value::Number(5.0));
-        } else {
-            panic!("Expected array");
-        }
+        assert_eq!(result, numbers(&[1.0, 2.0, 3.0, 4.0, 5.0]));
     }
 
     #[test]
     fn test_sequence_with_params() {
         let ctx = EvalContext::new();
-
-        // SEQUENCE(3, 1, 10, 5) = [10, 15, 20]
         let result = eval("SEQUENCE(3, 1, 10, 5)", &ctx).unwrap();
-        if let Value::Array(arr) = result {
-            assert_eq!(arr.len(), 3);
-            assert_eq!(arr[0], Value::Number(10.0));
-            assert_eq!(arr[1], Value::Number(15.0));
-            assert_eq!(arr[2], Value::Number(20.0));
-        } else {
-            panic!("Expected array");
-        }
+        assert_eq!(result, numbers(&[10.0, 15.0, 20.0]));
     }
 
     #[test]
     fn test_randarray() {
+        // RANDARRAY(5) = 5 random numbers from 0 up to 1
         let ctx = EvalContext::new();
-
-        // RANDARRAY(5) = 5 random numbers between 0 and 1
-        let result = eval("RANDARRAY(5)", &ctx).unwrap();
-        if let Value::Array(arr) = result {
-            assert_eq!(arr.len(), 5);
-            for v in arr.iter() {
-                if let Value::Number(n) = *v {
-                    assert!((0.0..1.0).contains(&n));
-                } else {
-                    panic!("Expected number");
-                }
-            }
-        } else {
-            panic!("Expected array");
-        }
+        let formula =
+            "LET(a, RANDARRAY(5), AND(COUNT(a) = 5, ROWS(a) = 5, MIN(a) >= 0, MAX(a) < 1))";
+        assert_eq!(eval(formula, &ctx).unwrap(), Value::Boolean(true));
     }
 
     #[test]
     fn test_randarray_with_range() {
+        // RANDARRAY(3, 1, 1, 10, TRUE()) = 3 whole numbers from 1 to 10
         let ctx = EvalContext::new();
+        let formula =
+            "LET(a, RANDARRAY(3, 1, 1, 10, TRUE()), AND(COUNT(a) = 3, MIN(a) >= 1, MAX(a) <= 10))";
+        assert_eq!(eval(formula, &ctx).unwrap(), Value::Boolean(true));
+        let drawn = eval("RANDARRAY(20, 1, 1, 10, TRUE())", &ctx)
+            .unwrap()
+            .as_text();
+        assert!(!drawn.contains('.'), "{drawn}");
+    }
 
-        // RANDARRAY(3, 1, 1, 10, TRUE()) = 3 whole numbers between 1 and 10
-        let result = eval("RANDARRAY(3, 1, 1, 10, TRUE())", &ctx).unwrap();
-        if let Value::Array(arr) = result {
-            assert_eq!(arr.len(), 3);
-            for v in arr.iter() {
-                if let Value::Number(n) = *v {
-                    assert!((1.0..=10.0).contains(&n));
-                    assert_exact!(n.fract(), 0.0); // whole number
-                } else {
-                    panic!("Expected number");
-                }
-            }
-        } else {
-            panic!("Expected array");
-        }
+    #[test]
+    fn an_error_in_any_argument_is_the_arrays_error() {
+        use super::super::super::tests::{each_argument, fails_with};
+        fails_with(
+            "RANDARRAY(1, 1, 0, 1, FALSE, 1)",
+            "RANDARRAY requires 0-5 arguments, got 6",
+        );
+        each_argument(
+            "SEQUENCE",
+            &[("2", None), ("1", None), ("1", None), ("1", None)],
+        );
+        each_argument(
+            "RANDARRAY",
+            &[
+                ("2", None),
+                ("1", None),
+                ("0", None),
+                ("1", None),
+                ("FALSE", None),
+            ],
+        );
     }
 }
 

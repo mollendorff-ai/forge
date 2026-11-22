@@ -309,4 +309,34 @@ mod tests {
             Value::Number(25.0)
         );
     }
+
+    /// A condition of one value is that value; with no else, false is FALSE
+    #[test]
+    fn a_one_value_condition_and_no_else() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("IF({TRUE}, 1, 2)", 1.0);
+        assert!(!h::truth("IF(FALSE, 1)"));
+    }
+
+    /// With a condition of several values, a one-value result is used for
+    /// each, a result of as many values is taken value by value, and a result
+    /// of another length is an error; an error in a result is the error
+    #[test]
+    fn array_conditions_and_their_results() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::{EvalContext, Value};
+        let ctx = EvalContext::new();
+        let n = Value::Number;
+        assert_eq!(
+            h::eval("IF({1, 0}, {5}, {7, 8})", &ctx).unwrap(),
+            Value::Array(vec![n(5.0), n(8.0)].into())
+        );
+        h::fails_with(
+            "IF({1, 0, 1}, {1, 2}, 0)",
+            "IF: condition has 3 values but a result has 2",
+        );
+        h::fails_with("IF({1, 0}, 1/0, 2)", "Division by zero");
+        h::fails_with("IF({1, 0}, 1, 1/0)", "Division by zero");
+        h::fails_with("IFS(1/0, 1)", "Division by zero");
+    }
 }
