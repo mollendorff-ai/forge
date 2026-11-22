@@ -53,6 +53,7 @@ pub enum Holds {
 #[must_use]
 pub fn excel_date(text: &str) -> Option<(i32, u32, u32)> {
     use chrono::Datelike;
+    const FIRST: chrono::NaiveDate = chrono::NaiveDate::from_ymd_opt(1900, 3, 1).unwrap();
     let bytes = text.as_bytes();
     let shaped = bytes.len() == 10
         && bytes.iter().enumerate().all(|(i, b)| {
@@ -66,8 +67,7 @@ pub fn excel_date(text: &str) -> Option<(i32, u32, u32)> {
         return None;
     }
     let date = chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?;
-    let first = chrono::NaiveDate::from_ymd_opt(1900, 3, 1)?;
-    (date >= first).then_some((date.year(), date.month(), date.day()))
+    (date >= FIRST).then_some((date.year(), date.month(), date.day()))
 }
 
 /// The day number Excel gives a date written `YYYY-MM-DD`, if it can hold it.
@@ -188,24 +188,6 @@ impl WorkbookRefs {
             push(&written, &mut tokens);
             Written { tokens, is_date }
         }))
-    }
-
-    /// Whether the result of a formula is a date in Forge.
-    #[must_use]
-    pub fn gives_a_date(&self, formula: &str, ctx: Context<'_>) -> bool {
-        let body = formula.trim().trim_start_matches('=');
-        tokenize(body)
-            .ok()
-            .and_then(|tokens| parse(tokens).ok())
-            .is_some_and(|expr| {
-                Dates {
-                    refs: self,
-                    ctx,
-                    locals: Vec::new(),
-                }
-                .kind(&expr)
-                .is_date()
-            })
     }
 
     /// Whether a workbook's formula, with its cells named, gives a date in
@@ -462,6 +444,16 @@ mod tests {
             row("=IF(v > 15, d, \"none\")"),
             format!("=IF(C2 > 15, {A2_TEXT}, \"none\")")
         );
+        // The values of IFS are every second argument, its conditions not;
+        // a SWITCH with no default has a value after each case
+        assert_eq!(
+            row("=IFS(v > 15, d, TRUE, \"none\")"),
+            format!("=IFS(C2 > 15, {A2_TEXT}, TRUE, \"none\")")
+        );
+        assert_eq!(
+            row("=SWITCH(v, 1, d, 2, e) + 1"),
+            "=SWITCH(C2, 1, A2, 2, B2) + 1"
+        );
         // Read as a number further on: the day number
         assert_eq!(row("=IF(v > 15, d, 5) + 1"), "=IF(C2 > 15, A2, 5) + 1");
         assert_eq!(row("=YEAR(IF(v > 15, d, e))"), "=YEAR(IF(C2 > 15, A2, B2))");
@@ -607,6 +599,15 @@ mod tests {
         assert!(back("=LEFT(DATE(2026, 1, 1), 4)", Holds::Other).is_err());
         // No date at all
         assert_eq!(back("=v * 2", Holds::Numbers).unwrap(), "=v * 2");
+    }
+
+    /// A formula Forge's parser does not read has no date to read back: it is
+    /// left as it is, for the translator to say what is wrong with it.
+    #[test]
+    fn a_formula_the_parser_does_not_read_is_left_as_it_is() {
+        assert_eq!(back("=SUM(d", Holds::Dates).unwrap(), "=SUM(d");
+        assert!(!refs().reads_as_a_date("=SUM(d", ROW));
+        assert!(refs().reads_as_a_date("=DATE(2026, 1, 31)", ROW));
     }
 
     #[test]
@@ -879,7 +880,7 @@ mod tests {
         //! ```
 
         use crate::cli::{calculate_core, export_core, import_core};
-        use calamine::{open_workbook, Data, Reader, Xlsx};
+        use calamine::{open_workbook, Data, DataType, Reader, Xlsx};
         use std::path::Path;
 
         const MODEL: &str = r#"_forge_version: "5.2.0"
@@ -926,7 +927,7 @@ checks:
             let (table, column) = name.split_once('.').unwrap();
             result.tables[table].values[column]
                 .iter()
-                .map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string))
+                .map(|v| v.as_str().unwrap().to_string())
                 .collect()
         }
 
@@ -986,10 +987,9 @@ checks:
         }
 
         fn day_number(cell: &Data) -> f64 {
-            match cell {
-                Data::DateTime(date) if date.is_datetime() => date.as_f64(),
-                other => panic!("not a date cell: {other:?}"),
-            }
+            let date = cell.get_datetime().unwrap();
+            assert!(date.is_datetime(), "not a date cell: {cell:?}");
+            date.as_f64()
         }
 
         #[test]
@@ -1306,12 +1306,10 @@ checks:
                 "COUNTIF('loans'!$A$2:$A$5, \"n/a\")"
             );
             // Compared with a DATE, the date as its text (ADR-060): G is_jan31
+            let is_jan31 = cell(&xlsx, "loans", 2, 6).1;
             assert!(
-                cell(&xlsx, "loans", 2, 6)
-                    .1
-                    .starts_with("IF(A3 = TEXT(YEAR(DATE(2026, 1, 31))"),
-                "{:?}",
-                cell(&xlsx, "loans", 2, 6)
+                is_jan31.starts_with("IF(A3 = TEXT(YEAR(DATE(2026, 1, 31))"),
+                "{is_jan31}"
             );
             // A number read from it is Forge's value, with no formula: E year,
             // F late, and the latest maturity

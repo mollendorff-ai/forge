@@ -106,7 +106,7 @@ pub(super) fn formula_text(tokens: &[Token]) -> String {
             Token::Number(n) => out.push_str(&super::super::number_text(*n)),
             Token::Text(text) => {
                 out.push('"');
-                out.push_str(text);
+                out.push_str(&text.replace('"', "\"\""));
                 out.push('"');
             },
             Token::Boolean(b) => out.push_str(if *b { "TRUE" } else { "FALSE" }),
@@ -150,4 +150,24 @@ pub fn formula_of(expr: &Expr) -> String {
     let mut tokens = Vec::new();
     push(expr, &mut tokens);
     formula_text(&tokens)[1..].to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::formula_of;
+    use crate::core::array_calculator::parser::parse;
+    use crate::core::array_calculator::tokenizer::tokenize;
+
+    fn again(formula: &str) -> String {
+        formula_of(&parse(tokenize(formula).unwrap()).unwrap())
+    }
+
+    /// What is read is written back the way Forge reads it: a column constant
+    /// with `;`, TRUE and FALSE, and a quote inside a text doubled.
+    #[test]
+    fn a_formula_is_written_back_as_forge_reads_it() {
+        assert_eq!(again("{1;2;3}"), "{1; 2; 3}");
+        assert_eq!(again("IF(TRUE, {4,5}, FALSE)"), "IF(TRUE, {4, 5}, FALSE)");
+        assert_eq!(again("\"a\"\"b\" & x"), "\"a\"\"b\" & x");
+    }
 }

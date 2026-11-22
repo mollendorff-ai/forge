@@ -160,7 +160,7 @@ impl ExcelExporter {
         let bytes = workbook
             .save_to_buffer()
             .map_err(|e| ForgeError::IO(format!("Failed to create Excel buffer: {e}")))?;
-        text_results::mark_as_text(bytes, &text_results).map(|bytes| (bytes, warnings))
+        Ok((text_results::mark_as_text(bytes, &text_results), warnings))
     }
 
     fn build_workbook(&self) -> ForgeResult<(Workbook, Vec<String>, Vec<TextResult>)> {
