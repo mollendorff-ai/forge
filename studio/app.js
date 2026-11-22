@@ -82,9 +82,12 @@ function restore() {
   } catch (e) { /* nothing saved */ }
   return false;
 }
-function openSet(id) {
+// A set opens on its own main model, or on `model` when the set has that file
+// (`?example=bagel&model=price_war.yaml`, as Files' Open button does)
+function openSet(id, model) {
   const set = S.sets.find((x) => x.id === id) || S.sets[0];
   S.set = set.id; S.files = { ...set.files }; S.main = set.main; S.title = set.title;
+  if (model && model !== set.main && Object.hasOwn(set.files, model)) { S.main = model; S.title = model; }
   forget();
 }
 function forget() {
@@ -1361,8 +1364,9 @@ async function boot() {
   try {
     useFormulaRules(await (await fetch("formula-rules.json")).json());
   } catch (e) { /* formulas stay plain in the editor; the cards do not need the colours */ }
-  const asked = new URLSearchParams(location.search).get("example");
-  if (asked || !restore()) { if (S.sets.length) openSet(asked || S.sets[0].id); }
+  const params = new URLSearchParams(location.search);
+  const asked = params.get("example");
+  if (asked || !restore()) { if (S.sets.length) openSet(asked || S.sets[0].id, asked ? params.get("model") : null); }
   S.yamlFile = S.main;
   arrange();
   show("model");
