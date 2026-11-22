@@ -51,7 +51,7 @@ If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
-*Run on 2026-11-15 by a fresh agent (Forge 10.0.0-rc.26): installed in 2.7 s; a coffee-shop model with assumptions, a 12-month table and year totals, `forge validate` passing before and after `forge calculate`; year revenue 325,913.78 and profit 78,245.97, worst month the first; its own check, month by month and in closed form with exact fractions, agreed to within 5E-10. About 80 s in all.*
+*Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): installed in 2.8 s; a coffee-shop model with assumptions, a 12-month table and year totals, `forge validate` passing before and after `forge calculate`; year revenue 325,913.78 and profit 78,245.97, worst month the first (4,360); its own check, month by month in Python and in closed form, agreed to the last digit. Under a minute in all.*
 
 ## 2. Bring a workbook in from Excel, and back
 
@@ -85,7 +85,7 @@ If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
-*Run on 2026-11-15 by a fresh agent (Forge 10.0.0-rc.26), with no workbook attached: it exported the bagel example, imported it back (every formula kept, and the inputs as values), and found the 144 cells of the months table equal to the workbook's stored values within 4.6E-15; it also recalculated the workbook in LibreOffice, which agreed. The price changed to 18 gave a profit of 47,882.56 and a workbook with the same 129 live formulas. About 3 minutes.*
+*Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33), with no workbook attached: it exported the bagel example and imported it back (all 18 formulas kept, the inputs as values, `costs.yaml` as its own file), and found the results equal to the workbook's stored values to 15 significant digits, read with its own openpyxl script. The price changed to 17 gave a profit of 24,334.44 and a new workbook. It noted that scenarios, the tornado and comments do not go through Excel, as the export says. About 80 s.*
 
 ## 3. Budget against actual
 
@@ -117,7 +117,7 @@ If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
-*Run on 2026-11-15 by a fresh agent (Forge 10.0.0-rc.26): installed in 2.8 s; the household month 455.85 short of plan, transport the only good news; its own code agreed on three variances; then the pair of files for the given month (left over 2,203 against 2,370 planned). About 60 s.*
+*Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): installed in 2.7 s; the household month 455.85 short of plan, side work and eating out the main causes and transport the only good news; two variances checked in its own Python script; the user's month 167 short, food the whole story. About 50 s.*
 
 ## 4. What if: scenarios, break-even, goal seek
 
@@ -154,7 +154,7 @@ If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
-*Run on 2026-11-15 by a fresh agent (Forge 10.0.0-rc.26): scenarios (probability-weighted profit 621.64, which it checked by hand), break-even at 15.97 a dozen, 24.27 staff hours a day for 60,000, profit from -46,310 at 14 to 94,979 at 20; with the exact break-even price, 15.96661, a copy of the model made 0.05. Its first `break-even` used `price_per_dozen` and Forge answered with the names it knows; `assumptions.price_per_dozen` worked. About 100 s.*
+*Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): scenarios (probability-weighted profit 621.64), break-even at 15.97 a dozen, 24.27 staff hours a day for 60,000, profit from -46,310 at 14 to 94,979 at 20; with the break-even price worked out to 15.9666, a copy of the model made -0.19. `--vary price_per_dozen` now works without the group name. About 75 s.*
 
 ## 5. Risk and decisions
 
@@ -193,7 +193,7 @@ If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
-*Run on 2026-11-15 by a fresh agent (Forge 10.0.0-rc.26): a 35% chance of a profitable first year over 5,000 runs, opening demand the main driver; the tornado led by opening demand, price and staff hours; the decision tree's 58,500 (open now) and 61,500 (pop-up first) worked out again by hand; waiting a year worth 4,605 more than investing today. No file changed. About 70 s.*
+*Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): a 35% chance of a profitable first year over 5,000 runs, opening demand the main driver (+0.84); the tornado led by opening demand, price and staff hours; the decision tree's 58,500 (open now) and 61,500 (pop-up first) worked out again by hand; waiting a year worth 4,605 more than investing today. No file changed. About 60 s.*
 
 ## 6. Games: what will the other side do?
 
