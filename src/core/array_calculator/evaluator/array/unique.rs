@@ -55,11 +55,18 @@ mod tests {
         );
 
         let result = eval("UNIQUE(t.data)", &ctx).unwrap();
-        if let Value::Array(arr) = result {
-            assert_eq!(arr.len(), 3); // A, B, C
-        } else {
-            panic!("Expected array");
-        }
+        let text = |t: &str| Value::Text(t.to_string());
+        assert_eq!(
+            result,
+            Value::Array(vec![text("A"), text("B"), text("C")].into())
+        );
+    }
+
+    #[test]
+    fn an_error_in_the_argument_is_the_error() {
+        use super::super::super::tests::each_argument;
+        each_argument("UNIQUE", &[("1", None)]);
+        each_argument("COUNTUNIQUE", &[("1", None)]);
     }
 
     #[test]

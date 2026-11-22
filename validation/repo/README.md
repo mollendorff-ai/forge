@@ -14,6 +14,7 @@ repository's documents, workflows and sources with its code and with what the
 | `posts` | The numbers in docs/posts/ are what the commands print |
 | `workflows_doc` | Every command docs/WORKFLOWS.md names exists |
 | `install_script` | `install.sh`, the README and the prompts install what the release publishes |
+| `architecture_docs` | Every link and anchor in docs/architecture resolves, every source path its pages name exists, every ADR is in its index, and every module of `src/lib.rs` is in its module map |
 
 Each module's code finds what its check reads, and its tests, inline, assert
 that the repository passes. The checks that run commands run the built binary,

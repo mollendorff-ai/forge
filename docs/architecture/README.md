@@ -1,33 +1,63 @@
-# Forge Architecture Documentation
+# Forge architecture
 
-Technical documentation for Forge's architecture.
+How Forge is built, for the people who maintain and extend it: the parts, how a model is read and calculated, the ways in, the checks, and the decisions behind each (the ADRs). Users start at the [main README](../../README.md) and [FEATURES.md](../FEATURES.md) instead.
 
-## Architecture Documents
+## Reading order
 
-| Document | Description |
-|----------|-------------|
-| [00-OVERVIEW](00-OVERVIEW.md) | System context and principles (architecture sections out of date, see its note) |
-| [01-COMPONENT-ARCHITECTURE](01-COMPONENT-ARCHITECTURE.md) | Module boundaries and interactions (superseded design, see its note) |
-| [02-DATA-MODEL](02-DATA-MODEL.md) | Type system and data structures (superseded design, see its note) |
-| [03-FORMULA-EVALUATION](03-FORMULA-EVALUATION.md) | Calculation pipeline (superseded design, see its note) |
-| [04-DEPENDENCY-RESOLUTION](04-DEPENDENCY-RESOLUTION.md) | Graph algorithms, topological sort (superseded design, see its note) |
-| [05-EXCEL-INTEGRATION](05-EXCEL-INTEGRATION.md) | Bidirectional YAML-Excel conversion (superseded design, see its note) |
-| [08-API-SERVER-ARCHITECTURE](08-API-SERVER-ARCHITECTURE.md) | HTTP REST API |
+```mermaid
+flowchart LR
+    o["00 Overview<br/>system and containers"] --> c["01 Components<br/>modules, layers"]
+    c --> d["02 Data model<br/>YAML to ParsedModel"]
+    d --> f["03 Formula evaluation"]
+    f --> r["04 Dependency resolution"]
+    c --> i["06 Interfaces<br/>CLI, MCP, browser"]
+    i --> a["08 REST API"]
+    c --> e["05 Excel"]
+    c --> n["09 Analysis engines"]
+    c --> t["07 Testing"]
+    t --> x["10 Extending Forge"]
+    r --> x
+    n --> x
+```
 
-## Architecture Decision Records (ADRs)
+New to the code: 00, 01 and 07, then the page for what you are changing. Changing something: [10 - Extending Forge](10-EXTENDING-FORGE.md) has the checklist and links back to the page that explains it.
+
+## Pages
+
+| Page | What it covers |
+| --- | --- |
+| [00 - Overview](00-OVERVIEW.md) | What Forge does, the C4 system context and containers, the repository's folders, the principles |
+| [01 - Components](01-COMPONENT-ARCHITECTURE.md) | The modules of the engine crate, the layers and their rules, one core behind four doors, feature builds, where state lives |
+| [02 - Data model](02-DATA-MODEL.md) | A model file, how it is read and checked, the types it becomes, names, format versions, writing results back |
+| [03 - Formula evaluation](03-FORMULA-EVALUATION.md) | One calculation step by step, formulas to syntax trees, the evaluation context, finding a function, errors, precision, caching |
+| [04 - Dependency resolution](04-DEPENDENCY-RESOLUTION.md) | One graph for the whole model, what a formula reads, the order, cycles, `PREV`, includes, games |
+| [05 - Excel integration](05-EXCEL-INTEGRATION.md) | The workbook layout, formula translation both ways, what Excel cannot hold, export, import |
+| [06 - Interfaces](06-INTERFACES.md) | The command line, the MCP server, forge-wasm and Forge Studio, and keeping the doors in step |
+| [07 - Testing architecture](07-TESTING-ARCHITECTURE.md) | Unit and property tests, the gates, the suites against other engines, the repository checks, the browser checks, which workflow runs what |
+| [08 - REST API](08-API-SERVER-ARCHITECTURE.md) | `forge serve`: endpoints, requests and answers, security |
+| [09 - Analysis engines](09-ANALYSIS-ENGINES.md) | Recalculating and section engines, Monte Carlo step by step, the others, games |
+| [10 - Extending Forge](10-EXTENDING-FORGE.md) | Checklists: a function, a command, a key or format version, an analysis engine, a library, an ADR |
+
+Other documents this folder relies on: [CLAUDE.md](../../CLAUDE.md) (the rules), [VALIDATION.md](../../VALIDATION.md) (what is checked against what, with results), [schema/README.md](../../schema/README.md) (the model formats), [studio/README.md](../../studio/README.md) (Forge Studio), [forge-wasm/README.md](../../forge-wasm/README.md), [docs/MCP.md](../MCP.md), [docs/STABILITY.md](../STABILITY.md) and [docs/GLOSSARY.md](../GLOSSARY.md).
+
+The diagrams are [Mermaid](https://mermaid.js.org/), which GitHub draws in place; the overview's are in Mermaid's C4 notation. Edit them as text, like the code.
+
+## Architecture Decision Records
+
+Each ADR records one decision: the context, the options, what was decided and why, and what was built. An ADR is a record at its date; when the code moves on, a dated note is added at its top rather than the decision rewritten. [10](10-EXTENDING-FORGE.md#write-an-adr) says how to write one.
 
 | ADR | Title | Status |
 |-----|-------|--------|
 | [ADR-001](ADR-001-NO-GRPC.md) | HTTP REST Over gRPC | Accepted |
 | [ADR-002](ADR-002-VARIANCE-YAML-ONLY.md) | Variance YAML Only | Accepted |
-| [ADR-004a](ADR-004-100-PERCENT-TEST-COVERAGE.md) | 100% Test Coverage Requirement | Accepted (a goal, not enforced) |
-| [ADR-011](ADR-011-XLFORMULA-EQUIVALENCE.md) | xlformula_engine Equivalence Testing | Superseded |
+| [ADR-004](ADR-004-100-PERCENT-TEST-COVERAGE.md) | 100% Test Coverage Requirement | Accepted; enforced since 2026-11-16: CI fails below coverage floors that only rise to 100, and `make coverage` fails below 100 |
 | [ADR-005](ADR-005-NO-LSP.md) | No Language Server Protocol | Accepted |
-| [ADR-006](ADR-006-COVERAGE-EXCLUSIONS.md) | Coverage Exclusions | Accepted |
+| [ADR-006](ADR-006-COVERAGE-EXCLUSIONS.md) | Coverage Exclusions | Superseded (2026-11-22): no coverage exclusions remain |
 | [ADR-007](ADR-007-E2E-GNUMERIC-VALIDATION.md) | E2E Validation via Gnumeric | Accepted |
 | [ADR-008](ADR-008-FPA-NATIVE-FUNCTIONS.md) | FP&A-Native Functions | Accepted |
 | [ADR-009](ADR-009-YAML-FOR-AI-EFFICIENCY.md) | YAML for AI Token Efficiency | Accepted |
 | [ADR-010](ADR-010-GIT-NATIVE-FINANCIAL-MODELING.md) | Git-Native Financial Modeling | Accepted |
+| [ADR-011](ADR-011-XLFORMULA-EQUIVALENCE.md) | xlformula_engine Equivalence Testing | Superseded |
 | [ADR-012](ADR-012-FEATURE-FLAGS.md) | Feature Flags for Demo/Enterprise | Superseded |
 | [ADR-013](ADR-013-FUNCTION-REGISTRY.md) | Function Registry | Implemented |
 | [ADR-014](ADR-014-schema-versioning.md) | Schema Versioning | Partly superseded |
@@ -54,7 +84,7 @@ Technical documentation for Forge's architecture.
 | [ADR-039](ADR-039-STATISTICAL-VALIDATION.md) | Statistical Validation | Accepted |
 | [ADR-040](ADR-040-FINANCIAL-ANALYTICS-VALIDATION.md) | Financial Analytics Validation | Accepted |
 | [ADR-041](ADR-041-AUTO-GENERATED-EXPECTED.md) | Auto-Generated Expected Values | Not implemented |
-| [ADR-042](ADR-042-FUZZING-STRATEGY.md) | Property-Based Fuzzing Strategy | Not implemented |
+| [ADR-042](ADR-042-FUZZING-STRATEGY.md) | Property-Based Fuzzing Strategy | Superseded by ADR-062 and the property tests (2026-11-22); its design was not built |
 | [ADR-043](ADR-043-REGRESSION-DETECTION.md) | Regression Detection | Not implemented |
 | [ADR-044](ADR-044-SMART-ROUTING.md) | Smart Test Routing | Superseded |
 | [ADR-045](ADR-045-COVERAGE-TRACKING.md) | Function-Level Coverage Tracking | Not implemented |
@@ -76,7 +106,7 @@ Technical documentation for Forge's architecture.
 | [ADR-061](ADR-061-A-NUMBER-FORMAT.md) | A Number Format, Next to the Unit | Accepted; built |
 | [ADR-062](ADR-062-GENERATED-CASES.md) | Generated Cases Against Gnumeric and LibreOffice, in CI | Accepted; built |
 | [ADR-063](ADR-063-ORIGIN-OF-FORGE.md) | Where Forge Came From, and Why It Is Not a Trading Engine | Accepted |
-| [ADR-064](ADR-064-ARRAY-CONSTANTS.md) | Array Constants in Formulas | Proposed; built |
+| [ADR-064](ADR-064-ARRAY-CONSTANTS.md) | Array Constants in Formulas | Accepted; built |
 | [ADR-065](ADR-065-HOW-TWO-NUMBERS-COMPARE.md) | How Two Numbers Compare | Accepted by merging; checked in Excel (2026-11-18) |
 | [ADR-066](ADR-066-A-LAST-SUM-NEAR-ZERO.md) | A Last Sum Near Zero Is Zero | Accepted by merging; measured in Excel (2026-11-18) |
 | [ADR-067](ADR-067-A-SCENARIO-WITHOUT-A-PROBABILITY.md) | A Scenario Without a Probability Is Compared, Not Weighted | Accepted (option 1); built |
@@ -88,25 +118,13 @@ Technical documentation for Forge's architecture.
 | [ADR-073](ADR-073-GAMES-OF-MANY-PLAYERS.md) | Games of Many Players, and Strategies That Spread | Accepted; built: the count form, the symmetric mixed equilibria, the `dynamics:` key and Forge Studio's view of them (2026-11-22) |
 | [ADR-074](ADR-074-A-SCENARIO-STATES-ITS-RESULTS.md) | A Scenario States Its Results, and a Bayesian Network Reads the Model | Accepted (2026-11-22), all seven questions as recommended; built: `expect:`, `forge validate`, `calculate --scenario`, MCP, REST and Studio (steps 1 to 4); the Bayesian steps not yet |
 | [ADR-075](ADR-075-FORGE-WRITES-THE-MODEL.md) | Forge Writes the Model | Accepted; built: the yaml-edit spike, and `set_value`, `set_formula`, `add`, `delete` in `forge edit`, `forge_edit` and forge-wasm (steps 1 and 2) |
-| [ADR-076](ADR-076-SIMULATIONS-AND-GAMES-ON-THE-CARDS.md) | Simulations and Games on Forge Studio's Cards | Accepted, not yet built |
+| [ADR-076](ADR-076-SIMULATIONS-AND-GAMES-ON-THE-CARDS.md) | Simulations and Games on Forge Studio's Cards | Accepted; steps 1 to 3 built (2026-11-22), step 4 not yet |
 | [ADR-077](ADR-077-WHAT-STUDIO-SHOWS-FIRST-AND-HOW-IT-HELPS.md) | What Forge Studio Shows First, and How It Helps | Accepted; built (the docs, Tools' whole answer, a set's questions, every model's Model view, the help) |
 
-## Architecture Principles
+### Numbers not in the list
 
-1. **Determinism Over Intelligence** - Mathematical calculations, not AI
-2. **Excel Compatibility** - 1:1 mapping with Excel data structures
-3. **Type Safety** - Rust's type system prevents errors
-4. **Explicit Over Implicit** - Clear errors, no magic
-5. **Backwards Compatibility** - Old models continue to work
+- **ADR-003** (editor extensions) was removed when ADR-005 replaced it.
+- **ADR-026** (FPGA acceleration for trading), **ADR-028** (crystal analysis for another project, never built) and **ADR-030** (a go-to-market plan from the Elastic-2.0 period) were removed as not Forge's work (CHANGELOG; ADR-063 tells the history).
+- **ADR-029**: no record says what it was.
 
-## Reading Order
-
-**New to Forge:**
-1. [00-OVERVIEW](00-OVERVIEW.md) - Start here
-2. [02-DATA-MODEL](02-DATA-MODEL.md) - Core data structures
-3. [03-FORMULA-EVALUATION](03-FORMULA-EVALUATION.md) - How formulas work
-
-**Adding Features:**
-- New functions: [03-FORMULA-EVALUATION](03-FORMULA-EVALUATION.md)
-- Excel conversion: [05-EXCEL-INTEGRATION](05-EXCEL-INTEGRATION.md)
-- API endpoints: [08-API-SERVER-ARCHITECTURE](08-API-SERVER-ARCHITECTURE.md)
+A number is never reused.

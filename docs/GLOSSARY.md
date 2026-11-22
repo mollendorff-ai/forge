@@ -5,7 +5,7 @@ The words Forge, its documents and Forge Studio use, each with where to read mor
 ## A model
 
 - **Model**: one YAML file, and the files it includes. Forge reads it, checks it and calculates it. Nothing outside it is needed. [The model file](FEATURES.md#the-model-file).
-- **Format version** (`_forge_version`): the version of the model format the file is written in, from 1.0.0 to 5.5.0. It is not the version of the Forge program. Each format adds to the one before.
+- **Format version** (`_forge_version`): the version of the model format the file is written in, from 1.0.0 to 5.6.0. It is not the version of the Forge program. Each format adds to the one before.
 - **Scalar**: a single named value, as in `price_per_dozen: 16`.
   - **Input**: a scalar with a value and no formula. A change to an input is what makes everything else move.
   - **Result**: a scalar calculated by a formula (`profit: {formula: "=revenue - costs"}`).

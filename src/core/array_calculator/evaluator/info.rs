@@ -337,4 +337,17 @@ mod tests {
         assert!(h::truth("ISEVEN(-0.5)"));
         assert!(!h::truth("ISODD(4)"));
     }
+
+    #[test]
+    fn each_argument_is_checked() {
+        use crate::core::array_calculator::evaluator::tests::{
+            each_argument, fails_with, is_exactly,
+        };
+        each_argument("ISEVEN", &[("2", Some("ISEVEN requires a number"))]);
+        each_argument("ISODD", &[("3", Some("ISODD requires a number"))]);
+        each_argument("N", &[("3", None)]);
+        fails_with("NA(1)", "NA requires 0 argument(s), got 1");
+        // An array is type 64
+        is_exactly("TYPE({1, 2})", 64.0);
+    }
 }

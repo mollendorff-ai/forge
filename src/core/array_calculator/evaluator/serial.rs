@@ -5,10 +5,14 @@ use num_traits::ToPrimitive;
 
 /// The day number of a date written `YYYY-MM-DD`: the days since 1899-12-30,
 /// which is Excel's serial number for every date from 1900-03-01 on.
+///
+/// # Panics
+///
+/// Never: 1899-12-30 is a date.
 #[must_use]
 pub fn date_serial(text: &str) -> Option<f64> {
     let date = chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?;
-    let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30)?;
+    let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30).expect("1899-12-30 is a date");
     Some(precision::whole((date - base).num_days()))
 }
 

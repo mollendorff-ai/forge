@@ -159,10 +159,10 @@ mod tests {
 
         let table = result.tables.get("data").unwrap();
         let trimmed = table.columns.get("trimmed").unwrap();
-        if let ColumnValue::Text(values) = &trimmed.values {
-            assert_eq!(values[0], "hello");
-            assert_eq!(values[1], "world");
-        }
+        assert_eq!(
+            trimmed.values,
+            ColumnValue::Text(vec!["hello".to_string(), "world".to_string()])
+        );
     }
 
     #[test]
@@ -188,10 +188,10 @@ mod tests {
             .columns
             .get("upper_name")
             .unwrap();
-        if let ColumnValue::Text(values) = &col.values {
-            assert_eq!(values[0], "ALICE");
-            assert_eq!(values[1], "BOB");
-        }
+        assert_eq!(
+            col.values,
+            ColumnValue::Text(vec!["ALICE".to_string(), "BOB".to_string()])
+        );
     }
 
     #[test]
@@ -589,5 +589,13 @@ mod tests {
         assert_eq!(texts[0], "ITEM");
         assert_eq!(texts[1], "DATA");
         assert_eq!(texts[2], "TEST");
+    }
+
+    #[test]
+    fn an_error_in_the_argument_is_the_error() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        for name in ["UPPER", "LOWER", "TRIM"] {
+            each_argument(name, &[("\"a\"", None)]);
+        }
     }
 }

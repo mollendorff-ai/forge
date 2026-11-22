@@ -311,4 +311,25 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(30.0));
     }
+
+    #[test]
+    fn an_error_in_any_argument_is_the_sums_error() {
+        use super::super::super::tests::each_argument;
+        each_argument("SUMIF", &[("1", None), ("1", None), ("1", None)]);
+        each_argument("SUMIFS", &[("1", None), ("1", None), ("1", None)]);
+    }
+
+    /// A row past the end of the sum range, or whose value there is no
+    /// number, adds nothing
+    #[test]
+    fn rows_with_no_number_to_sum_add_nothing() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[
+            ("k", h::numbers(&[1.0, 2.0, 3.0])),
+            ("v", h::numbers(&[10.0, 20.0])),
+            ("m", vec![Value::Text("a".into()), Value::Number(4.0)]),
+        ]);
+        h::is_exactly_in("SUMIF(t.k, \">0\", t.v)", &ctx, 30.0);
+        h::is_exactly_in("SUMIF(t.k, \">0\", t.m)", &ctx, 4.0);
+    }
 }

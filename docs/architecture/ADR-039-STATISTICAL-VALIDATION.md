@@ -1,6 +1,6 @@
 # ADR-039: Statistical Validation
 
-> **Note (2026-11-08):** Validation against R is in force, in forge-e2e-r. Its tolerances are relative (1% to 5%, `src/stats.rs` there), not the 1e-10, 1e-6 and 1e-3 below.
+> **Note (2026-11-08):** Validation against R is in force, in forge-e2e-r. Its tolerances are relative (1% to 5%, `validation/r/src/stats.rs`), not the 1e-10, 1e-6 and 1e-3 below.
 
 **Status:** Accepted
 **Date:** 2025-12-17

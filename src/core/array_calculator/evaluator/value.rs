@@ -210,6 +210,72 @@ mod tests {
         assert_ne!(Value::Array(vec![].into()), Value::Null);
     }
 
+    #[test]
+    fn each_kind_of_value_reads_as_a_text() {
+        let lambda = Value::Lambda {
+            params: vec!["x".to_string(), "y".to_string()],
+            body: Box::new(Expr::Number(1.0)),
+        };
+        let nested = Value::Array(
+            vec![
+                Value::Number(1.5),
+                Value::Text("a".to_string()),
+                Value::Boolean(false),
+                Value::Null,
+            ]
+            .into(),
+        );
+        for (value, expected) in [
+            (Value::Number(2.0), "2"),
+            (Value::Text("b".to_string()), "b"),
+            (Value::Boolean(true), "TRUE"),
+            (Value::Boolean(false), "FALSE"),
+            (Value::Null, ""),
+            (nested, "[1.5, a, FALSE, ]"),
+            (lambda, "LAMBDA(x, y)"),
+        ] {
+            assert_eq!(value.as_text(), expected);
+        }
+    }
+
+    #[test]
+    fn each_kind_of_value_reads_as_a_boolean() {
+        let text = |s: &str| Value::Text(s.to_string());
+        let one = |v: Value| Value::Array(vec![v].into());
+        for (value, expected) in [
+            (Value::Boolean(true), Some(true)),
+            (one(Value::Boolean(false)), Some(false)),
+            (one(Value::Number(3.0)), Some(true)),
+            (Value::Number(0.0), Some(false)),
+            (Value::Number(-0.5), Some(true)),
+            (text("true"), Some(true)),
+            (text("1"), Some(true)),
+            (text("False"), Some(false)),
+            (text("0"), Some(false)),
+            (text("yes"), None),
+            (Value::Null, None),
+            (
+                Value::Array(vec![Value::Boolean(true), Value::Boolean(true)].into()),
+                None,
+            ),
+        ] {
+            assert_eq!(value.as_bool(), expected, "{value:?}");
+            assert_eq!(value.is_truthy(), expected == Some(true), "{value:?}");
+        }
+    }
+
+    #[test]
+    fn an_empty_cell_is_zero_as_one_number_and_others_read_as_numbers() {
+        assert_eq!(Value::Null.as_cell_number(), Some(0.0));
+        assert_eq!(Value::Boolean(true).as_cell_number(), Some(1.0));
+        assert_eq!(Value::Boolean(false).as_number(), Some(0.0));
+        assert_eq!(Value::Text("x".to_string()).as_cell_number(), None);
+        assert_eq!(Value::Text("a".into()), Value::Text("a".into()));
+        assert_ne!(Value::Text("a".into()), Value::Text("b".into()));
+        assert_eq!(Value::Boolean(true), Value::Boolean(true));
+        assert_ne!(Value::Number(1.0), Value::Number(2.0));
+    }
+
     /// An empty cell (ADR-059): the table of the ADR, measured in Gnumeric 1.12
     /// and `LibreOffice` 26.2 on 2026-11-12, which agree on every value here.
     /// `x` is 10, empty, 30, empty, 0; `blank` is one empty cell; `b` is a column
