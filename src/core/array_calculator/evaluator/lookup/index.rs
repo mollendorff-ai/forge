@@ -2,7 +2,7 @@
 
 use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
-    evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
+    collect_values_as_vec, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 use num_traits::ToPrimitive;
 
@@ -12,8 +12,8 @@ use num_traits::ToPrimitive;
 pub fn eval_index(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("INDEX", args, 2, 3)?;
 
-    // Evaluate array without row context to get full array
-    let array = evaluate(&args[0], ctx)?;
+    // The whole array; one value is an array of one, as in Excel (`INDEX(5, 1)` is 5)
+    let array = collect_values_as_vec(&args[0], ctx)?;
     let row_num = number_or(&args[1], ctx, 1.0)?;
 
     // INDEX is 1-based, row_num must be >= 1, cut to a whole number
@@ -23,14 +23,11 @@ pub fn eval_index(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         )));
     }
 
-    match array {
-        Value::Array(arr) => row_num
-            .to_usize()
-            .and_then(|row| arr.get(row - 1))
-            .cloned()
-            .ok_or_else(|| EvalError::new(format!("INDEX row {row_num} out of bounds"))),
-        _ => Err(EvalError::new("INDEX requires an array")),
-    }
+    row_num
+        .to_usize()
+        .and_then(|row| array.get(row - 1))
+        .cloned()
+        .ok_or_else(|| EvalError::new(format!("INDEX row {row_num} out of bounds")))
 }
 
 #[cfg(test)]
@@ -373,5 +370,16 @@ mod tests {
             h::error_in("INDEX(t.v, 1/0)", &ctx).contains(""),
             "INDEX(t.v, 1/0)"
         );
+    }
+
+    /// One value is an array of one value, as in Excel; an error in an
+    /// argument is the error
+    #[test]
+    fn one_value_and_errors_in_arguments() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("INDEX(5, 1)", 5.0);
+        assert_eq!(h::text("INDEX(\"a\", 1)"), "a");
+        h::fails_with("INDEX(5, 2)", "INDEX row 2 out of bounds");
+        h::each_argument("INDEX", &[("{1, 2}", None), ("2", None)]);
     }
 }

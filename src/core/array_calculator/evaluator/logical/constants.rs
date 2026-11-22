@@ -27,4 +27,11 @@ mod tests {
         assert_eq!(eval("TRUE()", &ctx).unwrap(), Value::Boolean(true));
         assert_eq!(eval("FALSE()", &ctx).unwrap(), Value::Boolean(false));
     }
+
+    #[test]
+    fn the_constants_take_no_argument() {
+        use crate::core::array_calculator::evaluator::tests::fails_with;
+        fails_with("TRUE(1)", "TRUE requires 0 argument(s), got 1");
+        fails_with("FALSE(1)", "FALSE requires 0 argument(s), got 1");
+    }
 }

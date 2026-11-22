@@ -22,8 +22,6 @@ pub(super) enum ScalarName {
 pub(super) struct Sections {
     own: HashMap<String, Rc<evaluator::NameMap<String>>>,
     unique: Rc<evaluator::NameMap<String>>,
-    /// The entries of `unique` that are also the name of an included value
-    unique_shadowing: Vec<(String, String)>,
 }
 
 impl ArrayCalculator {
@@ -157,15 +155,9 @@ impl ArrayCalculator {
                     }
                 }
             }
-            let unique_shadowing = unique
-                .iter()
-                .filter(|(short, _)| self.included.iter().any(|(name, _)| name == *short))
-                .map(|(short, full)| (short.clone(), full.clone()))
-                .collect();
             Sections {
                 own,
                 unique: Rc::new(unique),
-                unique_shadowing,
             }
         })
     }
@@ -189,25 +181,15 @@ impl ArrayCalculator {
             .and_then(|section| sections.own.get(section))
             .cloned()
             .unwrap_or_default();
-        let own_name = |short: &str| {
-            self.model.scalars.contains_key(short)
-                || self.included.iter().any(|(name, _)| name == short)
-        };
         // A short name of the section hides a top-level scalar of that name;
-        // one from elsewhere never does (it resolves to the top-level one),
-        // but it can hide an included value
+        // one from elsewhere never does (it resolves to the top-level one). A
+        // short name, the last part of a full one, has no `.`, so it is never
+        // the name of an included value (`@namespace.path`)
         let mut shadowing: Vec<(String, String)> = own
             .iter()
-            .filter(|(short, _)| own_name(short))
+            .filter(|(short, _)| self.model.scalars.contains_key(*short))
             .map(|(short, full)| (short.clone(), full.clone()))
             .collect();
-        shadowing.extend(
-            sections
-                .unique_shadowing
-                .iter()
-                .filter(|(short, _)| !own.contains_key(short))
-                .cloned(),
-        );
         shadowing.sort();
         let resolved = Rc::new(plan::ShortNames {
             aliases: Rc::new(evaluator::Aliases {
@@ -381,10 +363,10 @@ mod tests {
         table.add_row_formula("y".to_string(), "=x * 2".to_string());
         model.add_table(table);
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
-        let ColumnValue::Number(y) = &result.tables["t"].columns["y"].values else {
-            panic!("y is not a column of numbers");
-        };
-        assert_eq!(y, &vec![2.0, 4.0]);
+        assert_eq!(
+            result.tables["t"].columns["y"].values,
+            ColumnValue::Number(vec![2.0, 4.0])
+        );
     }
 
     #[test]
@@ -398,10 +380,10 @@ mod tests {
         table.add_row_formula("y".to_string(), "=x * rate".to_string());
         model.add_table(table);
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
-        let ColumnValue::Number(y) = &result.tables["t"].columns["y"].values else {
-            panic!("y is not a column of numbers");
-        };
-        assert_eq!(y, &vec![1.0, 2.0]);
+        assert_eq!(
+            result.tables["t"].columns["y"].values,
+            ColumnValue::Number(vec![1.0, 2.0])
+        );
     }
 
     mod scalar_scaling {
@@ -432,12 +414,9 @@ mod tests {
 
         /// Under 2 s in a release build; a debug build is slower, so it gets ten
         /// times as long, which the old cubic time still exceeded many times over.
-        const fn limit() -> Duration {
-            if cfg!(debug_assertions) {
-                Duration::from_secs(20)
-            } else {
-                Duration::from_secs(2)
-            }
+        fn limit() -> Duration {
+            // 2 s, and 18 more in a debug build
+            Duration::from_secs(2 + 18 * u64::from(cfg!(debug_assertions)))
         }
 
         fn time(n: usize, chained: bool) -> (Duration, Option<f64>) {

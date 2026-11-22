@@ -717,4 +717,16 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(2.0));
     }
+
+    /// One character is the default; an error in any argument is the error
+    #[test]
+    fn defaults_and_errors_in_arguments() {
+        use crate::core::array_calculator::evaluator::tests::{each_argument, text};
+        assert_eq!(text("LEFT(\"abc\")"), "a");
+        assert_eq!(text("RIGHT(\"abc\")"), "c");
+        each_argument("LEN", &[("\"abc\"", None)]);
+        each_argument("LEFT", &[("\"abc\"", None), ("2", None)]);
+        each_argument("RIGHT", &[("\"abc\"", None), ("2", None)]);
+        each_argument("MID", &[("\"abc\"", None), ("2", None), ("1", None)]);
+    }
 }

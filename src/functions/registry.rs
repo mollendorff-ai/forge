@@ -115,8 +115,6 @@ pub fn array_only_functions() -> impl Iterator<Item = &'static FunctionDef> {
     FUNCTIONS.iter().filter(|f| !f.scalar)
 }
 
-// Tests moved to registry_tests.rs to keep this file under 1500 lines
-
 #[cfg(test)]
 mod tests {
 
@@ -169,9 +167,46 @@ mod tests {
                 // Verify key array-only functions are correctly marked
                 let array_funcs = ["UNIQUE", "FILTER", "SORT", "SUMIF", "VLOOKUP"];
                 for name in array_funcs {
-                    let f = find_function(name).unwrap_or_else(|| panic!("{name} should exist"));
-                    assert!(!f.scalar, "{name} should be scalar=false");
+                    let scalar = find_function(name).map(|f| f.scalar);
+                    assert_eq!(scalar, Some(false), "{name} should be scalar=false");
                 }
+            }
+
+            /// The lists by kind hold each function of that kind once, and
+            /// together all of them
+            #[test]
+            fn the_lists_by_kind_split_the_registry() {
+                let scalar: Vec<&str> = scalar_functions().map(|f| f.name).collect();
+                let array: Vec<&str> = array_only_functions().map(|f| f.name).collect();
+                assert_eq!(scalar.len(), count_scalar());
+                assert_eq!(array.len(), count_array_only());
+                assert!(scalar.contains(&"ABS") && !scalar.contains(&"SORT"));
+                assert!(array.contains(&"SORT") && !array.contains(&"ABS"));
+                let financial: Vec<&str> =
+                    by_category(Category::Financial).map(|f| f.name).collect();
+                assert!(financial.contains(&"NPV"), "{financial:?}");
+                assert!(!financial.contains(&"SUM"), "{financial:?}");
+                let per_category: usize = [
+                    Category::Math,
+                    Category::Aggregation,
+                    Category::Logical,
+                    Category::Text,
+                    Category::Date,
+                    Category::Lookup,
+                    Category::Financial,
+                    Category::Statistical,
+                    Category::Trigonometric,
+                    Category::Information,
+                    Category::Conditional,
+                    Category::Array,
+                    Category::Advanced,
+                    Category::ForgeNative,
+                    Category::MonteCarlo,
+                ]
+                .into_iter()
+                .map(|category| by_category(category).count())
+                .sum();
+                assert_eq!(per_category, count_all());
             }
         }
     }
@@ -187,32 +222,27 @@ mod tests {
         #[test]
         fn every_listed_function_is_known_to_the_calculator() {
             let dir = tempfile::tempdir().unwrap();
-            let mut unknown = Vec::new();
-            let mut panicked: Vec<&str> = Vec::new();
-            for f in all_functions() {
-                let path = dir
-                    .path()
-                    .join(format!("{}.yaml", f.name.replace('.', "_")));
-                std::fs::write(
-                    &path,
-                    format!(
-                        "_forge_version: \"5.2.0\"\nx:\n  a: {{formula: \"={}()\"}}\n",
-                        f.name
-                    ),
-                )
-                .unwrap();
-                // Calling with no arguments is usually an error; only "unknown" matters.
-                // A function that panics on no arguments is known to the calculator.
-                let outcome = std::panic::catch_unwind(|| calculate_core(&path, true, None));
-                if let Ok(Err(e)) = outcome {
-                    if e.to_string().contains("Unknown function") {
-                        unknown.push(f.name);
-                    }
-                } else if outcome.is_err() {
-                    panicked.push(f.name);
-                }
-            }
-            assert_eq!(panicked, Vec::<&str>::new(), "panic on no arguments");
+            // Calling with no arguments is usually an error; only "unknown"
+            // matters (and none may panic, which fails the test)
+            let unknown: Vec<&str> = all_functions()
+                .filter(|f| {
+                    let path = dir
+                        .path()
+                        .join(format!("{}.yaml", f.name.replace('.', "_")));
+                    std::fs::write(
+                        &path,
+                        format!(
+                            "_forge_version: \"5.2.0\"\nx:\n  a: {{formula: \"={}()\"}}\n",
+                            f.name
+                        ),
+                    )
+                    .unwrap();
+                    calculate_core(&path, true, None)
+                        .err()
+                        .is_some_and(|e| e.to_string().contains("Unknown function"))
+                })
+                .map(|f| f.name)
+                .collect();
             assert_eq!(unknown, Vec::<&str>::new(), "listed but not callable");
         }
 

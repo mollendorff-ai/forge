@@ -590,14 +590,12 @@ mod tests {
         }
         model.add_table(t);
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
-        let column = |name: &str| match &result.tables["t"].columns[name].values {
-            ColumnValue::Number(values) => values.clone(),
-            other => panic!("{name}: {other:?}"),
-        };
-        assert_eq!(column("vl"), vec![3.0, 1.0, 2.0]);
-        assert_eq!(column("hl"), vec![3.0, 1.0, 2.0]);
-        assert_eq!(column("off"), vec![30.0, 10.0, 20.0]);
-        assert_eq!(column("total"), vec![63.0, 61.0, 62.0]);
+        let column = |name: &str| result.tables["t"].columns[name].values.clone();
+        let numbers = |values: &[f64]| ColumnValue::Number(values.to_vec());
+        assert_eq!(column("vl"), numbers(&[3.0, 1.0, 2.0]));
+        assert_eq!(column("hl"), numbers(&[3.0, 1.0, 2.0]));
+        assert_eq!(column("off"), numbers(&[30.0, 10.0, 20.0]));
+        assert_eq!(column("total"), numbers(&[63.0, 61.0, 62.0]));
     }
 
     /// Wrong answers found by sweeping the statistical, lookup, math and text

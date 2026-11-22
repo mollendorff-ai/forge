@@ -362,4 +362,24 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
     }
+
+    #[test]
+    fn an_error_in_any_argument_is_the_extremes_error() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        each_argument("MAXIFS", &[("1", None), ("1", None), ("1", None)]);
+        each_argument("MINIFS", &[("1", None), ("1", None), ("1", None)]);
+    }
+
+    /// A matching row whose value is no number is left out
+    #[test]
+    fn a_matching_text_is_no_extreme() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[
+            ("k", h::numbers(&[1.0, 2.0, 3.0])),
+            ("v", h::numbers(&[10.0, 20.0])),
+            ("m", vec![Value::Text("a".into()), Value::Number(4.0)]),
+        ]);
+        h::is_exactly_in("MAXIFS(t.m, t.k, \">0\")", &ctx, 4.0);
+        h::is_exactly_in("MINIFS(t.m, t.k, \">0\")", &ctx, 4.0);
+    }
 }

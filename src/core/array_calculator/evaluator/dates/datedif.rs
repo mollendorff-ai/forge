@@ -115,7 +115,9 @@ fn eval_datedif(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, E
             } else {
                 NaiveDate::from_ymd_opt(anniversary_year, start_date.month(), start_date.day())
             }
-            .ok_or_else(|| EvalError::new("DATEDIF: invalid anniversary date"))?;
+            // Every year has the start's month and day but 29 February, which
+            // falls back to the 28th above
+            .expect("the anniversary is a day of the year");
 
             precision::whole((end_date - anniversary).num_days())
         },
@@ -251,27 +253,28 @@ mod tests {
 
     #[test]
     fn test_yearfrac_all_bases() {
-        let ctx = EvalContext::new();
-        // Basis 1 (actual/actual)
-        let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 1)", &ctx).unwrap();
-        if let Value::Number(n) = result {
-            assert!((n - 0.497).abs() < 0.01);
+        use super::super::super::tests::{near, number};
+        // 182 days from 1 January to 1 July 2024, a leap year; 180 days by 30/360
+        for (basis, expected) in [
+            ("", 0.5),
+            (", 0", 0.5),
+            (", 1", 182.0 / 366.0),
+            (", 2", 182.0 / 360.0),
+            (", 3", 182.0 / 365.0),
+            (", 4", 0.5),
+        ] {
+            let got = number(&format!("YEARFRAC(\"2024-01-01\", \"2024-07-01\"{basis})"));
+            assert!(near(got, expected), "basis{basis}: {got}");
         }
-        // Basis 2 (actual/360)
-        let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 2)", &ctx).unwrap();
-        if let Value::Number(n) = result {
-            assert!((n - 0.506).abs() < 0.01);
-        }
-        // Basis 3 (actual/365)
-        let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 3)", &ctx).unwrap();
-        if let Value::Number(n) = result {
-            assert!((n - 0.499).abs() < 0.01);
-        }
-        // Basis 4 (European 30/360)
-        let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 4)", &ctx).unwrap();
-        if let Value::Number(n) = result {
-            assert!((n - 0.5).abs() < 0.01);
-        }
+    }
+
+    #[test]
+    fn an_error_in_any_argument_is_the_error() {
+        use super::super::super::tests::each_argument;
+        let (start, end) = ("\"2024-01-01\"", "\"2024-07-01\"");
+        let no_date = Some("Invalid date format");
+        each_argument("YEARFRAC", &[(start, no_date), (end, no_date), ("1", None)]);
+        each_argument("TIME", &[("1", None), ("2", None), ("3", None)]);
     }
 
     #[test]
@@ -289,12 +292,7 @@ mod tests {
     fn test_time() {
         let ctx = EvalContext::new();
         // TIME(12, 0, 0) = 0.5 (noon is half a day)
-        let result = eval("TIME(12, 0, 0)", &ctx).unwrap();
-        if let Value::Number(n) = result {
-            assert!((n - 0.5).abs() < 0.0001);
-        } else {
-            panic!("Expected number");
-        }
+        assert_eq!(eval("TIME(12, 0, 0)", &ctx).unwrap(), Value::Number(0.5));
     }
 
     #[test]

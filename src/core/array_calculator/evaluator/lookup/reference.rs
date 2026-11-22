@@ -139,31 +139,25 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 /// Evaluate ROW function
 /// ROW([reference])
 /// Returns the row number of a reference
-// Returns Result for uniform eval_* function signature (callers expect Result).
-#[allow(clippy::unnecessary_wraps)]
-pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Value {
     // ROW() returns current row number (1-based)
     // ROW(reference) returns the row number of the reference
     if args.is_empty() {
         // Return current row if available
-        Ok(Value::Number(
-            ctx.row().map_or(1.0, |row| precision::count(row + 1)),
-        ))
+        Value::Number(ctx.row().map_or(1.0, |row| precision::count(row + 1)))
     } else {
         // For a reference, we'd need to parse it. Simplified: return 1
-        Ok(Value::Number(1.0))
+        Value::Number(1.0)
     }
 }
 
 /// Evaluate COLUMN function
 /// COLUMN([reference])
 /// Returns the column number of a reference
-// Returns Result for uniform eval_* function signature (callers expect Result).
-#[allow(clippy::unnecessary_wraps)]
-pub const fn eval_column(_args: &[Expr], _ctx: &EvalContext) -> Result<Value, EvalError> {
+pub const fn eval_column(_args: &[Expr], _ctx: &EvalContext) -> Value {
     // COLUMN() returns current column number
     // Simplified implementation - always returns 1
-    Ok(Value::Number(1.0))
+    Value::Number(1.0)
 }
 
 /// Evaluate ROWS function
@@ -953,5 +947,18 @@ mod tests {
         assert_eq!(h::text("ADDRESS(2, 3, 1, FALSE)"), "R2C3");
         h::is_exactly("ROWS(5)", 1.0);
         h::is_exactly_in("COLUMNS(t)", &h::sweep_table(), 4.0);
+    }
+
+    /// The simplified ROW and COLUMN, absolute and relative parts of an
+    /// address, and a name that is no table has one column
+    #[test]
+    fn rows_columns_and_addresses() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let mut ctx = EvalContext::new();
+        ctx.scalars.insert("x".into(), Value::Number(3.0));
+        h::is_exactly_in("ROW(x)", &ctx, 1.0);
+        h::is_exactly_in("COLUMN()", &ctx, 1.0);
+        h::is_exactly_in("COLUMNS(x)", &ctx, 1.0);
+        assert_eq!(h::text("ADDRESS(2, 3, 3)"), "$C2");
     }
 }
