@@ -106,7 +106,7 @@ pub use simulate::{simulate_core, SimulateOptions};
 #[cfg(test)]
 pub use analysis::{
     calculate_with_override, export_variance_to_excel, export_variance_to_yaml, parse_range,
-    print_variance_table, VarianceResult,
+    print_variance_table,
 };
 #[cfg(test)]
 pub use upgrade::split_scalars_to_inputs_outputs;

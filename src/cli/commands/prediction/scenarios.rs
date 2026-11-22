@@ -10,9 +10,6 @@ use crate::scenarios::{ScenarioConfig, ScenarioEngine};
 use colored::Colorize;
 use std::path::{Path, PathBuf};
 
-/// The `format:` of each scalar, by name.
-type Formats = std::collections::BTreeMap<String, String>;
-
 /// Run scenario analysis and return structured results (no printing).
 ///
 /// # Errors
@@ -23,14 +20,6 @@ pub fn scenarios_core(
     file: &Path,
     scenario_filter: Option<&str>,
 ) -> ForgeResult<crate::scenarios::ScenarioResults> {
-    analyze(file, scenario_filter).map(|(results, _)| results)
-}
-
-/// [`scenarios_core`], and the `format:` of each scalar of the model it ran.
-fn analyze(
-    file: &Path,
-    scenario_filter: Option<&str>,
-) -> ForgeResult<(crate::scenarios::ScenarioResults, Formats)> {
     let yaml_content = parser::read_model_text(file)?;
 
     let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
@@ -81,7 +70,6 @@ fn analyze(
     }
 
     let model = parser::parse_model(file)?;
-    let formats = crate::cli::commands::scalar_formats(&model);
 
     // Report every calculated scalar (the ones with a formula) as an output,
     // so the probability of a positive result and the range are filled in.
@@ -99,7 +87,7 @@ fn analyze(
     if let Some(name) = scenario_filter {
         results.scenarios.retain(|s| s.name == name);
     }
-    Ok((results, formats))
+    Ok(results)
 }
 
 /// Execute the scenarios command - probability-weighted scenario analysis
@@ -125,10 +113,11 @@ pub fn scenarios(
             None => outln!(c, "{}", "🔄 Running all scenarios...".cyan()),
         }
     }
-    let (results, formats) = analyze(file, scenario_filter)?;
+    let results = scenarios_core(file, scenario_filter)?;
     // A number with a `format:` is printed as the format shows it (ADR-061)
     let shown = |var: &str, value: f64| {
-        formats
+        results
+            .formats
             .get(var)
             .and_then(|f| crate::cli::commands::number_shown_by(value, f))
             .unwrap_or_else(|| crate::cli::commands::display_number(value))
@@ -879,5 +868,21 @@ scalars:
                 1e-12
             ));
         }
+    }
+
+    /// The `format:` of each scalar is in the result, so the command prints
+    /// from it (T1-CLI-FROM-CORES).
+    #[test]
+    fn the_result_has_the_formats_of_the_model() {
+        let result =
+            super::scenarios_core(std::path::Path::new("examples/bagel/bagel.yaml"), None).unwrap();
+        assert_eq!(result.formats["assumptions.price_per_dozen"], "$#,##0.00");
+        assert_eq!(result.formats["year.margin"], "0.0%");
+        // A model without one has none, and JSON leaves them out
+        let plain =
+            super::scenarios_core(std::path::Path::new("examples/scenarios.yaml"), None).unwrap();
+        assert!(plain.formats.is_empty());
+        let json = serde_json::to_value(&plain).unwrap();
+        assert!(json.get("formats").is_none(), "{json}");
     }
 }

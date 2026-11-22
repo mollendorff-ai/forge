@@ -296,9 +296,14 @@ pub struct ExportResult {
     pub table_count: usize,
     pub scalar_count: usize,
     /// Formulas written as values because Excel cannot express them, and
-    /// parts of the model that are not exported at all (scenarios)
+    /// parts of the model that are not exported at all (scenarios); the
+    /// reason in `not_checked`, if any, comes first
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// Why the workbook could not be checked: the model does not calculate,
+    /// so its formulas were written without results
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_checked: Option<String>,
 }
 
 /// Result of an in-memory (buffer) export — returned when no `excel_path` is given
@@ -328,6 +333,23 @@ pub struct ImportResult {
     /// Included files written beside the model, from the sheets of an included file
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub included_files: Vec<String>,
+    /// Each table imported, in the workbook's order
+    #[serde(default)]
+    pub tables: Vec<ImportedTable>,
+    /// How many formulas were kept as formulas
+    #[serde(default)]
+    pub formulas_kept: usize,
+    /// With `--split-files`: every file written, the included ones too
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files_written: Vec<String>,
+}
+
+/// A table `forge import` read from a workbook
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedTable {
+    pub name: String,
+    pub columns: usize,
+    pub rows: usize,
 }
 
 /// Result of sensitivity analysis

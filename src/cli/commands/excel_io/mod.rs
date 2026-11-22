@@ -861,3 +861,64 @@ mod inherited_budget {
         assert!(close(net_trapped - net, 1_125.0));
     }
 }
+
+#[cfg(test)]
+mod printed_from_the_result {
+    //! What `forge export` and `forge import` print is in their cores'
+    //! results (T1-CLI-FROM-CORES).
+
+    use crate::cli::commands::{export_core, import_core};
+    use std::path::Path;
+
+    #[test]
+    fn export_names_why_a_workbook_was_not_checked() {
+        let dir = tempfile::tempdir().unwrap();
+        let failing = dir.path().join("f.yaml");
+        std::fs::write(
+            &failing,
+            "_forge_version: \"5.2.0\"\nr:\n  missing: {formula: \"=MATCH(99, 1, 0)\"}\n",
+        )
+        .unwrap();
+        let result = export_core(&failing, &dir.path().join("f.xlsx")).unwrap();
+        let reason = result.not_checked.clone().unwrap();
+        assert_eq!(result.warnings[0], reason);
+        let fine = export_core(
+            Path::new("examples/quota_forecast.yaml"),
+            &dir.path().join("b.xlsx"),
+        )
+        .unwrap();
+        assert!(fine.not_checked.is_none());
+        let json = serde_json::to_value(&fine).unwrap();
+        assert!(json.get("not_checked").is_none(), "{json}");
+    }
+
+    #[test]
+    fn import_gives_each_table_the_formulas_kept_and_the_files_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let workbook = dir.path().join("b.xlsx");
+        export_core(Path::new("examples/bagel/bagel.yaml"), &workbook).unwrap();
+        let single = import_core(&workbook, &dir.path().join("b.yaml"), false, false).unwrap();
+        // As the file it wrote reads: the data columns, the formulas apart
+        let written = crate::parser::parse_model(&dir.path().join("b.yaml")).unwrap();
+        let shapes: Vec<(&str, usize, usize)> = single
+            .tables
+            .iter()
+            .map(|t| (t.name.as_str(), t.columns, t.rows))
+            .collect();
+        let expected: Vec<(&str, usize, usize)> = written
+            .tables
+            .values()
+            .map(|t| (t.name.as_str(), t.columns.len(), t.row_count()))
+            .collect();
+        assert_eq!(shapes, expected);
+        assert_eq!(shapes[0].0, "months");
+        assert!(single.formulas_kept > 0);
+        assert!(single.files_written.is_empty());
+        // A model whose parts do not refer to each other can be split
+        let plain = dir.path().join("q.xlsx");
+        export_core(Path::new("examples/quota_forecast.yaml"), &plain).unwrap();
+        let split = import_core(&plain, &dir.path().join("split"), true, false).unwrap();
+        assert!(!split.files_written.is_empty());
+        assert!(split.files_written.iter().all(|f| Path::new(f).exists()));
+    }
+}

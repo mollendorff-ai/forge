@@ -38,6 +38,9 @@ pub struct ScenarioResults {
     /// file's order (ADR-067)
     #[serde(default)]
     pub unweighted: Vec<String>,
+    /// The `format:` of each scalar that has one (ADR-061), by name
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub formats: BTreeMap<String, String>,
 }
 
 impl ScenarioResults {
@@ -125,6 +128,12 @@ impl ScenarioEngine {
             probability_positive,
             ranges,
             unweighted: self.config.unweighted.clone(),
+            formats: self
+                .base_model
+                .scalars
+                .iter()
+                .filter_map(|(name, v)| Some((name.clone(), v.metadata.format.clone()?)))
+                .collect(),
         })
     }
 

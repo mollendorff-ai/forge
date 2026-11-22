@@ -544,12 +544,26 @@ tier1:
   # their links, anchors, paths, ADR index and module map current. What the
   # rewrite found in the code is below.
 
-  - id: T1-CLI-FROM-CORES
-    title: "Every command line command prints from its core's result"
-    run_with: "Opus 5.5, high effort: about a dozen commands whose output must stay byte for byte the same, under the 100% coverage gate"
-    why: "Found 2026-11-22 (docs/architecture/01-COMPONENT-ARCHITECTURE.md, The layers). MCP, REST and forge-wasm call each command's *_core function, so they agree. On the command line only audit, simulate, game and compare print from their core's result; calculate, validate, goal-seek, break-even, sensitivity, tornado, scenarios, variance, bootstrap, bayesian, real-options, decision-tree, export and import repeat the core's steps and print as they go. A fix made in a core does not reach the command line unless it is made twice, so the command line and the other three doors can drift apart without a test noticing"
-    how: "One command at a time: the printing function calls the core and formats its result on the Console; whatever it prints that the result lacks is added to the result (MCP, REST and forge-wasm then get it too). The command's existing output tests are the check: the output does not change. Start with the commands whose core and printer differ most (calculate, validate). 10-EXTENDING-FORGE.md already asks new commands to do this"
-    acceptance: "Each command's printing function calls its *_core and prints nothing it does not take from the result; every command's output tests pass unchanged; the paragraph in 01-COMPONENT-ARCHITECTURE.md that lists the exceptions is removed"
+  # T1-CLI-FROM-CORES is done (2026-11-22): every command line command
+  # prints from its core's result. calculate calls calculate_core (or
+  # calculate_plan_core); validate calls its core's steps (ModelToValidate:
+  # read, check_lengths, check), so a failing step still prints what was
+  # found before it; the others call their *_core once. What a printer showed
+  # that the result lacked was added to the result and serialized (the
+  # maintainer's choice), so MCP, REST, Studio and --output files have it:
+  # calculate's values_updated and the model's order (JSON keeps name order),
+  # bootstrap's statistic, sample_size, confidence_levels and seed, a network's
+  # nodes, real options' method and option_order, a tree's root_name and
+  # node_count, tornado's section as written, scenarios' formats, export's
+  # not_checked, import's tables, formulas_kept and files_written. Checked
+  # against the binary before the change on every example (about 1,500 runs
+  # with their flags and -o files): the console prints the same bytes on
+  # every run that succeeds. A run that fails no longer prints what the old
+  # printer printed before calculating (the maintainer's choice: one core
+  # call, nothing to drift). The --verbose scenario list of calculate is in
+  # HashMap order, random from run to run, before and after: sorting it is
+  # a small follow-up. REST's export and import still call the printing
+  # functions (T3-API's note).
 
   # T1-LEFTOVERS-2026-11-22 is done (2026-11-22): neither Cargo.toml declares
   # cfg(coverage) any more, and clippy passes on 1.97 (stable here and the

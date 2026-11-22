@@ -47,13 +47,13 @@ Arrows point from caller to callee. Every layer also uses `error` (`ForgeError`)
 
 - **Each command has a core.** `calculate_core`, `simulate_core`, `game_core` and the others in `src/cli/commands/` take arguments and return a value (`CalculationResult`, `SimulationResult`, ...) that derives `Serialize`. A core prints nothing.
 - **MCP, REST and forge-wasm call the core, never the engine directly.** They turn a request into arguments, call the `*_core` function, and turn its result into JSON, so the three give the same answer for the same model. One exception: REST's export and import call `forge export`'s and `forge import`'s printing functions and discard what they print ([08](08-API-SERVER-ARCHITECTURE.md#endpoints)).
-- **The command line's printing functions do not all call their core yet.** `audit`, `simulate`, `game`, `compare` and `edit` do: they call the core and format its result on a `Console`. The others (`calculate`, `validate`, `goal_seek`, `tornado`, `scenarios`, `variance`, ...) repeat the core's steps and print as they go. Their output is checked by their own tests, but a change to one of those cores must be made in the printing function too. A new command should print from its core's result (see [10](10-EXTENDING-FORGE.md#add-a-command)).
+- **The command line prints from the core.** Each printing function calls its command's core once and formats the result on a `Console`; what it prints that a client could use is in the result, so MCP, REST and forge-wasm have it too. `validate` calls its core's steps (`ModelToValidate`: read, check the lengths, check), so it can say what it found before a step fails. A fix made in a core reaches every door.
 - **The engine knows nothing about the front ends.** `parser`, `types`, `core`, `functions`, `writer` and the analysis modules build without the `cli` feature and without a file system (see [below](#feature-builds)).
 - **The analysis engines reuse the calculator.** An engine that moves an input (simulation, tornado, scenarios, goal seek) changes the `ParsedModel` and calculates it again with `ArrayCalculator`; it has no formula logic of its own. [09](09-ANALYSIS-ENGINES.md) explains the two kinds of engine.
 
 ## One core, four doors
 
-Here is `calculate` from each door. MCP, REST and the browser share one function; the command line repeats its steps (see the rules above).
+Here is `calculate` from each door. All four call one function, `calculate_core` (`calculate_plan_core` with `--plan`).
 
 ```mermaid
 sequenceDiagram
@@ -65,12 +65,13 @@ sequenceDiagram
     participant Core as calculate_core<br/>(cli::commands)
     participant Engine as parser + ArrayCalculator<br/>+ writer
 
-    CLI->>Engine: the same steps as the core, printing as it goes
+    CLI->>Core: path, dry run, scenario
     MCP->>Core: path (inline content written to a temp dir)
     REST->>Core: path (inline content written to a temp dir)
     WASM->>Core: path, inside with_files_in_memory
     Core->>Engine: parse_model, calculate_all, write_calculated_results
     Engine-->>Core: ParsedModel with results
+    Core-->>CLI: CalculationResult, printed on the Console
     Core-->>MCP: CalculationResult, as JSON text
     Core-->>REST: CalculationResult, in the JSON answer
     Core-->>WASM: CalculationResult, as {"ok": ...}
