@@ -41,6 +41,9 @@ pub struct OptionResult {
 pub struct OptionsResult {
     /// Analysis name
     pub name: String,
+    /// How the options were valued
+    #[serde(default)]
+    pub method: ValuationMethod,
     /// Underlying asset parameters
     pub underlying: UnderlyingResult,
     /// Traditional NPV (without options), if given
@@ -48,6 +51,9 @@ pub struct OptionsResult {
     pub traditional_npv: Option<f64>,
     /// Individual option results
     pub options: std::collections::BTreeMap<String, OptionResult>,
+    /// The options' names, in the order the file lists them
+    #[serde(default)]
+    pub option_order: Vec<String>,
     /// Option whose project value is highest. Option values overlap (waiting and
     /// expanding both depend on the same project), so they are never added up.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -168,6 +174,7 @@ impl RealOptionsEngine {
 
         OptionsResult {
             name: self.config.name.clone(),
+            method: self.config.method,
             underlying: UnderlyingResult {
                 current_value: self.config.underlying.current_value,
                 volatility: self.config.underlying.volatility,
@@ -176,6 +183,7 @@ impl RealOptionsEngine {
             },
             traditional_npv: self.traditional_npv,
             options: option_results,
+            option_order: self.config.options.iter().map(|o| o.name.clone()).collect(),
             best_option: best.as_ref().map(|(name, _)| name.clone()),
             project_value_with_options: best.map(|(_, value)| value),
             decision,
