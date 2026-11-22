@@ -210,6 +210,7 @@ function scalarCards(list) {
     const calculated = !s.path.startsWith("@");
     h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${calculated ? ` data-scalar="${esc(s.path)}"` : ""}><div class="res-top"><div class="res-name">${esc(leaf(s.path))}${unitOf(s)}</div>${deleteButton(s.path, true)}</div>
       <div class="res-val" data-val>${calculated ? "" : '<span class="note">used by the model</span>'}</div>
+      <div class="expect note" data-expect hidden></div>
       <div class="formula-row" data-fslot="${esc(s.path)}"><div class="formula">${esc(s.formula)}</div>${editButton(s.path)}</div></div>`;
   }
   return h;
@@ -304,6 +305,19 @@ function pulse(card, key, sig) {
   S.prev[key] = sig;
 }
 
+// What the file, or the scenario applied, states this result should be (expect:, ADR-074), and whether Forge gives it: both from Forge's calculate
+function showExpected(card, path) {
+  const el = $("[data-expect]", card);
+  if (!el) return;
+  const check = S.calc && (S.calc.expectations || []).find((e) => e.path === path);
+  el.hidden = !check;
+  if (!check) return;
+  const stated = `${fmtAt(check.expected, path)}${check.formula ? ` (${check.formula})` : ""}`;
+  el.textContent = check.met ? `As expect: states, ${stated}` : `expect: states ${stated}, and Forge gives ${fmtAt(check.got, path)}`;
+  el.classList.toggle("bad", !check.met);
+  card.dataset.expected = check.met ? "met" : "differs";
+}
+
 function updateValues() {
   if (!S.structure) { renderModel(); return; }
   const problem = $("#model-error");
@@ -340,6 +354,7 @@ function updateValues() {
       const el = $("[data-val]", card);
       el.textContent = S.calc ? formattedAt(path) ?? fmtAt(v, path) : "Not calculated";
       el.classList.toggle("neg", typeof v === "number" && v < 0);
+      showExpected(card, path);
     }
   }
   for (const card of $$("#view-model [data-table]")) {
@@ -610,7 +625,8 @@ function closeFormulaEditor(path) {
 }
 async function check(files) {
   try {
-    await call("validate", { files, main: S.main });
+    // An edit that moves a figure away from its expect: is how a model is explored, so it is kept (ADR-074)
+    await call("validate", { files, main: S.main, expectations: false });
   } catch (e) {
     // validate cannot evaluate distributions; a short simulation evaluates every formula
     if (!/MC\.\* distributions/.test(e.message)) throw e;
@@ -926,7 +942,7 @@ async function applyEditor() {
   const file = S.yamlFile, text = editor.value;
   const files = { ...S.files, [file]: text };
   try {
-    await call("validate", { files, main: S.main });
+    await call("validate", { files, main: S.main, expectations: false });
     if (editor.value !== text || S.yamlFile !== file) return; // typed on meanwhile
     S.files = files; save();
     msg.className = "msg"; msg.textContent = "Forge read it. The cards are up to date.";
@@ -1099,7 +1115,7 @@ va.addEventListener("click", async (e) => {
 
 // ---------- Tools view: the MCP server's tools, run here ----------
 const TOOLS = [
-  ["Core", [["validate", "Check a model for formula errors, circular references and type mismatches."], ["calculate", "Calculate every formula, optionally under a named scenario."], ["audit", "Follow one variable's formula down to the inputs it reads."], ["report", "Groups with the same keys, side by side."]]],
+  ["Core", [["validate", "Check a model for formula errors, circular references and type mismatches, and that it gives what its expect: states, in the file and each scenario."], ["calculate", "Calculate every formula, optionally under a named scenario."], ["audit", "Follow one variable's formula down to the inputs it reads."], ["report", "Groups with the same keys, side by side."]]],
   ["What-if", [["goal_seek", "Find the input value that makes an output hit a target."], ["break_even", "Find where an output reaches zero."], ["scenarios", "Run each probability-weighted scenario."], ["compare", "Put scenario results side by side."], ["sensitivity", "Vary one input over a range and watch an output."], ["tornado", "Rank inputs by how much they move one output."], ["variance", "Budget against actual, with favourable and unfavourable flags."]]],
   ["Uncertainty", [["simulate", "Monte Carlo with Latin hypercube sampling and a seed."], ["probability_seek", "Find the input that gives an output a chance of passing a threshold."], ["bootstrap", "Bootstrap confidence intervals from data."], ["decision_tree", "Backward induction: best path and expected value."], ["real_options", "Value the option to defer, expand or abandon."], ["bayesian", "Posterior probabilities in a Bayesian network."]]],
   ["Games", [["game", "Dominated strategies, equilibria and tournaments of the model's games."]]],

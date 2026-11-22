@@ -363,6 +363,10 @@ jobs:
         working-directory: studio
         run: node tests/games.mjs ../studio-site
 
+      - name: "Studio shows what a model's expect: states, as Forge checks it"
+        working-directory: studio
+        run: node tests/expect.mjs ../studio-site
+
       - name: Studio shows a format as Forge gives it
         working-directory: studio
         run: node tests/formats.mjs ../studio-site

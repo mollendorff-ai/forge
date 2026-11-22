@@ -17,6 +17,10 @@ pub struct ScenarioDefinition {
     /// Scalar overrides for this scenario
     #[serde(default)]
     pub scalars: BTreeMap<String, ScalarOverride>,
+    /// What the scenario should give (ADR-074): read by the parser and
+    /// checked by `forge validate`; the weighing has no use for it
+    #[serde(default, skip_serializing)]
+    pub expect: serde::de::IgnoredAny,
 }
 
 /// A scalar override can be a fixed value or a Monte Carlo distribution
@@ -158,6 +162,7 @@ impl ScenarioDefinition {
             probability,
             description: String::new(),
             scalars: BTreeMap::new(),
+            expect: serde::de::IgnoredAny,
         }
     }
 

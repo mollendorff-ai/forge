@@ -1,6 +1,6 @@
 # ADR-074: A Scenario States Its Results, and a Bayesian Network Reads the Model
 
-**Status:** Accepted (2026-11-22), all seven questions as recommended; question 7 as all three parts built together, with `=BAYES()` left out. Nothing is built yet
+**Status:** Accepted (2026-11-22), all seven questions as recommended; question 7 as all three parts built together, with `=BAYES()` left out. Steps 1 to 4 built 2026-11-22 (the note under step 4); steps 5 and 6 not yet
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who asked of question 5 what export does with scenarios and stored values, and of question 7 what makes more sense for an LLM in an AI pipeline; the analysis is Claude's
 **For:** roadmap T2-SCENARIO-CHECKS, and T2-BAYESIAN-LINK (more than its first step: see question 7)
@@ -208,6 +208,7 @@ _Instead of (c):_ `=BAYES(node, state, evidence…)`, the function the roadmap n
 2. **`validate_core` checks them, and the command prints what it returns** (questions 3 and 4). Tests: a broken expectation fails with the scenario, the name and both numbers; the tolerance either side of 1; a scenario with an `MC.*` override and an `expect:` is refused; the MCP tool and the REST endpoint return the same differences.
 3. **`calculate --scenario` writes nothing** (question 5), on the command line and in `forge_calculate`. A test that fails before the change: the measured trap above.
 4. **Studio** (question 6): the gate without expectations, and the expected figure on the Model view. `studio/tests` checks each number against `validate`.
+   - **Note, 2026-11-22: built, with the numbers from `calculate`.** Studio shows the expectations of the run on screen, so it reads them from the `calculate` call it already makes for that run: `forge_calculate` reports each expectation of the file or the scenario applied (`expectations`), checked by the same function as `validate`. An extra `validate` on every edit would calculate every scenario again, about 2 seconds for kinship's ecology. `studio/tests/expect.mjs` checks each card against Forge's report, in the plan, under a scenario and after an edit. The command, MCP, REST and Studio share `src/cli/commands/validate.rs`; `forge watch` keeps its own check of stored values, which has no expectations.
 5. **A network reads the model, and `--scenario`** (question 7, a and b): the command, `forge_bayesian`, forge-wasm. Steps 5 and 6 are one change, released together.
 6. **Named queries** (question 7, c), checked when the model is read (each node, state and piece of evidence named, with the query's place), calculated in the order of a game, with the cycle refused. A worked example in `examples/`, where a posterior feeds a result of the model (the probability of default given the economy, feeding an expected loss), checked against Bayes' rule by hand, and a test that `simulate` moves a prior that reads an `MC.*` input.
 7. **Docs, each step:** docs/FEATURES.md, docs/cli, the CHANGELOG, the roadmap, docs/STABILITY.md for the new names.
