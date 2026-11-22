@@ -620,8 +620,11 @@ impl Rename {
             read = self.renamed(&read);
         }
         let mut json = serde_json::to_value(&read).expect("a model is written as JSON");
-        if let Some(games) = json.get_mut("games") {
-            formulas_in(games, &|f| formula(f, Place::Elsewhere));
+        // A game's formulas and a network's probabilities read names too
+        for section in ["games", "network"] {
+            if let Some(found) = json.get_mut(section) {
+                formulas_in(found, &|f| formula(f, Place::Elsewhere));
+            }
         }
         let includes: serde_json::Map<String, Json> = model
             .resolved_includes
