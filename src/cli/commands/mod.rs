@@ -788,7 +788,7 @@ mod tests {
                 ),
                 (
                     "_forge_version: \"5.1.0\"\ns:\n  y: {formula: \"=MC.Uniform(0, 1)\"}\n",
-                    "Validation error: s.y use MC.* distributions, which calculate and validate cannot evaluate. Run `forge simulate` on this file instead.",
+                    "Validation error: s.y use MC.* distributions, which calculate and validate cannot evaluate. Run `forge simulate` on this file instead, or `forge calculate --plan` for its plan.",
                 ),
                 (
                     "a: [1\n",
