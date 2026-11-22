@@ -271,19 +271,17 @@ async fn serve_until(
     if let Some(root) = &config.root {
         info!("   Files: only inside {}", root.display());
     }
-    info!(
-        "   Token: {}. Browser origins allowed: {}",
-        if config.token.is_some() {
-            "required on /api/v1/*"
-        } else {
-            "none (local use only)"
-        },
-        if config.cors_origins.is_empty() {
-            "none".to_string()
-        } else {
-            config.cors_origins.join(", ")
-        }
-    );
+    let token = if config.token.is_some() {
+        "required on /api/v1/*"
+    } else {
+        "none (local use only)"
+    };
+    let origins = if config.cors_origins.is_empty() {
+        "none".to_string()
+    } else {
+        config.cors_origins.join(", ")
+    };
+    info!("   Token: {token}. Browser origins allowed: {origins}");
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
@@ -931,7 +929,7 @@ mod tests {
             std::io::Write::write(&mut *self.0.lock().unwrap(), bytes)
         }
         fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
+            std::io::Write::flush(&mut *self.0.lock().unwrap())
         }
     }
 
@@ -962,6 +960,8 @@ mod tests {
         }
         stop.send(()).unwrap();
         server.await.unwrap().unwrap();
+        // The log is flushed to what the test reads
+        std::io::Write::flush(&mut log.clone()).unwrap();
         let text = String::from_utf8(log.0.lock().unwrap().clone()).unwrap();
         text
     }

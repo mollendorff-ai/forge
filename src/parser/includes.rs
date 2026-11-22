@@ -300,12 +300,13 @@ data:
 
         let yaml: Value = yaml_serde::from_str(yaml_content).unwrap();
 
-        // Try to parse the includes section
-        if let Some(Value::Sequence(includes_seq)) = yaml.get("_includes") {
-            let mut model = ParsedModel::new();
-            let result = parse_includes(includes_seq, &mut model);
-            assert!(result.is_err());
-        }
+        let includes_seq = yaml["_includes"].as_sequence().unwrap();
+        let mut model = ParsedModel::new();
+        let result = parse_includes(includes_seq, &mut model);
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Parse error: Include 'external.yaml' must have an 'as' field for the namespace"
+        );
     }
 
     #[test]
@@ -320,11 +321,25 @@ data:
 
         let yaml: Value = yaml_serde::from_str(yaml_content).unwrap();
 
-        // Try to parse the includes section
-        if let Some(Value::Sequence(includes_seq)) = yaml.get("_includes") {
-            let mut model = ParsedModel::new();
-            let result = parse_includes(includes_seq, &mut model);
-            assert!(result.is_err());
-        }
+        let includes_seq = yaml["_includes"].as_sequence().unwrap();
+        let mut model = ParsedModel::new();
+        let result = parse_includes(includes_seq, &mut model);
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Parse error: Each include must be a mapping with 'file' and 'as' fields"
+        );
+    }
+
+    #[test]
+    fn a_file_missing_from_memory_is_named() {
+        let files: HashMap<String, String> = HashMap::new();
+        let source = MemorySource { files: &files };
+        assert_eq!(
+            source
+                .read(Path::new("costs.yaml"))
+                .unwrap_err()
+                .to_string(),
+            "Parse error: Included file not found: costs.yaml"
+        );
     }
 }

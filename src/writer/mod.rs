@@ -193,4 +193,22 @@ mod tests {
         assert_eq!(count_changed("a\nc\ne\n", "a\nb\nc\nd\ne\n"), 2);
         assert_eq!(count_changed("a\n", "a\n"), 0);
     }
+
+    #[test]
+    fn a_result_with_no_place_in_the_file_is_refused_and_the_file_kept() {
+        let text = "out:\n  total:\n    formula: \"=1 + 1\"\n";
+        let f = file_with(text);
+        let model = model_with(&[("zz", Some(2.0), Some("=1 + 1"))]);
+        let err = write_calculated_results(f.path(), &model)
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            err,
+            format!(
+                "Validation error: {}: results not written, the file is unchanged: 'zz' was not found in the file",
+                f.path().display()
+            )
+        );
+        assert_eq!(fs::read_to_string(f.path()).unwrap(), text);
+    }
 }

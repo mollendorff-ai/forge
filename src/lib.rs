@@ -122,15 +122,19 @@ mod tests {
         fn rejects<T: DeserializeOwned>(yaml: &str, key: &str) {
             let err = yaml_serde::from_str::<T>(yaml)
                 .err()
-                .unwrap_or_else(|| panic!("accepted unknown key `{key}`:\n{yaml}"))
-                .to_string();
-            assert!(err.contains(&format!("unknown field `{key}`")), "{err}");
+                .map(|e| e.to_string())
+                .unwrap_or_default();
+            assert!(
+                err.contains(&format!("unknown field `{key}`")),
+                "`{key}` gave `{err}` in:\n{yaml}"
+            );
         }
 
         fn accepts<T: DeserializeOwned>(yaml: &str) {
-            if let Err(e) = yaml_serde::from_str::<T>(yaml) {
-                panic!("rejected valid config: {e}\n{yaml}");
-            }
+            assert!(
+                yaml_serde::from_str::<T>(yaml).is_ok(),
+                "rejected valid config:\n{yaml}"
+            );
         }
 
         const UNDERLYING: &str =
@@ -432,11 +436,10 @@ mod tests {
 
         /// The same to the 15 significant digits a workbook keeps.
         fn close(a: Option<f64>, b: Option<f64>) -> bool {
-            match (a, b) {
-                (Some(a), Some(b)) => (a - b).abs() <= 1e-14 * a.abs().max(b.abs()).max(1.0),
-                (None, None) => true,
-                _ => false,
-            }
+            a.zip(b).map_or_else(
+                || a.is_none() && b.is_none(),
+                |(a, b)| (a - b).abs() <= 1e-14 * a.abs().max(b.abs()).max(1.0),
+            )
         }
 
         proptest! {

@@ -11,12 +11,9 @@ use colored::Colorize;
 use std::collections::BTreeMap;
 
 /// Return function catalog as a JSON value (no printing).
-///
-/// # Errors
-///
-/// This function is infallible but returns `ForgeResult` for API consistency.
-pub fn functions_core() -> ForgeResult<serde_json::Value> {
-    Ok(catalog())
+#[must_use]
+pub fn functions_core() -> serde_json::Value {
+    catalog()
 }
 
 /// The function catalog as JSON: the total, and each category's functions.
@@ -163,7 +160,7 @@ mod tests {
     fn the_listing_and_its_json_have_every_function() {
         let json: serde_json::Value =
             serde_json::from_str(&forge(&["functions", "--json"]).out).unwrap();
-        let core = super::functions_core().unwrap();
+        let core = super::functions_core();
         assert_eq!(json, core);
         let listing = forge(&["functions"]).out;
         assert!(listing.contains(&format!("{} Excel-compatible functions", json["total"])));

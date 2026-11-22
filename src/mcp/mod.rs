@@ -258,6 +258,19 @@ mod tests {
         assert_eq!(answer, "");
     }
 
+    #[test]
+    fn an_answer_waits_past_the_answers_to_other_requests() {
+        let mut session = Session::start(None);
+        for id in [7, 8] {
+            session.send(&serde_json::json!({"jsonrpc": "2.0", "id": id,
+                "method": "tools/list", "params": {}}));
+        }
+        // The answer to 7 comes first, and is passed over
+        let answer: serde_json::Value = serde_json::from_str(&session.answer(8)).unwrap();
+        assert_eq!(answer["id"], 8);
+        assert_eq!(answer["result"]["tools"].as_array().map(Vec::len), Some(22));
+    }
+
     mod root {
         //! `forge mcp` keeps file paths inside the folder it starts in unless told
         //! otherwise (evaluation of rc.27, fix 7): an agent, or a prompt injected

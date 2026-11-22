@@ -398,7 +398,7 @@ mod tests {
     fn test_mcp_doc_inline_examples_run() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/MCP.md");
         let doc = std::fs::read_to_string(path).expect("docs/MCP.md should exist");
-        let mut ran = 0;
+        let mut ran: Vec<(String, Result<String, String>)> = Vec::new();
         for line in doc.lines().filter(|l| l.starts_with("{\"jsonrpc\"")) {
             let call: serde_json::Value =
                 serde_json::from_str(line).expect("doc example should be valid JSON");
@@ -415,14 +415,20 @@ mod tests {
                 "forge_calculate" => server.calculate(Parameters(
                     serde_json::from_value(args).expect("calculate arguments"),
                 )),
-                other => panic!("docs/MCP.md has an inline example for {other}; add it here"),
+                other => Err(format!(
+                    "{other} is an inline example this test does not run"
+                )),
             };
-            if let Err(e) = result {
-                panic!("docs/MCP.md example for {name} failed: {e}\n{line}");
-            }
-            ran += 1;
+            ran.push((name.to_string(), result.map(|_| line.to_string())));
         }
-        assert!(ran >= 3, "expected at least 3 inline examples, ran {ran}");
+        assert!(
+            ran.len() >= 3,
+            "expected at least 3 inline examples, ran {ran:?}"
+        );
+        assert!(
+            ran.iter().all(|(_, result)| result.is_ok()),
+            "an inline example of docs/MCP.md failed: {ran:?}"
+        );
     }
 
     #[test]

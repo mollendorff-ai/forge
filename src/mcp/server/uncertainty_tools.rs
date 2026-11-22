@@ -771,4 +771,23 @@ scalars:
             .unwrap_err();
         assert_eq!(error, "seek needs vary, min and max");
     }
+
+    #[test]
+    fn a_bootstrap_with_no_resamples_gives_no_percentiles() {
+        let result = crate::bootstrap::BootstrapResult {
+            original_estimate: 1.0,
+            bootstrap_mean: 1.0,
+            bootstrap_std_error: 0.0,
+            bias: 0.0,
+            method: crate::bootstrap::BootstrapMethod::Percentile,
+            confidence_intervals: Vec::new(),
+            distribution: Vec::new(),
+            iterations: 0,
+        };
+        let compact = compact_bootstrap(&result);
+        assert_eq!(compact.get("distribution"), None);
+        assert_eq!(compact.get("distribution_percentiles"), None);
+        assert_eq!(compact.get("distribution_size"), None);
+        assert_eq!(compact["iterations"], 0);
+    }
 }

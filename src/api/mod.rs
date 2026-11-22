@@ -12,12 +12,15 @@ pub use server::run_api_server;
 ///
 /// # Errors
 ///
-/// Returns an error if the runtime cannot start, or the server cannot bind
-/// its address or fails while serving.
+/// Returns an error if the server cannot bind its address or fails while
+/// serving.
+///
+/// # Panics
+///
+/// Panics if the machine cannot start a runtime (no threads, no descriptors).
 pub fn serve(config: server::ApiConfig) -> crate::error::ForgeResult<()> {
     use crate::error::ForgeError;
-    let runtime = tokio::runtime::Runtime::new()
-        .map_err(|e| ForgeError::Validation(format!("Failed to create runtime: {e}")))?;
+    let runtime = tokio::runtime::Runtime::new().expect("a runtime starts");
     runtime
         .block_on(run_api_server(config))
         .map_err(|e| ForgeError::Validation(format!("Server error: {e}")))
@@ -277,6 +280,40 @@ mod tests {
             .await;
             says_outside(&out, "imported");
             assert!(!secret.join("back.yaml").exists());
+
+            // The model to export and the workbook to import are read inside too
+            let out = post(
+                &root,
+                "/api/v1/export",
+                serde_json::json!({"yaml_path": "../secret/s.yaml", "excel_path": "m.xlsx"}),
+            )
+            .await;
+            says_outside(&out, "exported");
+            let out = post(
+                &root,
+                "/api/v1/import",
+                serde_json::json!({"excel_path": "../secret/s.xlsx", "yaml_path": "back.yaml"}),
+            )
+            .await;
+            says_outside(&out, "imported");
+        }
+
+        #[tokio::test]
+        async fn calculate_writes_the_results_into_a_file_inside_the_root() {
+            let (_base, root, _secret) = folders();
+            let out = post(
+                &root,
+                "/api/v1/calculate",
+                serde_json::json!({"file_path": "m.yaml"}),
+            )
+            .await;
+            assert_eq!(
+                out["data"]["message"], "Calculation completed and file updated",
+                "{out}"
+            );
+            assert!(fs::read_to_string(root.join("m.yaml"))
+                .unwrap()
+                .contains("value: 6"));
         }
 
         #[test]
@@ -365,6 +402,24 @@ mod tests {
             )
             .await;
             assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        }
+
+        #[tokio::test]
+        async fn test_any_host_header_is_accepted_when_listening_beyond_this_machine() {
+            // The Host check guards a server only this machine reaches; one
+            // that listens on every address is guarded by its token
+            let config = ApiConfig {
+                host: "0.0.0.0".to_string(),
+                token: Some(TOKEN.to_string()),
+                ..ApiConfig::default()
+            };
+            let response = send(
+                &config,
+                validate_request("api.example:8080", Some(&format!("Bearer {TOKEN}"))),
+            )
+            .await;
+            assert_ne!(response.status(), StatusCode::FORBIDDEN);
+            assert_ne!(response.status(), StatusCode::UNAUTHORIZED);
         }
 
         #[tokio::test]

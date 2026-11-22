@@ -22,41 +22,35 @@ use crate::cli::{
 fn scenarios_json(path: &Path, results: &crate::scenarios::ScenarioResults) -> String {
     let mut json =
         serde_json::to_value(crate::core::precision::Rounded(results)).unwrap_or_default();
-    let dates: Vec<String> = crate::parser::parse_model(path).map_or_else(
-        |_| Vec::new(),
-        |m| {
+    // The run parsed this file, so reading it again does not fail
+    let dates: Vec<String> = crate::parser::parse_model(path)
+        .map(|m| {
             m.scalars
                 .iter()
                 .filter(|(_, v)| v.is_date)
                 .map(|(k, _)| k.clone())
                 .collect()
-        },
-    );
-    let text = |v: &serde_json::Value| {
-        v.as_f64().map_or_else(
-            || v.clone(),
-            |n| {
-                serde_json::Value::String(
-                    crate::core::array_calculator::evaluator::serial_date_text(n),
-                )
-            },
-        )
+        })
+        .unwrap_or_default();
+    // A date is an input, so it is in a scenario's scalars and the expected
+    // values, and never in the ranges, which are of calculated outputs
+    let as_text = |v: &mut serde_json::Value| {
+        if let Some(n) = v.as_f64() {
+            *v = serde_json::Value::String(
+                crate::core::array_calculator::evaluator::serial_date_text(n),
+            );
+        }
     };
     for name in &dates {
         if let Some(scenarios) = json["scenarios"].as_array_mut() {
             for scenario in scenarios {
                 if let Some(v) = scenario["scalars"].get_mut(name) {
-                    *v = text(v);
+                    as_text(v);
                 }
             }
         }
         if let Some(v) = json["expected_values"].get_mut(name) {
-            *v = text(v);
-        }
-        if let Some(range) = json["ranges"].get_mut(name).and_then(|r| r.as_array_mut()) {
-            for end in range {
-                *end = text(end);
-            }
+            as_text(v);
         }
     }
     json.to_string()
@@ -543,22 +537,23 @@ scenarios:
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         let scenarios = parsed["scenarios"].as_array().unwrap();
-        // Verify each scenario actually overrode the grouped scalar
-        for s in scenarios {
-            let name = s["name"].as_str().unwrap();
-            let profit = s["scalars"]["profit"].as_f64().unwrap();
-            match name {
-                "bull" => assert!(
-                    (profit - 250_000.0).abs() < 1.0,
-                    "bull profit: expected 250000, got {profit}"
-                ),
-                "bear" => assert!(
-                    (profit - 20_000.0).abs() < 1.0,
-                    "bear profit: expected 20000, got {profit}"
-                ),
-                _ => panic!("unexpected scenario: {name}"),
-            }
-        }
+        // Each scenario actually overrode the grouped scalar
+        let profits: Vec<(String, f64)> = scenarios
+            .iter()
+            .map(|s| {
+                (
+                    s["name"].as_str().unwrap().to_string(),
+                    s["scalars"]["profit"].as_f64().unwrap().round(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            profits,
+            [
+                ("bear".to_string(), 20_000.0),
+                ("bull".to_string(), 250_000.0)
+            ]
+        );
     }
 
     #[test]
@@ -686,6 +681,12 @@ scalars:
             "{text}"
         );
         assert!(v["expected_values"]["inputs.rate"].is_number());
+        // The weighted date is a date too, and a calculated output stays a number
+        assert_eq!(v["expected_values"]["inputs.last_actual"], "2026-11-15");
+        assert_eq!(
+            v["ranges"]["out.next"],
+            serde_json::json!([23178.0, 23193.5])
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
