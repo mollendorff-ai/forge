@@ -3,8 +3,15 @@
 //! These types capture computation results that were previously only printed.
 //! Used by both CLI (format & print) and MCP server (serialize to JSON).
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+/// Whether a value is its type's default (a count of 0), to leave it out of
+/// JSON
+fn is_zero<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
+}
 
 /// Result of the validate command
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,19 +84,26 @@ pub struct ValidationMismatch {
 ///
 /// In JSON a date scalar's value is its text (`"2026-10-31"`), as a cell of a
 /// date column is (ADR-060); here it is its day number in `scalars`, named in
-/// `dates`.
+/// `dates`. Tables and scalars are in the model's order here, which is how
+/// `forge calculate` prints them, and in name order in JSON.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(from = "CalculationWire", into = "CalculationWire")]
 pub struct CalculationResult {
-    pub tables: BTreeMap<String, TableSummary>,
-    pub scalars: BTreeMap<String, Option<f64>>,
+    pub tables: IndexMap<String, TableSummary>,
+    pub scalars: IndexMap<String, Option<f64>>,
     /// The scalars whose value is a date
     pub dates: std::collections::BTreeSet<String>,
     /// Each scalar with a `format:`, as that format shows it (ADR-061)
     pub formatted: BTreeMap<String, String>,
     pub unit_warnings: Vec<String>,
     pub file_updated: bool,
+    /// How many stored values the run changed in the file (0 when nothing
+    /// was written)
+    pub values_updated: usize,
     pub dry_run: bool,
+    /// The file as read, before a scenario or the plan changed it (not in
+    /// JSON)
+    pub read: ModelRead,
     /// The uncertain (`MC.*`) inputs, each with the plan figure it was
     /// calculated at, in name order: empty unless the model was calculated at
     /// plan (ADR-076)
@@ -97,6 +111,16 @@ pub struct CalculationResult {
     /// The expectations of the run calculated, the file as written or the
     /// scenario applied, each checked (ADR-074)
     pub expectations: Vec<ExpectationCheck>,
+}
+
+/// What a model file holds as read: what `forge calculate --verbose` says it
+/// found before it calculates.
+#[derive(Debug, Clone, Default)]
+pub struct ModelRead {
+    pub tables: usize,
+    pub scalars: usize,
+    /// Its scenarios' names
+    pub scenarios: Vec<String>,
 }
 
 impl CalculationResult {
@@ -122,6 +146,8 @@ struct CalculationWire {
     formatted: BTreeMap<String, String>,
     unit_warnings: Vec<String>,
     file_updated: bool,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    values_updated: usize,
     dry_run: bool,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     at_plan: BTreeMap<String, f64>,
@@ -146,11 +172,12 @@ impl From<CalculationResult> for CalculationWire {
             })
             .collect();
         Self {
-            tables: r.tables,
+            tables: r.tables.into_iter().collect(),
             scalars,
             formatted: r.formatted,
             unit_warnings: r.unit_warnings,
             file_updated: r.file_updated,
+            values_updated: r.values_updated,
             dry_run: r.dry_run,
             at_plan: r.at_plan,
             expectations: r.expectations,
@@ -180,13 +207,15 @@ impl From<CalculationWire> for CalculationResult {
             })
             .collect();
         Self {
-            tables: w.tables,
+            tables: w.tables.into_iter().collect(),
             scalars,
             dates,
             formatted: w.formatted,
             unit_warnings: w.unit_warnings,
             file_updated: w.file_updated,
+            values_updated: w.values_updated,
             dry_run: w.dry_run,
+            read: ModelRead::default(),
             at_plan: w.at_plan,
             expectations: w.expectations,
         }
@@ -267,9 +296,14 @@ pub struct ExportResult {
     pub table_count: usize,
     pub scalar_count: usize,
     /// Formulas written as values because Excel cannot express them, and
-    /// parts of the model that are not exported at all (scenarios)
+    /// parts of the model that are not exported at all (scenarios); the
+    /// reason in `not_checked`, if any, comes first
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// Why the workbook could not be checked: the model does not calculate,
+    /// so its formulas were written without results
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_checked: Option<String>,
 }
 
 /// Result of an in-memory (buffer) export — returned when no `excel_path` is given
@@ -299,6 +333,23 @@ pub struct ImportResult {
     /// Included files written beside the model, from the sheets of an included file
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub included_files: Vec<String>,
+    /// Each table imported, in the workbook's order
+    #[serde(default)]
+    pub tables: Vec<ImportedTable>,
+    /// How many formulas were kept as formulas
+    #[serde(default)]
+    pub formulas_kept: usize,
+    /// With `--split-files`: every file written, the included ones too
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files_written: Vec<String>,
+}
+
+/// A table `forge import` read from a workbook
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedTable {
+    pub name: String,
+    pub columns: usize,
+    pub rows: usize,
 }
 
 /// Result of sensitivity analysis

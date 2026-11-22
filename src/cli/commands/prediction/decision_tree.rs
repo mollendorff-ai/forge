@@ -53,38 +53,19 @@ pub fn decision_tree(
     outln!(c, "   File: {}", file.display());
     outln!(c);
 
-    // Parse YAML
-    let yaml_content = parser::read_model_text(file)?;
-
-    // Parse decision_tree config
-    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
-
-    let config: DecisionTreeConfig = if let Some(dt_value) = value.get("decision_tree") {
-        yaml_serde::from_value(dt_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("decision_tree config error: {e}")))?
-    } else {
-        return Err(ForgeError::Validation(
-            "No 'decision_tree' section found in YAML".to_string(),
-        ));
-    };
+    let result = decision_tree_core(file)?;
 
     // Display config
-    outln!(c, "   {}", format!("Tree: {}", config.name).bold());
+    outln!(c, "   {}", format!("Tree: {}", result.name).bold());
     if verbose {
-        outln!(c, "      Root: {:?}", config.root.as_ref().map(|r| &r.name));
-        outln!(c, "      Nodes: {}", config.nodes.len());
+        outln!(c, "      Root: {:?}", Some(&result.root_name));
+        outln!(c, "      Nodes: {}", result.node_count);
     }
     outln!(c);
-
-    // Create engine and analyze
-    let engine = DecisionTreeEngine::new(config).map_err(ForgeError::Validation)?;
 
     if verbose {
         outln!(c, "{}", "🔄 Running backward induction...".cyan());
     }
-
-    let result = engine.analyze().map_err(ForgeError::Eval)?;
 
     print_decision_tree_result(c, &result);
 
@@ -582,5 +563,14 @@ decision_tree:
             assert_eq!(after.optimal_choice.as_deref(), Some("raise_to_45_percent"));
             assert!(close(result.risk_profile.worst_case, 18.0, 1e-12));
         }
+    }
+
+    /// The root's name and how many nodes the tree lists are in the result
+    /// (T1-CLI-FROM-CORES).
+    #[test]
+    fn the_result_names_the_root_and_counts_the_nodes() {
+        let result = decision_tree_core(Path::new("examples/decision-tree.yaml")).unwrap();
+        assert_eq!(result.root_name, "Invest in R&D?");
+        assert_eq!(result.node_count, 4);
     }
 }

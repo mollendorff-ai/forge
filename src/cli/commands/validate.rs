@@ -48,37 +48,98 @@ pub fn validate_core(file: &Path) -> ForgeResult<ValidationResult> {
 ///
 /// As [`validate_core`].
 pub fn validate_core_with(file: &Path, expectations: bool) -> ForgeResult<ValidationResult> {
-    validate_model(&parser::parse_model(file)?, expectations)
+    let model = ModelToValidate::read(file)?;
+    model.check_lengths().map_err(ForgeError::Validation)?;
+    model.check(expectations)
 }
 
-fn validate_model(model: &ParsedModel, expectations: bool) -> ForgeResult<ValidationResult> {
-    reject_distributions(model)?;
-    model
-        .check_table_lengths()
-        .map_err(ForgeError::Validation)?;
-    let calculated = ArrayCalculator::new(model.clone()).calculate_all()?;
-    let mismatches = stale_values(model, &calculated);
-    let mut result = ValidationResult {
-        tables_valid: true,
-        scalars_valid: mismatches.is_empty(),
-        table_count: model.tables.len(),
-        scalar_count: model.scalars.len(),
-        mismatches,
-        unstored: model
-            .scalars
-            .values()
-            .filter(|v| v.formula.is_some() && v.value.is_none())
-            .count(),
-        expectations_checked: 0,
-        base_checked: 0,
-        scenarios_checked: 0,
-        expectations_met: true,
-        expectation_differences: Vec::new(),
-    };
-    if expectations {
-        check_expectations(model, &calculated, &mut result)?;
+/// A model file read for validation: the steps of [`validate_core`], one by
+/// one, so that `forge validate` can say what it found before a step fails.
+pub struct ModelToValidate {
+    model: ParsedModel,
+}
+
+impl ModelToValidate {
+    /// The model in `file`, refused if it has `MC.*` distributions.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be parsed or the model is
+    /// uncertain.
+    pub fn read(file: &Path) -> ForgeResult<Self> {
+        let model = parser::parse_model(file)?;
+        reject_distributions(&model)?;
+        Ok(Self { model })
     }
-    Ok(result)
+
+    /// Its tables, as the file has them.
+    #[must_use]
+    pub fn table_count(&self) -> usize {
+        self.model.tables.len()
+    }
+
+    /// Its scalars, as the file has them.
+    #[must_use]
+    pub fn scalar_count(&self) -> usize {
+        self.model.scalars.len()
+    }
+
+    /// Whether there is nothing to check: no table, no scalar and no
+    /// `expect:`, in the file or in a scenario.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        let model = &self.model;
+        model.tables.is_empty()
+            && model.scalars.is_empty()
+            && model.expect.is_empty()
+            && model.scenarios.values().all(|s| s.expect.is_empty())
+    }
+
+    /// Every table's columns are of one length. A table nothing reads would
+    /// otherwise pass with columns of different lengths; a formula that reads
+    /// one finds out when it runs.
+    ///
+    /// # Errors
+    ///
+    /// Names the table and the lengths when they differ.
+    pub fn check_lengths(&self) -> Result<(), String> {
+        self.model.check_table_lengths()
+    }
+
+    /// The model calculated, its stored values compared with what their
+    /// formulas give and, with `expectations`, what its `expect:` says
+    /// checked.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the model, or a scenario with an `expect:`, does
+    /// not calculate.
+    pub fn check(&self, expectations: bool) -> ForgeResult<ValidationResult> {
+        let model = &self.model;
+        let calculated = ArrayCalculator::new(model.clone()).calculate_all()?;
+        let mismatches = stale_values(model, &calculated);
+        let mut result = ValidationResult {
+            tables_valid: true,
+            scalars_valid: mismatches.is_empty(),
+            table_count: model.tables.len(),
+            scalar_count: model.scalars.len(),
+            mismatches,
+            unstored: model
+                .scalars
+                .values()
+                .filter(|v| v.formula.is_some() && v.value.is_none())
+                .count(),
+            expectations_checked: 0,
+            base_checked: 0,
+            scenarios_checked: 0,
+            expectations_met: true,
+            expectation_differences: Vec::new(),
+        };
+        if expectations {
+            check_expectations(model, &calculated, &mut result)?;
+        }
+        Ok(result)
+    }
 }
 
 /// Each stored value that is not what its formula gives. A formula with no
@@ -247,13 +308,11 @@ pub fn validate(c: &mut Console<'_>, files: &[PathBuf]) -> ForgeResult<()> {
     }
 }
 
-/// Validate a single file, printing what [`validate_model`] finds.
+/// Validate a single file, printing what each step of [`validate_core`]
+/// finds.
 fn validate_single_file(c: &mut Console<'_>, file: &Path) -> ForgeResult<()> {
-    let model = parser::parse_model(file)?;
-    reject_distributions(&model)?;
-
-    let states = !model.expect.is_empty() || model.scenarios.values().any(|s| !s.expect.is_empty());
-    if model.tables.is_empty() && model.scalars.is_empty() && !states {
+    let model = ModelToValidate::read(file)?;
+    if model.is_empty() {
         outln!(
             c,
             "{}",
@@ -265,18 +324,16 @@ fn validate_single_file(c: &mut Console<'_>, file: &Path) -> ForgeResult<()> {
     outln!(
         c,
         "   Found {} tables, {} scalars",
-        model.tables.len(),
-        model.scalars.len()
+        model.table_count(),
+        model.scalar_count()
     );
 
-    // A table nothing reads would otherwise pass with columns of different
-    // lengths; a formula that reads one finds out when it runs.
-    if let Err(e) = model.check_table_lengths() {
-        outln!(c, "\n{}", format!("❌ {e}").bold().red());
-        return Err(ForgeError::Validation(e));
+    if let Err(why) = model.check_lengths() {
+        outln!(c, "\n{}", format!("❌ {why}").bold().red());
+        return Err(ForgeError::Validation(why));
     }
 
-    let result = validate_model(&model, true).inspect_err(|e| {
+    let result = model.check(true).inspect_err(|e| {
         outln!(
             c,
             "\n{}",
@@ -738,5 +795,39 @@ mod tests {
         assert!(meets(3.2e10, 3.2e10 + 30_000.0));
         assert!(!meets(3.2e10, 3.2e10 + 40_000.0));
         assert!(meets(-19.0 / 15.0, -1.266_666_7));
+    }
+
+    /// A file of scenarios alone has nothing to check unless one of them
+    /// states what it should give.
+    #[test]
+    fn scenarios_alone_are_checked_only_when_one_states_its_results() {
+        let dir = tempfile::tempdir().unwrap();
+        let bare = model(
+            dir.path(),
+            "bare.yaml",
+            "_forge_version: \"5.6.0\"\nscenarios:\n  s:\n    scalars: {}\n",
+        );
+        let (result, captured) = capture(|c| validate(c, &[bare]));
+        result.unwrap();
+        assert!(
+            captured.out.contains("No tables or scalars"),
+            "{}",
+            captured.out
+        );
+        let stated = model(
+            dir.path(),
+            "stated.yaml",
+            "_forge_version: \"5.6.0\"\nscenarios:\n  s:\n    scalars: {}\n    expect: {x: 1}\n",
+        );
+        let (result, captured) = capture(|c| validate(c, &[stated]));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("1 of 1 expected results differ"));
+        assert!(
+            captured.out.contains("Found 0 tables, 0 scalars"),
+            "{}",
+            captured.out
+        );
     }
 }

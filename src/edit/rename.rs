@@ -1064,6 +1064,26 @@ tornado:
         assert_eq!(changed["m.yaml"], want);
     }
 
+    /// A network's prior is a formula over the model's scalars (ADR-074):
+    /// a rename reaches it, and Forge reads the model back as it was.
+    #[test]
+    fn a_name_read_by_a_networks_prior_is_renamed_there_too() {
+        let text = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/expected_loss.yaml"),
+        )
+        .unwrap();
+        let one = HashMap::from([("m.yaml".to_string(), text.clone())]);
+        let changed = edit_files(&one, "m.yaml", &[rename("outlook.p_bad", "p_down")]).unwrap();
+        let prior = "\"=1 - outlook.p_neutral - outlook.p_bad\", \"=outlook.p_neutral\", \"=outlook.p_bad\"";
+        assert!(text.contains(prior));
+        assert!(
+            changed["m.yaml"]
+                .contains("\"=1 - outlook.p_neutral - outlook.p_down\", \"=outlook.p_neutral\", \"=outlook.p_down\""),
+            "{}",
+            changed["m.yaml"]
+        );
+    }
+
     #[test]
     fn a_rename_that_cannot_be_made_is_refused_with_the_reason() {
         let refused = |change: Change, why: &str| {

@@ -51,6 +51,7 @@ fn infer(
     let network_name = config.name.clone();
     // The network was checked when the model was calculated
     let engine = BayesianEngine::new(config).expect("a calculated network is a valid network");
+    let nodes = engine.outline();
     let Some(target) = query_var else {
         return if evidence_map.is_empty() {
             engine.query_all()
@@ -72,6 +73,7 @@ fn infer(
             .iter()
             .map(|(k, v)| (k.clone(), (*v).to_string()))
             .collect(),
+        nodes,
     })
 }
 
@@ -97,11 +99,15 @@ pub fn bayesian_core(
 
 /// The network's name and size, and with `--verbose` each node's states and
 /// parents.
-fn print_bayesian_network(c: &mut Console<'_>, config: &BayesianConfig, verbose: bool) {
-    outln!(c, "   {}", format!("Network: {}", config.name).bold());
-    outln!(c, "   Nodes: {}", config.nodes.len());
+fn print_bayesian_network(
+    c: &mut Console<'_>,
+    result: &crate::bayesian::BayesianResult,
+    verbose: bool,
+) {
+    outln!(c, "   {}", format!("Network: {}", result.name).bold());
+    outln!(c, "   Nodes: {}", result.nodes.len());
     if verbose {
-        for (name, node) in &config.nodes {
+        for (name, node) in &result.nodes {
             let parents = if node.parents.is_empty() {
                 "root".to_string()
             } else {
@@ -145,18 +151,13 @@ pub fn bayesian(
     }
     outln!(c);
 
-    let config = read_network(file, scenario)?;
+    let result = bayesian_core(file, query_var, evidence, scenario)?;
 
-    print_bayesian_network(c, &config, verbose);
+    print_bayesian_network(c, &result, verbose);
 
-    let evidence_map = parse_evidence(evidence);
-
-    if !evidence_map.is_empty() {
+    if !result.evidence.is_empty() {
         outln!(c, "   {}", "Evidence:".bold());
-        // In name order: the map's own order changes from run to run
-        let mut shown: Vec<_> = evidence_map.iter().collect();
-        shown.sort_unstable();
-        for (var, val) in shown {
+        for (var, val) in &result.evidence {
             outln!(c, "      {} = {}", var.bright_blue(), val.cyan());
         }
         outln!(c);
@@ -166,9 +167,8 @@ pub fn bayesian(
         outln!(c, "{}", "🔄 Running inference...".cyan());
     }
 
-    let result = infer(config, query_var, &evidence_map)?;
     if let Some(target) = query_var {
-        let heading = if evidence_map.is_empty() {
+        let heading = if result.evidence.is_empty() {
             "📊 Query Result:"
         } else {
             "📊 Query Result (with evidence):"
@@ -558,6 +558,34 @@ mod tests {
             ] {
                 let got = stuffing(evidence);
                 assert!((got - want).abs() <= 1e-12, "{evidence:?}: {got}");
+            }
+        }
+    }
+
+    /// Every node's states and parents are in the result, queried or not
+    /// (T1-CLI-FROM-CORES).
+    #[test]
+    fn the_result_outlines_the_network() {
+        let file = Path::new("examples/bayesian.yaml");
+        for evidence in [vec![], vec!["economic_conditions=bad".to_string()]] {
+            for query in [None, Some("default_probability")] {
+                let result = bayesian_core(file, query, &evidence, None).unwrap();
+                let names: Vec<&String> = result.nodes.keys().collect();
+                assert_eq!(
+                    names,
+                    [
+                        "company_revenue",
+                        "default_probability",
+                        "economic_conditions"
+                    ]
+                );
+                let revenue = &result.nodes["company_revenue"];
+                assert_eq!(revenue.states, ["high", "medium", "low"]);
+                assert_eq!(revenue.parents, ["economic_conditions"]);
+                assert_eq!(
+                    result.nodes["economic_conditions"].parents,
+                    Vec::<String>::new()
+                );
             }
         }
     }

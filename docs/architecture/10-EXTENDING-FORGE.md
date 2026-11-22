@@ -59,7 +59,7 @@ flowchart TB
 ```
 
 1. **The core first.** `newcmd_core` in `src/cli/commands/` takes paths and options and returns a `Serialize` result; it prints nothing and builds without the `cli` feature unless it truly needs it (gate it with `#[cfg(feature = "cli")]` then, and it will not be in the browser).
-2. **Print from the core.** The printing function calls `newcmd_core` and formats its result on the `Console` with `outln!`. Several older commands repeat their core's steps instead ([01](01-COMPONENT-ARCHITECTURE.md#the-layers)); a new one should not.
+2. **Print from the core.** The printing function calls `newcmd_core` and formats its result on the `Console` with `outln!`. Whatever it prints goes in the result first, so the other doors have it too ([01](01-COMPONENT-ARCHITECTURE.md#the-layers)).
 3. **The command line.** The command and its `long_about` with real examples in `src/cli/args.rs`, its options in `src/cli/args/options.rs`, the arm in `src/cli/run.rs`. Test through `cli::forge` (in-process) for output and exit codes.
 4. **MCP.** A request type in `src/mcp/types.rs` (with `file_path`, `content`, `includes` if it reads a model), a `#[tool]` method in the right `src/mcp/server/*_tools.rs` that resolves the input with `resolve_model_input` and calls the core. Raise the tool count in its test, in `INSTRUCTIONS`, in `.github/workflows/ci.yml` (`mcp-smoke`) and in `docs/MCP.md`.
 5. **The browser.** Add the tool to `TOOLS` and `run_on_files` in `forge-wasm/src/lib.rs`, a case to `forge-wasm/tests/cases.json` so CI compares WebAssembly with native, and, if Studio should offer it, to `studio/tools.js`.

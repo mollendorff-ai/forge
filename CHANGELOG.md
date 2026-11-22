@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`forge calculate` and `forge validate` print from their cores' results** (roadmap T1-CLI-FROM-CORES). They repeated the steps of `calculate_core` and `validate_core`, so a fix made in a core reached MCP, REST and Forge Studio but not the command line. `forge calculate` now calls `calculate_core` (or `calculate_plan_core` with `--plan`) and prints its result; the result holds the tables and scalars in the model's order (JSON keeps them in name order), how many stored values the run wrote (`values_updated` in JSON, left out when 0) and the file as read for `--verbose`. `forge validate` calls the steps of `validate_core` one by one (`ModelToValidate`: read, check the lengths, check), so it still says what it found before a step fails. What they print is unchanged, byte for byte, for every example in every mode; one difference: when `calculate` fails, the lines it printed before calculating (`--verbose`'s counts, the plan figures, unit warnings) are no longer printed before the error.
+- **`forge tornado`, `forge scenarios`, `forge goal-seek`, `forge break-even`, `forge sensitivity`, `forge variance`, `forge export` and `forge import` print from their cores' results** (roadmap T1-CLI-FROM-CORES, now done: every command does). The results gain what the commands printed and lacked: a tornado's `section` as the file writes it (the names before Forge resolves them); the `formats` of a scenario analysis's scalars; an export's `not_checked` (why the workbook was not checked; it is still the first of `warnings`); an import's `tables` (each with its columns and rows), `formulas_kept` and, with `--split-files`, `files_written`. A tornado input's `base` is left out of JSON when it is not set. What they print is unchanged, byte for byte, on every example and in every mode, the reports `forge variance -o` writes and the files `forge import` writes included.
+- **`forge bootstrap`, `forge bayesian`, `forge real-options` and `forge decision-tree` print from their cores' results** (roadmap T1-CLI-FROM-CORES). Each called its core's steps again, so a fix in the core could miss the command line. Their results gain what the commands printed from the configuration, so MCP, REST, Forge Studio and `--output` files have it too: a bootstrap's `statistic`, `sample_size`, `confidence_levels` and `seed`; every node of a Bayesian network with its `states` and `parents` (`nodes`); a real options analysis's `method` and `option_order` (the file's order); a decision tree's `root_name` and `node_count`. What they print is unchanged, byte for byte, on every example; when one fails, the configuration it printed before failing is no longer printed before the error.
+
+### Fixed
+- **VALIDATION.md has its section 5 and its known limits again** (roadmap T1-LEFTOVERS-2026-11-22). The commit that added the dynamics of a symmetric game (2026-11-21) cut the end of the file: section 5, the six rounds of checks in real Excel that section 2 refers to, and the Known limits. Both are restored, section 5 before section 6, and the summary and docs/STABILITY.md count six rounds, the sixth (`XNPV` and `XIRR` with a date before the first, 2026-11-19) included.
+
+### Removed
+- **The `cfg(coverage)` check-cfg in Cargo.toml and forge-wasm/Cargo.toml** (roadmap T1-LEFTOVERS-2026-11-22). No code has been compiled only for or only without the coverage run since ADR-006 was retired, so nothing used it.
+
 ## [10.0.0-rc.34] - 2026-11-22
 
 ### Added

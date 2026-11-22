@@ -63,6 +63,11 @@ pub struct TornadoResult {
     pub bars: Vec<SensitivityBar>,
     /// Total variance explained
     pub total_variance: f64,
+    /// The `tornado:` section as the file writes it (the output and each
+    /// input by the names it uses, in its order), before Forge resolves the
+    /// names
+    #[serde(default)]
+    pub section: TornadoConfig,
 }
 
 impl TornadoResult {
@@ -137,6 +142,8 @@ impl TornadoResult {
 /// Tornado Diagram Engine
 pub struct TornadoEngine {
     config: TornadoConfig,
+    /// The section as given, before the names were resolved
+    section: TornadoConfig,
     base_model: ParsedModel,
 }
 
@@ -148,6 +155,7 @@ impl TornadoEngine {
     /// Returns an error if the configuration is invalid.
     pub fn new(config: TornadoConfig, base_model: ParsedModel) -> Result<Self, String> {
         config.validate()?;
+        let section = config.clone();
         let mut config = config;
         config.output = resolve_scalar_name(&base_model, &config.output)
             .map_err(|error| format!("Tornado output '{}': {error}", config.output))?;
@@ -156,7 +164,11 @@ impl TornadoEngine {
                 .map_err(|error| format!("Tornado input '{}': {error}", input.name))?;
             base_model.refuse_date_input(&input.name, "tornado")?;
         }
-        Ok(Self { config, base_model })
+        Ok(Self {
+            config,
+            section,
+            base_model,
+        })
     }
 
     /// Run the sensitivity analysis
@@ -192,6 +204,7 @@ impl TornadoEngine {
             base_value,
             bars,
             total_variance,
+            section: self.section.clone(),
         })
     }
 
@@ -340,6 +353,7 @@ mod engine_tests {
             base_value: 1234.4,
             bars: vec![],
             total_variance: 0.0,
+            section: TornadoConfig::default(),
         };
         assert_eq!(
             result.to_ascii(),
