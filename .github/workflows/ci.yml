@@ -599,11 +599,13 @@ jobs:
       # 98.95%), the same way.
       # Raised 2026-11-22 from CI's run on main after PR #355 (99.31%, 98.44%,
       # 99.05%), the same way.
+      # Raised 2026-11-22 from CI's run on PR #359 (99.54%, 98.87%, 99.36%),
+      # the same way.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "99.3"
-          FLOOR_FUNCTIONS: "98.4"
-          FLOOR_REGIONS: "99.0"
+          FLOOR_LINES: "99.5"
+          FLOOR_FUNCTIONS: "98.8"
+          FLOOR_REGIONS: "99.3"
         run: |
           fail=0
           for kind in lines functions regions; do
