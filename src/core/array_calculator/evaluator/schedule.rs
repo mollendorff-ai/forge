@@ -445,4 +445,18 @@ mod tests {
             -123.337_690_443_292
         ));
     }
+
+    /// A start that is no whole period, in the second half of the life with
+    /// a factor above 1, moves back to half the life, and the end with it, as
+    /// `LibreOffice`'s `ScVDB` does. Worked by hand through its steps: the
+    /// first 5 periods of 2,400 over 10 (a straight line over 11) lose 480,
+    /// 384, 307.2, 245.76 and 196.608; then 3.5 periods of the 786.432 left
+    /// (a straight line over 5) lose 157.2864, 125.82912, 100.663296 and half
+    /// of 80.5306368.
+    #[test]
+    fn vdb_from_a_part_period_in_the_second_half_of_the_life() {
+        use crate::core::array_calculator::evaluator::tests::{near, number};
+        let got = number("VDB(2400, 300, 10, 6.5, 10, 2)");
+        assert!(near(got, 424.044_134_4), "{got}");
+    }
 }

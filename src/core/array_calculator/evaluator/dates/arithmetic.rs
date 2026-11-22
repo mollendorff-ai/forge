@@ -231,11 +231,13 @@ mod tests {
         let date = eval("DATE(2024, 6, 15)", &ctx).unwrap();
         assert_eq!(date, Value::Text("2024-06-15".to_string()));
         assert_eq!(date.as_number(), Some(45458.0));
-        // Before 1900-03-01 Excel holds no date: the day number
-        assert!(matches!(
+        // Before 1900-03-01 Excel holds no date: the day number, the days
+        // since 1899-12-30 (Excel's own serial is a day less, without the 29
+        // February 1900 it counts)
+        assert_eq!(
             eval("DATE(1900, 1, 15)", &ctx).unwrap(),
-            Value::Number(_)
-        ));
+            Value::Number(16.0)
+        );
     }
 
     #[test]

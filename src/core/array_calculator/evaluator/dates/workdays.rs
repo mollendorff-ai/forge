@@ -221,4 +221,50 @@ mod tests {
         use crate::core::array_calculator::evaluator::tests as h;
         h::fails_with("WORKDAY(\"2020-01-01\", \"x\")", "days must be a number");
     }
+
+    #[test]
+    fn an_error_in_any_argument_is_the_error() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        let (start, end) = ("\"2024-01-05\"", "\"2024-01-12\"");
+        let no_date = Some("Invalid date format");
+        each_argument("WORKDAY", &[(start, no_date), ("1", None), (end, no_date)]);
+        each_argument(
+            "NETWORKDAYS",
+            &[(start, no_date), (end, no_date), (end, no_date)],
+        );
+    }
+
+    /// A column of holidays is read day by day, its empty cells skipped;
+    /// text in it that is no date is refused
+    #[test]
+    fn holidays_from_a_column() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::Value;
+        let ctx = h::table(&[
+            (
+                "off",
+                vec![
+                    Value::Text("2024-01-08".into()),
+                    Value::Null,
+                    Value::Text("2024-01-10".into()),
+                ],
+            ),
+            ("bad", h::texts(&["2024-01-08", "soon"])),
+        ]);
+        // Friday 5 January 2024; Monday the 8th and Wednesday the 10th are off
+        assert_eq!(
+            h::text_in("WORKDAY(\"2024-01-05\", 2, t.off)", &ctx),
+            "2024-01-11"
+        );
+        h::is_exactly_in(
+            "NETWORKDAYS(\"2024-01-05\", \"2024-01-12\", t.off)",
+            &ctx,
+            4.0,
+        );
+        h::fails_in(
+            "WORKDAY(\"2024-01-05\", 2, t.bad)",
+            &ctx,
+            "Invalid date format: 'soon'",
+        );
+    }
 }

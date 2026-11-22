@@ -288,4 +288,14 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
     }
+
+    #[test]
+    fn an_error_in_any_argument_is_the_counts_error() {
+        use super::super::super::tests::each_argument;
+        each_argument("COUNTIF", &[("1", None), ("1", None)]);
+        each_argument(
+            "COUNTIFS",
+            &[("1", None), ("1", None), ("1", None), ("1", None)],
+        );
+    }
 }

@@ -133,6 +133,22 @@ mod tests {
         assert!(!is_whole_column("IF", 3, 0));
     }
 
+    /// The names inside an argument read whole, wherever they stand in it:
+    /// a column of a table, an indexed array, both ends of a range, the
+    /// callable and the arguments of a call of a call's result
+    #[test]
+    fn the_names_read_whole_inside_any_expression() {
+        use super::super::{parser::parse, tokenizer::tokenize};
+        let ast = parse(
+            tokenize("t.v[i] + SUM(t.w[i]) + SUM(a:b) + SUM(LAMBDA(x, x)(c)) + COUNTBLANK(d)")
+                .unwrap(),
+        )
+        .unwrap();
+        let mut names: Vec<String> = super::whole_column_names(&ast).into_iter().collect();
+        names.sort();
+        assert_eq!(names, ["a", "b", "c", "d", "i", "t.w", "x"]);
+    }
+
     mod row_aggregates {
         //! Aggregates in a row formula (ADR-058): one case per row of the ADR's
         //! table, with the numbers worked by hand.

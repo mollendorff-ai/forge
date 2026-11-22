@@ -1120,16 +1120,12 @@ mod tests {
                 // 10 / 1.1 + 30 / 1.1^2 + 0 / 1.1^3: the empty cells are skipped
                 ("NPV(0.1, t.x)", 10.0 / 1.1 + 30.0 / 1.21),
             ] {
-                match h::eval(formula, &ctx).unwrap() {
-                    Value::Number(n) => assert!((n - expected).abs() < 1e-12, "{formula}: {n}"),
-                    other => panic!("{formula}: {other:?}"),
-                }
+                let n = h::number_in(formula, &ctx);
+                assert!((n - expected).abs() < 1e-12, "{formula}: {n}");
             }
             // STDEV of 10, 30, 0, the empty cells left out: R gives sd(c(10, 30, 0))
-            match h::eval("STDEV(t.x)", &ctx).unwrap() {
-                Value::Number(n) => assert!((n - 15.275_252_316_519_467).abs() < 1e-12, "{n}"),
-                other => panic!("{other:?}"),
-            }
+            let n = h::number_in("STDEV(t.x)", &ctx);
+            assert!((n - 15.275_252_316_519_467).abs() < 1e-12, "{n}");
         }
 
         #[test]

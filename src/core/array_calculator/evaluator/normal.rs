@@ -348,4 +348,16 @@ mod tests {
         );
         each_argument("NORM.S.INV", &[("0.3", Some(&n("NORM.S.INV", 1)))]);
     }
+
+    /// A number is a flag too: 0 is FALSE, any other TRUE
+    #[test]
+    fn a_number_as_the_cumulative_flag() {
+        use super::super::tests::is_exactly;
+        is_exactly("NORM.DIST(0, 0, 1, 1)", 0.5);
+        is_exactly("NORM.S.DIST(0, 2)", 0.5);
+        assert_eq!(
+            number("NORM.DIST(0, 0, 1, 0)").to_bits(),
+            number("NORM.DIST(0, 0, 1, FALSE)").to_bits()
+        );
+    }
 }

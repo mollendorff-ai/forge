@@ -240,4 +240,33 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(4.0));
     }
+
+    #[test]
+    fn an_error_in_any_argument_is_the_averages_error() {
+        use super::super::super::tests::each_argument;
+        each_argument("AVERAGEIF", &[("1", None), ("1", None), ("1", None)]);
+        each_argument("AVERAGEIFS", &[("1", None), ("1", None), ("1", None)]);
+    }
+
+    /// A row past the end of the average range, or whose value there is no
+    /// number, is left out; with nothing left the average is an error
+    #[test]
+    fn rows_with_no_number_to_average_are_left_out() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[
+            ("k", h::numbers(&[1.0, 2.0, 3.0])),
+            ("v", h::numbers(&[10.0, 20.0])),
+            ("m", vec![Value::Text("a".into()), Value::Number(4.0)]),
+        ]);
+        h::is_exactly_in("AVERAGEIF(t.k, \">0\", t.v)", &ctx, 15.0);
+        h::is_exactly_in("AVERAGEIF(t.k, \">0\", t.m)", &ctx, 4.0);
+        assert_eq!(
+            h::error_in("AVERAGEIF(t.k, \">5\")", &ctx),
+            "Eval error: AVERAGEIF: no matching values"
+        );
+        assert_eq!(
+            h::error_in("AVERAGEIFS(t.k, t.k, \">5\")", &ctx),
+            "Eval error: AVERAGEIFS: no matching values"
+        );
+    }
 }
