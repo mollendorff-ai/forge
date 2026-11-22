@@ -35,23 +35,19 @@ fn scenarios_json(path: &Path, results: &crate::scenarios::ScenarioResults) -> S
     // A date is an input, so it is in a scenario's scalars and the expected
     // values, and never in the ranges, which are of calculated outputs
     let as_text = |v: &mut serde_json::Value| {
-        if let Some(n) = v.as_f64() {
-            *v = serde_json::Value::String(
-                crate::core::array_calculator::evaluator::serial_date_text(n),
-            );
-        }
+        let day = v.as_f64().expect("a date is a number");
+        *v = serde_json::Value::String(crate::core::array_calculator::evaluator::serial_date_text(
+            day,
+        ));
     };
     for name in &dates {
-        if let Some(scenarios) = json["scenarios"].as_array_mut() {
-            for scenario in scenarios {
-                if let Some(v) = scenario["scalars"].get_mut(name) {
-                    as_text(v);
-                }
-            }
+        for scenario in json["scenarios"]
+            .as_array_mut()
+            .expect("results have scenarios")
+        {
+            as_text(&mut scenario["scalars"][name]);
         }
-        if let Some(v) = json["expected_values"].get_mut(name) {
-            as_text(v);
-        }
+        as_text(&mut json["expected_values"][name]);
     }
     json.to_string()
 }
@@ -1180,5 +1176,44 @@ scenarios:
         assert_eq!(server.scenarios(request(json!({}))).unwrap_err(), ASKS);
         assert_eq!(server.tornado(request(json!({}))).unwrap_err(), ASKS);
         assert_eq!(server.game(request(json!({}))).unwrap_err(), ASKS);
+    }
+
+    #[test]
+    fn a_failed_sensitivity_or_variance_says_why() {
+        let server = ForgeMcpServer::new();
+        let priced =
+            "_forge_version: \"5.1.0\"\nprice: 4\nout:\n  total: {formula: \"=price * 2\"}\n";
+        assert_eq!(
+            err_text(server.sensitivity(Parameters(SensitivityRequest {
+                file_path: None,
+                content: Some(priced.to_string()),
+                includes: None,
+                vary: "nope".into(),
+                range: "1,2,1".into(),
+                output: "out.total".into(),
+                vary2: None,
+                range2: None,
+            }))),
+            "Sensitivity analysis failed: Validation error: Variable 'nope' not found. Available scalars: [\"price\", \"out.total\"]"
+        );
+        let variance = |budget: Option<&str>, actual: &str| {
+            err_text(server.variance(Parameters(VarianceRequest {
+                budget_path: None,
+                budget_content: budget.map(str::to_string),
+                actual_path: None,
+                actual_content: Some(actual.to_string()),
+                includes: None,
+                threshold: None,
+            })))
+        };
+        assert_eq!(
+            variance(None, priced),
+            "Either budget_path or budget_content is required"
+        );
+        let broken = "_forge_version: \"5.1.0\"\nout:\n  total: {formula: \"=nope + 1\"}\n";
+        assert_eq!(
+            variance(Some(broken), broken),
+            "Variance analysis failed: Formula evaluation error: out.total: Unknown variable: nope (formula: =nope + 1)"
+        );
     }
 }

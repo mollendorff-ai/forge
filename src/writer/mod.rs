@@ -28,6 +28,15 @@ use std::path::Path;
 /// cannot be written without changing anything else in the file (then the
 /// file is left as it was).
 pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResult<usize> {
+    write_results_with(path, result, &|path, text| fs::write(path, text))
+}
+
+/// [`write_calculated_results`], with the edited text saved by `save`.
+fn write_results_with(
+    path: &Path,
+    result: &ParsedModel,
+    save: &dyn Fn(&Path, &str) -> std::io::Result<()>,
+) -> ForgeResult<usize> {
     let content = fs::read_to_string(path)?;
     let multi_doc = crate::parser::detect_multi_document(&content);
 
@@ -70,7 +79,7 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
 
     let backup_path = path.with_extension("yaml.bak");
     fs::copy(path, &backup_path)?;
-    fs::write(path, edited)?;
+    save(path, &edited)?;
     Ok(changed)
 }
 
@@ -209,6 +218,39 @@ mod tests {
                 f.path().display()
             )
         );
+        assert_eq!(fs::read_to_string(f.path()).unwrap(), text);
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_read_or_saved_is_reported() {
+        let model = model_with(&[("out.total", Some(2.0), Some("=1 + 1"))]);
+        let gone = tempfile::tempdir().unwrap().path().join("gone.yaml");
+        assert_eq!(
+            write_calculated_results(&gone, &model)
+                .unwrap_err()
+                .to_string(),
+            "IO error: No such file or directory (os error 2)"
+        );
+        let text = "out:\n  total:\n    formula: \"=1 + 1\"\n";
+        let f = file_with(text);
+        let refuse = |_: &Path, _: &str| Err(std::io::Error::other("the disk is full"));
+        assert_eq!(
+            write_results_with(f.path(), &model, &refuse)
+                .unwrap_err()
+                .to_string(),
+            "IO error: the disk is full"
+        );
+        // The backup was made before the save failed, and the file is as it was
+        assert_eq!(fs::read_to_string(f.path()).unwrap(), text);
+        let _ = fs::remove_file(f.path().with_extension("yaml.bak"));
+    }
+
+    #[test]
+    fn a_formula_with_no_result_is_not_written() {
+        let text = "out:\n  total:\n    formula: \"=1 + 1\"\n";
+        let f = file_with(text);
+        let model = model_with(&[("out.total", None, Some("=1 + 1"))]);
+        assert_eq!(write_calculated_results(f.path(), &model).unwrap(), 0);
         assert_eq!(fs::read_to_string(f.path()).unwrap(), text);
     }
 }

@@ -284,8 +284,18 @@ data:
 
         let result = resolve_includes(&mut model, temp_file.path(), &mut HashSet::new());
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("not found") || err_msg.contains("nonexistent"));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!(
+                "Parse error: Included file not found: {} (referenced as 'nonexistent.yaml')",
+                temp_file
+                    .path()
+                    .parent()
+                    .unwrap()
+                    .join("nonexistent.yaml")
+                    .display()
+            )
+        );
     }
 
     #[test]
@@ -340,6 +350,101 @@ data:
                 .unwrap_err()
                 .to_string(),
             "Parse error: Included file not found: costs.yaml"
+        );
+    }
+
+    fn model_of(text: &str) -> ParsedModel {
+        let versioned = format!("_forge_version: \"5.0.0\"\n{text}");
+        parse_v1_model(&yaml_serde::from_str::<Value>(&versioned).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn an_include_without_a_file_is_refused() {
+        let yaml: Value = yaml_serde::from_str("_includes:\n  - as: costs\n").unwrap();
+        let seq = yaml["_includes"].as_sequence().unwrap();
+        assert_eq!(
+            parse_includes(seq, &mut ParsedModel::new())
+                .unwrap_err()
+                .to_string(),
+            "Parse error: Include must have a 'file' field"
+        );
+    }
+
+    #[test]
+    fn an_include_that_cannot_be_read_or_parsed_says_why() {
+        let dir = TempDir::new().unwrap();
+        // A folder exists, and cannot be read as a file
+        std::fs::create_dir(dir.path().join("folder")).unwrap();
+        let text = "_includes:\n  - file: folder\n    as: f\n";
+        let err = resolve_includes(
+            &mut model_of(text),
+            &dir.path().join("main.yaml"),
+            &mut HashSet::new(),
+        )
+        .unwrap_err();
+        assert_eq!(err.to_string(), "IO error: Is a directory (os error 21)");
+
+        // A file that is not a model
+        std::fs::write(
+            dir.path().join("bad.yaml"),
+            "_forge_version: \"5.0.0\"\n1:\n  value: 5\n",
+        )
+        .unwrap();
+        let text = "_includes:\n  - file: bad.yaml\n    as: b\n";
+        let err = resolve_includes(
+            &mut model_of(text),
+            &dir.path().join("main.yaml"),
+            &mut HashSet::new(),
+        )
+        .unwrap_err();
+        assert_eq!(err.to_string(), "Parse error: Table name must be a string");
+    }
+
+    #[test]
+    fn a_checked_source_reads_only_what_its_check_allows() {
+        let check = |path: &Path| {
+            if path.ends_with("secret.yaml") {
+                Err("outside the folder".to_string())
+            } else {
+                Ok(())
+            }
+        };
+        let source = CheckedFileSource {
+            check: &check,
+            refused: std::cell::RefCell::new(None),
+        };
+        assert_eq!(
+            source
+                .read(Path::new("secret.yaml"))
+                .unwrap_err()
+                .to_string(),
+            "Validation error: outside the folder"
+        );
+        assert!(!source.exists(Path::new("secret.yaml")));
+        assert_eq!(
+            source.refused.borrow().as_deref(),
+            Some("outside the folder")
+        );
+    }
+
+    #[test]
+    fn a_model_with_no_folder_includes_from_the_current_one() {
+        let files = HashMap::from([(
+            "costs.yaml".to_string(),
+            "_forge_version: \"5.0.0\"\nt:\n  x: [1]\n".to_string(),
+        )]);
+        let text = "_includes:\n  - file: costs.yaml\n    as: costs\n";
+        let mut model = model_of(text);
+        resolve_includes_from(
+            &MemorySource { files: &files },
+            &mut model,
+            Path::new(""),
+            &mut HashSet::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            model.resolved_includes.keys().collect::<Vec<_>>(),
+            ["costs"]
         );
     }
 }

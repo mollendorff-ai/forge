@@ -249,7 +249,8 @@ mod tests {
                 "_forge_version: \"5.0.0\"\ns:\n  b: {value: 2, formula: null, unit: USD, notes: n, source: s, validation_status: VALIDATED, last_updated: \"2026-11-05\"}\n",
                 "_forge_version: \"5.0.0\"\nt:\n  x: {value: [1, 2], unit: USD, notes: n}\n  y: {formula: \"=x * 2\", unit: USD}\n",
             ] {
-                assert!(validate(yaml).is_ok(), "rejected:\n{yaml}\n{:?}", validate(yaml).err());
+                let verdict = validate(yaml);
+                assert!(verdict.is_ok(), "rejected:\n{yaml}\n{verdict:?}");
             }
         }
     }
@@ -289,10 +290,18 @@ mod tests {
 
         /// How many cases a property runs: `PROPTEST_CASES` when set, else `default`.
         fn cases(default: u32) -> u32 {
-            std::env::var("PROPTEST_CASES")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(default)
+            cases_from(std::env::var("PROPTEST_CASES").ok(), default)
+        }
+
+        fn cases_from(set: Option<String>, default: u32) -> u32 {
+            set.and_then(|v| v.parse().ok()).unwrap_or(default)
+        }
+
+        #[test]
+        fn the_cases_of_a_property_are_what_the_environment_says_if_it_is_a_number() {
+            assert_eq!(cases_from(Some("7".to_string()), 48), 7);
+            assert_eq!(cases_from(Some("many".to_string()), 48), 48);
+            assert_eq!(cases_from(None, 48), 48);
         }
 
         /// A number a model might hold: zero, small, ordinary or large, either sign.

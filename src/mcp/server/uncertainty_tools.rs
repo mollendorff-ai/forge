@@ -88,9 +88,9 @@ impl ForgeMcpServer {
             let goal = crate::cli::SeekGoal::parse(seek)?;
             return crate::cli::probability_seek_core(&path, options, &goal, vary, min, max)
                 .map_err(|e| format!("Seek failed: {e}"))
-                .and_then(|r| {
+                .map(|r| {
                     serde_json::to_string_pretty(&crate::core::precision::Rounded(&r))
-                        .map_err(|e| format!("Serialization failed: {e}"))
+                        .expect("a result is JSON")
                 });
         }
         simulate_core(&path, options)
@@ -789,5 +789,58 @@ scalars:
         assert_eq!(compact.get("distribution_percentiles"), None);
         assert_eq!(compact.get("distribution_size"), None);
         assert_eq!(compact["iterations"], 0);
+    }
+
+    #[test]
+    fn an_analysis_the_model_does_not_have_is_refused_by_name() {
+        let server = ForgeMcpServer::new();
+        let content = Some(
+            "_forge_version: \"5.1.0\"\nprice: 4\nout:\n  total: {formula: \"=price * 2\"}\n"
+                .to_string(),
+        );
+        assert_eq!(
+            err_text(server.decision_tree(Parameters(DecisionTreeRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+            }))),
+            "Decision tree analysis failed: Validation error: No 'decision_tree' section found in YAML"
+        );
+        assert_eq!(
+            err_text(server.real_options(Parameters(RealOptionsRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+            }))),
+            "Real options analysis failed: Validation error: No 'real_options' section found in YAML"
+        );
+        assert_eq!(
+            err_text(server.bootstrap(Parameters(BootstrapRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+                iterations: None,
+                seed: None,
+                confidence_levels: None,
+            }))),
+            "Bootstrap analysis failed: Validation error: No 'bootstrap' section found in YAML"
+        );
+        assert_eq!(
+            err_text(server.simulate(Parameters(SimulateRequest {
+                file_path: None,
+                content,
+                includes: None,
+                iterations: None,
+                seed: None,
+                sampling: None,
+                scenario: None,
+                outputs: None,
+                seek: Some("P(out.total > 0) = 0.8".into()),
+                vary: Some("nope".into()),
+                min: Some(0.0),
+                max: Some(1.0),
+            }))),
+            "Seek failed: Validation error: --seek: 'out.total' is not an output of monte_carlo (outputs: )"
+        );
     }
 }

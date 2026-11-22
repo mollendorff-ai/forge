@@ -512,6 +512,19 @@ mod tests {
                 ..ApiConfig::default()
             };
             assert!(wildcard.check().unwrap_err().contains("any website"));
+            let broken = ApiConfig {
+                cors_origins: vec!["bad\norigin".to_string()],
+                ..ApiConfig::default()
+            };
+            assert_eq!(
+                broken.check().unwrap_err(),
+                "Invalid CORS origin: bad\norigin"
+            );
+            let listed = ApiConfig {
+                cors_origins: vec!["http://localhost:3000".to_string()],
+                ..ApiConfig::default()
+            };
+            assert_eq!(listed.check().unwrap().len(), 1);
         }
     }
 }

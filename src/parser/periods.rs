@@ -6,8 +6,7 @@
 //! `2027-01-01`, ...), so everything that works on a date column works on it.
 
 use crate::error::{ForgeError, ForgeResult};
-use crate::types::ColumnValue;
-use chrono::{Days, Months, NaiveDate};
+use chrono::{Datelike, Days, Months, NaiveDate};
 use yaml_serde::{Mapping, Value};
 
 /// The most rows a period column may have: the rows of an Excel sheet under
@@ -40,7 +39,7 @@ pub fn looks_like_period_column(map: &Mapping) -> bool {
 /// month, a day or a year, `count` is not a whole number from 1 to
 /// [`MAX_PERIODS`], `unit` is not one of the five units, a key is unknown, or
 /// a date falls outside the calendar.
-pub fn period_column(table: &str, column: &str, map: &Mapping) -> ForgeResult<ColumnValue> {
+pub fn period_column(table: &str, column: &str, map: &Mapping) -> ForgeResult<Vec<String>> {
     let path = format!("{table}.{column}");
     let fail = |what: String| ForgeError::Parse(format!("'{path}': {what}"));
     if let Some(key) = map
@@ -93,8 +92,7 @@ pub fn period_column(table: &str, column: &str, map: &Mapping) -> ForgeResult<Co
                 .map(|d| d.format("%Y-%m-%d").to_string())
                 .ok_or_else(|| fail(format!("period {} is past the year 9999", i + 1)))
         })
-        .collect::<ForgeResult<Vec<String>>>()
-        .map(ColumnValue::Date)
+        .collect()
 }
 
 /// `2026-12` (the first of the month) or `2026-12-15`.
@@ -104,7 +102,7 @@ fn parse_start(text: &str) -> Option<NaiveDate> {
         10 => NaiveDate::parse_from_str(text, "%Y-%m-%d").ok(),
         _ => None,
     }?;
-    (date >= NaiveDate::from_ymd_opt(1900, 1, 1)?).then_some(date)
+    (date.year() >= 1900).then_some(date)
 }
 
 #[cfg(test)]
@@ -113,11 +111,7 @@ mod tests {
 
     fn dates(yaml: &str) -> Result<Vec<String>, String> {
         let map: Mapping = yaml_serde::from_str(yaml).unwrap();
-        match period_column("t", "p", &map) {
-            Ok(ColumnValue::Date(dates)) => Ok(dates),
-            Ok(other) => Err(format!("{other:?}")),
-            Err(e) => Err(e.to_string()),
-        }
+        period_column("t", "p", &map).map_err(|e| e.to_string())
     }
 
     #[test]
@@ -192,6 +186,18 @@ mod tests {
         ] {
             let err = dates(yaml).unwrap_err();
             assert!(err.contains("'t.p'") && err.contains(why), "{yaml}: {err}");
+        }
+    }
+
+    #[test]
+    fn a_start_that_is_not_a_date_is_refused() {
+        let refused = "Parse error: 't.p': start must be a month (2026-12), a day (2026-12-15) or a year (2026)";
+        for start in ["true", "[2026]", "1899", "1899-12-31", "10000", "2026-1-5"] {
+            assert_eq!(
+                dates(&format!("{{start: {start}, count: 2, unit: day}}")).unwrap_err(),
+                refused,
+                "{start}"
+            );
         }
     }
 }

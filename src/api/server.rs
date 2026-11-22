@@ -77,8 +77,9 @@ impl ApiConfig {
     /// # Errors
     ///
     /// Returns an error for an empty token, a wildcard or invalid CORS origin,
-    /// or a non-loopback address without a token.
-    pub fn check(&self) -> Result<(), String> {
+    /// or a non-loopback address without a token. Otherwise, the origins the
+    /// browsers may call from, as headers.
+    pub fn check(&self) -> Result<Vec<HeaderValue>, String> {
         if self.token.as_deref() == Some("") {
             return Err("The API token must not be empty".to_string());
         }
@@ -89,16 +90,18 @@ impl ApiConfig {
                 self.host
             ));
         }
-        for origin in &self.cors_origins {
-            if origin == "*" {
-                return Err(
-                    "--cors-origin '*' would let any website call the API; list the origins"
-                        .to_string(),
-                );
-            }
-            HeaderValue::from_str(origin).map_err(|_| format!("Invalid CORS origin: {origin}"))?;
-        }
-        Ok(())
+        self.cors_origins
+            .iter()
+            .map(|origin| {
+                if origin == "*" {
+                    return Err(
+                        "--cors-origin '*' would let any website call the API; list the origins"
+                            .to_string(),
+                    );
+                }
+                HeaderValue::from_str(origin).map_err(|_| format!("Invalid CORS origin: {origin}"))
+            })
+            .collect()
     }
 }
 
@@ -181,7 +184,7 @@ async fn guard(State(state): State<Arc<AppState>>, request: Request, next: Next)
 ///
 /// Returns an error if [`ApiConfig::check`] rejects the configuration.
 pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
-    config.check()?;
+    let origins = config.check()?;
     let root = config
         .root
         .as_deref()
@@ -209,16 +212,9 @@ pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
         .with_state(state);
 
     // Without a CORS layer, browsers refuse cross-origin JSON requests
-    if config.cors_origins.is_empty() {
+    if origins.is_empty() {
         return Ok(router);
     }
-    let origins = config
-        .cors_origins
-        .iter()
-        .map(|origin| {
-            HeaderValue::from_str(origin).map_err(|_| format!("Invalid CORS origin: {origin}"))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
     Ok(router.layer(
         CorsLayer::new()
             .allow_origin(AllowOrigin::list(origins))
@@ -269,7 +265,8 @@ async fn serve_until(
     info!("   Endpoints: /api/v1/validate, /api/v1/calculate, /api/v1/audit, /api/v1/export, /api/v1/import");
     info!("   Health: /health, Version: /version");
     if let Some(root) = &config.root {
-        info!("   Files: only inside {}", root.display());
+        let shown = root.display().to_string();
+        info!("   Files: only inside {shown}");
     }
     let token = if config.token.is_some() {
         "required on /api/v1/*"
@@ -286,7 +283,8 @@ async fn serve_until(
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown)
-        .await?;
+        .await
+        .expect("axum's server does not fail once it is serving");
 
     info!("Forge API Server shutdown complete");
     Ok(())
