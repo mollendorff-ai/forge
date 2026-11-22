@@ -1134,14 +1134,26 @@ function renderTools() {
 $("#view-mcp").addEventListener("click", async (e) => {
   const t = e.target.closest("[data-tool]");
   if (t) { S.tools.open = S.tools.open === t.dataset.tool ? null : t.dataset.tool; renderTools(); return; }
+  const c = e.target.closest("[data-copy]");
+  if (c) {
+    const said = $("[data-copied]", c.parentElement);
+    try { await navigator.clipboard.writeText(S.tools.answer); said.textContent = "Copied."; } catch (err) { said.textContent = "This browser did not allow copying: use Download."; }
+    return;
+  }
+  const d = e.target.closest("[data-dl-answer]");
+  if (d) { download(`forge_${d.dataset.dlAnswer}.json`, S.tools.answer, "application/json"); return; }
   const r = e.target.closest("[data-run]");
   if (r) {
     const name = r.dataset.run, box = $(`[data-out="${name}"]`), args = toolArgs(name);
     if (args.files) args.files = S.files;
     busy(box, "Running…");
     try {
+      // The whole answer, never cut (ADR-076): the box scrolls, and Copy and
+      // Download take all of it
       const out = JSON.stringify(await call(name, args), null, 2);
-      S.tools.out = [name, `<p class="sub">answer</p><pre class="code">${esc(out.length > 6000 ? out.slice(0, 6000) + "\n…" : out)}</pre>`];
+      S.tools.answer = out;
+      S.tools.out = [name, `<p class="sub">answer</p><pre class="code">${esc(out)}</pre>
+        <div class="btns"><button type="button" class="btn" data-copy="${name}">Copy</button><button type="button" class="btn" data-dl-answer="${name}">Download</button><span class="note" data-copied></span></div>`];
     } catch (err) { S.tools.out = [name, `<div class="msg bad">${esc(err.message)}</div>`]; }
     box.innerHTML = S.tools.out[1];
   }

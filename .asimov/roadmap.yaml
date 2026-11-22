@@ -631,10 +631,12 @@ studio:
     title: "The documentation's dead ends fixed, and the headings Studio's help links to (ADR-076, step 1)"
     why: "GLOSSARY.md is linked and missing; EXAMPLES.md names MC.Correlated, which is not a function; FEATURES.md shows _forge_version 8.x; goal seek and break-even have no FEATURES section; dynamics: and format: have no heading. A help link needs a heading to land on"
     acceptance: "docs/GLOSSARY.md exists; no MC.Correlated or 8.x version in docs/; FEATURES.md has sections for goal seek and break-even, dynamics: and format:; docs/architecture/README.md says ADR-055 and ADR-056 are built"
+    built: "2026-11-22: docs/GLOSSARY.md; MC.Correlated, test-data/v1.0 and the 8.x versions gone; FEATURES.md sections for goal seek, break-even and sensitivity, format: and dynamics:; ADR-055 and ADR-056 marked built"
   - id: S-TOOLS-WHOLE
     title: "The Tools tab shows a whole answer, with Copy and Download (ADR-076, step 2)"
     why: "An answer is cut at 6,000 characters; the bagel price war's is"
     acceptance: "A studio test runs forge_game on price_war.yaml in the Tools tab and finds the whole answer on screen, equal to the tool's JSON"
+    built: "2026-11-22: the whole answer in a box that scrolls, with Copy and Download; studio/tests/games.mjs compares it with forge_game's JSON"
   - id: S-SETS
     title: "A set's models as questions, with badges, on the welcome card and in a strip under the title (ADR-076, step 3)"
     why: "The bagel's simulation and games are reached only through Files, by file name"
