@@ -85,12 +85,11 @@ fn reads_only_above(expr: &Expr) -> bool {
 
 /// `expr` with every marker replaced by the column it reads.
 fn unmarked(expr: &Expr) -> Expr {
-    if marker_back(expr).is_some() {
-        if let Expr::FunctionCall { args, .. } = expr {
-            return args[0].clone();
-        }
+    match expr {
+        // A marker is a call, so its column is its first argument
+        Expr::FunctionCall { args, .. } if marker_back(expr).is_some() => args[0].clone(),
+        _ => rebuilt(expr, children(expr).into_iter().map(unmarked).collect()),
     }
-    rebuilt(expr, children(expr).into_iter().map(unmarked).collect())
 }
 
 /// `expr` with its children replaced, in order.
@@ -283,6 +282,53 @@ mod tests {
         // `amount` is read in the row itself, so this is not one PREV
         assert!(rows(&["=amount", "=PREV(balance, 0) + amount"]).is_err());
         assert!(rows(&["=0", "=PREV(balance, 0) * ROW()"]).is_err());
+        // A part that reads the row itself, beside one read from above
+        assert_eq!(rows(&["=1 + y", "=PREV(a, 0) + x"]), Err(1));
+    }
+
+    #[test]
+    fn a_row_that_is_not_a_formula_or_a_column_of_one_row_is_refused() {
+        assert_eq!(rows(&["=1", "=\"open"]), Err(1));
+        assert_eq!(rows(&["=1", "=1 +"]), Err(1));
+        assert_eq!(rows(&["=1"]), Err(1));
+    }
+
+    #[test]
+    fn a_prev_with_a_first_value_is_not_a_marker() {
+        // Only PREV(column, 0) and PREV(column, 0, n) stand for a cell above
+        assert_eq!(
+            rows(&["=PREV(x, 5)", "=PREV(x, 5)"]),
+            Ok("=PREV(x, 5)".into())
+        );
+    }
+
+    #[test]
+    fn a_prev_inside_a_sign_a_call_an_index_or_a_range() {
+        assert_eq!(
+            rows(&["=-(1)", "=-(PREV(x, 0))"]),
+            Ok("=-PREV(x, 1)".into())
+        );
+        assert_eq!(
+            rows(&["=LAMBDA(v, v * 2)(1)", "=LAMBDA(v, v * 2)(PREV(x, 0))"]),
+            Ok("=LAMBDA(v, v * 2)(PREV(x, 1))".into())
+        );
+        assert_eq!(
+            rows(&["=y[3]", "=y[PREV(i, 0)]"]),
+            Ok("=y[PREV(i, 3)]".into())
+        );
+        assert_eq!(
+            rows(&["=SUM(c:b)", "=SUM(PREV(a, 0):b)"]),
+            Ok("=SUM(PREV(a, c):b)".into())
+        );
+    }
+
+    #[test]
+    fn parts_that_differ_without_a_name_become_one_prev() {
+        // 1 and 2 differ, so the whole sum is the one PREV
+        assert_eq!(
+            rows(&["=5 + 2", "=PREV(a, 0) + 1"]),
+            Ok("=PREV(a + 1, 5 + 2)".into())
+        );
     }
 
     mod import_prev {
@@ -296,7 +342,7 @@ mod tests {
 
         use crate::cli::{export_core, import_core};
         use crate::core::ArrayCalculator;
-        use crate::ColumnValue;
+        use std::borrow::Cow;
         use std::path::Path;
 
         const MODEL: &str = r#"_forge_version: "5.1.0"
@@ -330,7 +376,9 @@ t:
             (MODEL.to_string(), std::fs::read_to_string(back).unwrap())
         }
 
-        fn columns(text: &str) -> Vec<(String, Vec<f64>)> {
+        /// Each column's name, type and numbers (none for a column of
+        /// another type).
+        fn columns(text: &str) -> Vec<(String, &'static str, Vec<f64>)> {
             let dir = tempfile::tempdir().unwrap();
             let file = dir.path().join("m.yaml");
             std::fs::write(&file, text).unwrap();
@@ -339,9 +387,16 @@ t:
             model.tables["t"]
                 .columns
                 .iter()
-                .map(|(name, column)| match &column.values {
-                    ColumnValue::Number(v) => (name.clone(), v.clone()),
-                    other => panic!("{name}: {other:?}"),
+                .map(|(name, column)| {
+                    (
+                        name.clone(),
+                        column.values.type_name(),
+                        column
+                            .values
+                            .numbers()
+                            .map(Cow::into_owned)
+                            .unwrap_or_default(),
+                    )
                 })
                 .collect()
         }
