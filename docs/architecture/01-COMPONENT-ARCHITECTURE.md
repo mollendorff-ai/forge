@@ -21,6 +21,7 @@ flowchart TB
     subgraph engine["Model engine"]
         parser["parser<br/>YAML to ParsedModel"]
         writer["writer<br/>results into the file"]
+        editm["edit<br/>changes to the model text"]
         excel["excel<br/>export, import"]
         calc["core::array_calculator<br/>order, formulas, evaluator"]
         functions["functions<br/>the registry"]
@@ -31,6 +32,8 @@ flowchart TB
     cores --> analyses
     cores --> parser
     cores --> writer
+    cores --> editm
+    editm --> parser
     cores --> excel
     cores --> functions
     analyses --> calc
@@ -44,7 +47,7 @@ Arrows point from caller to callee. Every layer also uses `error` (`ForgeError`)
 
 - **Each command has a core.** `calculate_core`, `simulate_core`, `game_core` and the others in `src/cli/commands/` take arguments and return a value (`CalculationResult`, `SimulationResult`, ...) that derives `Serialize`. A core prints nothing.
 - **MCP, REST and forge-wasm call the core, never the engine directly.** They turn a request into arguments, call the `*_core` function, and turn its result into JSON, so the three give the same answer for the same model. One exception: REST's export and import call `forge export`'s and `forge import`'s printing functions and discard what they print ([08](08-API-SERVER-ARCHITECTURE.md#endpoints)).
-- **The command line's printing functions do not all call their core yet.** `audit`, `simulate`, `game` and `compare` do: they call the core and format its result on a `Console`. The others (`calculate`, `validate`, `goal_seek`, `tornado`, `scenarios`, `variance`, ...) repeat the core's steps and print as they go. Their output is checked by their own tests, but a change to one of those cores must be made in the printing function too. A new command should print from its core's result (see [10](10-EXTENDING-FORGE.md#add-a-command)).
+- **The command line's printing functions do not all call their core yet.** `audit`, `simulate`, `game`, `compare` and `edit` do: they call the core and format its result on a `Console`. The others (`calculate`, `validate`, `goal_seek`, `tornado`, `scenarios`, `variance`, ...) repeat the core's steps and print as they go. Their output is checked by their own tests, but a change to one of those cores must be made in the printing function too. A new command should print from its core's result (see [10](10-EXTENDING-FORGE.md#add-a-command)).
 - **The engine knows nothing about the front ends.** `parser`, `types`, `core`, `functions`, `writer` and the analysis modules build without the `cli` feature and without a file system (see [below](#feature-builds)).
 - **The analysis engines reuse the calculator.** An engine that moves an input (simulation, tornado, scenarios, goal seek) changes the `ParsedModel` and calculates it again with `ArrayCalculator`; it has no formula logic of its own. [09](09-ANALYSIS-ENGINES.md) explains the two kinds of engine.
 
@@ -108,6 +111,7 @@ Every top-level module of `src/lib.rs`, with what it owns, where to start readin
 | `core` | The calculator (`core::array_calculator`), number precision (`core::precision`), unit checks (`core::unit_validator`) | `src/core/array_calculator/mod.rs` (`ArrayCalculator`) | ADR-058, ADR-065, ADR-066 |
 | `functions` | The function registry: name, category, syntax, description of every function | `src/functions/definitions.rs` | ADR-013, ADR-015 |
 | `writer` | Writing results into the model file, editing its text in place and checking nothing else changed | `src/writer/mod.rs` (`write_calculated_results`) | ADR-051 |
+| `edit` | Changing a model's text on request (set an input's value or a formula, add or delete an element) through yaml-edit's lossless tree, kept only if the model reads back valid with that change and nothing else; shared by `forge edit`, `forge_edit` and forge-wasm's `edit` | `src/edit/mod.rs` (`edit_files`) | ADR-075 |
 | `error` | `ForgeError` and `ForgeResult`, used everywhere | `src/error.rs` | |
 | `monte_carlo` | Distributions, sampling (Monte Carlo, Latin hypercube), correlation, statistics, drivers, the simulation's workbook | `src/monte_carlo/engine.rs` | ADR-016, ADR-017, ADR-076 |
 | `scenarios` | Probability-weighted scenarios and their expected values | `src/scenarios/engine.rs` | ADR-018, ADR-067, ADR-074 |
@@ -118,7 +122,7 @@ Every top-level module of `src/lib.rs`, with what it owns, where to start readin
 | `bayesian` | Networks of discrete nodes, inference with evidence | `src/bayesian/engine.rs` | ADR-023 |
 | `games` | Games read from `games:`, dominance, pure and mixed equilibria, the count form, dynamics, tournaments | `src/games/model.rs` | ADR-068, ADR-073 |
 | `excel` | Export to and import from `.xlsx`; formula translation both ways (`workbook_refs`) | `src/excel/workbook_refs.rs` | ADR-033, ADR-034, ADR-054 |
-| `cli` | Arguments (`cli/args.rs`), running a command in-process (`cli/run.rs`), the `Console`, and every command with its core (`cli/commands/`) | `src/cli/run.rs` (`run_from`) | ADR-032, ADR-047 |
+| `cli` | Commands and their help (`cli/args.rs`), their options (`cli/args/options.rs`), running a command in-process (`cli/run.rs`), the `Console`, and every command with its core (`cli/commands/`) | `src/cli/run.rs` (`run_from`) | ADR-032, ADR-047 |
 | `mcp` | The MCP server over stdio and its tools, grouped in `mcp/server/` | `src/mcp/server.rs` | ADR-047, ADR-048, ADR-049 |
 | `api` | The REST server, its security layer and handlers | `src/api/server.rs` (`build_router`) | ADR-001 |
 | `inline_model` | A model sent as text, written to a temporary folder for a core | `src/inline_model.rs` | ADR-049 |
@@ -186,6 +190,7 @@ There is no global cache, no database and no configuration file. Two calls with 
 | How a YAML key is read | `src/parser/model.rs`, `src/parser/variables.rs`, `schema/` | [02](02-DATA-MODEL.md) |
 | A function's result | `src/core/array_calculator/evaluator/<family>` | [03](03-FORMULA-EVALUATION.md) |
 | Which cell is calculated first, a cycle message | `src/core/array_calculator/order.rs`, `graph.rs`, `recursive.rs` | [04](04-DEPENDENCY-RESOLUTION.md) |
+| How `forge edit` writes a change | `src/edit/` (`text.rs` writes, `check.rs` reads back) | [02](02-DATA-MODEL.md#changing-the-models-text) |
 | A workbook's layout or a translated formula | `src/excel/` | [05](05-EXCEL-INTEGRATION.md) |
 | A command's output or arguments | `src/cli/commands/<command>`, `src/cli/args.rs` | [06](06-INTERFACES.md) |
 | An MCP tool | `src/mcp/server/*_tools.rs`, `src/mcp/types.rs` | [06](06-INTERFACES.md#the-mcp-server) |

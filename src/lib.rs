@@ -56,6 +56,7 @@ macro_rules! assert_exact {
 }
 
 pub mod core;
+pub mod edit;
 pub mod error;
 pub mod functions;
 pub mod parser;

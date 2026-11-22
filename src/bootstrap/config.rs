@@ -224,6 +224,18 @@ mod config_tests {
         assert!(config.validate().is_err());
     }
 
+    /// No level at all is refused, with the reason.
+    #[test]
+    fn no_confidence_level_is_refused() {
+        let config = BootstrapConfig::new()
+            .with_data(vec![1.0, 2.0, 3.0])
+            .with_confidence_levels(vec![]);
+        assert_eq!(
+            config.validate().unwrap_err(),
+            "At least one confidence level required"
+        );
+    }
+
     #[test]
     fn test_invalid_percentile_rejected() {
         let config = BootstrapConfig::new()

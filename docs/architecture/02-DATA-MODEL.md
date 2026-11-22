@@ -241,3 +241,17 @@ sequenceDiagram
 ```
 
 Table columns are never written back: a row formula's results are recalculated each time. Under a scenario (`--scenario`) nothing is written, since the file holds the base case.
+
+## Changing the model's text
+
+Results are one kind of write; a change to the model itself (a new input value, a new formula, an added or deleted input, formula or column) is another. `src/edit/` makes those (ADR-075), for `forge edit`, the MCP tool `forge_edit` and forge-wasm's `edit`:
+
+```mermaid
+flowchart LR
+    req["changes, each named and typed:<br/>set_value, set_formula, add, delete<br/>(in the model, or @alias.name in an include)"] --> text["edit/text.rs<br/>find the place in yaml-edit's<br/>lossless tree, write in the file's style"]
+    text --> check["edit/check.rs<br/>read the model back: valid, with<br/>that change and nothing else?"]
+    check -- yes --> out["the new text of each changed file<br/>(forge edit writes it, with a .bak)"]
+    check -- no --> none["no file changes; the message says why"]
+```
+
+Every byte outside a change stays as it was, comments included. `edit` never writes results; `forge calculate` does. Forge Studio still changes its YAML with `studio/text.js`; moving it onto `edit` is a later step of ADR-075.

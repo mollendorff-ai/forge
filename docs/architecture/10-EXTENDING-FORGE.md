@@ -49,7 +49,7 @@ Studio's suggestions, `forge functions` and the MCP tool read the registry, so t
 flowchart TB
     c["forge newcmd"] --> core["cli/commands/newcmd.rs:<br/>newcmd_core(path, ...) -> Result&lt;NewResult&gt;<br/>NewResult: Serialize"]
     core --> print["newcmd(console, ...):<br/>calls newcmd_core, prints its result"]
-    print --> args["cli/args.rs: NewcmdArgs, long_about<br/>with examples; cli/run.rs: dispatch"]
+    print --> args["cli/args.rs and args/options.rs:<br/>the command, its options, long_about;<br/>cli/run.rs: dispatch"]
     core --> mcp["mcp/types.rs: request type<br/>mcp/server/*_tools.rs: #[tool] forge_newcmd"]
     core --> wasm["forge-wasm/src/lib.rs:<br/>TOOLS and run_on_files"]
     core --> rest{"needed over HTTP?"}
@@ -60,7 +60,7 @@ flowchart TB
 
 1. **The core first.** `newcmd_core` in `src/cli/commands/` takes paths and options and returns a `Serialize` result; it prints nothing and builds without the `cli` feature unless it truly needs it (gate it with `#[cfg(feature = "cli")]` then, and it will not be in the browser).
 2. **Print from the core.** The printing function calls `newcmd_core` and formats its result on the `Console` with `outln!`. Several older commands repeat their core's steps instead ([01](01-COMPONENT-ARCHITECTURE.md#the-layers)); a new one should not.
-3. **The command line.** Arguments in `src/cli/args.rs`, with a `long_about` that shows real examples; the arm in `src/cli/run.rs`. Test through `cli::forge` (in-process) for output and exit codes.
+3. **The command line.** The command and its `long_about` with real examples in `src/cli/args.rs`, its options in `src/cli/args/options.rs`, the arm in `src/cli/run.rs`. Test through `cli::forge` (in-process) for output and exit codes.
 4. **MCP.** A request type in `src/mcp/types.rs` (with `file_path`, `content`, `includes` if it reads a model), a `#[tool]` method in the right `src/mcp/server/*_tools.rs` that resolves the input with `resolve_model_input` and calls the core. Raise the tool count in its test, in `INSTRUCTIONS`, in `.github/workflows/ci.yml` (`mcp-smoke`) and in `docs/MCP.md`.
 5. **The browser.** Add the tool to `TOOLS` and `run_on_files` in `forge-wasm/src/lib.rs`, a case to `forge-wasm/tests/cases.json` so CI compares WebAssembly with native, and, if Studio should offer it, to `studio/tools.js`.
 6. **REST**, only if an HTTP client needs it ([08](08-API-SERVER-ARCHITECTURE.md)).

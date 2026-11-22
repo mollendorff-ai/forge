@@ -24,6 +24,10 @@ mod audit;
 #[cfg(feature = "excel")]
 mod carried;
 mod compare;
+// forge edit and forge_edit, on files on disk (ADR-075); forge-wasm calls
+// crate::edit itself
+#[cfg(feature = "cli")]
+mod edit;
 mod examples;
 // Export and import need Excel (feature `excel`); printing them and base64
 // belong to the command line (feature `cli`)
@@ -54,6 +58,8 @@ mod watch;
 pub use analysis::{break_even, goal_seek, sensitivity, sensitivity_in_format, variance};
 pub use audit::audit;
 pub use compare::{compare, comparison_json, render_comparison, terminal_width};
+#[cfg(feature = "cli")]
+pub use edit::{edit, edit_core, EditArgs, EditResult};
 #[cfg(feature = "cli")]
 pub use examples::examples;
 #[cfg(feature = "cli")]

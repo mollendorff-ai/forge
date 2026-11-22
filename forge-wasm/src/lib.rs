@@ -24,6 +24,7 @@ use mollendorff_forge::cli::{
     commands::render, commands::report_core, ReportFormat, ReportOptions,
 };
 use mollendorff_forge::cli::{export_bytes_core, import_text_core};
+use mollendorff_forge::edit::{edit_files, Change};
 use mollendorff_forge::parser::{parse_model, with_files_in_memory};
 use mollendorff_forge::types::ParsedModel;
 use serde_json::{json, Map, Value};
@@ -32,8 +33,9 @@ use std::path::Path;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The tools, by the names of the MCP tools without `forge_`.
-pub const TOOLS: [&str; 23] = [
+pub const TOOLS: [&str; 24] = [
     "validate",
+    "edit",
     "calculate",
     "audit",
     "scenarios",
@@ -111,6 +113,7 @@ pub fn run(tool: &str, request: &Value) -> Result<Value, String> {
                 .map_err(|e| e.to_string())
         },
         "import" => return import(args),
+        "edit" => return edit(args),
         _ => {},
     }
     if !TOOLS.contains(&tool) && !STUDIO_TOOLS.contains(&tool) {
@@ -324,6 +327,21 @@ fn structure(model: &ParsedModel) -> Value {
         // The analysis sections, for the kind of model Studio shows (ADR-077)
         "analyses": model.analyses,
     })
+}
+
+/// `forge edit` on files in memory (ADR-075): the new text of each file that
+/// changed, by its name in `files`.
+fn edit(args: &Map<String, Value>) -> Result<Value, String> {
+    let files = files(args)?;
+    let main = opt_str(args, "main")?.unwrap_or("model.yaml");
+    let changes: Vec<Change> = serde_json::from_value(
+        args.get("changes")
+            .cloned()
+            .ok_or("'changes' is required: a list of changes")?,
+    )
+    .map_err(|e| format!("'changes': {e}"))?;
+    let new_texts = edit_files(&files, main, &changes).map_err(|e| e.to_string())?;
+    Ok(json!({ "files": new_texts }))
 }
 
 /// `forge export` into memory: the MCP tool's in-memory answer.
@@ -967,6 +985,64 @@ mod tests {
             );
             let message = refused.unwrap_err();
             assert!(message.contains("Failed to open Excel file"), "{message}");
+        }
+
+        /// `edit` changes the bagel's own files and answers the new text of
+        /// each one that changed (ADR-075)
+        #[test]
+        fn edit_answers_the_files_it_changed() {
+            let dir = examples().join("bagel");
+            let read = |name: &str| std::fs::read_to_string(dir.join(name)).unwrap();
+            let files = serde_json::json!({"bagel.yaml": read("bagel.yaml"), "costs.yaml": read("costs.yaml")});
+            let price = run(
+                "model",
+                &serde_json::json!({"files": files, "main": "bagel.yaml"}),
+            )
+            .unwrap()["scalars"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|s| s["formula"].is_null() && s["path"].as_str().unwrap().contains('.'))
+                .unwrap()["path"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            let edited = run(
+                "edit",
+                &serde_json::json!({"files": files, "main": "bagel.yaml",
+                                    "changes": [{"op": "set_value", "path": price, "value": 123.5}]}),
+            )
+            .unwrap();
+            let changed = edited["files"].as_object().unwrap();
+            assert_eq!(changed.keys().collect::<Vec<_>>(), ["bagel.yaml"]);
+            let before = read("bagel.yaml");
+            let after = changed["bagel.yaml"].as_str().unwrap();
+            assert_eq!(after.lines().count(), before.lines().count());
+            let differ: Vec<&str> = after
+                .lines()
+                .zip(before.lines())
+                .filter(|(a, b)| a != b)
+                .map(|(a, _)| a)
+                .collect();
+            assert_eq!(differ.len(), 1, "{differ:?}");
+            assert!(differ[0].contains("123.5"), "{differ:?}");
+
+            let message = |request: Value| run("edit", &request).unwrap_err();
+            assert_eq!(
+                message(serde_json::json!({"files": files, "main": "bagel.yaml"})),
+                "'changes' is required: a list of changes"
+            );
+            assert!(message(serde_json::json!({"files": files, "main": "bagel.yaml", "changes": [{"op": "move"}]}))
+                .starts_with("'changes': unknown variant `move`"));
+            assert_eq!(
+                message(serde_json::json!({"files": files, "main": "bagel.yaml",
+                                           "changes": [{"op": "delete", "path": "nothing"}]})),
+                "Validation error: delete nothing: it is not in the model (bagel.yaml). No file was changed"
+            );
+            assert_eq!(
+                message(serde_json::json!({"changes": []})),
+                "'files' must be an object of file name to YAML text"
+            );
         }
     }
 }

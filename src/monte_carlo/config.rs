@@ -218,6 +218,55 @@ fn default_percentiles() -> Vec<u8> {
 mod tests {
     use super::*;
 
+    fn output(name: &str) -> OutputConfig {
+        OutputConfig {
+            variable: name.to_string(),
+            percentiles: vec![50],
+            threshold: None,
+            thresholds: vec![],
+            expected_shortfall: vec![],
+            higher_is_worse: false,
+            row: None,
+            label: None,
+        }
+    }
+
+    /// Each setting that is out of range says which and what it was.
+    #[test]
+    fn a_setting_out_of_range_is_named() {
+        let with = |change: &dyn Fn(&mut MonteCarloConfig)| {
+            let mut config = MonteCarloConfig::default().enabled();
+            config.outputs = vec![output("x")];
+            change(&mut config);
+            config.validate().unwrap_err()
+        };
+        assert_eq!(
+            with(&|c| c.iterations = 1_000_001),
+            "iterations must be <= 1,000,000"
+        );
+        assert_eq!(
+            with(&|c| c.outputs[0].percentiles = vec![50, 101]),
+            "output 'x': percentile 101 is not between 0 and 100"
+        );
+        assert_eq!(
+            with(&|c| c.outputs[0].expected_shortfall = vec![5, 100]),
+            "output 'x': expected_shortfall 100 is not between 1 and 99 (percent of runs)"
+        );
+        assert_eq!(
+            with(&|c| c.outputs[0].expected_shortfall = vec![0]),
+            "output 'x': expected_shortfall 0 is not between 1 and 99 (percent of runs)"
+        );
+    }
+
+    /// A threshold, once or twice written, and the thresholds, each once.
+    #[test]
+    fn thresholds_are_listed_once_each_in_the_order_written() {
+        let mut out = output("x");
+        out.threshold = Some("> 0".to_string());
+        out.thresholds = vec!["> 0".to_string(), "< 5".to_string(), "< 5".to_string()];
+        assert_eq!(out.all_thresholds(), ["> 0", "< 5"]);
+    }
+
     #[test]
     fn test_default_config() {
         let config = MonteCarloConfig::default();

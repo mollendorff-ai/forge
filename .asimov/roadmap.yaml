@@ -696,6 +696,7 @@ studio:
     how: "The yaml-edit spike first, its findings in ADR-075; then set_value, set_formula, add, delete held to text.js's bytes; then rename, make_uncertain, the game changes, insert; the forge-wasm edit tool, forge_edit over MCP, forge edit on the command line"
     acceptance: "Each change is kept only when Forge reads back exactly it; every example goes through each change and back byte for byte outside the change; Studio's one-line changes moved to it"
     spike: "2026-11-22, in ADR-075: yaml-edit 0.3.6 (no default features) keeps all 174 YAML files byte for byte, changes 771 formulas and 1,326 numbers in place, matches text.mjs's 39 cases byte for byte, Unicode names; +155,687 bytes gzipped; brings hashbrown 0.14 beside 0.17, which waits on the maintainer"
+    built: "2026-11-22, steps 1 and 2 of ADR-075: src/edit/ (set_value, set_formula, add, delete), forge edit, forge_edit (22 MCP tools), forge-wasm's edit; hashbrown allowed by the maintainer. Left: rename, make_uncertain/make_certain, the game changes, insert, and Studio's cards moved to edit (ADR-075 steps 3 to 7)"
   - id: S-GAMES-EDIT
     title: "A game edited on its card: cells, names, strategies, players, a tournament's habits, dynamics, and the inputs it reads (ADR-076, step 5)"
     acceptance: "Every change on a game card is written by edit and checked as S9's are; game answers each game's inputs; an included file's groups fold when it is not the open model"

@@ -53,7 +53,7 @@ The parts that make the command line testable without starting a process:
 flowchart LR
     client["AI client<br/>(Claude Code, Claude Desktop, ...)"] -- "JSON-RPC over stdio" --> rmcp["rmcp: tools/list,<br/>tools/call"]
     rmcp --> server["ForgeMcpServer<br/>(src/mcp/server.rs)"]
-    server --> m["model_tools.rs<br/>validate, calculate, audit,<br/>export, import"]
+    server --> m["model_tools.rs<br/>validate, calculate, edit,<br/>audit, export, import"]
     server --> a["analysis_tools.rs<br/>sensitivity, goal_seek, break_even,<br/>variance, compare, scenarios,<br/>tornado, game"]
     server --> u["uncertainty_tools.rs<br/>simulate, decision_tree,<br/>real_options, bootstrap, bayesian"]
     server --> r["reference_tools.rs<br/>schema, functions, examples"]

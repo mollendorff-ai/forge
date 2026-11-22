@@ -67,10 +67,14 @@ pub struct TornadoResult {
 
 impl TornadoResult {
     /// Export results to YAML format
+    ///
+    /// # Panics
+    ///
+    /// Never: results are names and numbers, which serialize as YAML.
     #[must_use]
     pub fn to_yaml(&self) -> String {
         yaml_serde::to_string(&crate::core::precision::Rounded(self))
-            .unwrap_or_else(|_| "# Error serializing results".to_string())
+            .expect("results are strings and numbers, which serialize as YAML")
     }
 
     /// Export results to JSON format
@@ -225,7 +229,9 @@ impl TornadoEngine {
         let mut model = self.base_model.clone();
         // The input is the model's or an included file's (`@costs.flour`); `new`
         // found it
-        model.set_input(input_name, input_value)?;
+        model
+            .set_input(input_name, input_value)
+            .expect("`new` found the input, and refused a date");
         self.calculate_output(&model)
     }
 
@@ -314,6 +320,67 @@ mod engine_tests {
         );
 
         model
+    }
+
+    fn engine_of(model: ParsedModel, output: &str, inputs: &[(&str, f64, f64)]) -> TornadoEngine {
+        let config = inputs
+            .iter()
+            .fold(TornadoConfig::new(output), |config, (name, low, high)| {
+                config.with_input(InputRange::new(name, *low, *high))
+            });
+        TornadoEngine::new(config, model).unwrap()
+    }
+
+    /// A result with no bars says so, and has no variance to explain.
+    #[test]
+    fn a_tornado_with_no_bars_says_so() {
+        let result = TornadoResult {
+            output: "profit".to_string(),
+            base_value: 1234.4,
+            bars: vec![],
+            total_variance: 0.0,
+        };
+        assert_eq!(
+            result.to_ascii(),
+            "profit Sensitivity (Base: $1234)\n\nNo sensitivity data\n"
+        );
+        assert!(result.variance_explained_by_top(3).abs() < 1e-15);
+        assert!(result.to_yaml().contains("base_value: 1234.4"));
+    }
+
+    /// An input over a range where the output fails stops the bar at the
+    /// end that fails, low or high; a name with a dot that is no scalar, and a
+    /// date, are refused up front.
+    #[test]
+    fn a_failure_at_an_end_of_the_range_or_a_name_that_is_not_there_is_an_error() {
+        let mut model = ParsedModel::new();
+        model.scalars.insert(
+            "x".to_string(),
+            Variable::new("x".to_string(), Some(1.0), None),
+        );
+        model.scalars.insert(
+            "y".to_string(),
+            Variable::new("y".to_string(), None, Some("=1 / x".to_string())),
+        );
+        let division = "Formula evaluation error: y: Division by zero (formula: =1 / x)";
+        // Division by zero at the low end, and at the high end
+        for (low, high) in [(0.0, 2.0), (-2.0, 0.0)] {
+            let engine = engine_of(model.clone(), "y", &[("x", low, high)]);
+            assert_eq!(engine.analyze().unwrap_err(), division);
+        }
+        let mut dated = Variable::new("d".to_string(), Some(46053.0), None);
+        dated.is_date = true;
+        model.scalars.insert("d".to_string(), dated);
+        let config = TornadoConfig::new("y").with_input(InputRange::new("d", 0.0, 1.0));
+        assert_eq!(
+            TornadoEngine::new(config, model.clone()).err().unwrap(),
+            "'d' is a date (2026-01-31), and tornado varies numbers: varying a date is not supported (ADR-060)"
+        );
+        let config = TornadoConfig::new("y").with_input(InputRange::new("a.b", 0.0, 1.0));
+        assert_eq!(
+            TornadoEngine::new(config, model).err().unwrap(),
+            "Tornado input 'a.b': not found; use an existing scalar ID"
+        );
     }
 
     /// A formula the output does not use may fail at an input's end of the
@@ -543,9 +610,9 @@ games:
             let want = result.scalars["valuation.value_created"].value.unwrap();
             assert!((got - want).abs() <= 1e-9, "{value}: {got}, not {want}");
         }
-        let Err(err) = TornadoEngine::new(config("@seller.company.cash"), model) else {
-            panic!("an include that is not there")
-        };
+        let err = TornadoEngine::new(config("@seller.company.cash"), model)
+            .err()
+            .unwrap();
         assert!(
             err.starts_with("Tornado input '@seller.company.cash'"),
             "{err}"

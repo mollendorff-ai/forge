@@ -64,7 +64,7 @@ pub(super) fn to_json<T: serde::Serialize>(result: &T) -> String {
 }
 
 /// What the server tells the agent it serves.
-const INSTRUCTIONS: &str = "Forge MCP Server - 21 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian, game (equilibria and tournaments). Discovery: schema, functions, examples. 203 Excel-compatible functions. All tools return structured JSON. A new model: start from forge_examples name=starter; _forge_version is the model format version (5.1.0), not the Forge version; in a group of scalars a formula is {formula: \"=...\"}, in a table a column formula is a bare \"=...\".";
+const INSTRUCTIONS: &str = "Forge MCP Server - 22 tools for AI-native financial modeling. Core: validate, calculate, edit (change a model's text, comments kept), audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian, game (equilibria and tournaments). Discovery: schema, functions, examples. 203 Excel-compatible functions. All tools return structured JSON. A new model: start from forge_examples name=starter; _forge_version is the model format version (5.1.0), not the Forge version; in a group of scalars a formula is {formula: \"=...\"}, in a table a column formula is a bare \"=...\".";
 
 #[allow(unknown_lints, clippy::unused_async_trait_impl)]
 #[tool_handler(router = self.tool_router)]
@@ -187,7 +187,7 @@ scalars:
     fn test_tool_count() {
         let server = ForgeMcpServer::new();
         let tools = server.tool_router.list_all();
-        assert_eq!(tools.len(), 21, "Expected 21 tools, got {}", tools.len());
+        assert_eq!(tools.len(), 22, "Expected 22 tools, got {}", tools.len());
     }
 
     #[test]
@@ -199,6 +199,7 @@ scalars:
         // Core tools
         assert!(names.contains(&"forge_validate"));
         assert!(names.contains(&"forge_calculate"));
+        assert!(names.contains(&"forge_edit"));
         assert!(names.contains(&"forge_audit"));
         assert!(names.contains(&"forge_export"));
         assert!(names.contains(&"forge_import"));

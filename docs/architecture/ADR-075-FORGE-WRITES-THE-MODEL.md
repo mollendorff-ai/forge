@@ -1,6 +1,6 @@
 # ADR-075: Forge Writes the Model
 
-**Status:** Accepted (2026-11-22); the spike of decision 5 is done (yaml-edit passes; one duplicate crate waits on the maintainer); not yet built
+**Status:** Accepted (2026-11-22); built: the spike (decision 5), and step 2 (`set_value`, `set_formula`, `add`, `delete`; forge-wasm's `edit`, `forge_edit`, `forge edit`). The maintainer allowed `hashbrown` twice for yaml-edit (2026-11-22)
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who agreed that changes of more than one line to a model are written by Forge rather than by Forge Studio's page; the analysis is Claude's
 **For:** ADR-076 (simulations and games edited on Studio's cards). It extends ADR-056 and changes none of its decisions
@@ -63,7 +63,9 @@ How the editor works with it: yaml-edit finds the node, and Forge writes its tex
 
 The other candidates were looked at, not run: `yaml-edit-rp` (0.3.1) is an older fork of the same code on the same `rowan`, so it brings the same `hashbrown`; `yaml-splice` (0.4.1) edits only a mapping's top-level keys, and Forge's changes are inside groups, tables, games and flow mappings.
 
-**The maintainer's decision.** Clippy does not report this duplicate today, only because `hashbrown` 0.15.5 (from `petgraph`, a dev-dependency) is in the workspace too, and the lint names a crate only when every version of it is a normal dependency. The rule of CLAUDE.md is about the duplicate, not the lint: adopting yaml-edit means allowing `hashbrown` in `clippy.toml` with this reason and counting it in `validation/repo/src/no_skipping.rs`, in the change that adds it. That is the exception CLAUDE.md gives the maintainer (a core, stable library with no fix on our side), and only the maintainer can take it. If not taken, the editor is written in Forge (decision 5's last resort), on the findings above. The build (step 2) waits on this decision.
+**The maintainer's decision.** Clippy does not report this duplicate today, only because `hashbrown` 0.15.5 (from `petgraph`, a dev-dependency) is in the workspace too, and the lint names a crate only when every version of it is a normal dependency. The rule of CLAUDE.md is about the duplicate, not the lint: adopting yaml-edit means allowing `hashbrown` in `clippy.toml` with this reason and counting it in `validation/repo/src/no_skipping.rs`, in the change that adds it. That is the exception CLAUDE.md gives the maintainer (a core, stable library with no fix on our side), and only the maintainer can take it. If not taken, the editor is written in Forge (decision 5's last resort), on the findings above. The build (step 2) waits on this decision. **Decided 2026-11-22: the maintainer allowed it**, and `hashbrown` is in `clippy.toml`'s list, counted in `validation/repo/src/no_skipping.rs`, in the change that adds yaml-edit.
+
+**What step 2 found.** Two things the tree does not do as `text.js` did, and Forge does instead. A snippet set with `Mapping::set` is indented by yaml-edit's own step of 2, under a group indented by 4 too, where the file's style is 4 more: so the tree gives the place (the end of the group's last entry, whose span runs to the end of its last line, comment included) and Forge writes the lines, as `text.js` did. And a bare `value:` gets its space. Each change is checked by reading the model back as Forge Studio did (S9): the model's JSON, and each included file's, before and after, equal once the changed entry is set aside, and the entry as asked. An uncertain model is checked at plan, as `forge calculate --plan` calculates it. A distribution is read only as a whole formula (`=MC.Normal(0, 1)`, not `=(MC.Normal(0, 1))`), and `edit` refuses the second as Forge does.
 
 ## Alternatives considered
 
@@ -80,7 +82,7 @@ The other candidates were looked at, not run: `yaml-edit-rp` (0.3.1) is an older
 ## What is built, in order
 
 1. The spike in decision 5, with its findings added to this ADR (done, 2026-11-22).
-2. `src/edit/` with `set_value`, `set_formula`, `add` and `delete`, held to the bytes `text.js` writes. The forge-wasm `edit` tool, the `forge_edit` MCP tool, and `forge edit`.
+2. `src/edit/` with `set_value`, `set_formula`, `add` and `delete`, held to the bytes `text.js` writes. The forge-wasm `edit` tool, the `forge_edit` MCP tool, and `forge edit` (done, 2026-11-22).
 3. `rename`.
 4. `make_uncertain` and `make_certain` (ADR-076, step 4).
 5. The game changes (ADR-076, step 5).
