@@ -329,10 +329,10 @@ mod tests {
             let elapsed = start.elapsed();
 
             assert_eq!(result.iterations_completed, 10000);
+            let seconds = elapsed.as_secs_f64();
             assert!(
                 elapsed.as_secs() < 5,
-                "Performance test failed: {} seconds",
-                elapsed.as_secs_f64()
+                "Performance test failed: {seconds} seconds"
             );
 
             println!("10K iterations with 5 distributions: {elapsed:?}");
@@ -597,11 +597,8 @@ mod tests {
             ];
             for (dist, p, expected) in cases {
                 let value = dist.inverse_cdf(p);
-                assert!(
-                    (value - expected).abs() < 1e-6,
-                    "{} at {p}: {value}",
-                    dist.dist_type()
-                );
+                let kind = dist.dist_type();
+                assert!((value - expected).abs() < 1e-6, "{kind} at {p}: {value}");
             }
             let discrete =
                 Distribution::discrete(vec![1.0, 2.0, 3.0], vec![0.2, 0.5, 0.3]).unwrap();

@@ -2,7 +2,7 @@
 //!
 //! High-level interface for Bayesian network inference.
 
-use super::config::BayesianConfig;
+use super::config::{BayesianConfig, BayesianNode};
 use super::inference::BeliefPropagation;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -127,7 +127,21 @@ impl BayesianEngine {
             .nodes
             .get(target)
             .ok_or_else(|| format!("Variable '{target}' not found in network"))?;
-        let probs = self.bp.query_with_evidence(target, &evidence_indices)?;
+        Ok(self.marginal(target, node, &evidence_indices))
+    }
+
+    /// The probabilities of the states of the node `name` given evidence that
+    /// was checked: the node is the network's, so inference finds factors.
+    fn marginal(
+        &self,
+        name: &str,
+        node: &BayesianNode,
+        evidence: &HashMap<String, usize>,
+    ) -> VariableResult {
+        let probs = self
+            .bp
+            .query_with_evidence(name, evidence)
+            .expect("a node of the network has factors");
 
         let (max_idx, max_prob) = probs
             .iter()
@@ -135,13 +149,13 @@ impl BayesianEngine {
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
             .map_or((0, 0.0), |(i, p)| (i, *p));
 
-        Ok(VariableResult {
-            name: target.to_string(),
+        VariableResult {
+            name: name.to_string(),
             states: node.states.clone(),
             probabilities: probs,
             most_likely: node.states.get(max_idx).cloned().unwrap_or_default(),
             max_probability: max_prob,
-        })
+        }
     }
 
     /// Query all variables
@@ -152,8 +166,8 @@ impl BayesianEngine {
     pub fn query_all(&self) -> Result<BayesianResult, String> {
         let mut queries = BTreeMap::new();
 
-        for name in self.config.nodes.keys() {
-            let result = self.query(name)?;
+        for (name, node) in &self.config.nodes {
+            let result = self.marginal(name, node, &HashMap::new());
             queries.insert(name.clone(), result);
         }
 
@@ -208,8 +222,8 @@ impl BayesianEngine {
     pub fn most_likely_states(&self) -> Result<BTreeMap<String, String>, String> {
         let mut explanation = BTreeMap::new();
 
-        for name in self.config.nodes.keys() {
-            let result = self.query(name)?;
+        for (name, node) in &self.config.nodes {
+            let result = self.marginal(name, node, &HashMap::new());
             explanation.insert(name.clone(), result.most_likely);
         }
 
