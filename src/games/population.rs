@@ -145,7 +145,7 @@ impl Population {
 
 /// The value at `x` of the polynomial with Bernstein coefficients `b`, by de
 /// Casteljau's algorithm.
-fn bernstein(b: &[f64], x: f64) -> f64 {
+pub(super) fn bernstein(b: &[f64], x: f64) -> f64 {
     let mut level = b.to_vec();
     for size in (1..level.len()).rev() {
         for i in 0..size {

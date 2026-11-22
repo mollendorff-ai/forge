@@ -25,6 +25,7 @@ const EXAMPLE_CONTINUATION: &str = include_str!("../../../../examples/games/cont
 const EXAMPLE_PUBLIC_GOODS: &str = include_str!("../../../../examples/games/public-goods.yaml");
 const EXAMPLE_VOLUNTEERS_DILEMMA: &str =
     include_str!("../../../../examples/games/volunteers-dilemma.yaml");
+const EXAMPLE_HAWK_DOVE: &str = include_str!("../../../../examples/games/hawk-dove.yaml");
 
 /// Example metadata
 pub(super) struct Example {
@@ -149,5 +150,11 @@ pub(super) const EXAMPLES: &[Example] = &[
         description: "Five players, one needed: the mix in which all play alike",
         command: "forge game",
         content: EXAMPLE_VOLUNTEERS_DILEMMA,
+    },
+    Example {
+        name: "hawk-dove",
+        description: "Hawks and doves: the share of each, generation by generation",
+        command: "forge game",
+        content: EXAMPLE_HAWK_DOVE,
     },
 ];

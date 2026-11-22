@@ -6,7 +6,8 @@ name: Validation
 #                        the LET, LAMBDA and COUNTUNIQUE cases Gnumeric cannot read)
 #   validation/r         functions and analytics compared with R
 #   validation/games     games compared with Gambit, tournaments with the
-#                        axelrod library, 2 x 2 closed forms with R (ADR-068)
+#                        axelrod library, 2 x 2 closed forms with R (ADR-068),
+#                        the dynamics with egttools (ADR-073)
 # Weekly (which notices a new Gnumeric, LibreOffice or R), on demand, and on
 # the pull requests and merges to main described below.
 # Runs on Ubuntu 24.04: with the Gnumeric of 22.04, FLOOR and CEILING of a
@@ -195,8 +196,9 @@ jobs:
       - name: Build wheels
         if: steps.wheels.outputs.cache-hit != 'true'
         run: pip wheel -r validation/games/requirements.txt -w wheelhouse
-      # pygambit and the axelrod library, pinned: the pins are what the numbers
-      # in VALIDATION.md were measured with. Installed from the wheelhouse only.
+      # pygambit, the axelrod library, sympy and egttools, pinned: the pins are
+      # what the numbers in VALIDATION.md were measured with. Installed from the
+      # wheelhouse only.
       - name: Install Gambit and axelrod
         run: pip install --no-index --find-links wheelhouse -r validation/games/requirements.txt
       # Only R's base language and jsonlite: no recommended packages
