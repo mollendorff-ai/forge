@@ -8,18 +8,21 @@
   --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --r: 14px;
   --syn-key: #1E6B61; --syn-meta: #7A4BA8; --syn-fn: #2453B5; --syn-name: #162022; --syn-inc: #B85A24; --syn-num: #A4462A; --syn-op: #8A6A00; --syn-str: #3D7A2E; --syn-comment: #7C8784;
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0F1514; --surface: #18201F; --sunk: #131A19; --ink: #E4EBE8; --muted: #95A39F; --line: #2A3532;
   --accent: #5BBFAE; --accent-ink: #08201C; --accent-soft: #1C3530; --ember: #E58C55; --ember-soft: #3A2518;
   --bad: #FF8A7F; --bad-soft: #3B1A17; --good: #6CD39A;
   --syn-key: #6FCCBB; --syn-meta: #C29BEA; --syn-fn: #8DB4FF; --syn-name: #E4EBE8; --syn-inc: #F0A06E; --syn-num: #F29D80; --syn-op: #E8C55A; --syn-str: #9BD58A; --syn-comment: #7F8D8A;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
   color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0F1514; --surface: #18201F; --sunk: #131A19; --ink: #E4EBE8; --muted: #95A39F; --line: #2A3532;
   --accent: #5BBFAE; --accent-ink: #08201C; --accent-soft: #1C3530; --ember: #E58C55; --ember-soft: #3A2518;
   --bad: #FF8A7F; --bad-soft: #3B1A17; --good: #6CD39A;
   --syn-key: #6FCCBB; --syn-meta: #C29BEA; --syn-fn: #8DB4FF; --syn-name: #E4EBE8; --syn-inc: #F0A06E; --syn-num: #F29D80; --syn-op: #E8C55A; --syn-str: #9BD58A; --syn-comment: #7F8D8A;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
   color-scheme: dark }
 
 * { box-sizing: border-box }
@@ -212,6 +215,16 @@ table.ranking .plays { display: block; font-family: var(--f-body); font-size: 11
 ol.eqs { margin: 4px 0 0; padding-left: 20px; font-size: 13.5px }
 ol.eqs li + li { margin-top: 4px }
 table.report td.bad { color: var(--bad) }
+/* games: the stability of an equilibrium, and the dynamics' chart (ADR-073) */
+.stable { display: block; font-size: 12px; color: var(--muted) }
+.dynamics .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; margin: 6px 0 2px }
+.dynamics .key { display: inline-flex; align-items: center; gap: 6px }
+.dynamics .key i { width: 12px; height: 3px; border-radius: 2px; display: inline-block }
+.path-chart { display: block; width: 100%; height: auto; touch-action: pan-y; font-family: var(--f-mono); font-size: 9px }
+.path-chart text { fill: var(--muted) }
+.path-chart .grid { stroke: var(--line); stroke-width: 1 }
+.path-chart .cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 2 }
+.path-tip { min-height: 2.9em }
 
 /* analyze */
 .jump { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px }
