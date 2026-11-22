@@ -4,7 +4,6 @@
 
 use crate::cli::console::outln;
 use crate::cli::Console;
-use crate::core::array_calculator::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::monte_carlo::{MonteCarloConfig, MonteCarloEngine};
 use crate::parser;
@@ -12,87 +11,12 @@ use colored::Colorize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+mod iteration;
 mod outputs;
 mod print;
+use iteration::evaluate_iteration;
 use outputs::{expand_outputs, select_outputs};
 use print::{print_simulation_results, write_simulation_output};
-
-/// Calculate the model once with the sampled `inputs` and read the outputs.
-///
-/// An input named `@ns.path` is a distribution in the included file `ns`.
-///
-/// # Errors
-///
-/// Returns the calculation error, or an error naming an output that has no
-/// calculated value. Callers must not turn either into a 0 sample.
-fn evaluate_iteration(
-    model: &crate::types::ParsedModel,
-    plan: &std::rc::Rc<crate::core::array_calculator::CalcPlan>,
-    output_vars: &[(String, Option<(String, usize)>)],
-    inputs: &HashMap<String, f64>,
-    only_outputs: bool,
-) -> Result<HashMap<String, f64>, String> {
-    let mut iter_model = model.clone();
-    // Replace MC.* distribution formulas with the sampled values: a scalar's,
-    // or one row of an uncertain column's
-    for (var_name, &value) in inputs {
-        iter_model.set_input(var_name, value)?;
-    }
-
-    // Every iteration has the same formulas, so they are parsed and ordered once
-    let calculator = ArrayCalculator::with_plan(iter_model, std::rc::Rc::clone(plan));
-    let calculated = if only_outputs {
-        // A search over many simulations: a formula no output uses may fail
-        // at an input's end of the range without failing the answer
-        let (columns, scalars): (Vec<_>, Vec<_>) =
-            output_vars.iter().partition(|(_, row)| row.is_some());
-        let scalars: Vec<String> = scalars
-            .iter()
-            .flat_map(|(name, _)| {
-                [
-                    name.clone(),
-                    format!("outputs.{name}"),
-                    format!("scalars.{name}"),
-                ]
-            })
-            .collect();
-        let columns: Vec<(String, String)> = columns
-            .iter()
-            .filter_map(|(_, row)| row.as_ref())
-            .filter_map(|(column, _)| column.split_once('.'))
-            .map(|(table, column)| (table.to_string(), column.to_string()))
-            .collect();
-        calculator.calculate_outputs(&scalars, &columns)
-    } else {
-        calculator.calculate_all()
-    }
-    .map_err(|e| e.to_string())?;
-
-    output_vars
-        .iter()
-        .map(|(var_name, row)| {
-            if let Some((column, row)) = row {
-                let (table, col) = column.split_once('.').unwrap_or_default();
-                return calculated
-                    .tables
-                    .get(table)
-                    .and_then(|t| t.columns.get(col))
-                    // An empty cell of a data column is 0, as a formula reads it
-                    .and_then(|c| c.values.numbers().and_then(|v| v.get(*row).copied()))
-                    .map(|value| (var_name.clone(), value))
-                    .ok_or_else(|| format!("output '{var_name}' has no calculated number"));
-            }
-            calculated
-                .scalars
-                .get(var_name)
-                .or_else(|| calculated.scalars.get(&format!("outputs.{var_name}")))
-                .or_else(|| calculated.scalars.get(&format!("scalars.{var_name}")))
-                .and_then(|s| s.value)
-                .map(|value| (var_name.clone(), value))
-                .ok_or_else(|| format!("output '{var_name}' has no calculated value"))
-        })
-        .collect()
-}
 
 /// What `forge simulate` runs, beyond the model file.
 #[derive(Debug, Clone, Copy, Default)]
@@ -411,6 +335,151 @@ scalars:
         path
     }
 
+    const SCENARIO_MODEL: &str = r#"_forge_version: "5.1.0"
+a:
+  x:
+    formula: "=MC.Uniform(0, 10)"
+  total:
+    formula: "=x * 2"
+t:
+  n: [1, 2]
+monte_carlo:
+  iterations: 100
+  seed: 3
+  outputs:
+    - variable: a.total
+    - variable: t.n
+scenarios:
+  known_x:
+    x: 4
+"#;
+
+    /// The command with a scenario, a seed, `--verbose` and `--output`: it
+    /// says each, a column of data is an output row by row, and the file is
+    /// written.
+    #[test]
+    fn the_command_says_its_scenario_seed_and_steps_and_writes_its_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(dir.path(), "m.yaml", SCENARIO_MODEL);
+        let options = SimulateOptions {
+            seed: Some(9),
+            scenario: Some("known_x"),
+            ..SimulateOptions::default()
+        };
+        let json = dir.path().join("o.json");
+        let (result, printed) = capture(|c| simulate(c, &path, options, Some(json.clone()), true));
+        result.unwrap();
+        for line in [
+            "   Scenario: known_x\n",
+            "🎲 Running simulation...\n",
+            "      Seed:       9\n",
+            "      a.total:\n         Mean:      8.00\n",
+            "      t.n by row:\n",
+            "            2           2.00           2.00",
+            "✅ Simulation complete\n",
+        ] {
+            assert!(printed.out.contains(line), "{line}\n{printed:?}");
+        }
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&json).unwrap()).unwrap();
+        assert_eq!(written["monte_carlo_results"]["seed"], 9);
+        assert_eq!(written["monte_carlo_results"]["iterations"], 100);
+        // Without a scenario, a seed or --verbose, and with no file to write
+        let unseeded = write(
+            dir.path(),
+            "u.yaml",
+            &SCENARIO_MODEL.replace("  seed: 3\n", ""),
+        );
+        let (result, printed) =
+            capture(|c| simulate(c, &unseeded, SimulateOptions::default(), None, false));
+        result.unwrap();
+        for absent in ["Scenario:", "Running simulation", "Seed:"] {
+            assert!(!printed.out.contains(absent), "{absent}\n{printed:?}");
+        }
+        let nowhere = dir.path().join("nodir").join("o.json");
+        let (result, _) = capture(|c| simulate(c, &path, options, Some(nowhere), false));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "IO error: No such file or directory (os error 2)"
+        );
+    }
+
+    /// What cannot be read says why, and a configuration the engine refuses
+    /// is refused again where the engine is started.
+    #[test]
+    fn a_model_or_configuration_that_cannot_be_read_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let error = |name: &str, text: &str| {
+            let path = write(dir.path(), name, text);
+            simulate_core(&path, SimulateOptions::default())
+                .unwrap_err()
+                .to_string()
+        };
+        assert_eq!(
+            error("bad.yaml", "a: [1\n"),
+            "Validation error: YAML parse error: did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 4"
+        );
+        assert_eq!(
+            error(
+                "cfg.yaml",
+                "_forge_version: \"5.1.0\"\nmonte_carlo:\n  iterations: lots\n"
+            ),
+            "Validation error: monte_carlo config error: invalid type: string \"lots\", expected usize"
+        );
+        assert!(error("nm.yaml", "monte_carlo:\n  iterations: 5\n")
+            .starts_with("Validation error: Missing required field: _forge_version"));
+        let gone = simulate_core(&dir.path().join("none.yaml"), SimulateOptions::default());
+        assert_eq!(
+            gone.unwrap_err().to_string(),
+            "IO error: No such file or directory (os error 2)"
+        );
+        let path = write(dir.path(), "m.yaml", SCENARIO_MODEL);
+        let (mut config, model) = prepare(&path, SimulateOptions::default()).unwrap();
+        config.iterations = 0;
+        let plan = crate::core::array_calculator::CalcPlan::new();
+        let refused = run_model(&config, &model, &plan, false).unwrap_err();
+        assert!(
+            refused.to_string().starts_with("Validation error:"),
+            "{refused}"
+        );
+    }
+
+    /// A game's result is an output (ADR-068): in each run the human audits
+    /// with gain / (gain + penalty), by hand and as nashpy 0.0.43 finds,
+    /// for that run's penalty.
+    #[test]
+    fn a_games_result_is_simulated_run_by_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(
+            dir.path(),
+            "m.yaml",
+            r#"_forge_version: "5.5.0"
+i:
+  penalty:
+    formula: "=MC.Uniform(2, 8)"
+games:
+  g:
+    players: [ai, human]
+    strategies: {ai: [comply, cheat], human: [audit, trust]}
+    payoffs:
+      comply: {audit: [0, -1], trust: [0, 0]}
+      cheat: {audit: [=-i.penalty, -1], trust: [2, -3]}
+monte_carlo:
+  iterations: 100
+  seed: 7
+  outputs:
+    - variable: g.equilibrium_1.human.audit
+"#,
+        );
+        let result = simulate_core(&path, SimulateOptions::default()).unwrap();
+        let audit = &result.outputs["g.equilibrium_1.human.audit"].samples;
+        let penalty = &result.input_samples["i.penalty"];
+        assert_eq!(audit.len(), 100);
+        for (a, p) in audit.iter().zip(penalty) {
+            assert!((a - 2.0 / (2.0 + p)).abs() < 1e-12, "{a} at {p}");
+        }
+    }
+
     /// A scenario that overrides an MC.* input fixes it: it is no longer
     /// sampled, and drives nothing.
     #[test]
@@ -556,6 +625,33 @@ scenarios:
         // Latin hypercube: one draw in each 1% band, so the worst 10% average about 95 and 5
         assert!((cost - 95.0).abs() < 0.5, "{cost}");
         assert!((gain - 5.0).abs() < 0.5, "{gain}");
+    }
+
+    #[test]
+    fn an_output_that_names_nothing_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(
+            dir.path(),
+            "m.yaml",
+            "_forge_version: \"5.1.0\"\na:\n  x:\n    formula: \"=MC.Uniform(0, 1)\"\nmonte_carlo:\n  iterations: 100\n  outputs:\n    - variable: a.nope\n",
+        );
+        let err = simulate_core(&path, SimulateOptions::default())
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("neither a scalar nor a table column"), "{err}");
+        // A column its table does not have is the same
+        let path = write(
+            dir.path(),
+            "t.yaml",
+            "_forge_version: \"5.1.0\"\nt:\n  n: [1, 2]\nmonte_carlo:\n  iterations: 100\n  outputs:\n    - variable: t.nope\n",
+        );
+        let err = simulate_core(&path, SimulateOptions::default())
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("'t.nope' is neither a scalar nor a table column"),
+            "{err}"
+        );
     }
 
     #[test]
@@ -860,7 +956,7 @@ revenue:
                 let file = dir.path().join("mc.yaml");
                 std::fs::write(&file, model(line)).expect("write");
                 let ran = forge(&["simulate", file.to_str().expect("path")]);
-                assert!(ran.success(), "{line:?}: {}", ran.both());
+                assert!(ran.success(), "{line:?}: {ran:?}");
                 assert!(
                     ran.out.contains("Simulation complete"),
                     "{line:?}: {}",

@@ -1,7 +1,7 @@
 //! `forge decision-tree`: the best choice at each decision, by backward
 //! induction.
 
-use super::serialize_for_file;
+use super::write_result;
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::core::precision::money;
@@ -9,7 +9,6 @@ use crate::decision_trees::{DecisionTreeConfig, DecisionTreeEngine};
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use colored::Colorize;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Analyze a decision tree and return structured results (no printing).
@@ -99,15 +98,7 @@ pub fn decision_tree(
     }
 
     if let Some(output_path) = output_file {
-        let output_str = serialize_for_file(&result, &output_path)?;
-        fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-        outln!(
-            c,
-            "{}",
-            format!("💾 Results written to {}", output_path.display())
-                .bold()
-                .green()
-        );
+        write_result(c, &result, &output_path)?;
     }
 
     outln!(c, "{}", "✅ Decision tree analysis complete".bold().green());
@@ -192,6 +183,7 @@ fn print_decision_tree_result(c: &mut Console<'_>, result: &crate::decision_tree
 mod tests {
     use super::*;
     use crate::cli::console::capture;
+    use std::fs;
 
     #[test]
     fn test_decision_tree_config_parsing() {
@@ -316,7 +308,22 @@ decision_tree:
         let (_dir, path) = model(TIED);
         let out = PathBuf::from("no/such/dir/out.yaml");
         let (result, _) = capture(|c| decision_tree(c, &path, false, Some(out), false));
-        assert!(matches!(result, Err(ForgeError::Io(_))));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "IO error: No such file or directory (os error 2)"
+        );
+    }
+
+    #[test]
+    fn a_branch_with_nothing_on_it_is_an_error_from_the_analysis() {
+        let (_dir, path) = model(
+            "decision_tree:\n  name: T\n  root:\n    type: decision\n    name: Pick\n    branches:\n      a: {}\n",
+        );
+        let (result, _) = capture(|c| decision_tree(c, &path, false, None, false));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Formula evaluation error: Branch has neither value nor next node"
+        );
     }
 
     mod printed_numbers {

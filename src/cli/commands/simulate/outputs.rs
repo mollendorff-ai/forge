@@ -1,9 +1,8 @@
-//! Which outputs a simulation reports: those `--output-var` chooses, each
-//! table column as one output per row, and the results a game or the network
-//! gives once the model is calculated.
+//! The outputs of a simulation: which ones a run is asked for, a table
+//! column as one output per row, and the results a game or the network gives
+//! once the model is calculated.
 
 use crate::error::{ForgeError, ForgeResult};
-use crate::monte_carlo::config::OutputConfig;
 
 /// The outputs as simulated: a table column (`months.profit`) becomes one
 /// output per row (`months.profit (row 1)`, ...), and each output learns
@@ -13,9 +12,9 @@ use crate::monte_carlo::config::OutputConfig;
 ///
 /// Returns an error naming an output that is neither a scalar nor a column.
 pub(super) fn expand_outputs(
-    outputs: &[OutputConfig],
+    outputs: &[crate::monte_carlo::config::OutputConfig],
     model: &crate::types::ParsedModel,
-) -> ForgeResult<Vec<OutputConfig>> {
+) -> ForgeResult<Vec<crate::monte_carlo::config::OutputConfig>> {
     let mut expanded = Vec::new();
     for output in outputs {
         let var = &output.variable;
@@ -69,9 +68,9 @@ pub(super) fn expand_outputs(
 /// Returns an error for a name that is not an output, or that ends more than
 /// one, listing the outputs.
 pub(super) fn select_outputs(
-    outputs: &[OutputConfig],
+    outputs: &[crate::monte_carlo::config::OutputConfig],
     names: &[String],
-) -> ForgeResult<Vec<OutputConfig>> {
+) -> ForgeResult<Vec<crate::monte_carlo::config::OutputConfig>> {
     if names.is_empty() {
         return Ok(outputs.to_vec());
     }
@@ -128,42 +127,6 @@ mod tests {
         let path = dir.join(name);
         std::fs::write(&path, text).unwrap();
         path
-    }
-
-    /// A game's result is an output (ADR-068): in each run the human audits
-    /// with gain / (gain + penalty), by hand and as nashpy 0.0.43 finds,
-    /// for that run's penalty.
-    #[test]
-    fn a_games_result_is_simulated_run_by_run() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = write(
-            dir.path(),
-            "m.yaml",
-            r#"_forge_version: "5.5.0"
-i:
-  penalty:
-    formula: "=MC.Uniform(2, 8)"
-games:
-  g:
-    players: [ai, human]
-    strategies: {ai: [comply, cheat], human: [audit, trust]}
-    payoffs:
-      comply: {audit: [0, -1], trust: [0, 0]}
-      cheat: {audit: [=-i.penalty, -1], trust: [2, -3]}
-monte_carlo:
-  iterations: 100
-  seed: 7
-  outputs:
-    - variable: g.equilibrium_1.human.audit
-"#,
-        );
-        let result = simulate_core(&path, SimulateOptions::default()).unwrap();
-        let audit = &result.outputs["g.equilibrium_1.human.audit"].samples;
-        let penalty = &result.input_samples["i.penalty"];
-        assert_eq!(audit.len(), 100);
-        for (a, p) in audit.iter().zip(penalty) {
-            assert!((a - 2.0 / (2.0 + p)).abs() < 1e-12, "{a} at {p}");
-        }
     }
 
     /// A network's posterior is an output, and a prior that reads an MC.*
@@ -229,19 +192,5 @@ monte_carlo:
         for (y, u) in result.outputs["t.y (row 2)"].samples.iter().zip(draws) {
             assert!((y - 3.0 * u).abs() < 1e-12, "{y} at {u}");
         }
-    }
-
-    #[test]
-    fn an_output_that_names_nothing_is_an_error() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = write(
-            dir.path(),
-            "m.yaml",
-            "_forge_version: \"5.1.0\"\na:\n  x:\n    formula: \"=MC.Uniform(0, 1)\"\nmonte_carlo:\n  iterations: 100\n  outputs:\n    - variable: a.nope\n",
-        );
-        let err = simulate_core(&path, SimulateOptions::default())
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("neither a scalar nor a table column"), "{err}");
     }
 }
