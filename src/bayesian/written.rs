@@ -552,7 +552,7 @@ queries:
             "'bayesian_network.q.x' is not a result of the network: it has no queries, and each \
              query under bayesian_network.queries gives bayesian_network.<query>.<state>"
         );
-        assert!(none.result_names().is_empty());
+        assert_eq!(none.result_names(), Vec::<String>::new());
     }
 
     #[test]
