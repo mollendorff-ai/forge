@@ -22,7 +22,7 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 | Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Paste one prompt into your AI and it installs Forge and runs the bagel example; or install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
 | [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Prompt for your AI →](#try-it-with-your-ai) · [Quick start](#quick-start) · [For AI agents](#for-ai-agents) |
 
-**Checked, not trusted.** 2,162 formula tests compare Forge with Gnumeric, the analytics are compared with R, the games' equilibria with Gambit and their tournaments with the axelrod library, and the suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+**Checked, not trusted.** 2,162 formula tests compare Forge with Gnumeric, the analytics are compared with R, the games' equilibria with Gambit, their tournaments with the axelrod library and their dynamics with egttools (games of many players and the dynamics again in R, from the payoffs alone), and the suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
 ## Four ways to use Forge
 
@@ -195,7 +195,7 @@ A spreadsheet calculates cells. The questions above need more than that, and For
 | Invest now, wait, or walk away? | `forge decision-tree` (backward induction), `forge real-options` (Black-Scholes and binomial: defer, expand, contract, abandon, switch) |
 | How sure is that average? | `forge bootstrap`: percentile, basic and BCa intervals |
 | How does one risk lead to another? | `forge bayesian`: Bayesian networks, with evidence |
-| What will a rival do, and what then? | `forge game`: the equilibria of a game in the model's `games:` section (dominated strategies, pure and mixed), and tournaments of repeated play between built-in strategies |
+| What will a rival do, and what then? | `forge game`: the equilibria of a game in the model's `games:` section (dominated strategies, pure and mixed; a symmetric game of any number of players is written as one payoff for each strategy over how many of the others play each, with its symmetric mixes and whether a population returns to each), the shares of a population generation by generation (`dynamics:`), and tournaments of repeated play between built-in strategies |
 | Where did the budget go? | `forge variance`, `forge report` |
 | What price breaks even? Hits a target? | `forge break-even`, `forge goal-seek` |
 | Can my colleague open it in Excel? | `forge export` writes a workbook with live formulas; `forge import` reads one back |
@@ -316,7 +316,7 @@ Forge's results are checked against engines it does not control, and none of the
 | Unit tests (this repo) | over 2,850 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
 | [forge-e2e-gnumeric](validation/gnumeric) | 2,162 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 175 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,137 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); CI runs them on every pull request |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
-| [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R | 0 disagreements in 3,000 generated games, 372 tournament values and the named games (2026-11-20) |
+| [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R; games of many players and their dynamics with egttools, and again in R from the payoffs alone | 0 disagreements in 3,000 generated games, 372 tournament values and the named games (2026-11-20); games of many players and dynamics: 3,000 more games and every generation, 0 disagreements ([VALIDATION.md](VALIDATION.md), 2026-11-22) |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
 

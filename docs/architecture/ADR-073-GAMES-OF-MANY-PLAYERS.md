@@ -1,6 +1,6 @@
 # ADR-073: Games of Many Players, and Strategies That Spread
 
-**Status:** Accepted (2026-11-21). Questions 1 and 2 as recommended; questions 3 and 4 decided after a second look, as written. Built: steps 1 to 5 (step 4 with `polycool` in place of `roots`: see the note under question 4; step 5 with the two changes in the note under question 3). Studio's view of the path and of a game of many players built 2026-11-22 (the note under step 5)
+**Status:** Accepted (2026-11-21), built. Questions 1 and 2 as recommended; questions 3 and 4 decided after a second look, as written. Built: steps 1 to 5 (step 4 with `polycool` in place of `roots`: see the note under question 4; step 5 with the two changes in the note under question 3). Studio's view of the path and of a game of many players built 2026-11-22 (the note under step 5)
 **Date:** 2026-11-21
 **Decided by:** the maintainer (2026-11-21), who asked of questions 3 and 4 whether each is good for people who use Forge for game theory or is scope creep, and whether a library does it; the analysis is Claude's
 **For:** roadmap T2-GAME-THEORY-MORE. It extends ADR-068 and changes none of its decisions
