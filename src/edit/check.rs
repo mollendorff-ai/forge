@@ -79,7 +79,8 @@ pub(super) fn only(
             remove(&mut now, &scalar(None));
         },
         (Op::Delete, Kind::Input | Kind::Formula) => remove(&mut was, &scalar(None)),
-        (Op::Add | Op::Delete, _) => {
+        // A column added or deleted (a rename is checked by its own)
+        _ => {
             let entry = column(&["columns", "row_formulas", "formula_metadata"]);
             remove(
                 if change.op == Op::Add {
@@ -116,7 +117,7 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
         _ => v.value.is_some(),
     };
     match change.op {
-        Op::Delete => true,
+        Op::Delete | Op::Rename => true,
         Op::SetValue => var.is_some_and(reads),
         Op::SetFormula => {
             var.and_then(|v| v.formula.as_ref()).or_else(column) == change.formula.as_ref()
@@ -212,6 +213,7 @@ mod tests {
             formula: None,
             unit: None,
             after: None,
+            new_name: None,
         };
         let before = "_forge_version: \"5.1.0\"\na: 1\nb: 2\n";
         assert_eq!(
