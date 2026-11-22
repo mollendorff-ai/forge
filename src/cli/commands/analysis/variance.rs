@@ -680,6 +680,30 @@ mod comparing_tests {
         assert_eq!(not_compared, ["b", "c", "d"]);
     }
 
+    /// The command says the same when the report is a YAML file it cannot write.
+    #[test]
+    fn the_command_cannot_write_a_yaml_report_where_there_is_no_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = |name: &str| {
+            let path = dir.path().join(name);
+            std::fs::write(&path, "_forge_version: \"5.1.0\"\ns:\n  x: 1\n").unwrap();
+            path.to_string_lossy().into_owned()
+        };
+        let output = dir.path().join("no-such-folder").join("v.yaml");
+        let ran = crate::cli::forge(&[
+            "variance",
+            &file("budget.yaml"),
+            &file("actual.yaml"),
+            "--output",
+            &output.to_string_lossy(),
+        ]);
+        assert_eq!(ran.code, 1, "{ran:?}");
+        assert_eq!(
+            ran.err,
+            "Error: Excel export error: Failed to write file: No such file or directory (os error 2)\n"
+        );
+    }
+
     /// A report that cannot be written is an export error, for the file named.
     #[test]
     fn a_variance_report_that_cannot_be_written_is_an_error() {

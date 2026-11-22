@@ -538,14 +538,34 @@ pub fn calculate(
     Ok(())
 }
 
+/// The scalars whose stored value is not what their formula gives, beyond a
+/// tolerance for floating point: name, stored value, calculated value and the
+/// difference. A scalar with no stored value (never calculated) has nothing to
+/// compare.
+fn stored_mismatches(
+    model: &ParsedModel,
+    calculated: &ParsedModel,
+) -> Vec<(String, f64, f64, f64)> {
+    const TOLERANCE: f64 = 0.0001;
+    let mut mismatches = Vec::new();
+    for (name, original) in &model.scalars {
+        let calculated_value = calculated.scalars.get(name).and_then(|v| v.value);
+        if let (Some(current_value), Some(calculated_value)) = (original.value, calculated_value) {
+            let diff = (current_value - calculated_value).abs();
+            if diff > TOLERANCE {
+                mismatches.push((name.clone(), current_value, calculated_value, diff));
+            }
+        }
+    }
+    mismatches
+}
+
 /// Validate a single file and return structured results (no printing).
 ///
 /// # Errors
 ///
 /// Returns an error if the file cannot be parsed or calculation fails.
 pub fn validate_core(file: &Path) -> ForgeResult<results::ValidationResult> {
-    const TOLERANCE: f64 = 0.0001;
-
     let model = parser::parse_model(file)?;
     reject_distributions(&model)?;
     let table_count = model.tables.len();
@@ -554,24 +574,17 @@ pub fn validate_core(file: &Path) -> ForgeResult<results::ValidationResult> {
     let calculator = ArrayCalculator::new(model.clone());
     let calculated = calculator.calculate_all()?;
 
-    let mut mismatches = Vec::new();
-    for (var_name, var) in &calculated.scalars {
-        if let Some(calculated_value) = var.value {
-            if let Some(original) = model.scalars.get(var_name) {
-                if let Some(current_value) = original.value {
-                    let diff = (current_value - calculated_value).abs();
-                    if diff > TOLERANCE {
-                        mismatches.push(results::ValidationMismatch {
-                            name: var_name.clone(),
-                            current_value,
-                            expected_value: calculated_value,
-                            diff,
-                        });
-                    }
-                }
-            }
-        }
-    }
+    let mismatches = stored_mismatches(&model, &calculated)
+        .into_iter()
+        .map(
+            |(name, current_value, expected_value, diff)| results::ValidationMismatch {
+                name,
+                current_value,
+                expected_value,
+                diff,
+            },
+        )
+        .collect::<Vec<_>>();
 
     let scalars_valid = mismatches.is_empty();
     Ok(results::ValidationResult {
@@ -658,8 +671,6 @@ pub fn validate(c: &mut Console<'_>, files: &[PathBuf]) -> ForgeResult<()> {
 
 /// Validate a single file
 fn validate_single_file(c: &mut Console<'_>, file: &std::path::Path) -> ForgeResult<()> {
-    const TOLERANCE: f64 = 0.0001; // Floating point comparison tolerance
-
     // Parse YAML file
     let model = parser::parse_model(file)?;
     reject_distributions(&model)?;
@@ -703,26 +714,12 @@ fn validate_single_file(c: &mut Console<'_>, file: &std::path::Path) -> ForgeRes
 
     // Compare calculated values vs. current values in file. A formula with no
     // stored value (never calculated) has nothing to compare.
-    let mut mismatches = Vec::new();
     let unstored = model
         .scalars
         .values()
         .filter(|v| v.formula.is_some() && v.value.is_none())
         .count();
-
-    for (var_name, var) in &calculated.scalars {
-        if let Some(calculated_value) = var.value {
-            if let Some(original) = model.scalars.get(var_name) {
-                if let Some(current_value) = original.value {
-                    // Check if values match within tolerance
-                    let diff = (current_value - calculated_value).abs();
-                    if diff > TOLERANCE {
-                        mismatches.push((var_name.clone(), current_value, calculated_value, diff));
-                    }
-                }
-            }
-        }
-    }
+    let mismatches = stored_mismatches(&model, &calculated);
 
     report_validation(c, &mismatches, unstored)
 }
@@ -978,6 +975,9 @@ mod tests {
             let ((), printed) = capture(|c| print_scalar_results(c, &result));
             assert!(printed.out.contains("s.x = 2"), "{printed:?}");
             assert!(!printed.out.contains("s.gap"), "{printed:?}");
+            // And none at all prints nothing
+            let ((), printed) = capture(|c| print_scalar_results(c, &ParsedModel::new()));
+            assert_eq!(printed.out, "");
         }
 
         /// A formula never calculated has no stored value to check against,
