@@ -1,6 +1,6 @@
 # ADR-075: Forge Writes the Model
 
-**Status:** Accepted (2026-11-22), not yet built
+**Status:** Accepted (2026-11-22); the spike of decision 5 is done (yaml-edit passes; one duplicate crate waits on the maintainer); not yet built
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who agreed that changes of more than one line to a model are written by Forge rather than by Forge Studio's page; the analysis is Claude's
 **For:** ADR-076 (simulations and games edited on Studio's cards). It extends ADR-056 and changes none of its decisions
@@ -41,6 +41,30 @@ Each of these could be written in `text.js` as more line searches. Each would th
 6. **Studio moves to it change by change.** New changes (rename, games, uncertainty, templates) use `edit` from the start. `text.js` keeps the one-line changes until `edit` gives the same bytes for them; then they move too, and `text.js` keeps only the editor's colours. The step that empties `text.js` deletes its tests along with it, with no test left uncounted.
 7. **The command line and MCP.** The command line gets `forge edit <file> --set name=value --rename old=new …`. MCP gets a `forge_edit` tool with the same changes as JSON. Both refuse as `edit` refuses. Neither writes values back (ADR-051 is unchanged: only `forge calculate` writes `value:`).
 
+## What the spike found (decision 5, 2026-11-22)
+
+`yaml-edit` 0.3.6 with `default-features = false` (its only default feature, `binary`, brings `base64` 0.22 beside Forge's 0.23, and Forge reads no binary scalars), in a throwaway crate outside the workspace, against the files of this repository at commit `ce8a90ef`.
+
+| Check | Result |
+| --- | --- |
+| Every YAML file in the repository parsed and written back | 174 of 174 byte for byte, comments, quoting, flow and block kept. One reports a parse error, `test-data/test_malformed.yaml`, which is malformed on purpose, and still comes back byte for byte |
+| Every formula and every number in every example, each changed in place on a fresh parse | 771 formulas (to `=(…)`, in the style the file uses) and 1,326 numbers in 62 examples: each time only the bytes of that value changed, and the file parses again |
+| `studio/tests/text.mjs`'s cases of `set_value` and `set_formula` | 18 of 18 byte for byte: block, flow (first and last key), plain, single- and double-quoted, a quote or `#` that needs quoting, a backslash, `1e-5`, `-3`, `0x10`, `value:` under the name |
+| Its cases of `add` and `delete` | 21 of 21 byte for byte: an input, one with a unit, a formula, a column after a block sequence, a group indented by 4, the top level after a scalar and after a formula; each added and deleted again to the same file; a deletion keeps the comment above it and takes the lines under it |
+| Keys in each way YAML allows | plain, `"double"`, `'single'` and inside a flow mapping are found; a key added to or removed from a flow mapping keeps it on its line (`{value: 0.03, unit: ratio, better: lower}`) |
+| Rename | `rename_key` changes the key and nothing else, in block and flow mappings |
+| Unicode names | `hypothèses.coût_unitaire` and `假设.单价` found, set, renamed, and a key added next to them |
+| Windows line endings | kept on every line, including new ones |
+| Size in forge_wasm_bg.wasm (`wasm-bindgen --target web`, `gzip -9`, as CI measures it) | 2,011,484 bytes gzipped without it, 2,167,171 with it linked and used (parse, find, set, remove, rename, insert): **+155,687 bytes gzipped** (+429,359 raw). Under ADR-070's ceiling of 3,000,000, and over 100 KB, so the change that adds it says so, and so does the CHANGELOG |
+| Rust 1.97 | yaml-edit needs 1.70, rowan 1.77 |
+| A crate in two versions | **one: `hashbrown` 0.14.5**, from `rowan` 0.16.1 (yaml-edit's syntax tree), beside 0.17.1 from `indexmap`. Both are in the shipped WebAssembly module. No newer `rowan` drops it (0.18.0-alpha.2 still takes 0.14), so there is no fix on our side |
+
+How the editor works with it: yaml-edit finds the node, and Forge writes its text. `Scalar::set_value` replaces a value's text exactly as given, so the rule of `text.js`'s `encodeFormula` (keep the file's quoting, quote only when YAML needs it) stays Forge's, and a new entry is written from a snippet in Forge's own style, not from the library's serializer. yaml-edit recovers from errors; Forge refuses any text it reports an error in, and reads the result back with its own reader (decision 3), so the library never decides what a model means.
+
+The other candidates were looked at, not run: `yaml-edit-rp` (0.3.1) is an older fork of the same code on the same `rowan`, so it brings the same `hashbrown`; `yaml-splice` (0.4.1) edits only a mapping's top-level keys, and Forge's changes are inside groups, tables, games and flow mappings.
+
+**The maintainer's decision.** Clippy does not report this duplicate today, only because `hashbrown` 0.15.5 (from `petgraph`, a dev-dependency) is in the workspace too, and the lint names a crate only when every version of it is a normal dependency. The rule of CLAUDE.md is about the duplicate, not the lint: adopting yaml-edit means allowing `hashbrown` in `clippy.toml` with this reason and counting it in `validation/repo/src/no_skipping.rs`, in the change that adds it. That is the exception CLAUDE.md gives the maintainer (a core, stable library with no fix on our side), and only the maintainer can take it. If not taken, the editor is written in Forge (decision 5's last resort), on the findings above. The build (step 2) waits on this decision.
+
 ## Alternatives considered
 
 - **More line work in `text.js`.** Rejected, for the reasons in Context. A rename cannot be done without reading formulas, and the CLI and MCP would not get any of it.
@@ -55,7 +79,7 @@ Each of these could be written in `text.js` as more line searches. Each would th
 
 ## What is built, in order
 
-1. The spike in decision 5, with its findings added to this ADR.
+1. The spike in decision 5, with its findings added to this ADR (done, 2026-11-22).
 2. `src/edit/` with `set_value`, `set_formula`, `add` and `delete`, held to the bytes `text.js` writes. The forge-wasm `edit` tool, the `forge_edit` MCP tool, and `forge edit`.
 3. `rename`.
 4. `make_uncertain` and `make_certain` (ADR-076, step 4).
