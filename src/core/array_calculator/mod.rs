@@ -9,6 +9,7 @@ mod order;
 pub mod parser;
 mod plan;
 mod recursive;
+pub mod references;
 pub mod tokenizer;
 pub mod whole_column;
 

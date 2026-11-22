@@ -1026,6 +1026,17 @@ mod tests {
                 .collect();
             assert_eq!(differ.len(), 1, "{differ:?}");
             assert!(differ[0].contains("123.5"), "{differ:?}");
+            // A rename, and every name that reads it
+            let renamed = run(
+                "edit",
+                &serde_json::json!({"files": files, "main": "bagel.yaml",
+                                    "changes": [{"op": "rename", "path": price, "new_name": "edit_renamed"}]}),
+            )
+            .unwrap();
+            let last = price.rsplit('.').next().unwrap();
+            let text = renamed["files"]["bagel.yaml"].as_str().unwrap();
+            assert!(text.contains("edit_renamed:"), "{text}");
+            assert!(!text.contains(&format!("{last}:")), "{text}");
 
             let message = |request: Value| run("edit", &request).unwrap_err();
             assert_eq!(
