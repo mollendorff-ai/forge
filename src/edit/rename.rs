@@ -620,10 +620,10 @@ impl Rename {
             read = self.renamed(&read);
         }
         let mut json = serde_json::to_value(&read).expect("a model is written as JSON");
-        // The formulas a game's payoffs and a network's probabilities hold
-        for key in ["games", "network"] {
-            if let Some(part) = json.get_mut(key) {
-                formulas_in(part, &|f| formula(f, Place::Elsewhere));
+        // A game's payoffs and a network's probabilities read names too
+        for section in ["games", "network"] {
+            if let Some(section) = json.get_mut(section) {
+                formulas_in(section, &|f| formula(f, Place::Elsewhere));
             }
         }
         let includes: serde_json::Map<String, Json> = model
@@ -859,6 +859,30 @@ tornado:
         for (name, text) in again {
             assert_eq!(text, files()[&name], "{name}");
         }
+    }
+
+    /// A name a network's prior reads is renamed there too (ADR-074):
+    /// `examples/expected_loss.yaml`, whose economy reads `outlook.p_bad`
+    #[test]
+    fn a_scalar_a_networks_prior_reads_is_renamed_in_the_prior() {
+        let text = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/expected_loss.yaml"),
+        )
+        .unwrap();
+        let files = HashMap::from([("model.yaml".to_string(), text.clone())]);
+        let changed = run(&files, rename("outlook.p_bad", "p_crash")).unwrap();
+        let after = changed["model.yaml"].clone();
+        assert!(
+            after.contains(
+                "prior: [\"=1 - outlook.p_neutral - outlook.p_crash\", \"=outlook.p_neutral\", \"=outlook.p_crash\"]"
+            ),
+            "{after}"
+        );
+        assert!(!after.contains("p_bad"), "{after}");
+        // Renamed back, the file is as it was
+        let now: HashMap<String, String> = changed.into_iter().collect();
+        let back = run(&now, rename("outlook.p_crash", "p_bad")).unwrap();
+        assert_eq!(back["model.yaml"], text);
     }
 
     #[test]
