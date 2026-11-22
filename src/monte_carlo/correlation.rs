@@ -13,7 +13,7 @@ pub struct CorrelationMatrix {
     /// Correlation coefficients (symmetric matrix stored as flat vector)
     pub coefficients: Vec<f64>,
     /// Lower triangular Cholesky factor
-    cholesky_factor: Option<Vec<f64>>,
+    cholesky_factor: Vec<f64>,
 }
 
 impl CorrelationMatrix {
@@ -56,12 +56,9 @@ impl CorrelationMatrix {
                 ));
             }
 
-            let i = *var_index
-                .get(var1.as_str())
-                .ok_or_else(|| format!("Variable {var1} not found"))?;
-            let j = *var_index
-                .get(var2.as_str())
-                .ok_or_else(|| format!("Variable {var2} not found"))?;
+            // The variables are those of the pairs, so each pair's are in the map
+            let i = var_index[var1.as_str()];
+            let j = var_index[var2.as_str()];
 
             // Symmetric matrix
             coefficients[i * n + j] = *rho;
@@ -71,11 +68,11 @@ impl CorrelationMatrix {
         let mut matrix = Self {
             variables,
             coefficients,
-            cholesky_factor: None,
+            cholesky_factor: Vec::new(),
         };
 
         // Compute Cholesky decomposition
-        matrix.compute_cholesky()?;
+        matrix.cholesky_factor = matrix.compute_cholesky()?;
 
         Ok(matrix)
     }
@@ -90,7 +87,7 @@ impl CorrelationMatrix {
         }
 
         // Identity matrix is its own Cholesky factor
-        let cholesky_factor = Some(coefficients.clone());
+        let cholesky_factor = coefficients.clone();
 
         Self {
             variables,
@@ -106,7 +103,7 @@ impl CorrelationMatrix {
     }
 
     /// Compute Cholesky decomposition (L where Σ = L * L^T)
-    fn compute_cholesky(&mut self) -> Result<(), String> {
+    fn compute_cholesky(&self) -> Result<Vec<f64>, String> {
         let n = self.dim();
         let mut l = vec![0.0_f64; n * n];
 
@@ -143,8 +140,7 @@ impl CorrelationMatrix {
             }
         }
 
-        self.cholesky_factor = Some(l);
-        Ok(())
+        Ok(l)
     }
 
     /// Transform independent standard normal samples to correlated samples
@@ -154,8 +150,7 @@ impl CorrelationMatrix {
     ///
     /// # Errors
     ///
-    /// Returns an error if the number of samples does not match the matrix dimension
-    /// or the Cholesky factor has not been computed.
+    /// Returns an error if the number of samples does not match the matrix dimension.
     pub fn correlate(&self, independent_samples: &[f64]) -> Result<Vec<f64>, String> {
         let n = self.dim();
         if independent_samples.len() != n {
@@ -166,10 +161,7 @@ impl CorrelationMatrix {
             ));
         }
 
-        let l = self
-            .cholesky_factor
-            .as_ref()
-            .ok_or("Cholesky factor not computed")?;
+        let l = &self.cholesky_factor;
 
         let mut correlated = vec![0.0; n];
 
@@ -201,6 +193,22 @@ impl CorrelationMatrix {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A set of samples has the matrix's size, and a variable the matrix does
+    /// not have has no correlation and no place.
+    #[test]
+    fn wrong_sizes_and_unknown_variables_are_refused() {
+        let matrix = CorrelationMatrix::new(&[("a".to_string(), "b".to_string(), 0.5)]).unwrap();
+        assert_eq!(
+            matrix.correlate(&[1.0]).unwrap_err(),
+            "Expected 2 samples, got 1"
+        );
+        assert_eq!(matrix.get_correlation("a", "zz"), None);
+        assert_eq!(matrix.get_correlation("zz", "b"), None);
+        assert_eq!(matrix.get_correlation("a", "b"), Some(0.5));
+        assert_eq!(matrix.get_index("b"), Some(1));
+        assert_eq!(matrix.get_index("zz"), None);
+    }
 
     #[test]
     fn test_identity_matrix() {
@@ -269,7 +277,7 @@ mod tests {
         ];
         let matrix = CorrelationMatrix::new(&correlations).unwrap();
 
-        let l = matrix.cholesky_factor.as_ref().unwrap();
+        let l = &matrix.cholesky_factor;
         let n = matrix.dim();
 
         // Compute L * L^T

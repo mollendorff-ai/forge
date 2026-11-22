@@ -389,11 +389,10 @@ mod inference_tests {
         // P(sprinkler=on) = P(sprinkler=on|rain=no)*P(rain=no) + P(sprinkler=on|rain=yes)*P(rain=yes)
         //                 = 0.4 * 0.8 + 0.01 * 0.2 = 0.32 + 0.002 = 0.322
         let expected_on = 0.4f64.mul_add(0.8, 0.01 * 0.2);
+        let on = sprinkler_probs[1];
         assert!(
-            (sprinkler_probs[1] - expected_on).abs() < 0.01,
-            "P(sprinkler=on) should be {}, got {}",
-            expected_on,
-            sprinkler_probs[1]
+            (on - expected_on).abs() < 0.01,
+            "P(sprinkler=on) should be {expected_on}, got {on}"
         );
     }
 
@@ -409,10 +408,10 @@ mod inference_tests {
         let probs = bp.query_with_evidence("sprinkler", &evidence).unwrap();
 
         // P(sprinkler=on | rain=yes) = 0.01
+        let on = probs[1];
         assert!(
-            (probs[1] - 0.01).abs() < 0.01,
-            "P(sprinkler=on | rain=yes) should be 0.01, got {}",
-            probs[1]
+            (on - 0.01).abs() < 0.01,
+            "P(sprinkler=on | rain=yes) should be 0.01, got {on}"
         );
     }
 

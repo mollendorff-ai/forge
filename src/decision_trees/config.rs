@@ -272,6 +272,22 @@ impl DecisionTreeConfig {
 mod config_tests {
     use super::*;
 
+    /// A named node that points at a node that is not there is refused like
+    /// the root is.
+    #[test]
+    fn a_named_node_with_a_broken_reference_is_refused() {
+        let config = DecisionTreeConfig::new("t")
+            .with_root(Node::decision("A").with_branch("go", Branch::continuation("B")))
+            .with_node(
+                "B",
+                Node::decision("B").with_branch("x", Branch::continuation("ghost")),
+            );
+        assert_eq!(
+            config.validate().unwrap_err(),
+            "Branch 'x' references non-existent node 'ghost'"
+        );
+    }
+
     fn create_rnd_tree() -> DecisionTreeConfig {
         DecisionTreeConfig::new("R&D Investment")
             .with_root(
