@@ -41,6 +41,22 @@ pub struct CalculateRequest {
     pub plan: bool,
 }
 
+/// Parameters for the `forge_edit` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct EditRequest {
+    /// Path to the YAML model file (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    pub includes: Option<HashMap<String, String>>,
+    /// The changes, made in turn; none is made unless all can be
+    pub changes: Vec<crate::edit::Change>,
+    /// Answer the new text without writing the files (always so with `content`)
+    #[serde(default)]
+    pub dry_run: bool,
+}
+
 /// Parameters for the `forge_audit` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AuditRequest {
