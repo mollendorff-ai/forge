@@ -662,12 +662,17 @@ impl WorkbookRefs {
                     out.push(')');
                 },
                 Token::Comma => {
-                    if let Some(call) = calls.last_mut() {
-                        call.1 += 1;
-                    }
+                    let Some(call) = calls.last_mut() else {
+                        return Err("a comma outside a call".to_string());
+                    };
+                    call.1 += 1;
                     out.push_str(", ");
                 },
-                Token::Colon => out.push(':'),
+                // Forge reads `a:b` as the text of its two ends; Excel would
+                // read a range
+                Token::Colon => {
+                    return Err("a range a:b has no Excel equivalent".to_string());
+                },
                 Token::OpenBracket | Token::CloseBracket => {
                     return Err("array indexing [ ] has no Excel equivalent".to_string());
                 },
@@ -728,7 +733,7 @@ impl WorkbookRefs {
                     && local_names::HANDLED.contains(&word.to_uppercase().as_str()) =>
             {
                 let (text, end) =
-                    self.translate_special(tokens, i, ctx, calls, locals, has_range)?;
+                    self.translate_special(tokens, (word, i), ctx, calls, locals, has_range)?;
                 Ok(Some((text, end)))
             },
             // PREV and ROW(): the row above, and the table's row number
@@ -778,17 +783,6 @@ impl WorkbookRefs {
             })
         })
     }
-}
-
-/// Whether a formula calls `function` (upper case).
-#[must_use]
-pub fn calls_function(formula: &str, function: &str) -> bool {
-    tokenize(formula.trim().trim_start_matches('=')).is_ok_and(|tokens| {
-        tokens.windows(2).any(|w| {
-            matches!(&w[0], Token::Identifier(name) if name.eq_ignore_ascii_case(function))
-                && matches!(w[1], Token::OpenParen)
-        })
-    })
 }
 
 /// Forge's own functions that are written to Excel as an expression.
@@ -875,7 +869,9 @@ fn forge_function(name: &str, args: &[String], third: Option<&[Token]>) -> Resul
             want(2)?;
             format!("IF(OR({r} <= 0, {r} > 1), NA(), {} / {r})", a(0), r = a(1))
         },
-        "VARIANCE_STATUS" => {
+        // VARIANCE_STATUS, the last of FORGE_FUNCTIONS: it is only ever
+        // called with one of them
+        _ => {
             if !(2..=3).contains(&args.len()) {
                 return Err(format!("{name} takes 2 or 3 arguments, not {}", args.len()));
             }
@@ -901,7 +897,6 @@ fn forge_function(name: &str, args: &[String], third: Option<&[Token]>) -> Resul
                 x = a(0),
             )
         },
-        _ => return Err(format!("function {name} has no Excel equivalent")),
     })
 }
 
@@ -1098,6 +1093,110 @@ mod tests {
             .contains("no Excel equivalent"));
         assert!(row("=revenue[0]").unwrap_err().contains("indexing"));
         assert!(row("=missing * 2").unwrap_err().contains("unknown name"));
+    }
+
+    #[test]
+    fn a_range_or_a_comma_outside_a_call_is_not_written() {
+        // Forge reads revenue:year as text; Excel would read a range
+        assert_eq!(
+            row("=SUM(revenue:year)"),
+            Err("a range a:b has no Excel equivalent".to_string())
+        );
+        assert_eq!(row("=1, 2"), Err("a comma outside a call".to_string()));
+    }
+
+    #[test]
+    fn braces_semicolons_and_local_names_out_of_place_are_refused() {
+        assert_eq!(row("={1, 2"), Err("array constant without }".to_string()));
+        for f in ["=1; 2", "=1 }"] {
+            assert_eq!(
+                row(f),
+                Err("{ } or ; outside an array constant".to_string()),
+                "{f}"
+            );
+        }
+        assert_eq!(
+            row("=LET(f, 2, f(1))"),
+            Err("f is a name of a LET or LAMBDA, not a function".to_string())
+        );
+    }
+
+    #[test]
+    fn a_name_two_groups_end_with_is_ambiguous() {
+        let mut refs = refs();
+        refs.scalars.insert("a.rate".into(), ("a".into(), 2));
+        refs.scalars.insert("b.rate".into(), ("b".into(), 2));
+        let ambiguous = "name 'rate' is ambiguous";
+        let in_row = Context::Row {
+            table: "projections",
+            row: 3,
+        };
+        assert_eq!(refs.to_excel("=rate", in_row).unwrap_err(), ambiguous);
+        let in_scalar = Context::Scalar { group: None };
+        assert_eq!(refs.to_excel("=rate", in_scalar).unwrap_err(), ambiguous);
+    }
+
+    #[test]
+    fn an_included_column_in_a_row_formula() {
+        let mut refs = refs();
+        refs.add_include_tables("inc", [("t".to_string(), vec!["c".to_string()], 2)]);
+        let in_row = Context::Row {
+            table: "projections",
+            row: 3,
+        };
+        // The cell in the same row, or the whole column where SUM reads one
+        assert_eq!(
+            refs.to_excel("=@inc.t.c", in_row).map(|t| t.formula),
+            Ok("='inc.t'!A3".to_string())
+        );
+        let whole = refs.to_excel("=SUM(@inc.t.c)", in_row).unwrap();
+        assert_eq!(whole.formula, "=SUM('inc.t'!$A$2:$A$3)");
+        assert!(whole.has_range);
+    }
+
+    #[test]
+    fn forge_functions_with_the_wrong_arguments_are_refused() {
+        for (f, error) in [
+            ("=VARIANCE(revenue)", "VARIANCE takes 2 arguments, not 1"),
+            (
+                "=VARIANCE_PCT(revenue)",
+                "VARIANCE_PCT takes 2 arguments, not 1",
+            ),
+            (
+                "=BREAKEVEN_UNITS(revenue, 1)",
+                "BREAKEVEN_UNITS takes 3 arguments, not 2",
+            ),
+            (
+                "=BREAKEVEN_REVENUE(revenue)",
+                "BREAKEVEN_REVENUE takes 2 arguments, not 1",
+            ),
+            (
+                "=VARIANCE_STATUS(revenue)",
+                "VARIANCE_STATUS takes 2 or 3 arguments, not 1",
+            ),
+            ("=VARIANCE(revenue, 2", "VARIANCE: missing )"),
+            ("=VARIANCE(revenue, )", "VARIANCE: an argument is empty"),
+            ("=VARIANCE(nothing, 1)", "unknown name 'nothing'"),
+        ] {
+            assert_eq!(row(f), Err(error.to_string()), "{f}");
+        }
+    }
+
+    #[test]
+    fn variance_status_without_a_threshold_uses_one_percent() {
+        assert_eq!(
+            row("=VARIANCE_STATUS(revenue, 2)").unwrap(),
+            "=IF((2) = 0, SIGN(A3), IF(ABS((((A3) - (2)) / ABS(2))) <= 0.01, 0, \
+             IF((((A3) - (2)) / ABS(2)) > 0, 1, -1)))"
+        );
+    }
+
+    #[test]
+    fn irr_in_a_row_formula_is_refused() {
+        assert_eq!(
+            row("=IRR(revenue)"),
+            Err("IRR in a row formula has no Excel equivalent".to_string())
+        );
     }
 
     #[test]
