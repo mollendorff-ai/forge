@@ -936,6 +936,89 @@ mod calculate_tests {
 mod tests {
     use super::*;
 
+    mod gaps {
+        //! A column of text or dates, a scalar with no value, and what
+        //! `validate` says when the model cannot be read or calculated.
+
+        use super::*;
+        use crate::cli::console::capture;
+        use crate::cli::forge;
+
+        fn model(dir: &tempfile::TempDir, text: &str) -> String {
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, text).unwrap();
+            path.to_string_lossy().into_owned()
+        }
+
+        #[test]
+        fn columns_are_listed_as_each_kind_writes_its_values() {
+            let text = |v: &[&str]| v.iter().map(ToString::to_string).collect::<Vec<_>>();
+            assert_eq!(
+                format_column_values(&ColumnValue::Text(text(&["a", "b"]))),
+                "[\"a\", \"b\"]"
+            );
+            assert_eq!(
+                format_column_values(&ColumnValue::Date(text(&["2026-01-31"]))),
+                "[\"2026-01-31\"]"
+            );
+            assert_eq!(
+                format_column_values(&ColumnValue::Boolean(vec![true, false])),
+                "[TRUE, FALSE]"
+            );
+        }
+
+        /// A scalar with no value is not printed; the others are.
+        #[test]
+        fn a_scalar_with_no_value_is_left_out_of_the_listing() {
+            let mut result = ParsedModel::new();
+            let scalar =
+                |name: &str, value| crate::types::Variable::new(name.to_string(), value, None);
+            result.add_scalar("s.x".to_string(), scalar("s.x", Some(2.0)));
+            result.add_scalar("s.gap".to_string(), scalar("s.gap", None));
+            let ((), printed) = capture(|c| print_scalar_results(c, &result));
+            assert!(printed.out.contains("s.x = 2"), "{printed:?}");
+            assert!(!printed.out.contains("s.gap"), "{printed:?}");
+        }
+
+        /// A formula never calculated has no stored value to check against,
+        /// and what cannot be read or calculated is an error, from the library
+        /// and from the command.
+        #[test]
+        fn validate_checks_what_is_stored_and_refuses_the_rest() {
+            let dir = tempfile::tempdir().unwrap();
+            let unstored = model(
+                &dir,
+                "_forge_version: \"5.1.0\"\ns:\n  x: 2\n  y: {formula: \"=x * 2\"}\n",
+            );
+            let result = validate_core(Path::new(&unstored)).unwrap();
+            assert!(result.scalars_valid);
+            let ran = forge(&["validate", &unstored]);
+            assert_eq!(ran.code, 0, "{ran:?}");
+            assert!(ran.out.contains("1 formula"), "{ran:?}");
+            for (text, error) in [
+                (
+                    "_forge_version: \"5.1.0\"\ns:\n  x: 0\n  y: {formula: \"=1 / x\"}\n",
+                    "Formula evaluation error: s.y: Division by zero (formula: =1 / x)",
+                ),
+                (
+                    "_forge_version: \"5.1.0\"\ns:\n  y: {formula: \"=MC.Uniform(0, 1)\"}\n",
+                    "Validation error: s.y use MC.* distributions, which calculate and validate cannot evaluate. Run `forge simulate` on this file instead.",
+                ),
+                (
+                    "a: [1\n",
+                    "YAML parsing error: did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 4",
+                ),
+            ] {
+                let file = model(&dir, text);
+                let core = validate_core(Path::new(&file)).unwrap_err().to_string();
+                let ran = forge(&["validate", &file]);
+                assert_eq!(ran.code, 1, "{ran:?}");
+                assert!(ran.err.contains(&core), "{core}\n{ran:?}");
+                assert_eq!(core, error);
+            }
+        }
+    }
+
     mod what_if {
         //! Scenarios and goal seek must change the numbers, find them, or fail; never quietly do neither.
 
@@ -1146,7 +1229,7 @@ b:
         #[test]
         fn the_bagel_dry_run_prints_the_worst_month_without_noise() {
             let ran = forge(&["calculate", "examples/bagel/bagel.yaml", "--dry-run"]);
-            assert!(ran.success(), "{}", ran.both());
+            assert!(ran.success(), "{ran:?}");
             assert!(
                 ran.out
                     .contains("year.worst_month_profit = -7935.5334064\n"),

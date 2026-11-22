@@ -1,15 +1,17 @@
 //! `forge scenarios`: the model under each scenario, weighted by its
 //! probability.
 
-use super::serialize_for_file;
+use super::write_result;
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use crate::scenarios::{ScenarioConfig, ScenarioEngine};
 use colored::Colorize;
-use std::fs;
 use std::path::{Path, PathBuf};
+
+/// The `format:` of each scalar, by name.
+type Formats = std::collections::BTreeMap<String, String>;
 
 /// Run scenario analysis and return structured results (no printing).
 ///
@@ -21,8 +23,15 @@ pub fn scenarios_core(
     file: &Path,
     scenario_filter: Option<&str>,
 ) -> ForgeResult<crate::scenarios::ScenarioResults> {
+    analyze(file, scenario_filter).map(|(results, _)| results)
+}
+
+/// [`scenarios_core`], and the `format:` of each scalar of the model it ran.
+fn analyze(
+    file: &Path,
+    scenario_filter: Option<&str>,
+) -> ForgeResult<(crate::scenarios::ScenarioResults, Formats)> {
     let yaml_content = parser::read_model_text(file)?;
-    let model = parser::parse_model(file)?;
 
     let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
@@ -71,6 +80,9 @@ pub fn scenarios_core(
         }
     }
 
+    let model = parser::parse_model(file)?;
+    let formats = crate::cli::commands::scalar_formats(&model);
+
     // Report every calculated scalar (the ones with a formula) as an output,
     // so the probability of a positive result and the range are filled in.
     let outputs: Vec<String> = model
@@ -87,7 +99,7 @@ pub fn scenarios_core(
     if let Some(name) = scenario_filter {
         results.scenarios.retain(|s| s.name == name);
     }
-    Ok(results)
+    Ok((results, formats))
 }
 
 /// Execute the scenarios command - probability-weighted scenario analysis
@@ -113,9 +125,8 @@ pub fn scenarios(
             None => outln!(c, "{}", "🔄 Running all scenarios...".cyan()),
         }
     }
-    let results = scenarios_core(file, scenario_filter)?;
+    let (results, formats) = analyze(file, scenario_filter)?;
     // A number with a `format:` is printed as the format shows it (ADR-061)
-    let formats = crate::cli::commands::scalar_formats(&parser::parse_model(file)?);
     let shown = |var: &str, value: f64| {
         formats
             .get(var)
@@ -184,15 +195,7 @@ pub fn scenarios(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = serialize_for_file(&results, &output_path)?;
-        fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-        outln!(
-            c,
-            "{}",
-            format!("💾 Results written to {}", output_path.display())
-                .bold()
-                .green()
-        );
+        write_result(c, &results, &output_path)?;
     }
 
     outln!(c, "{}", "✅ Scenario analysis complete".bold().green());
@@ -230,6 +233,108 @@ scalars:
         // Test config parsing
         let value: yaml_serde::Value = yaml_serde::from_str(yaml).unwrap();
         assert!(value.get("scenarios").is_some());
+    }
+
+    mod reading_and_writing {
+        //! What the command says when the model cannot be read, and with
+        //! `--verbose`, a scenario to run, and `--output`.
+
+        use super::super::{scenarios, scenarios_core};
+        use crate::cli::console::capture;
+        use std::path::PathBuf;
+
+        const BASE: &str = "_forge_version: \"5.4.0\"\nscalars:\n  g: {value: 1}\n  out: {formula: \"=g * 2\", format: \"0.0\"}\n";
+        const TWO: &str = "scenarios:\n  a: {probability: 0.5, scalars: {g: 2}}\n  b: {probability: 0.5, scalars: {g: 3}}\n";
+
+        fn model(dir: &tempfile::TempDir, text: &str) -> PathBuf {
+            let path = dir.path().join("m.yaml");
+            std::fs::write(&path, text).unwrap();
+            path
+        }
+
+        #[test]
+        fn what_cannot_be_read_is_named() {
+            let dir = tempfile::tempdir().unwrap();
+            for (text, error) in [
+                (
+                    "a: [1\n".to_string(),
+                    "Validation error: YAML parse error: did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 4",
+                ),
+                (
+                    format!("{BASE}scenarios: 5\n"),
+                    "Validation error: scenarios config error: invalid type: integer `5`, expected a map",
+                ),
+                (
+                    format!("{BASE}scenarios:\n  a: {{probability: x}}\n"),
+                    "Validation error: scenario 'a' error: invalid type: string \"x\", expected f64",
+                ),
+            ] {
+                let path = model(&dir, &text);
+                assert_eq!(scenarios_core(&path, None).unwrap_err().to_string(), error);
+                let (result, _) = capture(|c| scenarios(c, &path, None, None, false));
+                assert_eq!(result.unwrap_err().to_string(), error);
+            }
+        }
+
+        #[test]
+        fn a_model_that_is_not_one_is_an_error_after_its_scenarios_are_read() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = model(&dir, TWO);
+            assert!(scenarios_core(&path, None)
+                .unwrap_err()
+                .to_string()
+                .starts_with("Validation error: Missing required field: _forge_version"));
+        }
+
+        #[test]
+        fn verbose_names_the_scenario_or_all_of_them() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = model(&dir, &format!("{BASE}{TWO}"));
+            let (result, printed) = capture(|c| scenarios(c, &path, Some("a"), None, true));
+            result.unwrap();
+            assert!(
+                printed.out.contains("🎯 Running scenario: a\n"),
+                "{printed:?}"
+            );
+            assert!(
+                printed.out.contains("      scalars.out: 4.0\n"),
+                "{printed:?}"
+            );
+            assert!(
+                printed
+                    .out
+                    .contains("      (expected values cover every scenario)\n"),
+                "{printed:?}"
+            );
+            let (result, printed) = capture(|c| scenarios(c, &path, None, None, true));
+            result.unwrap();
+            assert!(
+                printed.out.contains("🔄 Running all scenarios...\n"),
+                "{printed:?}"
+            );
+            assert!(!printed.out.contains("cover every scenario"), "{printed:?}");
+        }
+
+        #[test]
+        fn the_results_are_written_where_asked() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = model(&dir, &format!("{BASE}{TWO}"));
+            let json = dir.path().join("o.json");
+            let (result, printed) =
+                capture(|c| scenarios(c, &path, None, Some(json.clone()), false));
+            result.unwrap();
+            let line = format!("💾 Results written to {}\n", json.display());
+            assert!(printed.out.contains(&line), "{printed:?}");
+            let written: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&json).unwrap()).unwrap();
+            assert_eq!(written["scenarios"].as_array().unwrap().len(), 2);
+            let nowhere = dir.path().join("nodir").join("o.json");
+            let (result, _) = capture(|c| scenarios(c, &path, None, Some(nowhere), false));
+            assert_eq!(
+                result.unwrap_err().to_string(),
+                "IO error: No such file or directory (os error 2)"
+            );
+        }
     }
 
     mod printed_numbers {

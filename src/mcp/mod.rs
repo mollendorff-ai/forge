@@ -331,7 +331,7 @@ out:
         #[test]
         fn root_and_any_path_cannot_be_given_together() {
             let ran = crate::cli::forge(&["mcp", "--any-path", "--root", "."]);
-            assert_eq!(ran.code, 2, "{}", ran.both());
+            assert_eq!(ran.code, 2, "{ran:?}");
             assert!(ran.err.contains("cannot be used with"), "{}", ran.err);
         }
     }

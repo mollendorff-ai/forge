@@ -598,8 +598,6 @@ pub fn export_variance_to_yaml(
     variances: &[VarianceResult],
     threshold: f64,
 ) -> ForgeResult<()> {
-    use std::io::Write as IoWrite;
-
     let mut content = String::new();
     content.push_str("# Forge Variance Analysis Report\n");
     content.push_str(concat!(
@@ -643,12 +641,57 @@ pub fn export_variance_to_yaml(
         let _ = writeln!(content, "    exceeds_threshold: {}", v.exceeds_threshold);
     }
 
-    let mut file = fs::File::create(output)
-        .map_err(|e| ForgeError::Export(format!("Failed to create file: {e}")))?;
-    file.write_all(content.as_bytes())
+    fs::write(output, content)
         .map_err(|e| ForgeError::Export(format!("Failed to write file: {e}")))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod comparing_tests {
+    use super::{collect_variances, export_variance_to_yaml};
+    use crate::types::{ParsedModel, Variable};
+
+    fn model(scalars: &[(&str, Option<f64>)]) -> ParsedModel {
+        let mut model = ParsedModel::new();
+        for (name, value) in scalars {
+            model.add_scalar(
+                name.to_string(),
+                Variable::new(name.to_string(), *value, None),
+            );
+        }
+        model
+    }
+
+    /// A scalar one model lacks, or has no value for, is named and not
+    /// compared: a missing value is not a 0.
+    #[test]
+    fn what_has_no_value_in_both_models_is_not_compared() {
+        let budget = model(&[
+            ("a", Some(10.0)),
+            ("b", None),
+            ("c", Some(5.0)),
+            ("d", Some(1.0)),
+        ]);
+        let actual = model(&[("a", Some(12.0)), ("b", Some(1.0)), ("c", None)]);
+        let (variances, not_compared) = collect_variances(&budget, &actual, 0.1);
+        let compared: Vec<&str> = variances.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(compared, ["a"]);
+        assert_eq!(not_compared, ["b", "c", "d"]);
+    }
+
+    /// A report that cannot be written is an export error, for the file named.
+    #[test]
+    fn a_variance_report_that_cannot_be_written_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("no-such-folder").join("v.yaml");
+        assert_eq!(
+            export_variance_to_yaml(&output, &[], 0.1)
+                .unwrap_err()
+                .to_string(),
+            "Excel export error: Failed to write file: No such file or directory (os error 2)"
+        );
+    }
 }
 
 #[cfg(test)]

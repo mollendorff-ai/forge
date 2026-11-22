@@ -36,9 +36,10 @@ pub fn import_text_core(bytes: Vec<u8>) -> ForgeResult<ImportText> {
     let includes = model
         .includes
         .iter()
-        .filter_map(|include| {
-            let resolved = model.resolved_includes.get(&include.namespace)?;
-            Some((include.file.clone(), model_to_yaml(&resolved.model)))
+        .map(|include| {
+            // The importer adds an include and its model together
+            let resolved = &model.resolved_includes[&include.namespace];
+            (include.file.clone(), model_to_yaml(&resolved.model))
         })
         .collect();
     Ok(ImportText {
@@ -747,6 +748,26 @@ mod tests {
         );
         assert_eq!(number(1e15), yaml_serde::Value::Number(1e15.into()));
         assert_eq!(number(2.5), yaml_serde::Value::Number(2.5.into()));
+    }
+
+    /// A unit beside a value, with no number format, comes back as the
+    /// value's mapping (ADR-061): the unit is not lost.
+    #[test]
+    fn an_input_with_a_unit_and_no_format_is_a_mapping() {
+        let mut book = rust_xlsxwriter::Workbook::new();
+        let sheet = book.add_worksheet().set_name("Scalars").unwrap();
+        for (col, header) in (0..).zip(["Name", "Value", "Unit"]) {
+            sheet.write_string(0, col, header).unwrap();
+        }
+        sheet.write_string(1, 0, "price").unwrap();
+        sheet.write_number(1, 1, 10.0).unwrap();
+        sheet.write_string(1, 2, "$").unwrap();
+        let imported = super::import_text_core(book.save_to_buffer().unwrap()).unwrap();
+        assert_eq!(
+            imported.main,
+            "_forge_version: \"5.1.0\"\n\nprice:\n  value: 10\n  unit: $\n"
+        );
+        assert_eq!(imported.warnings, Vec::<String>::new());
     }
 
     mod included_files {

@@ -7,11 +7,14 @@
 
 use crate::cli::console::{errln, out};
 use crate::cli::Console;
-use crate::core::array_calculator::evaluator::text::number_format::rounded_digits;
 use crate::core::precision::to_15_digits;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use crate::types::ParsedModel;
+mod numbers;
+
+pub use numbers::{display_number, display_whole, shown_input};
+
 use std::fmt::Write as _;
 use std::path::Path;
 
@@ -311,45 +314,6 @@ fn chosen_keys(groups: &[Group], keys: &[String]) -> ForgeResult<ReportSection> 
 // Numbers
 //==============================================================================
 
-/// A number as a report shows it in a table or in Markdown.
-///
-/// Two decimals and thousands separators (`1,450.00`). A number under 1 keeps
-/// four significant digits, at most six decimals, so that a rate of 0.0479 is
-/// not shown as 0.05.
-///
-/// The digits are those a spreadsheet shows: the number to 15 significant
-/// digits, then rounded half away from zero, so 2.675 is `2.68` although the
-/// nearest double is a little under it.
-#[must_use]
-pub fn display_number(x: f64) -> String {
-    if !x.is_finite() {
-        return x.to_string();
-    }
-    let magnitude = x.abs();
-    let decimals = if magnitude == 0.0 || magnitude >= 1.0 {
-        2
-    } else if magnitude >= 0.1 {
-        4
-    } else if magnitude >= 0.01 {
-        5
-    } else {
-        6
-    };
-    let (whole, mut fraction) = rounded_digits(magnitude, decimals);
-    while fraction.len() > 2 && fraction.ends_with('0') {
-        fraction.pop();
-    }
-    let is_zero = whole == "0" && fraction.bytes().all(|b| b == b'0');
-    let sign = if x < 0.0 && !is_zero { "-" } else { "" };
-    format!("{sign}{}.{fraction}", with_thousands(&whole))
-}
-
-/// The same number with no decimals, for a column of whole numbers
-/// (`1,700`, `3`, `0`).
-pub fn display_whole(x: f64) -> String {
-    display_number(x).trim_end_matches(".00").to_string()
-}
-
 /// Whether a column shows whole numbers only: every value it shows ends in
 /// `.00`, so `3.50` or `0.0479` keeps the column's decimals for every cell.
 fn column_is_whole(section: &ReportSection, column: usize) -> bool {
@@ -357,37 +321,6 @@ fn column_is_whole(section: &ReportSection, column: usize) -> bool {
         Cell::Value(v) => !v.is_finite() || display_number(v).ends_with(".00"),
         Cell::Date(_) | Cell::Uncalculated | Cell::Absent => true,
     })
-}
-
-/// An input is shown as written when the column's rule would round it:
-/// `0.14975` is not `0.1498`.
-pub fn shown_input(x: f64, shown: String) -> String {
-    let same = shown
-        .replace(',', "")
-        .parse::<f64>()
-        .is_ok_and(|p| p.to_bits() == x.to_bits());
-    if same || !x.is_finite() {
-        return shown;
-    }
-    let text = x.abs().to_string();
-    let (whole, fraction) = text.split_once('.').unwrap_or((text.as_str(), ""));
-    let sign = if x < 0.0 { "-" } else { "" };
-    if fraction.is_empty() {
-        format!("{sign}{}", with_thousands(whole))
-    } else {
-        format!("{sign}{}.{fraction}", with_thousands(whole))
-    }
-}
-
-fn with_thousands(whole: &str) -> String {
-    let mut out = String::with_capacity(whole.len() + whole.len() / 3);
-    for (i, c) in whole.chars().enumerate() {
-        if i > 0 && (whole.len() - i).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(c);
-    }
-    out
 }
 
 //==============================================================================
@@ -693,49 +626,6 @@ assumptions:
 "#;
 
         #[test]
-        fn numbers_have_two_decimals_and_thousands_separators() {
-            assert_eq!(display_number(1450.0), "1,450.00");
-            assert_eq!(display_number(1_234_567.891), "1,234,567.89");
-            assert_eq!(display_number(-1234.5), "-1,234.50");
-            assert_eq!(display_number(999.995), "1,000.00");
-            assert_eq!(display_number(100.0), "100.00");
-            assert_eq!(display_number(0.0), "0.00");
-        }
-
-        #[test]
-        fn numbers_under_one_keep_four_significant_digits() {
-            assert_eq!(display_number(0.0479), "0.0479");
-            assert_eq!(display_number(0.5), "0.50");
-            assert_eq!(display_number(0.25), "0.25");
-            assert_eq!(display_number(0.123_456), "0.1235");
-            assert_eq!(display_number(-0.0479), "-0.0479");
-            assert_eq!(display_number(0.99996), "1.00");
-            assert_eq!(display_number(0.000_123_4), "0.000123");
-        }
-
-        #[test]
-        fn rounding_is_half_away_from_zero_on_the_shown_digits() {
-            // The nearest doubles to these are a little under the tie.
-            assert_eq!(display_number(2.675), "2.68");
-            assert_eq!(display_number(1.005), "1.01");
-            assert_eq!(display_number(-2.675), "-2.68");
-            assert_eq!(display_number(1_234.565), "1,234.57");
-        }
-
-        #[test]
-        fn a_residue_near_zero_is_zero_without_a_sign() {
-            assert_eq!(display_number(-1.2e-10), "0.00");
-            assert_eq!(display_number(4e-9), "0.00");
-            assert_eq!(display_number(-0.0), "0.00");
-        }
-
-        #[test]
-        fn numbers_that_are_not_finite_say_so() {
-            assert_eq!(display_number(f64::NAN), "NaN");
-            assert_eq!(display_number(f64::INFINITY), "inf");
-        }
-
-        #[test]
         fn groups_with_the_same_keys_share_a_table_aligned_by_key() {
             let report = report_of(OPTIONS, &ReportOptions::default());
             assert_eq!(report.sections.len(), 2);
@@ -937,6 +827,117 @@ items:
             assert_eq!(
                 notes(&report, Path::new("m.yaml"))[0],
                 "No groups of scalars to report in m.yaml"
+            );
+        }
+
+        #[test]
+        fn formats_are_read_by_every_name_and_refused_otherwise() {
+            for (name, format) in [
+                ("table", ReportFormat::Table),
+                ("csv", ReportFormat::Csv),
+                ("json", ReportFormat::Json),
+                ("markdown", ReportFormat::Markdown),
+            ] {
+                assert_eq!(name.parse::<ReportFormat>().unwrap(), format);
+            }
+            assert_eq!(
+                "html".parse::<ReportFormat>().unwrap_err().to_string(),
+                "Validation error: 'html' is not a format; use table, csv, json or markdown"
+            );
+        }
+
+        /// A date scalar is shown as its date in every format (ADR-060).
+        #[test]
+        fn a_date_is_shown_as_its_text_in_every_format() {
+            let yaml = "_forge_version: \"5.4.0\"\na:\n  due: \"2026-01-31\"\n  n: 2\n";
+            let report = report_of(yaml, &ReportOptions::default());
+            assert_eq!(
+                report.sections[0].rows[0].cells,
+                [Cell::Date(46053.0), Cell::Value(2.0)]
+            );
+            assert_eq!(
+                render(&report, ReportFormat::Table),
+                "group         due  n\na      2026-01-31  2\n"
+            );
+            assert_eq!(
+                render(&report, ReportFormat::Csv),
+                "group,due,n\na,2026-01-31,2\n"
+            );
+            assert_eq!(
+                render(&report, ReportFormat::Markdown),
+                "| group | due | n |\n| --- | ---: | ---: |\n| a | 2026-01-31 | 2 |\n"
+            );
+            let json: serde_json::Value =
+                serde_json::from_str(&render(&report, ReportFormat::Json)).expect("json");
+            assert_eq!(
+                json["sections"][0]["rows"][0]["values"],
+                serde_json::json!({"due": "2026-01-31", "n": 2.0})
+            );
+        }
+
+        /// A group or a key that is not there says what is, or that nothing is.
+        #[test]
+        fn a_choice_from_nothing_says_there_is_nothing_to_choose() {
+            let top = model_of("_forge_version: \"5.1.0\"\nrate: 0.05\n");
+            let by_group = ReportOptions {
+                groups: vec!["x".into()],
+                ..ReportOptions::default()
+            };
+            assert_eq!(
+                build_report(&top, &by_group).unwrap_err().to_string(),
+                "Validation error: 'x' is not a group of scalars in the file. Groups: none"
+            );
+            let none = model_of("_forge_version: \"5.1.0\"\nitems:\n  amount: [1, 2]\n");
+            let by_key = ReportOptions {
+                keys: vec!["x".into()],
+                ..ReportOptions::default()
+            };
+            assert_eq!(
+                build_report(&none, &by_key).unwrap_err().to_string(),
+                "Validation error: 'x' is not a key of any group shown. Keys: none"
+            );
+        }
+
+        /// One formula without a value, at the top level of the file.
+        #[test]
+        fn one_formula_without_a_value_is_named_in_the_singular() {
+            let yaml = "_forge_version: \"5.1.0\"\nrate: 0.05\nt: {formula: \"=rate * 2\"}\n";
+            let report = report_of(yaml, &ReportOptions::default());
+            assert_eq!(report.uncalculated, ["t"]);
+            assert_eq!(
+                notes(&report, Path::new("m.yaml")),
+                ["Note: 1 formula has no value yet and is shown as —; run `forge calculate m.yaml` first (t)"]
+            );
+        }
+
+        /// A group without a chosen key has an empty cell, not a zero.
+        #[test]
+        fn a_key_a_group_does_not_have_is_an_empty_cell() {
+            let report = report_of(
+                OPTIONS,
+                &ReportOptions {
+                    keys: vec!["rent".into(), "rate".into()],
+                    ..ReportOptions::default()
+                },
+            );
+            assert_eq!(
+                render(&report, ReportFormat::Table),
+                "group         rent    rate\noak_suite    1,450\nelm_loft     1,390\nassumptions         0.0479\n"
+            );
+            assert_eq!(
+                render(&report, ReportFormat::Markdown),
+                "| group | rent | rate |\n| --- | ---: | ---: |\n| oak_suite | 1,450 |  |\n| elm_loft | 1,390 |  |\n| assumptions |  | 0.0479 |\n"
+            );
+        }
+
+        #[test]
+        fn a_file_that_cannot_be_read_is_an_error() {
+            let nowhere = Path::new("no-such-folder/m.yaml");
+            assert_eq!(
+                report_core(nowhere, &ReportOptions::default())
+                    .unwrap_err()
+                    .to_string(),
+                "IO error: No such file or directory (os error 2)"
             );
         }
 
@@ -1309,7 +1310,7 @@ elm_loft:
         /// spaces, so column widths do not matter
         fn lines(args: &[&str]) -> Vec<String> {
             let ran = forge_at_width(Some(200), args);
-            assert!(ran.success(), "{}", ran.err);
+            assert!(ran.success(), "{ran:?}");
             ran.out
                 .lines()
                 .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))

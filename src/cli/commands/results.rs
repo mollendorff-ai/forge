@@ -340,3 +340,62 @@ pub struct ComparisonResult {
     #[serde(skip)]
     pub formats: std::collections::BTreeMap<String, String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{CalculationResult, VarianceEntry};
+
+    const WIRE: &str = r#"{
+  "tables": {},
+  "scalars": {"s.due": "2026-01-31", "s.n": 4.5, "s.empty": null, "s.text": "words"},
+  "unit_warnings": [],
+  "file_updated": false,
+  "dry_run": true
+}"#;
+
+    /// A date comes back from JSON as its day number and is named; a string
+    /// that is no date, and an empty scalar, have no number.
+    #[test]
+    fn dates_numbers_and_gaps_come_back_from_json() {
+        let result: CalculationResult = serde_json::from_str(WIRE).unwrap();
+        assert_eq!(result.scalars["s.due"], Some(46053.0));
+        assert_eq!(result.scalars["s.n"], Some(4.5));
+        assert_eq!(result.scalars["s.empty"], None);
+        assert_eq!(result.scalars["s.text"], None);
+        assert_eq!(
+            result.dates.iter().collect::<Vec<_>>(),
+            [&"s.due".to_string()]
+        );
+        assert_eq!(result.shown("s.due"), Some("2026-01-31".to_string()));
+        assert_eq!(result.shown("s.n"), Some("4.5".to_string()));
+        assert_eq!(result.shown("s.empty"), None);
+        assert_eq!(result.shown("s.missing"), None);
+    }
+
+    /// And back to JSON: a date as its text, a number as a number, a gap as null.
+    #[test]
+    fn dates_numbers_and_gaps_go_out_as_json() {
+        let result: CalculationResult = serde_json::from_str(WIRE).unwrap();
+        let json: serde_json::Value = serde_json::to_value(&result).unwrap();
+        assert_eq!(
+            json["scalars"],
+            serde_json::json!({
+                "s.due": "2026-01-31",
+                "s.n": 4.5,
+                "s.empty": null,
+                "s.text": null,
+            })
+        );
+    }
+
+    /// An entry written before `pct_meaningful` existed has a percentage that
+    /// means something.
+    #[test]
+    fn an_old_variance_entry_has_a_meaningful_percentage() {
+        let old = r#"{"name": "n", "budget": 1.0, "actual": 2.0, "variance": 1.0,
+            "variance_pct": 100.0, "is_favorable": true, "better": "higher",
+            "exceeds_threshold": false}"#;
+        let entry: VarianceEntry = serde_json::from_str(old).unwrap();
+        assert!(entry.pct_meaningful);
+    }
+}

@@ -1,27 +1,22 @@
 //! `forge bootstrap`: confidence intervals by resampling the data.
 
-use super::serialize_for_file;
+use super::write_result;
 use crate::bootstrap::{BootstrapConfig, BootstrapEngine};
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use colored::Colorize;
-use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Run bootstrap resampling and return structured results (no printing).
-///
-/// # Errors
-///
-/// Returns an error if the file cannot be parsed, no bootstrap section exists,
-/// or the analysis fails.
-pub fn bootstrap_core(
+/// The `bootstrap:` section of a model, with the overrides of the command
+/// line applied.
+fn load_config(
     file: &Path,
     iterations_override: Option<usize>,
     seed_override: Option<u64>,
     confidence_override: Option<Vec<f64>>,
-) -> ForgeResult<crate::bootstrap::BootstrapResult> {
+) -> ForgeResult<BootstrapConfig> {
     let yaml_content = parser::read_model_text(file)?;
 
     let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
@@ -45,7 +40,27 @@ pub fn bootstrap_core(
     if let Some(levels) = confidence_override {
         config.confidence_levels = levels;
     }
+    Ok(config)
+}
 
+/// Run bootstrap resampling and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no bootstrap section exists,
+/// or the analysis fails.
+pub fn bootstrap_core(
+    file: &Path,
+    iterations_override: Option<usize>,
+    seed_override: Option<u64>,
+    confidence_override: Option<Vec<f64>>,
+) -> ForgeResult<crate::bootstrap::BootstrapResult> {
+    let config = load_config(
+        file,
+        iterations_override,
+        seed_override,
+        confidence_override,
+    )?;
     let mut engine = BootstrapEngine::new(config).map_err(ForgeError::Validation)?;
     engine.analyze().map_err(ForgeError::Eval)
 }
@@ -69,32 +84,12 @@ pub fn bootstrap(
     outln!(c, "   File: {}", file.display());
     outln!(c);
 
-    // Parse YAML
-    let yaml_content = parser::read_model_text(file)?;
-
-    // Parse bootstrap config
-    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
-
-    let mut config: BootstrapConfig = if let Some(bs_value) = value.get("bootstrap") {
-        yaml_serde::from_value(bs_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("bootstrap config error: {e}")))?
-    } else {
-        return Err(ForgeError::Validation(
-            "No 'bootstrap' section found in YAML".to_string(),
-        ));
-    };
-
-    // Apply overrides
-    if let Some(n) = iterations_override {
-        config.iterations = n;
-    }
-    if let Some(s) = seed_override {
-        config.seed = Some(s);
-    }
-    if let Some(levels) = confidence_override {
-        config.confidence_levels = levels;
-    }
+    let config = load_config(
+        file,
+        iterations_override,
+        seed_override,
+        confidence_override,
+    )?;
 
     // Display config
     outln!(c, "   {}", "Configuration:".bold());
@@ -158,15 +153,7 @@ pub fn bootstrap(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = serialize_for_file(&result, &output_path)?;
-        fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-        outln!(
-            c,
-            "{}",
-            format!("💾 Results written to {}", output_path.display())
-                .bold()
-                .green()
-        );
+        write_result(c, &result, &output_path)?;
     }
 
     outln!(c, "{}", "✅ Bootstrap analysis complete".bold().green());
@@ -224,6 +211,97 @@ bootstrap:
         let doc: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&json_out).unwrap()).unwrap();
         assert_eq!(doc["original_estimate"].as_f64(), Some(3.0));
+    }
+
+    fn model(dir: &Path, name: &str, text: &str) -> PathBuf {
+        let path = dir.join(name);
+        std::fs::write(&path, text).unwrap();
+        path
+    }
+
+    const SMALL: &str = "_forge_version: \"5.0.0\"\n\nbootstrap:\n  iterations: 50\n  seed: 1\n  confidence_levels: [0.95]\n  data: [1.0, 2.0, 3.0]\n  statistic: mean\n";
+
+    /// Each way of failing, the same from the library and from the command.
+    #[test]
+    fn what_cannot_be_read_or_resampled_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let bca = SMALL
+            .replace("[1.0, 2.0, 3.0]", "[1.0, 1.0, 1.0]")
+            .replace("mean\n", "mean\n  method: bca\n");
+        for (text, iterations, error) in [
+            (
+                "a: [1\n",
+                None,
+                "Validation error: YAML parse error: did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 4",
+            ),
+            (
+                "_forge_version: \"5.0.0\"\nx: 1\n",
+                None,
+                "Validation error: No 'bootstrap' section found in YAML",
+            ),
+            (
+                "_forge_version: \"5.0.0\"\nbootstrap:\n  iterations: many\n",
+                None,
+                "Validation error: bootstrap config error: invalid type: string \"many\", expected usize",
+            ),
+            (SMALL, Some(0), "Validation error: Iterations must be positive"),
+            (
+                &bca,
+                None,
+                "Formula evaluation error: BCa interval undefined: every bootstrap value is on the same side of the estimate; use method percentile or basic",
+            ),
+        ] {
+            let file = model(dir.path(), "m.yaml", text);
+            let core = bootstrap_core(&file, iterations, None, None).unwrap_err();
+            assert_eq!(core.to_string(), error);
+            let command = capture(|c| bootstrap(c, &file, iterations, None, None, None, false)).0;
+            assert_eq!(command.unwrap_err().to_string(), error);
+        }
+        let missing = dir.path().join("none.yaml");
+        let gone = "IO error: No such file or directory (os error 2)";
+        assert_eq!(
+            bootstrap_core(&missing, None, None, None)
+                .unwrap_err()
+                .to_string(),
+            gone
+        );
+        let ok = model(dir.path(), "ok.yaml", SMALL);
+        let nowhere = dir.path().join("nodir").join("out.yaml");
+        let result = capture(|c| bootstrap(c, &ok, None, None, None, Some(nowhere), false)).0;
+        assert_eq!(result.unwrap_err().to_string(), gone);
+    }
+
+    /// The command line's iterations, seed and confidence levels replace the
+    /// model's, in the library and in what the command prints.
+    #[test]
+    fn the_overrides_replace_the_models_settings() {
+        let dir = tempfile::tempdir().unwrap();
+        let ok = model(dir.path(), "ok.yaml", SMALL);
+        let result = bootstrap_core(&ok, Some(10), Some(9), Some(vec![0.5])).unwrap();
+        assert_eq!(result.confidence_intervals.len(), 1);
+        assert!((result.confidence_intervals[0].level - 0.5).abs() <= 1e-12);
+        let (done, printed) =
+            capture(|c| bootstrap(c, &ok, Some(10), Some(9), Some(vec![0.5]), None, true));
+        done.unwrap();
+        for line in [
+            "      Iterations: 10\n",
+            "      Confidence levels: [0.5]\n",
+            "      Seed: 9\n",
+            "🔄 Resampling...\n",
+            "      50% CI: [",
+            "✅ Bootstrap analysis complete\n",
+        ] {
+            assert!(printed.out.contains(line), "{line}\n{printed:?}");
+        }
+        let unseeded = model(dir.path(), "u.yaml", &SMALL.replace("  seed: 1\n", ""));
+        let (done, printed) = capture(|c| bootstrap(c, &unseeded, None, None, None, None, false));
+        done.unwrap();
+        assert!(!printed.out.contains("Seed:"), "{printed:?}");
+        assert!(!printed.out.contains("🔄 Resampling..."), "{printed:?}");
+        assert!(
+            printed.out.contains("      Iterations: 50\n"),
+            "{printed:?}"
+        );
     }
 
     mod acquisition_example {
