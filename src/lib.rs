@@ -273,7 +273,7 @@ mod tests {
         //! same cases every time; the weekly run draws many more from a new seed it
         //! prints (`PROPTEST_CASES`, `PROPTEST_RNG_SEED`, weekly.yml). To replay a
         //! failure, run with the seed it printed:
-        //! `PROPTEST_RNG_SEED=<seed> cargo test --test properties`.
+        //! `PROPTEST_RNG_SEED=<seed> cargo test --lib -- tests::properties::`.
 
         use crate::cli::commands::results::CalculationResult;
         use crate::cli::SimulateOptions;

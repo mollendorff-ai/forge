@@ -78,7 +78,7 @@ The evaluator clears the row by **copying the whole context**, every scalar and 
 
 **Acceptance** (the roadmap item's, made precise)
 
-- `examples/rolling-forecast` has a table `quarters` with `revenue` and `budget` made with `SUMIFS` over `months`. Its values equal the four quarter scalars, which are then removed. `src/cli/commands/examples.rs` (its `demo_examples` tests) checks it against the Python already there.
+- `examples/rolling-forecast` has a table `quarters` with `revenue` and `budget` made with `SUMIFS` over `months`. Its values equal the four quarter scalars, which are then removed. `src/cli/commands/examples/mod.rs` (its `demo_examples` tests) checks it against the Python already there.
 - The exported workbook recalculates to the same values in Gnumeric and LibreOffice: new cases in `validation/gnumeric`, one per row of the table in decision 1, including an own-table share and a per-row percentile.
 - `forge import` of that workbook gives the `SUMIFS` formulas back as written.
 - Each error in decisions 2 and 3 has a test with its message.
