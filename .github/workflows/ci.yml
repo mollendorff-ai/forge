@@ -577,9 +577,9 @@ jobs:
       # 98.61%), the same way.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "98.9"
-          FLOOR_FUNCTIONS: "97.8"
-          FLOOR_REGIONS: "98.6"
+          FLOOR_LINES: "99.0"
+          FLOOR_FUNCTIONS: "98.1"
+          FLOOR_REGIONS: "98.7"
         run: |
           fail=0
           for kind in lines functions regions; do
