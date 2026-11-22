@@ -582,7 +582,10 @@ mod tests {
                 let revenue = &result.nodes["company_revenue"];
                 assert_eq!(revenue.states, ["high", "medium", "low"]);
                 assert_eq!(revenue.parents, ["economic_conditions"]);
-                assert!(result.nodes["economic_conditions"].parents.is_empty());
+                assert_eq!(
+                    result.nodes["economic_conditions"].parents,
+                    Vec::<String>::new()
+                );
             }
         }
     }

@@ -920,12 +920,12 @@ mod printed_from_the_result {
         assert_eq!(shapes, expected);
         assert_eq!(shapes[0].0, "months");
         assert!(single.formulas_kept > 0);
-        assert!(single.files_written.is_empty());
+        assert_eq!(single.files_written, Vec::<String>::new());
         // A model whose parts do not refer to each other can be split
         let plain = dir.path().join("q.xlsx");
         export_core(Path::new("examples/quota_forecast.yaml"), &plain).unwrap();
         let split = import_core(&plain, &dir.path().join("split"), true, false).unwrap();
-        assert!(!split.files_written.is_empty());
+        assert_ne!(split.files_written, Vec::<String>::new());
         assert!(split.files_written.iter().all(|f| Path::new(f).exists()));
     }
 }
