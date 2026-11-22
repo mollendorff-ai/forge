@@ -20,7 +20,18 @@
 
 state:
   version: >-
-    10.0.0-rc.32, released 2026-11-21: wrong answers fixed (forge import read
+    10.0.0-rc.33, released 2026-11-22: games of many players (a symmetric
+    game written as one payoff for each strategy over how many of the
+    others play each), the mixed equilibria in which every player plays
+    alike with their stability, strategies that spread (dynamics:), Forge
+    Studio's view of them, and the bagel's games of many shops (ADR-073),
+    checked against Gambit, egttools and R; wrong answers fixed (forge
+    export of a range a:b, Black-Scholes prices of forge real-options, the
+    normal distribution's last digits in correlated draws and BCa
+    intervals, the optimal path of a decision tree with a chance node at
+    its root). Wrong answers fixed, so the two weeks in docs/STABILITY.md
+    start again from rc.33: no earlier than 2026-12-06.
+    rc.32 (2026-11-21): wrong answers fixed (forge import read
     a range over part of a table's column as the whole column, SWITCH with
     two arguments, NaN and infinity in a model), a YAML merge key refused
     with one message (ADR-071), jsonschema checking every model again

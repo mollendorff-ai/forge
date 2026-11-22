@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.33] - 2026-11-22
+
+Games of many players, and strategies that spread (ADR-073). A symmetric game of any number of players is written as one payoff for each strategy over how many of the others play each, not as its whole table: kinship-protocol's public goods game of five players is two lines, not 32 cells. Forge finds the mixed equilibria in which every player plays alike, for games of two strategies, and says whether a population returns to each; the `dynamics:` key follows the shares of a population generation by generation. Forge Studio draws a game of five players by count and the dynamics as a chart, and the bagel example has a price war that spreads through the city and a festival five shops will not pay for. All of it is checked against Gambit, egttools and R. Wrong answers fixed: `forge export` wrote a range `a:b` as an Excel range, `forge real-options` gave Black-Scholes prices off by up to 1.2e-7, correlated draws and BCa intervals used a normal distribution off by up to 9e-11, and a decision tree with a chance node at its root listed no outcomes in its optimal path. Wrong answers fixed, so the two weeks in docs/STABILITY.md start again from rc.33 (no earlier than 2026-12-06).
+
 ### Fixed
 - **`forge export` no longer writes a range `a:b` as an Excel range (a wrong formula).** Forge reads `revenue:year` as the text of its two ends; the exporter wrote `SUM($A$2:$A$4:$C$2:$C$4)`, which Excel reads as cells. It is now refused like `[ ]`, with the reason "a range a:b has no Excel equivalent", and so is a comma outside any call (`=1, 2` was written as it stood). The tests are `a_range_or_a_comma_outside_a_call_is_not_written` in `src/excel/workbook_refs.rs`.
 - **`forge import` refuses an Excel formula with a `(` never closed or a comma outside any call.** `=SUM(1` and `=1, 2` came back unchanged, for Forge to refuse later; they now give "( without )" and "a comma outside a call" (`what_excel_does_not_write_is_refused` in `src/excel/workbook_refs/reverse.rs`).
