@@ -84,12 +84,12 @@ fn validate_model(model: &ParsedModel, expectations: bool) -> ForgeResult<Valida
 /// Each stored value that is not what its formula gives. A formula with no
 /// stored value has nothing to compare.
 fn stale_values(model: &ParsedModel, calculated: &ParsedModel) -> Vec<ValidationMismatch> {
-    calculated
+    model
         .scalars
         .iter()
-        .filter_map(|(name, var)| {
-            let expected_value = var.value?;
-            let current_value = model.scalars.get(name)?.value?;
+        .filter_map(|(name, original)| {
+            let expected = calculated.scalars.get(name).and_then(|v| v.value);
+            let (current_value, expected_value) = original.value.zip(expected)?;
             let diff = (current_value - expected_value).abs();
             (diff > STORED_TOLERANCE).then(|| ValidationMismatch {
                 name: name.clone(),
