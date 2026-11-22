@@ -90,7 +90,7 @@ sequenceDiagram
     A-->>P: the difference, and the YAML to keep
 ```
 
-Five tested prompts to start from are in [PROMPTS.md](PROMPTS.md). The AI can call Forge from its shell or through the MCP server (`forge mcp`, see [MCP.md](MCP.md)).
+Six tested prompts to start from are in [PROMPTS.md](PROMPTS.md). The AI can call Forge from its shell or through the MCP server (`forge mcp`, see [MCP.md](MCP.md)).
 
 ## 3. A pipeline without AI
 

@@ -8,7 +8,7 @@ Forge is made to be used by an AI: it writes the model as YAML, Forge does the a
 
 **Where they work:** the AI has to be able to run commands. Tried by the maintainer on 2026-11-15, the first prompt (in the [README](../README.md#try-it-with-your-ai)) worked on Claude and on Grok, free tiers included. The free tiers of ChatGPT and Gemini had no sandbox to run it in. Each prompt asks an AI that cannot run it to say so, not to make numbers up.
 
-**Prompts 1 to 5 were each run by a fresh agent** (one that had never seen Forge) before they went in; prompt 6's commands were run by hand and it has not yet had a fresh agent. The date and the outcome are under each prompt.
+**Each prompt here was run by a fresh agent** (one that had never seen Forge) before it went in. The date and the outcome are under each prompt.
 
 **Opening the result in Studio:**
 - **A model in one file:** open Studio, go to the YAML tab, select all, paste the AI's YAML over it, and press "Check and apply".
@@ -206,8 +206,8 @@ Do not build it from source; install it with:
 
   curl -fsSL https://raw.githubusercontent.com/mollendorff-ai/forge/main/install.sh | sh -s -- --examples
 
-Two games in forge-examples/games/. Use `forge game --help` when you need
-the options.
+Two games in forge-examples/games/; run the commands from forge-examples/.
+Use `forge game --help` when you need the options.
 
 1. `forge game games/inspection.yaml`: an AI complies or cheats, a human
    audits or trusts. Say who does what, and how often, in the equilibrium.
@@ -234,7 +234,7 @@ If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
-*Commands run by hand on 2026-11-20 (Forge 10.0.0-rc.30), not yet by a fresh agent: the inspection game's one mixed equilibrium (the AI cheats a third of the time, the human audits a third of the time); with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third; in the tournament grim trigger ranks first at 2.596 a round, tit for tat second at 2.448, and grim, tit for tat and always defect are collectively stable; tit for tat against always defect is 0.995 a round (199 rounds at 1, the first at 0), as the match table says. Studio shows the same games on its Model view.*
+*Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): the inspection game's one mixed equilibrium (the AI cheats a third of the time, the human audits a third of the time), each side's indifference shown by hand; with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third, explained as each side's mix being set by the other side's payoffs; in the tournament grim trigger first at 2.596 a round, tit for tat second at 2.448, grim, tit for tat and always defect collectively stable; tit for tat against always defect worked out by hand as 0.995 (and always defect's 1.020), as the match table says. It wrote one copy, `inspection-penalty8.yaml`. No command failed; about 16 s of commands. The only question it had was the folder: it ran from `forge-examples/`, which the prompt now says.*
 
 ## Writing your own
 
