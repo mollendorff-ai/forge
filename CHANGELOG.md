@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **The coverage floors in CI are 99.2 / 98.3 / 98.9** (lines / functions / regions), up from 99.0 / 98.1 / 98.7, from CI's run on main after PR #351 (T1-COVERAGE-GATE).
+- **ADR-074 decides how a scenario states its results, and how a Bayesian network reads the model (roadmap T2-SCENARIO-CHECKS, T2-BAYESIAN-LINK). Nothing is built yet.** `forge validate` checks stored values for the base case only, so kinship-protocol pins its figures, most of them results of scenarios, with a Python script. Decided, with that script's 382 checks in front of it: an `expect:` in each scenario and at the top of the file (model format 5.6.0) names any scalar the calculation gives, game results included, as a number or a formula over numbers, and `forge validate` checks every one within 10⁻⁶ (relative above 1), naming the scenario, the name and both numbers. The MCP server, the REST API and Forge Studio get the same report. `forge calculate --scenario` will stop writing: measured on rc.33, it wrote the scenario's results into the file's own stored values, which `validate` then failed. A Bayesian network will take formulas over scalars in its priors and tables, `forge bayesian` will take `--scenario`, and named queries will give each posterior as a scalar of the model, which formulas, `expect:`, `simulate` and `tornado` read; `=BAYES()` is left out. What is left out, and why, is in the ADR.
 
 ## [10.0.0-rc.33] - 2026-11-22
 
