@@ -33,8 +33,10 @@ pub const BUDGET: [(&str, usize); 9] = [
     // windows-interface) has no release on syn 3. getrandom 0.3 and 0.4,
     // since 2026-11-21 (ADR-072): raised by the maintainer's decision that
     // the rule against duplicates does not compete with keeping jsonschema,
-    // whose ahash brings getrandom 0.3, and with it r-efi 5 (UEFI only)
-    ("crates clippy.toml allows in two versions", 3),
+    // whose ahash brings getrandom 0.3, and with it r-efi 5 (UEFI only).
+    // hashbrown 0.14 and 0.17, since 2026-11-22 (ADR-075): raised by the
+    // maintainer's decision to keep yaml-edit, whose rowan brings 0.14
+    ("crates clippy.toml allows in two versions", 4),
 ];
 
 /// The crates: their manifest, and the folders of their Rust code

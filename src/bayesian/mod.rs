@@ -152,11 +152,8 @@ mod tests {
             // P(B=b1) = P(B=b1|A=a0)*P(A=a0) + P(B=b1|A=a1)*P(A=a1)
             //         = 0.1 * 0.6 + 0.8 * 0.4 = 0.06 + 0.32 = 0.38
             let b_result = engine.query("B").unwrap();
-            assert!(
-                (b_result.probabilities[1] - 0.38).abs() < 0.01,
-                "P(B=b1) should be 0.38, got {}",
-                b_result.probabilities[1]
-            );
+            let b1 = b_result.probabilities[1];
+            assert!((b1 - 0.38).abs() < 0.01, "P(B=b1) should be 0.38, got {b1}");
         }
 
         /// Test conditional independence (A _||_ C | B)
@@ -200,11 +197,10 @@ mod tests {
             let c_given_ab = engine.query_with_evidence("C", &evidence_ab).unwrap();
 
             // P(C|B) should equal P(C|A,B) due to conditional independence
+            let (given_b, given_ab) = (c_given_b.probabilities[0], c_given_ab.probabilities[0]);
             assert!(
-                (c_given_b.probabilities[0] - c_given_ab.probabilities[0]).abs() < 0.05,
-                "Conditional independence should hold: P(C|B)={:.3} vs P(C|A,B)={:.3}",
-                c_given_b.probabilities[0],
-                c_given_ab.probabilities[0]
+                (given_b - given_ab).abs() < 0.05,
+                "Conditional independence should hold: P(C|B)={given_b:.3} vs P(C|A,B)={given_ab:.3}"
             );
         }
 

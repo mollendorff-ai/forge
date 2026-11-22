@@ -10,6 +10,7 @@ The reference for what Forge does, one section per feature. For a first model, s
 # Core Operations
 forge validate <files...>           # Validate YAML model(s)
 forge calculate <file>              # Execute all formulas
+forge edit <file> --set year.price=17  # Change the model's text, comments kept
 forge audit <file> <variable>       # Trace formula dependencies
 forge watch <file>                  # Validate and calculate again on every save
 forge report <file>                 # A calculated file's scalars side by side
@@ -111,6 +112,8 @@ year:
 ```
 
 Comments, quotes, blank lines, key order and inputs stay as you typed them, and a `.yaml.bak` keeps the previous file. If the results cannot be written without changing anything else, Forge leaves the file alone and says so. `--dry-run` shows the results without writing. A stored `value` can be out of date after you change an input, as with any saved result: run `forge calculate` again, and `forge validate` reports any value that no longer matches its formula.
+
+**`forge edit` changes the model's text, and nothing else (ADR-075).** `--set year.price=17` sets an input, `--formula 'year.margin==year.profit / year.revenue'` a formula, `--add year.tax=0.15` or `--add 'year.net==year.profit * 0.85'` adds an input or a formula (a column, in a table) at the end of its group, in the indentation of the keys there, and `--delete year.old_fee` takes one out with the lines under it, leaving a comment above it. `@costs.rent` is changed in the file included as `costs`. Every other byte stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else: otherwise no file is written, and the message says why. The MCP tool `forge_edit` takes the same changes as JSON. Results are not written by `edit`: `forge calculate` writes them.
 
 **Anchors and aliases work; a YAML merge key does not (ADR-071).** `players: &roster [a, b]` and later `players: *roster` reuse a whole block. A merge key, `<<: *base`, is refused wherever it is written, in the model, an included file or an analysis section, with its place: `'scenarios.more.<<' is a YAML merge key (<<), which Forge does not read`. YAML 1.2 dropped merge keys, and a reader in 1.2 mode would see a different model; write the keys out, or make the change a scenario.
 

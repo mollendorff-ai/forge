@@ -1,7 +1,8 @@
-//! Each command's flags and arguments, with the help clap shows for each.
-//! `mod.rs` holds the commands themselves and their long help.
+//! The options of each command, as clap reads them; the commands and their
+//! help are in `args.rs`.
 
 use crate::cli::ReportFormat;
+use clap::builder::PossibleValue;
 use clap::Args;
 use std::path::PathBuf;
 
@@ -527,4 +528,21 @@ pub struct ServeArgs {
     /// Folder every file path must stay inside (none by default)
     #[arg(long, value_name = "DIR")]
     pub root: Option<std::path::PathBuf>,
+}
+
+/// `--format` of `forge compare` and `forge report`: clap reads the name and
+/// lists the four in the help.
+impl clap::ValueEnum for ReportFormat {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Table, Self::Csv, Self::Json, Self::Markdown]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        Some(PossibleValue::new(match self {
+            Self::Table => "table",
+            Self::Csv => "csv",
+            Self::Json => "json",
+            Self::Markdown => "markdown",
+        }))
+    }
 }

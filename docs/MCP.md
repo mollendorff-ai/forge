@@ -97,11 +97,11 @@ When calling `forge_calculate` with `content` and `dry_run: false`, the server c
 
 The response will contain both the calculation results and a `calculated_content` field with the updated YAML.
 
-## Available Tools (21)
+## Available Tools (22)
 
 | Category | Count | Tools |
 |----------|-------|-------|
-| **Core** | 5 | validate, calculate, audit, export, import |
+| **Core** | 6 | validate, calculate, edit, audit, export, import |
 | **Analysis** | 5 | sensitivity, goal_seek, break_even, variance, compare |
 | **Engines** | 8 | simulate, scenarios, decision_tree, real_options, tornado, bootstrap, bayesian, game |
 | **Discovery** | 3 | schema, functions, examples |
@@ -144,6 +144,33 @@ Calculate all formulas in a Forge YAML model and optionally update the file.
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_calculate","arguments":{"file_path":"/path/to/model.yaml","dry_run":true}}}
+```
+
+#### `forge_edit`
+
+Change a model's text, comments and layout kept (ADR-075): set an input's value or a formula, add an input, a formula or a table's column, or delete one, in the model or in a file it includes. Every byte outside a change stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else; when one of the changes cannot be made, none is, and the message names it and says why. The answer is `files`, the new text of each file that changed by its path from the model's folder (`model.yaml`, `data/costs.yaml`), and `written`. With `file_path` the files are written, each kept as it was in a `.bak` next to it, unless `dry_run`; with `content` nothing is written (the main file is `model.yaml`). Results are not written: `forge_calculate` does that.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file_path` | string | no* | Path to the YAML model file |
+| `content` | string | no* | Raw YAML model content (alternative to `file_path`) |
+| `includes` | object | no | Inline include content as namespace-to-YAML map |
+| `changes` | array | yes | The changes, made in turn (below) |
+| `dry_run` | boolean | no | Answer the new text without writing the files (default: false) |
+
+*One of `file_path` or `content` is required.
+
+Each change has an `op` and a `path`, the name as formulas read it (`price`, `year.price`, a table's column `months.sales`, `@costs.rent` in the file included as `costs`):
+
+| `op` | Takes | Does |
+|------|-------|------|
+| `set_value` | `value` | An input's value: a number, or its text as YAML holds it (`1e-5`, a date `2026-01-31`). The rest of the line, a comment or the rest of a flow mapping, stays |
+| `set_formula` | `formula` | A scalar's or a column's formula, one line starting with `=`, in the quotes the file already uses for it |
+| `add` | `value` or `formula`, and `unit`; `after` at the top level | An input or a formula at the end of its group, in the indentation of the keys there; a formula in a table is a column. At the top level it goes after the block of the name `after` |
+| `delete` | | An input, a formula or a column, with the lines under it and its comment on the line; a comment above it stays. The last name of a group is not deleted |
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_edit","arguments":{"file_path":"/path/to/model.yaml","changes":[{"op":"set_value","path":"year.price","value":17},{"op":"add","path":"year.tax","value":0.15,"unit":"ratio"}]}}}
 ```
 
 #### `forge_audit`

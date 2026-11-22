@@ -2,13 +2,14 @@
 
 use super::{to_json, ForgeMcpServer};
 use crate::mcp::types::{
-    AuditRequest, CalculateRequest, ExportRequest, ImportRequest, ValidateRequest,
+    AuditRequest, CalculateRequest, EditRequest, ExportRequest, ImportRequest, ValidateRequest,
 };
 
 use crate::inline_model::resolve_model_input;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{tool, tool_router};
 
+use crate::cli::commands::edit_core;
 use crate::cli::{audit_core, export_buffer_core, export_core, import_core, validate_core};
 use crate::cli::{calculate_core, calculate_plan_core};
 
@@ -69,6 +70,23 @@ impl ForgeMcpServer {
 
         serde_json::to_string(&crate::core::precision::Rounded(&json_val))
             .map_err(|e| format!("Serialization failed: {e}"))
+    }
+
+    #[tool(
+        name = "forge_edit",
+        description = "Change a model's text: set an input's value (set_value) or a formula (set_formula), add an input, a formula or a table's column (add), or delete one (delete), in the model or in a file it includes (@alias.name). Every byte outside the change stays as it was, comments and layout included. A change is made only when Forge reads the model back valid with that change and nothing else; if one cannot be made, none is. Answers the new text of each file that changed, by its path from the model's folder; with file_path it also writes them, each kept as it was in a .bak, unless dry_run. Results are not written: forge_calculate does."
+    )]
+    pub(super) fn edit(&self, Parameters(req): Parameters<EditRequest>) -> Result<String, String> {
+        let inline = req.content.is_some();
+        let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        edit_core(&path, &req.changes, req.dry_run || inline)
+            .map(|r| to_json(&r))
+            .map_err(|e| format!("Edit failed: {e}"))
     }
 
     #[tool(
@@ -907,5 +925,69 @@ scalars:
             ASKS
         );
         assert_eq!(server.export(request(json!({}))).unwrap_err(), ASKS);
+    }
+
+    #[test]
+    fn edit_answers_the_new_text_and_writes_only_a_file_it_was_given() {
+        let server = ForgeMcpServer::new();
+        let text = "_forge_version: \"5.1.0\"\nyear:\n  price: 16 # p\n  revenue: {formula: \"=year.price * 2\"}\n";
+        let changes: Vec<crate::edit::Change> = serde_json::from_value(serde_json::json!([
+            {"op": "set_value", "path": "year.price", "value": 17},
+            {"op": "set_formula", "path": "year.revenue", "formula": "=year.price * 3"}
+        ]))
+        .unwrap();
+        let request = |file_path: Option<String>, content: Option<String>, dry_run| EditRequest {
+            file_path,
+            content,
+            includes: None,
+            changes: changes.clone(),
+            dry_run,
+        };
+        let want = text.replace("16", "17").replace("* 2", "* 3");
+        let inline = json(&ok_text(server.edit(Parameters(request(
+            None,
+            Some(text.into()),
+            false,
+        )))));
+        assert_eq!(
+            inline,
+            serde_json::json!({"files": {"model.yaml": want}, "written": false})
+        );
+
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("m.yaml");
+        std::fs::write(&file, text).unwrap();
+        let path = Some(file.to_string_lossy().into_owned());
+        let dry = json(&ok_text(server.edit(Parameters(request(
+            path.clone(),
+            None,
+            true,
+        )))));
+        assert_eq!(dry["written"], false);
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), text);
+        let wrote = json(&ok_text(
+            server.edit(Parameters(request(path, None, false))),
+        ));
+        assert_eq!(wrote["files"]["m.yaml"], want);
+        assert_eq!(wrote["written"], true);
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), want);
+
+        let refused = err_text(
+            server.edit(Parameters(EditRequest {
+                changes: serde_json::from_value(
+                    serde_json::json!([{"op": "delete", "path": "nothing"}]),
+                )
+                .unwrap(),
+                ..request(None, Some(text.into()), false)
+            })),
+        );
+        assert_eq!(
+            refused,
+            "Edit failed: Validation error: delete nothing: it is not in the model (model.yaml). No file was changed"
+        );
+        assert!(
+            err_text(server.edit(Parameters(request(None, None, false))))
+                .contains("Either file_path or content")
+        );
     }
 }

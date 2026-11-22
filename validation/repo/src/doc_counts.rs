@@ -83,7 +83,7 @@ mod tests {
             "docs/FEATURES.md",
             "docs/MCP.md",
             "src/main.rs",
-            "src/cli/args/mod.rs",
+            "src/cli/args.rs",
             "src/mcp/mod.rs",
             "src/mcp/server.rs",
             "Cargo.toml",

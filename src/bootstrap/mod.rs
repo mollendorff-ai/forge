@@ -83,15 +83,15 @@ mod tests {
                 .map(super::engine::ConfidenceInterval::width)
                 .collect();
             for i in 0..widths.len() - 1 {
-                // Higher confidence should mean wider interval
+                // The levels are in rising order, and a higher confidence
+                // should mean a wider interval
                 let ci_current = &result.confidence_intervals[i];
                 let ci_next = &result.confidence_intervals[i + 1];
-                if ci_current.level < ci_next.level {
-                    assert!(
-                        widths[i] <= widths[i + 1],
-                        "Higher confidence should mean wider interval"
-                    );
-                }
+                assert!(ci_current.level < ci_next.level);
+                assert!(
+                    widths[i] <= widths[i + 1],
+                    "Higher confidence should mean wider interval"
+                );
             }
         }
 

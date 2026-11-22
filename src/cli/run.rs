@@ -87,6 +87,7 @@ impl Commands {
     fn run(self, c: &mut Console<'_>) -> ForgeResult<()> {
         match self {
             Self::Calculate(a) => a.run(c),
+            Self::Edit(a) => a.run(c),
             Self::Audit(a) => a.run(c),
             Self::Validate(a) => a.run(c),
             Self::Export(a) => a.run(c),
@@ -506,6 +507,23 @@ mod tests {
         );
     }
 
+    /// A command whose arguments are defined with the command (game, edit)
+    /// shows its long help and examples, not only its one line
+    #[test]
+    fn a_command_defined_with_its_arguments_shows_its_long_help() {
+        for (command, line) in [
+            (
+                "game",
+                "  forge game model.yaml --game stag_hunt      # One game",
+            ),
+            ("edit", "  forge edit model.yaml --set year.price=17"),
+        ] {
+            let help = ok(&[command, "--help"]);
+            assert!(help.contains("\nEXAMPLES:\n"), "{command}: {help}");
+            assert!(help.contains(line), "{command}: {help}");
+        }
+    }
+
     #[test]
     fn a_wrong_argument_is_a_usage_error_on_err_with_exit_code_two() {
         for args in [&["nope"][..], &[], &["calculate", "--bogus", "x.yaml"]] {
@@ -823,7 +841,7 @@ mod tests {
         //! What five fresh agents stumbled on while running docs/PROMPTS.md
         //! (roadmap T1-AGENT-FRICTION). Each test is one of the things they reported.
         //! The help text's own examples and the short flags are checked in
-        //! `src/cli/args/mod.rs`.
+        //! `src/cli/args.rs`.
 
         use super::*;
         use std::path::Path;

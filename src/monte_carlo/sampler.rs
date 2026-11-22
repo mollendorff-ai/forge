@@ -180,6 +180,37 @@ mod tests {
         assert!(SamplingMethod::from_str("invalid").is_err());
     }
 
+    /// A method is written by its name, which `from_str` reads back.
+    #[test]
+    fn a_method_is_displayed_as_the_name_that_reads_back() {
+        for (method, name) in [
+            (SamplingMethod::MonteCarlo, "monte_carlo"),
+            (SamplingMethod::LatinHypercube, "latin_hypercube"),
+        ] {
+            assert_eq!(method.to_string(), name);
+            assert_eq!(SamplingMethod::from_str(name).unwrap(), method);
+        }
+    }
+
+    /// The sampler says its method, and its generator is the one the samples
+    /// come from: the same seed draws the same number as a sample.
+    #[test]
+    fn the_sampler_says_its_method_and_lends_its_generator() {
+        let mut sampler = Sampler::new(SamplingMethod::LatinHypercube, Some(7));
+        assert_eq!(sampler.method(), SamplingMethod::LatinHypercube);
+        let mut other = Sampler::new(SamplingMethod::MonteCarlo, Some(7));
+        let drawn = sampler.rng_mut().random::<f64>();
+        assert!((drawn - other.generate_uniform_samples(1)[0]).abs() < 1e-15);
+    }
+
+    /// No samples have no statistics but zeros, not NaN.
+    #[test]
+    fn no_samples_have_zero_statistics() {
+        let stats = SampleStats::from_samples(&[]);
+        assert!(stats.mean.abs() < 1e-15 && stats.variance.abs() < 1e-15);
+        assert!(stats.min.abs() < 1e-15 && stats.max.abs() < 1e-15);
+    }
+
     #[test]
     fn test_monte_carlo_samples() {
         let mut sampler = Sampler::new(SamplingMethod::MonteCarlo, Some(12345));

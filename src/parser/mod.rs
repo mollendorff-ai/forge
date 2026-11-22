@@ -30,6 +30,8 @@ mod variables;
 
 // Re-export commonly used functions
 pub use arrays::{detect_array_type, is_valid_date_format, parse_array_value, type_name};
+#[cfg(feature = "cli")]
+pub(crate) use includes::normalize;
 pub use includes::{parse_includes, resolve_includes};
 pub use memory::{files_in_memory, read_model_text, with_files_in_memory};
 pub use merge_keys::read_yaml;

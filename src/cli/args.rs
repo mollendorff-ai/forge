@@ -1,17 +1,10 @@
-//! The command line: every command and its help text, each command's flags
-//! in `flags.rs`. `run.rs` runs them.
+//! The command line: every command and its help text; `args/options.rs`
+//! holds each command's flags, and `run.rs` runs them.
 
-use crate::cli::ReportFormat;
-use clap::builder::PossibleValue;
 use clap::{Parser, Subcommand};
 
-mod flags;
-pub use flags::{
-    AuditArgs, BayesianArgs, BootstrapArgs, BreakEvenArgs, CalculateArgs, CompareArgs,
-    DecisionTreeArgs, ExamplesArgs, ExportArgs, FunctionsArgs, GoalSeekArgs, ImportArgs, McpArgs,
-    RealOptionsArgs, ReportArgs, ScenariosArgs, SchemaArgs, SensitivityArgs, ServeArgs,
-    SimulateArgs, TornadoArgs, UpdateArgs, UpgradeArgs, ValidateArgs, VarianceArgs, WatchArgs,
-};
+mod options;
+pub use options::*;
 
 #[derive(Parser)]
 #[command(name = "forge")]
@@ -21,6 +14,7 @@ pub use flags::{
 
 COMMANDS:
   calculate     - Execute formulas, update values
+  edit          - Change values and formulas, comments kept
   validate      - Check model integrity
   audit         - Trace formula dependencies
   functions     - List all 203 supported functions
@@ -50,6 +44,7 @@ COMMANDS:
 
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
+  forge edit model.yaml --set year.price=17     # Change an input
   forge simulate model.yaml --iterations 10000  # Monte Carlo
   forge scenarios model.yaml                    # Scenario analysis
   forge decision-tree model.yaml                # Decision tree
@@ -97,6 +92,9 @@ expect:, which forge validate checks) or --plan, which calculates an uncertain
 model (MC.* inputs) with each uncertain input at its plan figure.")]
     /// Calculate all formulas in a YAML file
     Calculate(CalculateArgs),
+
+    // Its help is EditArgs' own: a doc comment here would replace it
+    Edit(crate::cli::commands::EditArgs),
 
     /// Show audit trail for a specific variable
     Audit(AuditArgs),
@@ -629,7 +627,7 @@ EXAMPLES:
     /// Generate tornado sensitivity diagram
     Tornado(TornadoArgs),
 
-    /// Find the equilibria of the games in a model, and play its tournaments
+    // Its help is GameArgs' own: a doc comment here would replace it
     Game(crate::cli::commands::GameArgs),
 
     #[command(long_about = "Run bootstrap resampling for confidence intervals.
@@ -831,11 +829,12 @@ CONFIGURATION:
     }
   }
 
-AVAILABLE TOOLS (20):
-  Core:      forge_validate, forge_calculate, forge_audit, forge_export, forge_import
+AVAILABLE TOOLS (22):
+  Core:      forge_validate, forge_calculate, forge_edit, forge_audit, forge_export,
+             forge_import
   Analysis:  forge_sensitivity, forge_goal_seek, forge_break_even, forge_variance, forge_compare
   Engines:   forge_simulate, forge_scenarios, forge_decision_tree, forge_real_options,
-             forge_tornado, forge_bootstrap, forge_bayesian
+             forge_tornado, forge_bootstrap, forge_bayesian, forge_game
   Discovery: forge_schema, forge_functions, forge_examples
 
 FILES:
@@ -885,23 +884,6 @@ EXAMPLES:
     Serve(ServeArgs),
 }
 
-/// `--format` of `forge compare` and `forge report`: clap reads the name and
-/// lists the four in the help.
-impl clap::ValueEnum for ReportFormat {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Table, Self::Csv, Self::Json, Self::Markdown]
-    }
-
-    fn to_possible_value(&self) -> Option<PossibleValue> {
-        Some(PossibleValue::new(match self {
-            Self::Table => "table",
-            Self::Csv => "csv",
-            Self::Json => "json",
-            Self::Markdown => "markdown",
-        }))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::Cli;
@@ -911,12 +893,17 @@ mod tests {
     fn words(line: &str) -> Vec<String> {
         let mut out = Vec::new();
         let mut word = String::new();
-        let mut quoted = false;
+        // The quote a word is inside, as the shell reads it: in '...' a "
+        // is a character, and in "..." a '
+        let mut quote: Option<char> = None;
         for c in line.chars() {
+            let quoted = quote.is_some();
             match c {
                 // A shell comment or redirect ends the command
                 '#' | '>' if !quoted && word.is_empty() => break,
-                '"' => quoted = !quoted,
+                '"' | '\'' if quote.is_none_or(|q| q == c) => {
+                    quote = if quoted { None } else { Some(c) };
+                },
                 ' ' if !quoted => {
                     if !word.is_empty() {
                         out.push(std::mem::take(&mut word));

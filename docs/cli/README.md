@@ -10,6 +10,7 @@ Forge - Git-native financial modeling
 
 COMMANDS:
   calculate     - Execute formulas, update values
+  edit          - Change values and formulas, comments kept
   validate      - Check model integrity
   audit         - Trace formula dependencies
   functions     - List all 203 supported functions
@@ -39,6 +40,7 @@ COMMANDS:
 
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
+  forge edit model.yaml --set year.price=17     # Change an input
   forge simulate model.yaml --iterations 10000  # Monte Carlo
   forge scenarios model.yaml                    # Scenario analysis
   forge decision-tree model.yaml                # Decision tree
@@ -54,6 +56,7 @@ Usage: forge <COMMAND>
 
 Commands:
   calculate      Calculate all formulas in a YAML file
+  edit           Change a model's text: values, formulas, names added and deleted, comments kept
   audit          Show audit trail for a specific variable
   validate       Validate formulas without calculating
   export         Export a model to an Excel .xlsx workbook
@@ -139,6 +142,61 @@ Options:
 
       --plan
           Calculate an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge simulate` does for its value at plan. Never writes the file
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## edit
+
+```
+Change a model's text: set an input's value or a formula, add or delete an
+input, a formula or a table's column, in the model or in a file it includes
+(@alias.name). Every byte outside the change stays as it was, comments and
+layout included. A change is made only when Forge reads the model back valid,
+with that change and nothing else; when one cannot be made, no file is
+written and the message says why. Each file that changes is kept as it was
+next to it (model.yaml.bak). Results are not written: forge calculate does.
+
+A name is written as formulas read it: price, year.price, a table's column
+months.sales, or @costs.rent in the file included as costs. The changes are
+made in this order: --changes, --set, --formula, --add, --delete.
+
+EXAMPLES:
+  forge edit model.yaml --set year.price=17
+  forge edit model.yaml --formula 'year.margin==year.profit / year.revenue'
+  forge edit model.yaml --add year.tax=0.15 --add 'year.net==year.profit * 0.85'
+  forge edit model.yaml --add fee=25 --after rate          # At the top level
+  forge edit model.yaml --delete year.old_fee --dry-run
+  forge edit model.yaml --changes '[{"op": "add", "path": "year.fee", "value": 25, "unit": "CAD"}]'
+
+Usage: forge edit [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          The model file
+
+Options:
+      --set <PATH=VALUE>
+          Set an input: PATH=VALUE (a number, or a date 2026-01-31)
+
+      --formula <PATH==FORMULA>
+          Set a formula: PATH==FORMULA (the formula's = after the name's)
+
+      --add <PATH=VALUE>
+          Add an input, PATH=VALUE, or a formula or table column, PATH==FORMULA
+
+      --after <NAME>
+          The top-level name an added top-level name follows
+
+      --delete <PATH>
+          Delete an input, a formula or a column, with the lines under it
+
+      --changes <JSON>
+          Changes as JSON, as Forge's MCP edit tool takes them
+
+  -n, --dry-run
+          Show the new text without writing the files
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1260,18 +1318,73 @@ Options:
 ## game
 
 ```
-Find the equilibria of the games in a model, and play its tournaments
+Find the dominated strategies and the equilibria of the games in a model,
+and play its tournaments.
+
+A game is a payoff table of numbers or formulas in the 'games' section of a
+model (format 5.5.0). Every payoff can read the rest of the model, so a
+scenario or an analysis command moves the game with it.
+
+REPORTS, PER GAME:
+  - Strategies strictly dominated by another of the player's own, in the
+    order they are removed; weakly dominated ones are named, not removed
+  - Pure-strategy Nash equilibria, for any number of players
+  - Mixed equilibria, for two players with at most ten strategies each
+    (support enumeration); a tie that makes the list possibly incomplete
+    is named as degenerate
+  - Each strategy's payoff against an even mix of the others' strategies
+  - In a symmetric game of two strategies, the mixes in which all play
+    alike, for any number of players, and whether a population returns
+    to each equilibrium in which all play alike (stable)
+  - With a dynamics: key, in a symmetric game, the share of each strategy
+    generation by generation (the discrete replicator equation), from a
+    start, with a baseline added to every payoff
+
+A tournament plays a symmetric game of two strategies (cooperate, defect)
+round after round, between built-in strategies: always_cooperate,
+always_defect, tit_for_tat, suspicious_tit_for_tat, tit_for_two_tats,
+grim_trigger, win_stay_lose_shift, generous_tit_for_tat (forgive) and
+random (cooperate). A match lasts a number of rounds, or goes on after each
+round with a chance (continuation), and noise flips each move with a chance.
+The values are exact expected values, not samples.
+
+REPORTS, PER TOURNAMENT:
+  - Each player's score (payoff per round over its matches), rank and share
+    of moves that cooperate
+  - The match table: each player's payoff per round against each other
+  - The collectively stable players: none does better against one than it
+    does against itself
+
+The same numbers are scalars named under the game, which formulas and the
+other commands can read: stag_hunt.equilibrium_1.me.stag, stag_hunt.equilibria,
+stag_hunt.even_mix.me.hare, stag_hunt.equilibrium_3.stable,
+hawk_dove.dynamics.share.hawk, hawk_dove.dynamics.payoff, axelrod.score.tft,
+axelrod.match.tft.ad, axelrod.stable.grim, and so on.
+
+EXAMPLES:
+  forge game model.yaml                       # Every game in the model
+  forge game model.yaml --game stag_hunt      # One game
+  forge game model.yaml --scenario costly     # With a scenario's overrides
+  forge game model.yaml -o equilibria.json    # Write the results (JSON or YAML)
 
 Usage: forge game [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  Path to YAML file with a games section
+  <FILE>
+          Path to YAML file with a games section
 
 Options:
-  -g, --game <GAME>          Only this game
-  -s, --scenario <SCENARIO>  Scenario name to apply (uses variable overrides from 'scenarios' section)
-  -o, --output <OUTPUT>      Output file (.yaml or .json)
-  -h, --help                 Print help
+  -g, --game <GAME>
+          Only this game
+
+  -s, --scenario <SCENARIO>
+          Scenario name to apply (uses variable overrides from 'scenarios' section)
+
+  -o, --output <OUTPUT>
+          Output file (.yaml or .json)
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ## bootstrap
@@ -1406,11 +1519,12 @@ CONFIGURATION:
     }
   }
 
-AVAILABLE TOOLS (20):
-  Core:      forge_validate, forge_calculate, forge_audit, forge_export, forge_import
+AVAILABLE TOOLS (22):
+  Core:      forge_validate, forge_calculate, forge_edit, forge_audit, forge_export,
+             forge_import
   Analysis:  forge_sensitivity, forge_goal_seek, forge_break_even, forge_variance, forge_compare
   Engines:   forge_simulate, forge_scenarios, forge_decision_tree, forge_real_options,
-             forge_tornado, forge_bootstrap, forge_bayesian
+             forge_tornado, forge_bootstrap, forge_bayesian, forge_game
   Discovery: forge_schema, forge_functions, forge_examples
 
 FILES:
