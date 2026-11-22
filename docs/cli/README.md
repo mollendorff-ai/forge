@@ -56,7 +56,7 @@ Usage: forge <COMMAND>
 
 Commands:
   calculate      Calculate all formulas in a YAML file
-  edit           Change a model's text: values, formulas, names added, deleted and renamed, comments kept
+  edit           Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, comments kept
   audit          Show audit trail for a specific variable
   validate       Validate formulas without calculating
   export         Export a model to an Excel .xlsx workbook
@@ -153,17 +153,19 @@ Options:
 Change a model's text: set an input's value or a formula, add or delete an
 input, a formula or a table's column, or rename a scalar, a group, a table or
 a column and every name that reads it (formulas, scenarios, expectations, a
-simulation's outputs, a tornado's inputs, in every file of the model), in the
-model or in a file it includes (@alias.name). Every byte outside the change
-stays as it was, comments and layout included. A change is made only when
-Forge reads the model back valid, with that change and nothing else; when one
-cannot be made, no file is written and the message says why. Each file that
-changes is kept as it was next to it (model.yaml.bak). Results are not
-written: forge calculate does.
+simulation's outputs, a tornado's inputs, in every file of the model), or make
+an input uncertain (a distribution, its value kept as the plan) and certain
+again, in the model or in a file it includes (@alias.name). Every byte outside
+the change stays as it was, comments and layout included. A change is made
+only when Forge reads the model back valid, with that change and nothing else;
+when one cannot be made, no file is written and the message says why. Each
+file that changes is kept as it was next to it (model.yaml.bak). Results are
+not written: forge calculate does.
 
 A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
-made in this order: --changes, --set, --formula, --add, --delete, --rename.
+made in this order: --changes, --set, --formula, --add, --delete, --rename,
+--uncertain, --certain.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -172,6 +174,9 @@ EXAMPLES:
   forge edit model.yaml --add fee=25 --after rate          # At the top level
   forge edit model.yaml --delete year.old_fee --dry-run
   forge edit model.yaml --rename year.price=unit_price   # And every name that reads it
+  forge edit model.yaml --uncertain year.price           # A triangle, 80% to 120%
+  forge edit model.yaml --uncertain 'year.price==MC.PERT(12, 16, 22)'
+  forge edit model.yaml --certain year.price             # Back to its value
   forge edit model.yaml --changes '[{"op": "add", "path": "year.fee", "value": 25, "unit": "CAD"}]'
 
 Usage: forge edit [OPTIONS] <FILE>
@@ -198,6 +203,12 @@ Options:
 
       --rename <PATH=NAME>
           Rename a scalar, a group, a table or a column, and every name that reads it: PATH=NAME, the new name one word (year.price=cost)
+
+      --uncertain <PATH>
+          Make an input uncertain: PATH, or PATH==DISTRIBUTION (=MC.PERT(1, 2, 3))
+
+      --certain <PATH>
+          Make a distribution an input again: PATH, or PATH=VALUE to keep
 
       --changes <JSON>
           Changes as JSON, as Forge's MCP edit tool takes them

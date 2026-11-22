@@ -620,8 +620,12 @@ impl Rename {
             read = self.renamed(&read);
         }
         let mut json = serde_json::to_value(&read).expect("a model is written as JSON");
-        if let Some(games) = json.get_mut("games") {
-            formulas_in(games, &|f| formula(f, Place::Elsewhere));
+        // A game's payoffs and a Bayesian network's priors and tables are
+        // formulas over the model, read at the top level
+        for section in ["games", "network"] {
+            if let Some(found) = json.get_mut(section) {
+                formulas_in(found, &|f| formula(f, Place::Elsewhere));
+            }
         }
         let includes: serde_json::Map<String, Json> = model
             .resolved_includes
@@ -1178,6 +1182,34 @@ tornado:
                 named: super::Named::Scalar("rent".to_string())
             }
         );
+    }
+
+    #[test]
+    fn the_priors_of_a_bayesian_network_that_read_a_scalar_are_renamed() {
+        let text = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/expected_loss.yaml"),
+        )
+        .unwrap();
+        let one = HashMap::from([("m.yaml".to_string(), text.clone())]);
+        let changed = edit_files(&one, "m.yaml", &[rename("outlook.p_bad", "p_recession")])
+            .unwrap()
+            .remove("m.yaml")
+            .unwrap();
+        for line in [
+            "  p_recession:",
+            "prior: [\"=1 - outlook.p_neutral - outlook.p_recession\", \"=outlook.p_neutral\", \"=outlook.p_recession\"]",
+            "scalars: {outlook.p_recession: 0.5, outlook.p_neutral: 0.3}",
+        ] {
+            assert!(changed.contains(line), "{line}");
+        }
+        // Every line that reads the name changed; a comment that mentions it
+        // is as it was
+        let was: Vec<&str> = text.lines().collect();
+        assert_eq!(changed.lines().count(), was.len());
+        for (new, old) in changed.lines().zip(&was) {
+            let reads = old.contains("p_bad") && !old.trim_start().starts_with('#');
+            assert_eq!(new != *old, reads, "{old}");
+        }
     }
 
     /// Every scalar, group, table and column of every example, and every

@@ -26,7 +26,7 @@ pub enum New<'a> {
 }
 
 /// The file as a tree, or why it cannot be edited
-fn parse(text: &str) -> Result<YamlFile, String> {
+pub(super) fn parse(text: &str) -> Result<YamlFile, String> {
     let parsed = YamlFile::parse(text);
     if let Some(error) = parsed.positioned_errors().first() {
         return Err(format!("its YAML cannot be read ({error})"));
@@ -39,7 +39,10 @@ fn parse(text: &str) -> Result<YamlFile, String> {
 }
 
 /// The mapping holding the last of `names`, and that last name
-fn place<'n>(file: &YamlFile, names: &'n [&'n str]) -> Result<(Mapping, &'n str), String> {
+pub(super) fn place<'n>(
+    file: &YamlFile,
+    names: &'n [&'n str],
+) -> Result<(Mapping, &'n str), String> {
     let (name, groups) = names.split_last().ok_or("no name was given")?;
     let mut mapping = file
         .document()
@@ -333,7 +336,7 @@ pub fn renamed_formula(raw: &str, text: &str, new: &str) -> Option<String> {
 
 /// How the file writes a formula
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Style {
+pub(super) enum Style {
     Plain,
     Single,
     Double,
@@ -341,7 +344,7 @@ enum Style {
 
 /// A formula for YAML in the style the file uses for it: plain when that is
 /// safe, 'single quotes', or "double quotes" (`text.js`'s `encodeFormula`).
-fn encode_formula(formula: &str, style: Style, flow: bool) -> String {
+pub(super) fn encode_formula(formula: &str, style: Style, flow: bool) -> String {
     let chars: Vec<char> = formula.chars().collect();
     let comment = chars
         .windows(2)
