@@ -551,12 +551,12 @@ tier1:
     how: "One command at a time: the printing function calls the core and formats its result on the Console; whatever it prints that the result lacks is added to the result (MCP, REST and forge-wasm then get it too). The command's existing output tests are the check: the output does not change. Start with the commands whose core and printer differ most (calculate, validate). 10-EXTENDING-FORGE.md already asks new commands to do this"
     acceptance: "Each command's printing function calls its *_core and prints nothing it does not take from the result; every command's output tests pass unchanged; the paragraph in 01-COMPONENT-ARCHITECTURE.md that lists the exceptions is removed"
 
-  - id: T1-LEFTOVERS-2026-11-22
-    title: "Remove the cfg(coverage) check-cfg and fix VALIDATION.md's missing section 5"
-    run_with: "Sonnet 5.5, low effort: mechanical, then clippy on both crates"
-    why: "Found 2026-11-22. No code uses cfg(coverage) any more (no_skipping.rs's budget for it is 0, ADR-006 retired), but Cargo.toml and forge-wasm/Cargo.toml still declare it in [lints.rust] check-cfg, under a comment citing ADR-006. VALIDATION.md jumps from section 4 to section 6 and refers to a section 5 (the Excel cases checked by hand) that is not there"
-    how: "Delete the check-cfg line and its comment in both Cargo.toml files; run cargo clippy --all-targets -D warnings and the MSRV job's clippy. Find what section 5 of VALIDATION.md held in git history (git log -p -- VALIDATION.md) and restore it, or renumber and fix the references"
-    acceptance: "Neither Cargo.toml mentions coverage; clippy passes on stable and on the oldest supported Rust; VALIDATION.md's sections run 1 to N and every 'section N' it names exists. Then update ADR-006's 2026-11-22 note, which names the leftover"
+  # T1-LEFTOVERS-2026-11-22 is done (2026-11-22): neither Cargo.toml declares
+  # cfg(coverage) any more, and clippy passes on 1.97 (stable here and the
+  # oldest supported). VALIDATION.md's section 5 (Real Excel, by hand) and its
+  # Known limits had been cut by the dynamics commit of 2026-11-21 (71970b99);
+  # both are back, sections run 1 to 6, and the summary, STABILITY.md and the
+  # section count six rounds of Excel. ADR-006's note says so.
 
   - id: T1-MERMAID-CHECK
     title: "CI renders every Mermaid diagram in the docs"

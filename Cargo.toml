@@ -212,10 +212,6 @@ petgraph = "0.8"
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 
-# Allow coverage cfg for conditional compilation (ADR-006)
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
-
 # Pedantic linting - code is for humans to read (ADR-004)
 [lints.clippy]
 # Pedantic + nursery + cargo enforced via `make lint` with -D warnings
