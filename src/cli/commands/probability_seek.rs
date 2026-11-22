@@ -98,7 +98,6 @@ pub struct SeekResult {
 /// Returns an error if the model or settings are invalid, `input` is not an
 /// input of the model (a scalar without a formula), the output is not
 /// simulated, or the probability is not reached within the range.
-#[allow(clippy::too_many_arguments)] // the CLI's arguments, one each
 pub fn probability_seek_core(
     file: &Path,
     options: SimulateOptions<'_>,

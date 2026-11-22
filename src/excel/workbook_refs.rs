@@ -727,9 +727,9 @@ impl WorkbookRefs {
                 if next_is_paren
                     && local_names::HANDLED.contains(&word.to_uppercase().as_str()) =>
             {
-                let (text, end) =
-                    self.translate_special(tokens, i, ctx, calls, locals, has_range)?;
-                Ok(Some((text, end)))
+                let (text, length) =
+                    self.translate_special(word, &tokens[i..], ctx, calls, locals, has_range)?;
+                Ok(Some((text, i + length)))
             },
             // PREV and ROW(): the row above, and the table's row number
             Token::Identifier(word)
