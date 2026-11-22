@@ -624,6 +624,44 @@ studio:
     why: "The page exists (mollendorff-ai.github.io, no scripts or cookies). On 2026-11-15 https://www.mollendorff.ai showed 'This Connection Is Not Private' on an iPhone: DNS is right, the GitHub Pages certificate does not cover www"
     how: "Settings, Pages in mollendorff-ai.github.io: remove the custom domain, save, add mollendorff.ai again, wait for the certificate, tick Enforce HTTPS. Then open mollendorff.com and mollendorff.ca on the phone and see where they land (EasyDNS forwards if they do not reach mollendorff.ai)"
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
+  # Decided 2026-11-22 with the maintainer (a brainstorm on how people create,
+  # edit and run calculations, simulations and games in Studio, and learn
+  # Forge): ADR-074, ADR-075 and ADR-076. Built in this order.
+  - id: S-DOCS-ANCHORS
+    title: "The documentation's dead ends fixed, and the headings Studio's help links to (ADR-076, step 1)"
+    why: "GLOSSARY.md is linked and missing; EXAMPLES.md names MC.Correlated, which is not a function; FEATURES.md shows _forge_version 8.x; goal seek and break-even have no FEATURES section; dynamics: and format: have no heading. A help link needs a heading to land on"
+    acceptance: "docs/GLOSSARY.md exists; no MC.Correlated or 8.x version in docs/; FEATURES.md has sections for goal seek and break-even, dynamics: and format:; docs/architecture/README.md says ADR-055 and ADR-056 are built"
+  - id: S-TOOLS-WHOLE
+    title: "The Tools tab shows a whole answer, with Copy and Download (ADR-076, step 2)"
+    why: "An answer is cut at 6,000 characters; the bagel price war's is"
+    acceptance: "A studio test runs forge_game on price_war.yaml in the Tools tab and finds the whole answer on screen, equal to the tool's JSON"
+  - id: S-SETS
+    title: "A set's models as questions, with badges, on the welcome card and in a strip under the title (ADR-076, step 3)"
+    why: "The bagel's simulation and games are reached only through Files, by file name"
+    how: "model answers analyses (monte_carlo, games, scenarios, decision_tree, real_options, bootstrap, bayesian); build.mjs gives each model of a set a question; the welcome card lists them; chips under the title open each"
+    acceptance: "For every set, each model's badge is what model answers; a tap on a question or a chip opens that model; welcome.mjs and layout.mjs pass at 320 px"
+  - id: S-ANALYSES
+    title: "Decision trees, real options, bootstrap and Bayesian networks get a Model view (ADR-076, step 4)"
+    why: "second_shop, wait_option, first_month and slow_week open on an empty Model view with no message"
+    acceptance: "Each opens on a card drawn from its tool's answer, every number held against the tool's answer by a studio test; evidence on a Bayesian network is set by a tap"
+  - id: S-HELP
+    title: "A ? on each section, function and key help, and the manual linked on GitHub at the release's tag (ADR-076, step 5)"
+    acceptance: "studio/help.json covers every section heading the page draws; each link names a document and heading that exist (studio/tests/help.mjs); a function's suggestion shows Forge's syntax and description; a key's shows the schema's description"
+  - id: S-UNCERTAIN
+    title: "An uncertain model on the Model view: the plan on every card, the range under each output; distributions on their own cards (ADR-075, steps 1 to 3)"
+    why: "bagel_simulate.yaml opens on a Problem pill and 'Not calculated' on every result"
+    how: "calculate takes plan: true; simulate with the model's own settings after each change; Analyze's output list in the model's order"
+    acceptance: "Every plan figure on screen equals simulate's at_plan, every band equals forge simulate natively (mean, P5, P95, thresholds), for every uncertain example; the distribution card's fields come from Forge's function list"
+  - id: S-EDIT
+    title: "forge edit: Forge writes a model's text, comments kept (ADR-074)"
+    how: "The yaml-edit spike first, its findings in ADR-074; then set_value, set_formula, add, delete held to text.js's bytes; then rename, make_uncertain, the game changes, insert; the forge-wasm edit tool, forge_edit over MCP, forge edit on the command line"
+    acceptance: "Each change is kept only when Forge reads back exactly it; every example goes through each change and back byte for byte outside the change; Studio's one-line changes moved to it"
+  - id: S-GAMES-EDIT
+    title: "A game edited on its card: cells, names, strategies, players, a tournament's habits, dynamics, and the inputs it reads (ADR-075, step 5)"
+    acceptance: "Every change on a game card is written by edit and checked as S9's are; game answers each game's inputs; an included file's groups fold when it is not the open model"
+  - id: S-TEMPLATES
+    title: "Add from a template: uncertainty, a game of two, of many, a tournament, dynamics (ADR-075, step 6)"
+    acceptance: "Forge serves the templates (a templates tool); each inserted into every example is valid; Studio's Add offers them"
   # Decided 2026-11-12, not to be added: editing in the Grid tab. The cards
   # and the YAML editor already edit values and formulas, a column has one
   # formula and a grid invites one per cell, and Studio is not an imitation of

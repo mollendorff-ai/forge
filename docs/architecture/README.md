@@ -67,8 +67,8 @@ Technical documentation for Forge's architecture.
 | [ADR-052](ADR-052-MULTI-DOCUMENT-ONE-NAMESPACE.md) | The Documents of a File Share One Namespace | Accepted |
 | [ADR-053](ADR-053-PERIODS-AND-THE-ROW-ABOVE.md) | Periods and the Row Above | Accepted |
 | [ADR-054](ADR-054-A-DATE-IS-A-DATE.md) | A Date Is a Date | Accepted |
-| [ADR-055](ADR-055-FORGE-IN-THE-BROWSER.md) | Forge in the Browser (forge-wasm) | Accepted, not yet built |
-| [ADR-056](ADR-056-FORGE-STUDIO.md) | Forge Studio, a Web Interface in This Repository | Accepted, not yet built |
+| [ADR-055](ADR-055-FORGE-IN-THE-BROWSER.md) | Forge in the Browser (forge-wasm) | Accepted; built (forge-wasm, in Forge Studio since 2026-11-12) |
+| [ADR-056](ADR-056-FORGE-STUDIO.md) | Forge Studio, a Web Interface in This Repository | Accepted; built, at <https://forge.mollendorff.ai/> |
 | [ADR-057](ADR-057-VALIDATION-IN-THIS-REPOSITORY.md) | The Validation Suites Live in This Repository | Accepted; built |
 | [ADR-058](ADR-058-AGGREGATES-IN-A-ROW-FORMULA.md) | Aggregates in a Row Formula | Accepted; built |
 | [ADR-059](ADR-059-AN-EMPTY-CELL.md) | An Empty Cell in a Number Column | Accepted; built |
@@ -86,6 +86,9 @@ Technical documentation for Forge's architecture.
 | [ADR-071](ADR-071-A-YAML-MERGE-KEY-IS-REFUSED.md) | A YAML Merge Key Is Refused, With One Message | Accepted (option 1); built |
 | [ADR-072](ADR-072-VALIDATOR-REVISITED.md) | jsonschema Checks Every Model Again | Accepted; built |
 | [ADR-073](ADR-073-GAMES-OF-MANY-PLAYERS.md) | Games of Many Players, and Strategies That Spread | Accepted; built: the count form, the symmetric mixed equilibria, the `dynamics:` key and Forge Studio's view of them (2026-11-22) |
+| [ADR-074](ADR-074-FORGE-WRITES-THE-MODEL.md) | Forge Writes the Model | Accepted, not yet built |
+| [ADR-075](ADR-075-SIMULATIONS-AND-GAMES-ON-THE-CARDS.md) | Simulations and Games on Forge Studio's Cards | Accepted, not yet built |
+| [ADR-076](ADR-076-WHAT-STUDIO-SHOWS-FIRST-AND-HOW-IT-HELPS.md) | What Forge Studio Shows First, and How It Helps | Accepted, not yet built |
 
 ## Architecture Principles
 
