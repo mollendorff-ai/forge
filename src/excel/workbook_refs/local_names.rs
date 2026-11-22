@@ -91,7 +91,8 @@ impl Locals {
             .into_iter()
             .chain((2..u32::MAX).map(|k| format!("{base}_{k}")))
             .find(|c| excel_accepts(c) && !taken.contains(&c.to_ascii_lowercase()))
-            .unwrap_or_else(|| base.to_string());
+            // Some `{base}_{k}` is always free: a formula has fewer names
+            .unwrap_or_default();
         taken.push(excel.to_ascii_lowercase());
         self.visible.push((name.to_string(), excel.clone()));
         excel
@@ -114,17 +115,17 @@ impl LetForm {
     }
 }
 
-/// Where the LET or LAMBDA call starting at `tokens[at]` ends (the index after
-/// it), if it is one.
-fn let_end(tokens: &[Token], at: usize) -> Option<usize> {
+/// The function name of the LET or LAMBDA call starting at `tokens[at]`, and
+/// where it ends (the index after it), if it is one.
+fn let_end(tokens: &[Token], at: usize) -> Option<(&str, usize)> {
     let Some(Token::Identifier(word)) = tokens.get(at) else {
         return None;
     };
     let close = matching_paren(tokens, at + 1)?;
     match word.to_uppercase().as_str() {
-        "LET" => Some(close + 1),
+        "LET" => Some((word, close + 1)),
         "LAMBDA" if matches!(tokens.get(close + 1), Some(Token::OpenParen)) => {
-            matching_paren(tokens, close + 1).map(|end| end + 1)
+            matching_paren(tokens, close + 1).map(|end| (word.as_str(), end + 1))
         },
         _ => None,
     }
@@ -176,30 +177,26 @@ fn single_name<'t>(tokens: &'t [Token], function: &str) -> Result<&'t str, Strin
 }
 
 impl WorkbookRefs {
-    /// Translate the call of one of [`HANDLED`] whose name is `tokens[at]`.
+    /// Translate the call of `word`, one of [`HANDLED`], at `tokens[at]`.
     /// Returns the Excel text and the index of the first token after it.
     pub(super) fn translate_special(
         &self,
         tokens: &[Token],
-        at: usize,
+        (word, at): (&str, usize),
         ctx: Context<'_>,
         calls: &[super::Call],
         locals: &Locals,
         has_range: &mut bool,
     ) -> Result<(String, usize), String> {
-        let Some(Token::Identifier(word)) = tokens.get(at) else {
-            return Err("expected a function name".to_string());
-        };
         if word.eq_ignore_ascii_case("COUNTUNIQUE") {
             return self.count_unique(tokens, at, ctx, has_range, locals);
         }
-        let (form, end) = self.let_form(tokens, at, ctx, calls, locals, has_range)?;
+        let (form, end) = self.let_form(tokens, (word, at), ctx, calls, locals, has_range)?;
         Ok((form.text(), end))
     }
 
     /// Translate `arg`, merging it into `pairs` when it is a whole LET or
     /// LAMBDA call: its pairs are added and its calculation returned.
-    #[allow(clippy::too_many_arguments)] // the translator's state, passed down
     fn merged(
         &self,
         arg: &[Token],
@@ -212,27 +209,27 @@ impl WorkbookRefs {
         if arg.is_empty() {
             return Err("an argument is empty".to_string());
         }
-        if let_end(arg, 0) == Some(arg.len()) {
-            let (inner, _) = self.let_form(arg, 0, ctx, calls, scope, has_range)?;
-            pairs.extend(inner.pairs);
-            return Ok(inner.calculation);
+        match let_end(arg, 0) {
+            Some((word, end)) if end == arg.len() => {
+                let (inner, _) = self.let_form(arg, (word, 0), ctx, calls, scope, has_range)?;
+                pairs.extend(inner.pairs);
+                Ok(inner.calculation)
+            },
+            _ => self.translate(arg, ctx, calls, scope, has_range),
         }
-        self.translate(arg, ctx, calls, scope, has_range)
     }
 
-    /// `LET(...)` or `LAMBDA(...)(...)` at `tokens[at]`, as one Excel LET.
+    /// `LET(...)` or `LAMBDA(...)(...)`, called `word`, at `tokens[at]`, as one
+    /// Excel LET.
     fn let_form(
         &self,
         tokens: &[Token],
-        at: usize,
+        (word, at): (&str, usize),
         ctx: Context<'_>,
         calls: &[super::Call],
         locals: &Locals,
         has_range: &mut bool,
     ) -> Result<(LetForm, usize), String> {
-        let Some(Token::Identifier(word)) = tokens.get(at) else {
-            return Err("expected a function name".to_string());
-        };
         let close = matching_paren(tokens, at + 1).ok_or_else(|| format!("{word}: missing )"))?;
         let inner = &tokens[at + 2..close];
         let mut scope = locals.clone();
@@ -327,14 +324,15 @@ impl WorkbookRefs {
             },
         };
         let is_text = self
-            .column_key(column, ctx)
+            .column_key(column)
             .and_then(|key| self.text_columns.get(&key).copied())
             .ok_or_else(|| format!("COUNTUNIQUE: '{column}' is not a column of numbers or text"))?;
         let mut range = false;
-        let r = self.reference(column, ctx, true, &mut range)?;
-        if !range {
-            return Err(format!("COUNTUNIQUE: '{column}' is not a column"));
-        }
+        // A scalar of the same name is read first, as everywhere
+        let r = match self.reference(column, ctx, true, &mut range) {
+            Ok(r) if range => r,
+            _ => return Err(format!("COUNTUNIQUE: '{column}' is not a column")),
+        };
         *has_range = true;
         let text = if is_text {
             // Each value counts 1 / (how many values are exactly it)
@@ -345,19 +343,14 @@ impl WorkbookRefs {
         Ok((text, close + 1))
     }
 
-    /// The `text_columns` key of a column reference, resolved as `reference`
-    /// resolves it.
-    fn column_key(&self, word: &str, ctx: Context<'_>) -> Option<String> {
+    /// The `text_columns` key of a column reference in a scalar formula,
+    /// resolved as `reference` resolves it.
+    fn column_key(&self, word: &str) -> Option<String> {
         let has = |table: &str, column: &str| {
             self.columns
                 .get(table)
                 .is_some_and(|c| c.contains_key(column))
         };
-        if let Context::Row { table, .. } = ctx {
-            if has(table, word) {
-                return Some(format!("{table}.{word}"));
-            }
-        }
         let (table, column) = word.rsplit_once('.')?;
         if word.starts_with('@') || !table.contains('.') {
             return has(table, column).then(|| word.to_string());
@@ -419,6 +412,73 @@ mod tests {
         refs()
             .to_excel(formula, Context::Scalar { group: Some("g") })
             .map(|t| t.formula)
+    }
+
+    #[test]
+    fn a_name_excel_cannot_write_is_v() {
+        // Forge's names are Unicode; Excel's LET names are not
+        assert_eq!(
+            scalar("=LET(coût, 2, coût * 2)").as_deref(),
+            Ok("=LET(_xlpm.v, 2, _xlpm.v * 2)")
+        );
+        assert_eq!(
+            scalar("=LET(v, 1, coût, 2, coût * v)").as_deref(),
+            Ok("=LET(_xlpm.v, 1, _xlpm.v_, 2, _xlpm.v_ * _xlpm.v)")
+        );
+    }
+
+    #[test]
+    fn a_lambda_called_as_a_let_value_is_merged() {
+        assert_eq!(
+            scalar("=LET(a, LAMBDA(b, b * 2)(3), a + 1)").as_deref(),
+            Ok("=LET(_xlpm.b, 3, _xlpm.a, _xlpm.b * 2, _xlpm.a + 1)")
+        );
+    }
+
+    #[test]
+    fn malformed_lets_and_lambdas_say_why() {
+        let pairs = "LET takes pairs of a name and a value, then a calculation";
+        for (formula, error) in [
+            ("=LET(a, , a)", "an argument is empty"),
+            ("=LET(a, LET(b, 1), a)", pairs),
+            ("=LET(a, 1)", pairs),
+            ("=LET(a, 1, a", "LET: missing )"),
+            ("=LET(a, nothing, a)", "unknown name 'nothing'"),
+            ("=LET(a, 1, nothing)", "unknown name 'nothing'"),
+            ("=LAMBDA(a, a)(1", "LAMBDA call: missing )"),
+            ("=LAMBDA()()", "LAMBDA needs a body"),
+            ("=LAMBDA(a, b, a + b)(1, )", "LAMBDA call: a value is empty"),
+            ("=LAMBDA(a, a)(nothing)", "unknown name 'nothing'"),
+            ("=LAMBDA(1, 2)(3)", "LAMBDA: a name must be a single word"),
+            ("=LAMBDA(a, nothing)(1)", "unknown name 'nothing'"),
+        ] {
+            assert_eq!(scalar(formula), Err(error.to_string()), "{formula}");
+        }
+    }
+
+    #[test]
+    fn count_unique_of_what_is_not_a_typed_column_is_refused() {
+        assert_eq!(
+            scalar("=COUNTUNIQUE(t.n"),
+            Err("COUNTUNIQUE: missing )".to_string())
+        );
+        // No such column, no table named, a name of three parts, a scalar
+        for column in ["t.zz", "n", "a.t.n", "g.y"] {
+            assert_eq!(
+                scalar(&format!("=COUNTUNIQUE({column})")),
+                Err(format!(
+                    "COUNTUNIQUE: '{column}' is not a column of numbers or text"
+                ))
+            );
+        }
+        // A scalar named as the column is what the name reads
+        let mut refs = refs();
+        refs.scalars.insert("t.n".into(), ("t".into(), 2));
+        assert_eq!(
+            refs.to_excel("=COUNTUNIQUE(t.n)", Context::Scalar { group: None })
+                .unwrap_err(),
+            "COUNTUNIQUE: 't.n' is not a column"
+        );
     }
 
     #[test]
