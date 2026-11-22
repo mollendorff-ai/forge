@@ -382,7 +382,7 @@ if cli.json {
 - [ADR-036: Testing Philosophy](ADR-036-TESTING-PHILOSOPHY.md) - Why we test
 - [ADR-037: External Validation Engines](ADR-037-EXTERNAL-VALIDATION-ENGINES.md) - Gnumeric & R
 - [ADR-039: Statistical Validation](ADR-039-STATISTICAL-VALIDATION.md) - R validators
-- [TEST-STRUCTURE.md](../TEST-STRUCTURE.md) - Test organization
+- [07 - Testing architecture](07-TESTING-ARCHITECTURE.md) - Test organization
 
 ---
 
