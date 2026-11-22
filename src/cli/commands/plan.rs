@@ -2,7 +2,7 @@
 //! plan figure, the rule `forge simulate` uses for each output's value at
 //! plan. Forge Studio shows an uncertain model this way on its cards.
 
-use super::{apply_scenario, calculated, results::CalculationResult};
+use super::{apply_scenario, calculated, model_read, results::CalculationResult};
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
@@ -26,11 +26,12 @@ use std::path::Path;
 /// exist, a distribution does not parse, or calculation fails.
 pub fn calculate_plan_core(file: &Path, scenario: Option<&str>) -> ForgeResult<CalculationResult> {
     let mut model = parser::parse_model(file)?;
+    let read = model_read(&model);
     if let Some(scenario_name) = scenario {
         apply_scenario(&mut model, scenario_name)?;
     }
     let at_plan = set_at_plan(&mut model)?;
-    calculated(file, model, true, scenario, at_plan)
+    calculated(file, model, true, scenario, read, at_plan)
 }
 
 /// Each uncertain input of `model` and of its included files
