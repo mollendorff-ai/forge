@@ -501,7 +501,7 @@ mod engine_tests {
     }
 
     fn analysed(config: BootstrapConfig) -> Result<BootstrapResult, String> {
-        BootstrapEngine::new(config)?.analyze()
+        BootstrapEngine::new(config).unwrap().analyze()
     }
 
     /// The median of an odd number of values is the middle one, of an even

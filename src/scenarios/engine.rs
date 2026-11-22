@@ -193,15 +193,17 @@ impl ScenarioEngine {
     fn calculate_expected_values(results: &[ScenarioResult]) -> BTreeMap<String, f64> {
         let mut expected = BTreeMap::new();
 
-        // Get all variable names from first scenario
-        if let Some(first) = results.first() {
-            for var_name in first.scalars.keys() {
-                let weighted_sum: f64 = results
-                    .iter()
-                    .filter_map(|r| r.scalars.get(var_name).map(|v| v * r.probability))
-                    .sum();
-                expected.insert(var_name.clone(), weighted_sum);
-            }
+        // Get all variable names from first scenario (a run has at least one)
+        let names = results
+            .first()
+            .into_iter()
+            .flat_map(|first| first.scalars.keys());
+        for var_name in names {
+            let weighted_sum: f64 = results
+                .iter()
+                .filter_map(|r| r.scalars.get(var_name).map(|v| v * r.probability))
+                .sum();
+            expected.insert(var_name.clone(), weighted_sum);
         }
 
         expected
