@@ -7,7 +7,6 @@
 //! workbook is corrected here, cell by cell.
 
 use super::workbook_refs::column_letter;
-use crate::error::{ForgeError, ForgeResult};
 use std::io::{Cursor, Read, Write};
 
 /// Where a formula cell is: the sheet by position, then the row and column.
@@ -32,53 +31,39 @@ pub(super) fn looks_like_another_type(text: &str) -> bool {
     text.parse::<f64>().is_ok() || text == "TRUE" || text == "FALSE" || text.starts_with('#')
 }
 
-fn zip_error(e: impl std::fmt::Display) -> ForgeError {
-    ForgeError::IO(format!("Failed to mark text results in the workbook: {e}"))
-}
-
-/// Mark the given cells as text in a saved workbook.
+/// Mark the given cells as text in a workbook the writer saved.
 ///
-/// # Errors
-///
-/// Returns an error if the workbook cannot be read back or written again.
-pub(super) fn mark_as_text(bytes: Vec<u8>, cells: &[TextResult]) -> ForgeResult<Vec<u8>> {
+/// The bytes are the writer's own: a well-formed archive whose worksheets are
+/// UTF-8, each formula cell written as `<c r=".."..><f>..</f><v>..</v></c>`.
+/// Reading them back and writing them into memory cannot fail.
+pub(super) fn mark_as_text(bytes: Vec<u8>, cells: &[TextResult]) -> Vec<u8> {
+    const WRITER: &str = "a workbook the writer saved";
     if cells.is_empty() {
-        return Ok(bytes);
+        return bytes;
     }
-    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).map_err(zip_error)?;
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).expect(WRITER);
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
     for index in 0..archive.len() {
-        let mut file = archive.by_index(index).map_err(zip_error)?;
-        let name = file.name().map_err(zip_error)?.to_string();
-        if file.is_dir() {
-            out.add_directory(name, options).map_err(zip_error)?;
-            continue;
-        }
+        let mut file = archive.by_index(index).expect(WRITER);
+        // The writer stores files only, no directory entries
+        let name = file.name().expect(WRITER).to_string();
         let mut data = Vec::new();
-        file.read_to_end(&mut data).map_err(zip_error)?;
-        if let Some(sheet) = sheet_position(&name) {
-            let marked: Vec<&TextResult> = cells.iter().filter(|c| c.sheet == sheet).collect();
-            if !marked.is_empty() {
-                let xml = String::from_utf8(data).map_err(zip_error)?;
-                data = patch_sheet(&xml, &marked).into_bytes();
-            }
+        file.read_to_end(&mut data).expect(WRITER);
+        // The writer names the sheets by position from 1: `xl/worksheets/sheet3.xml` is 2
+        let marked: Vec<&TextResult> = cells
+            .iter()
+            .filter(|c| name == format!("xl/worksheets/sheet{}.xml", c.sheet + 1))
+            .collect();
+        if !marked.is_empty() {
+            let xml = String::from_utf8(data).expect(WRITER);
+            data = patch_sheet(&xml, &marked).into_bytes();
         }
-        out.start_file(name, options).map_err(zip_error)?;
-        out.write_all(&data).map_err(zip_error)?;
+        out.start_file(name, options).expect(WRITER);
+        out.write_all(&data).expect(WRITER);
     }
-    Ok(out.finish().map_err(zip_error)?.into_inner())
-}
-
-/// The position of a sheet from its file name (`xl/worksheets/sheet3.xml` is 2).
-fn sheet_position(name: &str) -> Option<usize> {
-    let number = name
-        .strip_prefix("xl/worksheets/sheet")?
-        .strip_suffix(".xml")?
-        .parse::<usize>()
-        .ok()?;
-    number.checked_sub(1)
+    out.finish().expect(WRITER).into_inner()
 }
 
 fn escape(text: &str) -> String {
@@ -87,27 +72,29 @@ fn escape(text: &str) -> String {
         .replace('>', "&gt;")
 }
 
-/// One `<c>` element made a text result: `t="str"` and the text as its value.
-fn text_cell(element: &str, text: &str) -> Option<String> {
-    let tag_end = element.find('>')?;
+/// One `<c>` element the writer wrote for a formula, made a text result:
+/// `t="str"` and the text as its value.
+fn text_cell(element: &str, text: &str) -> String {
+    const FORMULA: &str = "a formula cell the writer wrote";
+    let tag_end = element.find('>').expect(FORMULA);
     let (tag, inner) = (&element[..tag_end], &element[tag_end + 1..]);
     // Drop the type the writer chose
-    let tag = match tag.find(" t=\"") {
-        Some(at) => {
+    let tag = tag.find(" t=\"").map_or_else(
+        || tag.to_string(),
+        |at| {
             let value = at + 4;
-            let close = tag[value..].find('"')? + value + 1;
+            let close = tag[value..].find('"').expect(FORMULA) + value + 1;
             format!("{}{}", &tag[..at], &tag[close..])
         },
-        None => tag.to_string(),
-    };
-    let from = inner.find("<v>")? + 3;
-    let to = inner.find("</v>")?;
-    Some(format!(
+    );
+    let from = inner.find("<v>").expect(FORMULA) + 3;
+    let to = inner.find("</v>").expect(FORMULA);
+    format!(
         "{tag} t=\"str\">{}{}{}",
         &inner[..from],
         escape(text),
         &inner[to..]
-    ))
+    )
 }
 
 fn patch_sheet(xml: &str, cells: &[&TextResult]) -> String {
@@ -120,16 +107,10 @@ fn patch_sheet(xml: &str, cells: &[&TextResult]) -> String {
             cell.position.0 + 1
         );
         let start_tag = format!("<c r=\"{reference}\"");
-        let Some(start) = xml.find(&start_tag) else {
-            continue;
-        };
-        let Some(length) = xml[start..].find("</c>") else {
-            continue;
-        };
-        let end = start + length + 4;
-        if let Some(replacement) = text_cell(&xml[start..end], &cell.text) {
-            patches.push((start, end, replacement));
-        }
+        // The writer wrote every cell given here, as a formula: never `<c .. />`
+        let start = xml.find(&start_tag).expect("a cell the writer wrote");
+        let end = start + xml[start..].find("</c>").expect("a cell the writer wrote") + 4;
+        patches.push((start, end, text_cell(&xml[start..end], &cell.text)));
     }
     patches.sort_by_key(|p| p.0);
     let mut out = String::with_capacity(xml.len());
