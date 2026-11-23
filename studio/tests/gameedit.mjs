@@ -188,10 +188,52 @@ if (JSON.stringify(await shown()) !== beforeCells) fail("a refused payoff moved 
 await page.click(`[data-cellform="${T}"] [data-cellcancel]`);
 if (!(await page.isVisible(cellOf(T)))) fail("Cancel does not bring the payoff's button back");
 
+// A game's other numbers: the dynamics' generations, a tournament's continuation
+// and a noise the file leaves at its default (added), each with its own button
+async function setNumber(game, path, text) {
+  const button = `[data-game="${game}"] [data-cellpath="${path}"]`;
+  await page.click(button);
+  await page.fill(`[data-game="${game}"] [data-cellform="${path}"] input`, text);
+  await page.click(`[data-game="${game}"] [data-cellform="${path}"] [data-cellsave]`);
+}
+const generations = () => page.evaluate(() => document.querySelector('[data-dynamics="price_war"]').dataset.generations);
+await open("rivalry");
+const GEN = "price_war.dynamics.generations";
+if (!(await page.isVisible(`[data-game="price_war"] [data-cellpath="${GEN}"]`))) fail("the dynamics' generations have no button on a card open for changes");
+await setNumber("price_war", GEN, "30");
+cellChanges.push({ op: "set_value", path: GEN, value: 30 });
+await page.waitForFunction(() => document.querySelector('[data-dynamics="price_war"]')?.dataset.generations === "30", null, { timeout: 60000 });
+await settled();
+await matches("dynamics generations", cellChanges);
+const want = await forge(cellChanges);
+if ((await generations()) !== String(want.games.find((g) => g.game === "price_war").dynamics.generations)) fail("the dynamics run for other generations than Forge's");
+
+const CONT = "rivalry.tournament.continuation";
+await setNumber("rivalry", CONT, "0.5");
+cellChanges.push({ op: "set_value", path: CONT, value: 0.5 });
+await page.waitForFunction(() => /chance 0\.5/.test(document.querySelector('[data-game="rivalry"]').textContent), null, { timeout: 60000 });
+await settled();
+await matches("continuation", cellChanges);
+
+const NOISE = "rivalry.tournament.noise";
+await setNumber("rivalry", NOISE, "0.1");
+cellChanges.push({ op: "set_value", path: NOISE, value: 0.1 });
+await page.waitForFunction(() => /flipped with chance 0\.1/.test(document.querySelector('[data-game="rivalry"]').textContent), null, { timeout: 60000 });
+await settled();
+await matches("noise added", cellChanges);
+
+// Shares that do not add up are refused as Forge words it
+const START = "price_war.dynamics.start.cut";
+await setNumber("price_war", START, "0.9");
+await page.waitForSelector(`[data-cellform="${START}"] [data-cellmsg]:not([hidden])`, { timeout: 60000 });
+const noStart = await forge([...cellChanges, { op: "set_value", path: START, value: 0.9 }]);
+if (!noStart.why) fail("Forge accepts start shares that do not add up");
+else if ((await page.textContent(`[data-cellform="${START}"] [data-cellmsg]`)) !== noStart.why) fail("the card does not say what Forge says of start shares that do not add up");
+
 await browser.close();
 if (!remote) server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");
+console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff, a game's dynamics and a tournament's length and noise changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");

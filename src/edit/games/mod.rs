@@ -13,7 +13,7 @@
 mod cell;
 mod write;
 
-pub(super) use cell::{apply as set_cell, table_of};
+pub(super) use cell::{apply as set_cell, game_of};
 
 use super::{check, is_name, Change, Op, Target};
 use crate::games::model::Cell;
