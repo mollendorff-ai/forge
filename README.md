@@ -285,7 +285,7 @@ forge export model.yaml output.xlsx
 
 `forge calculate` writes each result into the model, next to its formula, and keeps the file as it was in `model.yaml.bak`; `--dry-run` prints the results and changes nothing.
 
-There are runnable models in [`examples/`](examples/); [`examples/starter.yaml`](examples/starter.yaml) is the one to copy.
+There are runnable models in [`examples/`](examples/); [`examples/starter.yaml`](examples/starter.yaml) is the one to copy. The commands in this README name `examples/…`, as in a clone of this repository; `install.sh --examples` puts the same files in `forge-examples/`, so there write `forge-examples/` instead.
 
 ### Editors
 
@@ -343,19 +343,23 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | [Features](docs/FEATURES.md) | The model file, every command, every analysis |
 | [Functions](docs/FUNCTIONS.md) | The 203 functions |
 | [MCP](docs/MCP.md) | The MCP server and its 22 tools |
-| [Examples](examples/) | Runnable models, each with a README |
+| [Examples](examples/) | Runnable models, each with a README; [docs/EXAMPLES.md](docs/EXAMPLES.md) walks through them |
+| [Glossary](docs/GLOSSARY.md) | The terms: a model, scenario, equilibrium, plan |
+| [Command line reference](docs/cli/README.md) | Every command and option, with its output |
 | [Posts](docs/posts/) | One question each, answered with the examples |
 | [Validation](VALIDATION.md) | What is checked against what, and the latest results |
 | [Stability](docs/STABILITY.md) | What a stable release promises |
 | [Architecture](docs/architecture/) | The decisions (ADRs) and why |
 | [Roadmap](.asimov/roadmap.yaml) | What is next, in order, and what is unverified |
 | [Changelog](CHANGELOG.md) | Every release |
+| [Contributing](CONTRIBUTING.md) | How to change Forge, and what a change needs |
 
 ## Development
 
 ```bash
 cargo test                              # Run all tests
-cargo clippy -- -D warnings             # Lint (pedantic)
+cargo clippy --locked --all-targets -- -D warnings   # Lint, as CI runs it (pedantic)
+cargo fmt --all -- --check              # Formatting, as CI runs it
 make check                              # Quick check: format, lint, unit tests, Markdown
 cargo build --release && (cd validation/gnumeric && cargo run --release)   # Against Gnumeric and LibreOffice (VALIDATION.md)
 cargo build --lib --no-default-features # The engine alone: no command line, servers or Excel (ADR-055)

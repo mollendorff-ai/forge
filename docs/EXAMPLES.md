@@ -34,8 +34,10 @@ plan:
 
 # A table: columns of the same length, one row per item.
 # A column formula is a bare "=..." string, calculated row by row from the
-# table's own columns. It cannot reduce a column (SUM, MIN, MAX, AVERAGE of a
-# whole column): that is a scalar, below, and a column may read it.
+# table's own columns. Inside SUM, MIN, MAX or AVERAGE a column's name is the
+# whole column, so "=revenue / SUM(revenue)" is each row's share of the total
+# (ADR-058). A total that stands alone is a scalar, below, and a column may
+# read it, as share_of_revenue does.
 products:
   name: ["Basic", "Plus", "Pro"]
   price: [20, 40, 80]
