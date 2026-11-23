@@ -131,7 +131,7 @@ regex = { version = "1.12", optional = true }
 colored = "3.0"
 
 # Excel export (v1.0.0 array model)
-rust_xlsxwriter = { version = "0.102", optional = true }
+rust_xlsxwriter = { version = "0.103", optional = true }
 
 # Text results that look like numbers are marked as text in the saved workbook
 # (already in the build through rust_xlsxwriter and calamine)
