@@ -64,13 +64,13 @@ Each ADR records one decision: the context, the options, what was decided and wh
 | [ADR-015](ADR-015-FUNCTION-SCALAR-CLASSIFICATION.md) | Function Scalar Classification | Partly superseded |
 | [ADR-016](ADR-016-monte-carlo-architecture.md) | Monte Carlo Architecture | Accepted (§7 superseded) |
 | [ADR-017](ADR-017-MONTE-CARLO-SEQUENTIAL.md) | Monte Carlo Sequential | Accepted |
-| [ADR-018](ADR-018-SCENARIO-ANALYSIS.md) | Scenario Analysis | Accepted |
-| [ADR-019](ADR-019-DECISION-TREES.md) | Decision Trees | Accepted |
-| [ADR-020](ADR-020-REAL-OPTIONS.md) | Real Options | Accepted |
-| [ADR-021](ADR-021-TORNADO-DIAGRAMS.md) | Tornado Diagrams | Accepted |
-| [ADR-022](ADR-022-BOOTSTRAP-RESAMPLING.md) | Bootstrap Resampling | Accepted |
-| [ADR-023](ADR-023-BAYESIAN-NETWORKS.md) | Bayesian Networks | Accepted |
-| [ADR-024](ADR-024-SELF-UPDATE.md) | Self-Update | Accepted (restored) |
+| [ADR-018](ADR-018-SCENARIO-ANALYSIS.md) | Scenario Analysis | Implemented |
+| [ADR-019](ADR-019-DECISION-TREES.md) | Decision Trees | Implemented |
+| [ADR-020](ADR-020-REAL-OPTIONS.md) | Real Options | Implemented |
+| [ADR-021](ADR-021-TORNADO-DIAGRAMS.md) | Tornado Diagrams | Implemented |
+| [ADR-022](ADR-022-BOOTSTRAP-RESAMPLING.md) | Bootstrap Resampling | Implemented |
+| [ADR-023](ADR-023-BAYESIAN-NETWORKS.md) | Bayesian Networks | Implemented |
+| [ADR-024](ADR-024-SELF-UPDATE.md) | Self-Update | Restored |
 | [ADR-025](ADR-025-FEATURE-GATE-INVERSION.md) | Feature Gate Inversion | Superseded |
 | [ADR-027](ADR-027-E2E-TEST-MIGRATION.md) | E2E Test Migration | Partly superseded |
 | [ADR-031](ADR-031-LICENSE-ELASTIC-2.0.md) | License: MIT OR Apache-2.0 | Accepted |
@@ -118,7 +118,7 @@ Each ADR records one decision: the context, the options, what was decided and wh
 | [ADR-073](ADR-073-GAMES-OF-MANY-PLAYERS.md) | Games of Many Players, and Strategies That Spread | Accepted; built: the count form, the symmetric mixed equilibria, the `dynamics:` key and Forge Studio's view of them (2026-11-22) |
 | [ADR-074](ADR-074-A-SCENARIO-STATES-ITS-RESULTS.md) | A Scenario States Its Results, and a Bayesian Network Reads the Model | Accepted (2026-11-22), all seven questions as recommended; built: `expect:`, `forge validate`, `calculate --scenario`, MCP, REST and Studio (steps 1 to 4); a network's formulas, `forge bayesian --scenario` and named queries (steps 5 and 6) |
 | [ADR-075](ADR-075-FORGE-WRITES-THE-MODEL.md) | Forge Writes the Model | Accepted; built: the yaml-edit spike, `set_value`, `set_formula`, `add`, `delete` in `forge edit`, `forge_edit` and forge-wasm (steps 1 and 2), `rename` of a scalar, a group, a table and a column (step 3), `make_uncertain` and `make_certain` (step 4), and `rename` of a game, a player and a strategy (step 5; adding and deleting them left) |
-| [ADR-076](ADR-076-SIMULATIONS-AND-GAMES-ON-THE-CARDS.md) | Simulations and Games on Forge Studio's Cards | Accepted; steps 1 to 3 built (2026-11-22), step 4 not yet |
+| [ADR-076](ADR-076-SIMULATIONS-AND-GAMES-ON-THE-CARDS.md) | Simulations and Games on Forge Studio's Cards | Accepted; steps 1 to 4 built (2026-11-22) |
 | [ADR-077](ADR-077-WHAT-STUDIO-SHOWS-FIRST-AND-HOW-IT-HELPS.md) | What Forge Studio Shows First, and How It Helps | Accepted; built (the docs, Tools' whole answer, a set's questions, every model's Model view, the help) |
 
 ### Numbers not in the list

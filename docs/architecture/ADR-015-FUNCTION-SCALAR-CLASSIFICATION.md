@@ -4,7 +4,7 @@
 
 ## Status
 
-Accepted
+Partly superseded (see the note above)
 
 ## Date
 
