@@ -20,9 +20,9 @@ use std::collections::BTreeMap;
 /// What is left of each kind on 2026-11-16, when the rule was made. Lower a
 /// number when a change removes some; never raise one.
 pub const BUDGET: [(&str, usize); 9] = [
-    ("lint allow or expect attributes", 25),
-    ("lints allowed in a Cargo.toml", 11),
-    ("lint groups a crate does not enable", 2),
+    ("lint allow or expect attributes", 10),
+    ("lints allowed in a Cargo.toml", 0),
+    ("lint groups a crate does not enable", 0),
     ("code compiled only for or only without coverage", 0),
     ("ignored tests", 0),
     ("formatting skips", 0),
@@ -324,6 +324,9 @@ pub fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
     // Counted even when there are none, so the kind is known to be scanned
     let files = test_folder_files();
     add(BUDGET[6].0, files.len(), files.join(", "));
+    // Counted even when there are none, so the kinds are known to be scanned
+    add(BUDGET[1].0, 0, String::new());
+    add(BUDGET[2].0, 0, String::new());
     for (manifest, _) in CRATES {
         let (allowed, missing) = manifest_lints(manifest);
         for lint in allowed {

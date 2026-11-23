@@ -81,7 +81,6 @@ src/
 ├── types.rs     # TestSpec, TestCase, TestResult structures
 ├── engine.rs    # Gnumeric ssconvert integration
 ├── runner.rs    # Test execution pipeline
-└── excel.rs     # XLSX read/write helpers
 
 tests/
 ├── functions/   # 33 YAML files: Excel function tests
