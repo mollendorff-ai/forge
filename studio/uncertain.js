@@ -71,7 +71,7 @@ export function distCard(s, d, dists, { name, unit, deleteButton, editButton }) 
   return `<div class="row dist" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${s.path.startsWith("@") ? "" : ` data-scalar="${esc(s.path)}"`} data-dist="${esc(s.path)}">
     <div class="res-top"><div class="res-name">${esc(name)}${unit}</div><span class="tag">a range</span>${deleteButton}</div>
     <div class="dist-plan"><span class="lab">plan</span><span class="res-val" data-val></span><span class="note" data-dist-mean></span></div>
-    <div class="chips" role="group" aria-label="Distribution of ${esc(name)}">${dists.map((x) => `<button type="button" class="chip" data-dkind="${esc(x.name)}" aria-pressed="${same(x.name, d.kind)}">${esc(x.name.slice(3))}</button>`).join("")}</div>
+    <div class="chips" role="group" aria-label="Distribution of ${esc(name)}"><button type="button" class="chip" data-dfixed="${esc(s.path)}" aria-pressed="false">fixed</button>${dists.map((x) => `<button type="button" class="chip" data-dkind="${esc(x.name)}" aria-pressed="${same(x.name, d.kind)}">${esc(x.name.slice(3))}</button>`).join("")}</div>
     <div class="dist-params">${params.map((p, i) => `<div><label class="lab" for="${id(i)}">${esc(p)}</label><input class="txt" id="${id(i)}" data-dparam="${i}" inputmode="decimal" autocomplete="off" value="${esc(d.args[i] ?? "")}"></div>`).join("")}</div>
     <div class="formula-row" data-fslot="${esc(s.path)}"><div class="formula">${esc(s.formula)}</div>${editButton}</div>
     <div class="msg bad" data-dmsg hidden></div></div>`;
@@ -95,15 +95,24 @@ export function chooseKind(card, kind, dists) {
 }
 
 // A kind chosen or a parameter changed on a distribution card: the card's
-// formula written by `write` (path, formula), which answers why not, if not
-export function listenDistributions(view, dists, write) {
+// formula written by `write` (path, formula), which answers why not, if not;
+// "fixed" chosen: the input made certain by `fix` (path), the same
+export function listenDistributions(view, dists, write, fix) {
   const keep = async (card) => {
     const formula = cardFormula(card), msg = card.querySelector("[data-dmsg]");
     if (formula === null) return;
     const why = await write(card.dataset.dist, formula);
     if (why) { msg.hidden = false; msg.textContent = why; }
   };
-  view.addEventListener("click", (e) => {
+  view.addEventListener("click", async (e) => {
+    const fixed = e.target.closest("[data-dfixed]");
+    if (fixed) {
+      fixed.disabled = true;
+      const why = await fix(fixed.dataset.dfixed);
+      const msg = fixed.closest("[data-dist]")?.querySelector("[data-dmsg]");
+      if (why && msg) { msg.hidden = false; msg.textContent = why; fixed.disabled = false; }
+      return;
+    }
     const chip = e.target.closest("[data-dkind]");
     if (chip) { chooseKind(chip.closest("[data-dist]"), chip.dataset.dkind, dists()); keep(chip.closest("[data-dist]")); }
   });
