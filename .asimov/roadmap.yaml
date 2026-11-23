@@ -729,6 +729,7 @@ studio:
   - id: S-GAMES-EDIT
     title: "A game edited on its card: cells, names, strategies, players, a tournament's habits, dynamics, and the inputs it reads (ADR-076, step 5)"
     acceptance: "Every change on a game card is written by edit and checked as S9's are; game answers each game's inputs; an included file's groups fold when it is not the open model"
+    built: "2026-11-23, the engine's part of the names: rename of a game, a player, a tournament's player and a strategy, with every result name that reads them (src/edit/rename/game.rs), in forge edit --rename, forge_edit and forge-wasm's edit; every game name of the examples renamed and back byte for byte, a roster two tournaments share refused. Left: adding and deleting a player or a strategy, and the game card in Studio"
   - id: S-TEMPLATES
     title: "Add from a template: uncertainty, a game of two, of many, a tournament, dynamics (ADR-076, step 6)"
     acceptance: "Forge serves the templates (a templates tool); each inserted into every example is valid; Studio's Add offers them"

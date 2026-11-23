@@ -16,6 +16,9 @@ pub enum Named {
     /// `@alias.name`: a name in the file the model includes as `alias`, as
     /// that file's model names it
     Included { alias: String, name: String },
+    /// A game's result, `<game>.<rest>` (`price_war.dominated.lune.hold`):
+    /// the game, and the rest as the game names its results
+    Game { game: String, rest: String },
     /// Anything else: a game's result, a name the model does not have
     Other,
 }
@@ -46,10 +49,10 @@ impl Reader {
         }
     }
 
-    /// What `name`, written in a formula at `place`, reads: a column of its
-    /// own table first, then a scalar as the calculator resolves it (its
-    /// group first, then the top level, then the only scalar of that last
-    /// name), then a table's column.
+    /// What `name`, written in a formula at `place`, reads: a game's result
+    /// when its first part is a game, then a column of its own table, then a
+    /// scalar as the calculator resolves it (its group first, then the top
+    /// level, then the only scalar of that last name), then a table's column.
     #[must_use]
     pub fn read(&self, name: &str, place: Place<'_>) -> Named {
         if let Some(rest) = name.strip_prefix('@') {
@@ -61,6 +64,15 @@ impl Reader {
                 });
         }
         let model = &self.calculator.model;
+        if let Some((game, rest)) = name
+            .split_once('.')
+            .filter(|(g, _)| model.games.contains_key(*g))
+        {
+            return Named::Game {
+                game: game.to_string(),
+                rest: rest.to_string(),
+            };
+        }
         let column = |table: &str, column: &str| {
             model.tables.get(table).is_some_and(|t| {
                 t.columns.contains_key(column) || t.row_formulas.contains_key(column)
@@ -172,5 +184,25 @@ mod tests {
             }
         );
         assert_eq!(read("@costs", Place::Elsewhere), Named::Other);
+    }
+
+    #[test]
+    fn a_name_under_a_game_reads_its_result() {
+        let text = "_forge_version: \"5.5.0\"\nr: 2\ngames:\n  pd:\n    players: [a, b]\n    strategies: [c, d]\n    symmetric: true\n    payoffs:\n      c: {c: =r, d: 0}\n      d: {c: 3, d: 1}\n";
+        let model =
+            crate::parser::parse_model_text("m.yaml", text, &std::collections::HashMap::new())
+                .unwrap();
+        let reader = Reader::new(model);
+        assert_eq!(
+            reader.read("pd.dominated.a.c", Place::Elsewhere),
+            Named::Game {
+                game: "pd".to_string(),
+                rest: "dominated.a.c".to_string()
+            }
+        );
+        // The game alone is no result, and nor is a name under another word
+        assert_eq!(reader.read("pd", Place::Elsewhere), Named::Other);
+        assert_eq!(reader.read("pq.equilibria", Place::Elsewhere), Named::Other);
+        assert_eq!(reader.read("r", Place::Elsewhere), scalar("r"));
     }
 }

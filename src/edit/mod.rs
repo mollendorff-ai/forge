@@ -38,9 +38,10 @@ pub enum Op {
     Add,
     /// An input, a formula or a column, with the lines under it
     Delete,
-    /// A scalar, a group, a table or a column called `new_name`, and every
-    /// name that reads it renamed, in every file of the model: formulas,
-    /// scenarios, expectations, a simulation's outputs, a tornado's inputs
+    /// A scalar, a group, a table, a column, a game, a player or a strategy
+    /// called `new_name`, and every name that reads it renamed, in every file
+    /// of the model: formulas, scenarios, expectations, a simulation's
+    /// outputs, a tornado's inputs, a game's results
     Rename,
     /// An input becomes a distribution, its value kept as the plan
     /// (`formula`, a distribution; a triangle around the value when none)
@@ -85,7 +86,10 @@ pub struct Change {
     /// or `make_certain`
     pub op: Op,
     /// The name as formulas read it: `price`, `year.price`, a table's column
-    /// `months.sales`, or `@costs.rent` in the file included as `costs`
+    /// `months.sales`, or `@costs.rent` in the file included as `costs`; for
+    /// `rename`, also a game `price_war`, its player `price_war.players.lune`
+    /// (a tournament's too), and its strategy `price_war.strategies.hold`, or
+    /// one player's `inspection.strategies.human.audit`
     pub path: String,
     /// The input's value (`set_value`, `add`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
