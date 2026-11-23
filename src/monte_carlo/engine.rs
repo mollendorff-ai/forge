@@ -217,6 +217,10 @@ pub struct MonteCarloEngine {
     planned: HashMap<String, f64>,
 }
 
+/// What calculates the outputs of one iteration from its inputs.
+pub type Evaluator<'a> =
+    dyn FnMut(&HashMap<String, f64>) -> Result<HashMap<String, f64>, String> + 'a;
+
 impl MonteCarloEngine {
     /// Create a new engine with the given configuration
     ///
@@ -385,10 +389,10 @@ impl MonteCarloEngine {
     /// # Panics
     ///
     /// Panics if an output variable configured in config is missing from `output_samples`.
-    pub fn run_with_evaluator<F>(&mut self, mut evaluator: F) -> Result<SimulationResult, String>
-    where
-        F: FnMut(&HashMap<String, f64>) -> Result<HashMap<String, f64>, String>,
-    {
+    pub fn run_with_evaluator(
+        &mut self,
+        evaluator: &mut Evaluator<'_>,
+    ) -> Result<SimulationResult, String> {
         let start = stopwatch();
         let n = self.config.iterations;
 
@@ -795,7 +799,7 @@ mod tests {
         engine.add_distribution("costs", Distribution::normal(80.0, 5.0).unwrap());
 
         let result = engine
-            .run_with_evaluator(|inputs| {
+            .run_with_evaluator(&mut |inputs| {
                 let revenue = inputs.get("revenue").copied().unwrap_or(0.0);
                 let costs = inputs.get("costs").copied().unwrap_or(0.0);
                 let mut outputs = HashMap::new();
@@ -864,7 +868,7 @@ mod tests {
         let mut engine = MonteCarloEngine::new(config).unwrap();
         engine.add_distribution("revenue", Distribution::normal(100.0, 10.0).unwrap());
         let result = engine
-            .run_with_evaluator(|inputs| {
+            .run_with_evaluator(&mut |inputs| {
                 let revenue = inputs["revenue"];
                 // Exactly the plan value: no draw lands there, so only the
                 // calculation at plan fails
@@ -924,7 +928,9 @@ mod tests {
         let mut engine = MonteCarloEngine::new(config).unwrap();
         engine.add_distribution("revenue", Distribution::normal(100.0, 10.0).unwrap());
         let result = engine
-            .run_with_evaluator(|_| Ok(names.iter().map(|n| ((*n).to_string(), 1.0)).collect()))
+            .run_with_evaluator(&mut |_| {
+                Ok(names.iter().map(|n| ((*n).to_string(), 1.0)).collect())
+            })
             .unwrap();
         let json: serde_json::Value = serde_json::from_str(&result.to_json()).unwrap();
         let results = &json["monte_carlo_results"];
@@ -1045,7 +1051,8 @@ mod tests {
     fn an_evaluator_that_leaves_out_an_output_stops_the_run() {
         let mut engine = MonteCarloEngine::new(config(vec![output("profit")])).unwrap();
         engine.add_distribution("x", Distribution::uniform(1.0, 2.0).unwrap());
-        let result = engine.run_with_evaluator(|_| Ok(HashMap::from([("loss".to_string(), 1.0)])));
+        let result =
+            engine.run_with_evaluator(&mut |_| Ok(HashMap::from([("loss".to_string(), 1.0)])));
         assert_eq!(
             result.err(),
             Some("Iteration 1: no value for output 'profit'".to_string())
@@ -1115,7 +1122,7 @@ mod tests {
         let mut engine = MonteCarloEngine::new(config(vec![out])).unwrap();
         engine.add_distribution("x", Distribution::uniform(1.0, 2.0).unwrap());
         let mut result = engine
-            .run_with_evaluator(|_| Ok(HashMap::from([("profit".to_string(), 7.0)])))
+            .run_with_evaluator(&mut |_| Ok(HashMap::from([("profit".to_string(), 7.0)])))
             .unwrap();
         result.execution_time_ms = 0;
         assert_eq!(

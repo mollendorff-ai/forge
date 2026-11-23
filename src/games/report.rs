@@ -42,14 +42,18 @@ pub struct Cell {
 }
 
 /// One payoff as the model writes it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Written {
     /// `stag_hunt.payoffs.hare.stag`, and a list's player last
     /// (`inspection.payoffs.cheat.audit.human`)
     pub path: String,
-    /// The formula, when the payoff is one
+    /// The formula, when it is one
     #[serde(skip_serializing_if = "Option::is_none")]
     pub formula: Option<String>,
+    /// The number, when it is one and the payoffs' own numbers are not
+    /// already in the cells (a game's settings)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<f64>,
 }
 
 /// One equilibrium, player by player.
@@ -92,6 +96,11 @@ pub struct TableReport {
     /// Every cell of the table, the first player's strategy outermost, as
     /// the model writes them: what Forge Studio draws
     pub cells: Vec<Cell>,
+    /// The numbers the game writes besides its payoffs (its dynamics), and
+    /// where `edit` finds each; empty where the report is not worked out
+    /// from a model
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub settings: Vec<Written>,
     /// The shares of the strategies, generation by generation, when the
     /// game has a `dynamics:` key (ADR-073)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -204,6 +213,7 @@ pub fn analyse(game: &str, table: &Table, symmetric: bool) -> TableReport {
                 written: Vec::new(),
             })
             .collect(),
+        settings: Vec::new(),
         dynamics: None,
     }
 }

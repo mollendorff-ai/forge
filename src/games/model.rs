@@ -6,8 +6,9 @@
 
 use super::counts;
 use super::dynamics::{self, Dynamics};
+use super::report::Written;
 use super::table::Table;
-use super::tournament::{self, Tournament};
+use super::tournament::{self, Ends, Tournament};
 use crate::error::{ForgeError, ForgeResult};
 use yaml_serde::{Mapping, Value};
 
@@ -47,6 +48,50 @@ pub enum Game {
 }
 
 impl Game {
+    /// The numbers the game writes besides its payoffs, as `edit` names
+    /// them (`rivalry.tournament.noise`, `price_war.dynamics.start.hold`):
+    /// a tournament's length, noise and players' chances, a game's dynamics
+    ///
+    /// # Panics
+    ///
+    /// Never for a game read from a model: each setting says where it is
+    /// written.
+    #[must_use]
+    pub fn settings(&self) -> Vec<Written> {
+        let cells: Vec<&Cell> = match self {
+            Self::Table(table) => table
+                .dynamics
+                .iter()
+                .flat_map(|d| d.start.iter().chain([&d.generations, &d.baseline]))
+                .collect(),
+            Self::Tournament(tournament) => {
+                let (Ends::Rounds(length) | Ends::Continuation(length)) = &tournament.ends;
+                std::iter::once(length)
+                    .chain([&tournament.noise])
+                    .chain(tournament.entrants.iter().filter_map(|e| e.chance.as_ref()))
+                    .collect()
+            },
+        };
+        cells
+            .into_iter()
+            .map(|cell| {
+                let (formula, number) = match &cell.payoff {
+                    Payoff::Formula(f) => (Some(f.clone()), None),
+                    Payoff::Number(n) => (None, Some(*n)),
+                };
+                Written {
+                    path: cell
+                        .at
+                        .strip_prefix("games.")
+                        .expect("a setting says where it is written")
+                        .to_string(),
+                    formula,
+                    number,
+                }
+            })
+            .collect()
+    }
+
     /// The game's name in `games:`.
     #[must_use]
     pub fn name(&self) -> &str {

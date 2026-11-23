@@ -31,9 +31,9 @@ use rmcp::schemars;
 #[cfg_attr(feature = "cli", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Op {
-    /// An input's value (`value`), or a game's payoff as a number
+    /// An input's value (`value`), or a number a game writes
     SetValue,
-    /// A formula, a scalar's or a table column's, or a game's payoff
+    /// A formula, a scalar's or a table column's, or one a game writes
     /// (`formula`)
     SetFormula,
     /// A new input (`value`, and `unit`), formula (`formula`, and `unit`) or
@@ -114,10 +114,14 @@ pub struct Change {
     pub op: Op,
     /// The name as formulas read it: `price`, `year.price`, a table's column
     /// `months.sales`, or `@costs.rent` in the file included as `costs`; for
-    /// `set_value` and `set_formula`, a game's payoff
+    /// `set_value` and `set_formula`, a number a game writes: a payoff
     /// `stag_hunt.payoffs.hare.stag` (a list's player last:
     /// `inspection.payoffs.cheat.audit.human`; the count form's strategy:
-    /// `public_goods.payoffs.keep`); for
+    /// `public_goods.payoffs.keep`), a tournament's `rivalry.tournament.noise`,
+    /// `.rounds`, `.continuation` or a player's chance
+    /// (`axelrod.tournament.players.rand.cooperate`), or the dynamics'
+    /// `price_war.dynamics.generations`, `.baseline` or `.start.hold`; a
+    /// `noise` or `baseline` the file leaves at its default is added; for
     /// `rename`, also a game `price_war`, its player `price_war.players.lune`
     /// (a tournament's too), and its strategy `price_war.strategies.hold`, or
     /// one player's `inspection.strategies.human.audit`; for `add_strategy`
@@ -263,7 +267,7 @@ fn apply(files: &mut HashMap<String, String>, main: &str, change: &Change) -> Re
         return uncertain::apply(files, main, &before, &target, change);
     }
     if matches!(change.op, Op::SetValue | Op::SetFormula)
-        && games::table_of(target.model, &target.name).is_some()
+        && games::game_of(target.model, &target.name).is_some()
     {
         return games::set_cell(files, main, &before, &target, change);
     }

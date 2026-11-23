@@ -27,6 +27,12 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
+    run_args(args.into_iter().map(Into::into).collect(), c)
+}
+
+/// [`run_from`] for the arguments as they are, so that there is one of it
+/// whatever the caller passes.
+fn run_args(args: Vec<OsString>, c: &mut Console<'_>) -> u8 {
     let code = match Cli::try_parse_from(args) {
         Ok(cli) => match cli.command.run(c) {
             Ok(()) => 0,
@@ -367,7 +373,7 @@ impl UpdateArgs {
 
 impl McpArgs {
     fn run(self) -> ForgeResult<()> {
-        self.root(std::env::current_dir)
+        self.root(&std::env::current_dir)
             .and_then(|root| crate::mcp::run_stdio(root.as_deref()))
     }
 
@@ -375,7 +381,7 @@ impl McpArgs {
     /// the server starts in, unless `--any-path` (T1-MCP-ROOT-DEFAULT).
     fn root(
         self,
-        current_dir: impl FnOnce() -> std::io::Result<PathBuf>,
+        current_dir: &dyn Fn() -> std::io::Result<PathBuf>,
     ) -> ForgeResult<Option<PathBuf>> {
         if self.any_path {
             return Ok(None);
@@ -780,16 +786,16 @@ mod tests {
         };
         let here = || Ok(PathBuf::from("/here"));
         assert_eq!(
-            args(Some("/given"), false).root(here).unwrap(),
+            args(Some("/given"), false).root(&here).unwrap(),
             Some(PathBuf::from("/given"))
         );
         assert_eq!(
-            args(None, false).root(here).unwrap(),
+            args(None, false).root(&here).unwrap(),
             Some(PathBuf::from("/here"))
         );
-        assert_eq!(args(Some("/given"), true).root(here).unwrap(), None);
+        assert_eq!(args(Some("/given"), true).root(&here).unwrap(), None);
         let gone = || Err(std::io::Error::other("folder removed"));
-        let err = args(None, false).root(gone).unwrap_err().to_string();
+        let err = args(None, false).root(&gone).unwrap_err().to_string();
         assert!(
             err.contains("cannot read the current folder for --root: folder removed"),
             "{err}"

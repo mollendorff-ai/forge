@@ -42,6 +42,17 @@ const splitName = (strategies, split) => split.map((n, i) => `${n} ${strategies[
 // changed (CSS): what it is written as, to change with Forge's `edit`
 const cellEdit = (w, v) => (w ? `<button type="button" class="edit-btn cell-edit" data-cellpath="${esc(w.path)}" data-cellwas="${esc(w.formula ?? v)}" aria-label="Change the payoff ${esc(w.path)}">${esc(w.formula ?? "number")}</button>` : "");
 
+// A game's other numbers (a tournament's length, noise and players' chances,
+// the dynamics' start, generations and baseline), each with its own button
+// while the card is open for changes (CSS), as the payoffs have
+const settingsEdit = (r) => (r.settings && r.settings.length
+  ? `<div class="settings"><p class="sub">numbers you can change</p>` + r.settings.map((w) => {
+    const label = w.path.slice(r.game.length + 1).replace(/^(tournament|dynamics)\./, "").replace(/^players\./, "");
+    const text = w.formula ?? fmt(w.number);
+    return `<button type="button" class="edit-btn" data-cellpath="${esc(w.path)}" data-cellwas="${esc(w.formula ?? w.number)}" aria-label="Change ${esc(w.path)}">${esc(label)}: ${esc(text)}</button>`;
+  }).join("") + `</div>`
+  : "");
+
 export function tableCard(r) {
   const key = (list) => list.join("\u0001");
   const pure = new Set(r.equilibria.filter((e) => e.kind === "pure").map((e) => key(r.players.map((p) => pureOf(e.players[p])))));
@@ -69,7 +80,7 @@ export function tableCard(r) {
   if (r.ties.length) h += `<p class="note">A tie makes the game degenerate: equilibria between those listed may be missing (${esc(r.ties.join("; "))}).</p>`;
   if (r.dominated.length) h += `<p class="note" data-dominated>Strictly dominated, removed in this order: ${r.dominated.map((d) => `${esc(d.player)}'s ${esc(d.strategy)} (by ${esc(d.by)})`).join(", ")}.</p>`;
   if (r.dynamics) h += dynamicsView(r);
-  return h;
+  return h + settingsEdit(r);
 }
 
 // One player's payoff by its own strategy (rows) and by how the others split
@@ -195,5 +206,5 @@ export function tournamentCard(r) {
   const names = r.ranking.map((s) => s.player);
   h += `<p class="sub" style="margin-top:12px">a round, row against column</p><div class="scroll-x"><table class="report"><thead><tr><th scope="col"></th>${names.map((x) => `<th scope="col">${esc(x)}</th>`).join("")}</tr></thead><tbody>` +
     names.map((a) => `<tr><th scope="row">${esc(a)}</th>${names.map((b) => `<td data-match="${esc(a)},${esc(b)}" data-pay="${r.matches[a][b]}">${esc(fmt(r.matches[a][b]))}</td>`).join("")}</tr>`).join("") + `</tbody></table></div>`;
-  return h;
+  return h + settingsEdit(r);
 }

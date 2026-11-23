@@ -97,10 +97,15 @@ fn raise(text: &str) -> String {
         .document()
         .and_then(|d| d.as_mapping())
         .expect("a model is a mapping of names");
-    if let Some(YamlNode::Scalar(version)) = top.get("_forge_version") {
-        if !format_at_least(version.value().trim_matches(['"', '\'']), "5.5.0") {
-            version.set_value("\"5.5.0\"");
-        }
+    // `check::read` has found the model valid, which has its version
+    let node = top
+        .get("_forge_version")
+        .expect("a model has a _forge_version");
+    let version = node
+        .as_scalar()
+        .expect("the _forge_version of a model is a scalar");
+    if !format_at_least(version.value().trim_matches(['"', '\'']), "5.5.0") {
+        version.set_value("\"5.5.0\"");
     }
     file.to_string()
 }
@@ -322,24 +327,20 @@ mod tests {
         for (dir, files) in super::super::tests::example_sets() {
             let mut mains: Vec<&String> = files.keys().filter(|k| !k.contains('/')).collect();
             mains.sort();
+            mains.retain(|main| super::check::read(&files, main).is_ok());
             for main in mains {
-                if super::check::read(&files, main).is_err() {
-                    continue;
-                }
                 for template in templates::TEMPLATES {
-                    match edit_files(&files, main, &[insert(template.name, None)]) {
-                        Ok(done) => {
-                            assert!(done[main].contains(&template.block(template.default)));
-                            kept += 1;
-                        },
-                        Err(e) => {
-                            refused.push(format!(
-                                "{}/{main} {}: {e}",
-                                dir.display(),
-                                template.name
-                            ));
-                        },
-                    }
+                    let outcome = edit_files(&files, main, &[insert(template.name, None)]);
+                    let note = format!(
+                        "{}/{main} {}: {:?}",
+                        dir.display(),
+                        template.name,
+                        outcome.as_ref().err().map(ToString::to_string)
+                    );
+                    let ok = outcome
+                        .is_ok_and(|done| done[main].contains(&template.block(template.default)));
+                    refused.extend((!ok).then_some(note));
+                    kept += usize::from(ok);
                 }
             }
         }
