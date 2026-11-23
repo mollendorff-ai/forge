@@ -277,6 +277,7 @@ function scalarCards(list) {
       <input class="field" id="${id}" data-input="${esc(s.path)}" inputmode="decimal" autocomplete="off" value="${s.value ?? ""}"></div>
       <div class="slide-row"><input type="range" data-range="${esc(s.path)}" min="${r.min}" max="${r.max}" step="${r.step}" value="${s.value ?? r.min}" aria-label="${esc(leaf(s.path))}">${deleteButton(s.path, true)}</div>
       ${s.better ? `<div class="note">better ${esc(s.better)}</div>` : ""}${s.notes ? `<div class="note">${esc(s.notes)}</div>` : ""}
+      <div class="slide-row"><button type="button" class="edit-btn" data-uncertain="${esc(s.path)}" aria-label="Make ${esc(s.path)} uncertain">Make uncertain</button></div>
       <div class="by-scn" data-byscn hidden></div><div class="err-msg" data-err hidden></div></div>`;
   }
   for (const s of list.filter((x) => x.formula != null)) {
@@ -580,6 +581,14 @@ $("#view-model").addEventListener("click", (e) => {
   if (addCancel) { closeAddForm(addCancel.closest("[data-addslot]")); return; }
   const addSave = e.target.closest("[data-asave]");
   if (addSave) { saveAdd(addSave.closest("[data-addslot]")); return; }
+  const uncertain = e.target.closest("[data-uncertain]");
+  if (uncertain) {
+    uncertain.disabled = true;
+    editModel([{ op: "make_uncertain", path: uncertain.dataset.uncertain }]).then((why) => {
+      if (why) { openSheet("Not changed", `<p>${esc(why)}</p>`); uncertain.disabled = false; }
+    });
+    return;
+  }
   const del = e.target.closest("[data-del]");
   if (del) { askDelete(del); return; }
   const delYes = e.target.closest("[data-delyes]");
@@ -592,7 +601,8 @@ $("#view-model").addEventListener("click", (e) => {
   if (keep) saveFormula(keep.dataset.fsave);
 });
 // A distribution card's kind or parameter changed: its formula is written as an edited formula is
-listenDistributions($("#view-model"), () => distributionsOf(functionList), (path, formula) => writeFormula(path, formula));
+listenDistributions($("#view-model"), () => distributionsOf(functionList), (path, formula) => writeFormula(path, formula),
+  (path) => editModel([{ op: "make_certain", path }]));
 $("#view-model").addEventListener("keydown", (e) => {
   const slot = e.target.closest("[data-addslot]");
   if (slot && e.target.matches("input")) {
@@ -769,6 +779,23 @@ async function writeFormula(path, formula) {
   S.files = files;
   save();
   refreshEditor(file);
+  await load();
+  return null;
+}
+
+// A change Forge writes itself (ADR-075): `edit` answers the new text of each
+// file it changed, kept only when Forge reads the model back as asked;
+// otherwise why not, and the files are as they were
+async function editModel(changes) {
+  let answer;
+  try {
+    answer = await call("edit", { files: S.files, main: S.main, changes });
+  } catch (e) {
+    return e.message;
+  }
+  S.files = { ...S.files, ...answer.files };
+  for (const file of Object.keys(answer.files)) refreshEditor(file);
+  save();
   await load();
   return null;
 }
