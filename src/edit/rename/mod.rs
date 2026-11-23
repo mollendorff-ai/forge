@@ -11,12 +11,17 @@
 //! renamed. The model is then read back: every name reads what it read
 //! before, renamed, and nothing else changed.
 
-use super::{check, is_name, text, Change, Target};
-use crate::core::array_calculator::references::{Named, Place, Reader};
+mod check;
+mod game;
+mod read;
+
+use super::{check as model_check, is_name, text, Change, Target};
+use crate::core::array_calculator::references::{Named, Reader};
 use crate::core::array_calculator::tokenizer;
-use crate::types::{ParsedModel, ResolvedInclude};
-use indexmap::IndexMap;
-use serde_json::Value as Json;
+use crate::types::ParsedModel;
+use read::{
+    exact, file_of, full, is_formula, is_outside, nodes, rekey, short, Node, Ref, Where, SECTIONS,
+};
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -27,241 +32,36 @@ enum Entity {
     Group(String),
     Table(String),
     Column(String, String),
+    /// A game in `games:`
+    Game(String),
+    /// A player of a game played once
+    Player {
+        game: String,
+        player: String,
+    },
+    /// A player of a tournament
+    Entrant {
+        game: String,
+        entrant: String,
+    },
+    /// A strategy of a game played once: every player's of that name, or
+    /// one player's
+    Strategy {
+        game: String,
+        player: Option<String>,
+        strategy: String,
+    },
 }
 
-/// What a name reads: a scalar or a column, in the model of the file that
-/// has it (never [`Named::Included`]), or nothing of the model
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Ref {
-    file: String,
-    named: Named,
-}
-
-/// A file of the model, and the model read from it
-struct Node<'m> {
-    file: String,
-    model: &'m ParsedModel,
-}
-
-/// The file an include reads, by its name among the files
-fn file_of(included: &ResolvedInclude) -> String {
-    included.resolved_path.to_string_lossy().into_owned()
-}
-
-/// The model's files, each once, from the main one down
-fn nodes<'m>(model: &'m ParsedModel, main: &str) -> Vec<Node<'m>> {
-    let mut nodes = vec![Node {
-        file: main.to_string(),
-        model,
-    }];
-    let mut next = 0;
-    while let Some(node) = nodes.get(next) {
-        let model = node.model;
-        let mut aliases: Vec<&String> = model.resolved_includes.keys().collect();
-        aliases.sort();
-        for alias in aliases {
-            let included = &model.resolved_includes[alias];
-            let file = file_of(included);
-            if !nodes.iter().any(|n| n.file == file) {
-                nodes.push(Node {
-                    file,
-                    model: &included.model,
-                });
-            }
-        }
-        next += 1;
-    }
-    nodes
-}
-
-/// The scalar or column of this full name in `model`
-fn exact(model: &ParsedModel, name: &str) -> Named {
-    if model.scalars.contains_key(name) {
-        return Named::Scalar(name.to_string());
-    }
-    name.split_once('.')
-        .filter(|(table, column)| {
-            model.tables.get(*table).is_some_and(|t| {
-                t.columns.contains_key(*column) || t.row_formulas.contains_key(*column)
-            })
-        })
-        .map_or(Named::Other, |(table, column)| Named::Column {
-            table: table.to_string(),
-            column: column.to_string(),
-        })
-}
-
-impl Node<'_> {
-    /// What `named`, read in this file, is in the file that has it
-    fn resolve(&self, named: Named) -> Ref {
-        let Named::Included { alias, name } = named else {
-            return Ref {
-                file: self.file.clone(),
-                named,
-            };
-        };
-        self.model.resolved_includes.get(&alias).map_or_else(
-            || Ref {
-                file: self.file.clone(),
-                named: Named::Other,
-            },
-            |included| Ref {
-                file: file_of(included),
-                named: exact(&included.model, &name),
-            },
-        )
-    }
-
-    /// What a name outside formulas reads, as scenarios and the analyses
-    /// read it: a full name, `@alias.name`, or the last part of only one
-    /// scalar
-    fn outside(&self, name: &str) -> Ref {
-        if let Some(rest) = name.strip_prefix('@') {
-            let named =
-                rest.split_once('.')
-                    .map_or(Named::Other, |(alias, name)| Named::Included {
-                        alias: alias.to_string(),
-                        name: name.to_string(),
-                    });
-            return self.resolve(named);
-        }
-        let named = match exact(self.model, name) {
-            Named::Other if !name.contains('.') => self
-                .model
-                .resolve_scalar_name(name)
-                .map_or(Named::Other, Named::Scalar),
-            named => named,
-        };
-        Ref {
-            file: self.file.clone(),
-            named,
-        }
-    }
-}
-
-/// Where a formula is written in a model, from its keys in the file
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Where {
-    Scalar(String),
-    Column(String),
-    Elsewhere,
-}
-
-impl Where {
-    /// # Panics
-    ///
-    /// Never: a site of a file is under a key of its top-level mapping.
-    fn of(model: &ParsedModel, path: &[String]) -> Self {
-        let top = &path[0];
-        if model.tables.contains_key(top) {
-            return Self::Column(top.clone());
-        }
-        if model.scalars.contains_key(top) {
-            return Self::Scalar(top.clone());
-        }
-        path.get(1)
-            .map(|name| format!("{top}.{name}"))
-            .filter(|full| model.scalars.contains_key(full))
-            .map_or(Self::Elsewhere, Self::Scalar)
-    }
-
-    fn place(&self) -> Place<'_> {
-        match self {
-            Self::Scalar(name) => Place::Scalar(name),
-            Self::Column(table) => Place::Column(table),
-            Self::Elsewhere => Place::Elsewhere,
-        }
-    }
-}
-
-/// Whether the scalar at `path` is a name outside formulas: a scenario's
-/// override or expectation, the file's expectation, a simulation's output
-/// or correlated input, a tornado's output or input
-fn is_outside(model: &ParsedModel, path: &[String], key: bool) -> bool {
-    let path: Vec<&str> = path.iter().map(String::as_str).collect();
-    let scenario = |name: &str| model.scenarios.contains_key(name);
-    match (key, path.as_slice()) {
-        (true, ["scenarios", s, name]) => {
-            scenario(s) && !["probability", "description", "scalars", "expect"].contains(name)
-        },
-        (true, ["scenarios", s, "scalars" | "expect", _]) => scenario(s),
-        (true, ["expect", name]) => {
-            !model.tables.contains_key("expect")
-                && !model.scalars.contains_key(&format!("expect.{name}"))
-        },
-        (
-            false,
-            ["monte_carlo", "outputs", "#", "variable"]
-            | ["monte_carlo", "correlations", "#", "variables", "#"]
-            | ["tornado", "output"]
-            | ["tornado", "inputs", "#", "name"],
-        ) => true,
-        _ => false,
-    }
-}
-
-/// A name as written in full: `group.name`, `table.column`
-fn full(named: &Named) -> Option<String> {
-    match named {
-        Named::Scalar(name) => Some(name.clone()),
-        Named::Column { table, column } => Some(format!("{table}.{column}")),
-        _ => None,
-    }
-}
-
-/// A name as written short: its last part
-fn short(named: &Named) -> Option<String> {
-    full(named).map(|name| name.rsplit('.').next().unwrap_or_default().to_string())
-}
-
-/// The keys whose values are text, never formulas, even when they start
-/// with `=`
-const TEXT_KEYS: [&str; 8] = [
-    "notes",
-    "description",
-    "unit",
-    "source",
-    "format",
-    "label",
-    "name",
-    "validation_status",
-];
-
-/// Whether the value at `path`, `text`, is a formula
-fn is_formula(path: &[String], text: &str) -> bool {
-    text.trim_start().starts_with('=')
-        && !path
-            .last()
-            .is_some_and(|key| TEXT_KEYS.contains(&key.as_str()))
-}
-
-/// The top-level names of a file that are sections, not names of the model
-const SECTIONS: [&str; 12] = [
-    "_forge_version",
-    "_name",
-    "_includes",
-    "scenarios",
-    "games",
-    "expect",
-    "monte_carlo",
-    "tornado",
-    "decision_tree",
-    "real_options",
-    "bootstrap",
-    "bayesian_network",
-];
-
-/// `map` with the key `old` called `new`, in its place
-fn rekey<V>(map: IndexMap<String, V>, old: &str, new: &str) -> IndexMap<String, V> {
-    map.into_iter()
-        .map(|(k, v)| {
-            if k == old {
-                (new.to_string(), v)
-            } else {
-                (k, v)
-            }
-        })
-        .collect()
+/// Whether `top` can be a new name at the top level of `model`: no scalar,
+/// table, game or group has it, and no section of the file
+fn top_free(model: &ParsedModel, top: &str) -> bool {
+    let prefix = format!("{top}.");
+    !(model.scalars.contains_key(top)
+        || model.tables.contains_key(top)
+        || model.games.contains_key(top)
+        || model.scalars.keys().any(|k| k.starts_with(&prefix))
+        || SECTIONS.contains(&top))
 }
 
 /// A rename: what, in which file, and its new name
@@ -281,43 +81,9 @@ impl Rename {
                 "{new} is not a name: a letter or _, then letters, digits and _"
             ));
         }
-        let group = |g: &str| {
-            let prefix = format!("{g}.");
-            model.scalars.keys().any(|k| k.starts_with(&prefix))
-        };
-        let entity = if model.scalars.contains_key(name) {
-            Entity::Scalar(name.to_string())
-        } else if model.tables.contains_key(name) {
-            Entity::Table(name.to_string())
-        } else if model.games.contains_key(name) {
-            return Err("it is a game, which edit does not rename yet".into());
-        } else if !name.contains('.') && group(name) {
-            Entity::Group(name.to_string())
-        } else if let Named::Column { table, column } = exact(model, name) {
-            Entity::Column(table, column)
-        } else {
-            return Err("it is not in the model".into());
-        };
-        let top_free = |top: &str| {
-            !(model.scalars.contains_key(top)
-                || model.tables.contains_key(top)
-                || model.games.contains_key(top)
-                || group(top)
-                || SECTIONS.contains(&top))
-        };
-        let (was, free) = match &entity {
-            Entity::Scalar(old) => match old.rsplit_once('.') {
-                Some((g, last)) => (last, !model.scalars.contains_key(&format!("{g}.{new}"))),
-                None => (old.as_str(), top_free(new)),
-            },
-            Entity::Group(old) | Entity::Table(old) => (old.as_str(), top_free(new)),
-            Entity::Column(table, column) => (
-                column.as_str(),
-                !matches!(
-                    exact(model, &format!("{table}.{new}")),
-                    Named::Column { .. }
-                ),
-            ),
+        let (entity, was, free) = match game::entity(model, name, new)? {
+            Some(found) => found,
+            None => Self::model_entity(model, name, new)?,
         };
         if !free && was != new {
             return Err(format!("{new} is already a name there"));
@@ -327,6 +93,48 @@ impl Rename {
             entity,
             new: new.to_string(),
         })
+    }
+
+    /// A scalar, a group, a table or a column of `model` named `name`; the
+    /// name it has now, and whether `new` is free there
+    fn model_entity(
+        model: &ParsedModel,
+        name: &str,
+        new: &str,
+    ) -> Result<(Entity, String, bool), String> {
+        let entity = if model.scalars.contains_key(name) {
+            Entity::Scalar(name.to_string())
+        } else if model.tables.contains_key(name) {
+            Entity::Table(name.to_string())
+        } else if !name.contains('.')
+            && model
+                .scalars
+                .keys()
+                .any(|k| k.strip_prefix(name).is_some_and(|r| r.starts_with('.')))
+        {
+            Entity::Group(name.to_string())
+        } else if let Named::Column { table, column } = exact(model, name) {
+            Entity::Column(table, column)
+        } else {
+            return Err("it is not in the model".into());
+        };
+        let (was, free) = match &entity {
+            Entity::Scalar(old) => match old.rsplit_once('.') {
+                Some((g, last)) => (last, !model.scalars.contains_key(&format!("{g}.{new}"))),
+                None => (old.as_str(), top_free(model, new)),
+            },
+            Entity::Column(table, column) => (
+                column.as_str(),
+                !matches!(
+                    exact(model, &format!("{table}.{new}")),
+                    Named::Column { .. }
+                ),
+            ),
+            // A group or a table
+            _ => (name, top_free(model, new)),
+        };
+        let was = was.to_string();
+        Ok((entity, was, free))
     }
 
     /// The new full name of the scalar `name`, when it is renamed
@@ -372,6 +180,7 @@ impl Rename {
                 .map(|t| (t, column.clone()))
                 .or_else(|| self.column(table, column).map(|c| (table.clone(), c)))
                 .map(|(table, column)| Named::Column { table, column }),
+            Named::Game { game, rest } => self.game_result(game, rest),
             _ => None,
         };
         named.map_or_else(
@@ -429,15 +238,19 @@ impl Rename {
                 (name, table)
             })
             .collect();
+        self.rename_games(&mut model);
         model
     }
 
-    /// The keys down to the renamed name's own key in its file
-    fn key_path(&self) -> Vec<String> {
+    /// Whether `site` of the renamed file names what is renamed itself: its
+    /// key, or a game's, a player's or a strategy's places in `games:`
+    fn names_it(&self, site: &text::Site, model: &ParsedModel) -> Result<bool, String> {
+        let key = |path: Vec<String>| Ok(site.key && site.path == path);
         match &self.entity {
-            Entity::Scalar(name) => name.split('.').map(str::to_string).collect(),
-            Entity::Group(name) | Entity::Table(name) => vec![name.clone()],
-            Entity::Column(table, column) => vec![table.clone(), column.clone()],
+            Entity::Scalar(name) => key(name.split('.').map(str::to_string).collect()),
+            Entity::Group(name) | Entity::Table(name) => key(vec![name.clone()]),
+            Entity::Column(table, column) => key(vec![table.clone(), column.clone()]),
+            _ => self.game_site(site, model),
         }
     }
 
@@ -523,12 +336,11 @@ impl Rename {
                 },
             )
         });
-        let key_path = self.key_path();
         let mut keys = 0;
         let mut edits: Vec<(Range<usize>, String)> = Vec::new();
         for site in text::sites(text)? {
             let raw = &text[site.range.clone()];
-            if own && site.key && site.path == key_path {
+            if own && self.names_it(&site, node.model)? {
                 keys += 1;
                 edits.push((site.range, text::name_text(raw, &self.new)));
             } else if !site.key && is_formula(&site.path, &site.text) {
@@ -554,178 +366,10 @@ impl Rename {
                 }
             }
         }
-        if own && keys != 1 {
+        if own && keys == 0 {
             return Err("it is not written where edit can rename it".into());
         }
         Ok(text::splice(text, edits))
-    }
-
-    /// The model as JSON, with each name a formula or a section reads
-    /// written as what it reads: renamed (`mapped`) or as it is. Two models
-    /// read the same when these are equal.
-    fn canonical(&self, model: &ParsedModel, file: &str, mapped: bool) -> Json {
-        let node = Node {
-            file: file.to_string(),
-            model,
-        };
-        let reader = Reader::new(model.clone());
-        let token = |was: Ref, word: &str| {
-            let now = if mapped { self.map(&was) } else { was };
-            match now.named {
-                Named::Other => word.to_string(),
-                named => format!("\u{27e6}{}|{named:?}\u{27e7}", now.file),
-            }
-        };
-        let formula = |f: &str, place: Place<'_>| {
-            let edits = tokenizer::names(f)
-                .unwrap_or_default()
-                .into_iter()
-                .map(|(at, w)| {
-                    let read = token(node.resolve(reader.read(&w, place)), &w);
-                    (at..at + w.len(), read)
-                })
-                .collect();
-            text::splice(f, edits)
-        };
-        let outside = |name: &str| token(node.outside(name), name);
-        let mut read = model.clone();
-        for (name, var) in &mut read.scalars {
-            if let Some(f) = &mut var.formula {
-                *f = formula(f, Place::Scalar(name));
-            }
-        }
-        for table in read.tables.values_mut() {
-            let name = table.name.clone();
-            for f in table.row_formulas.values_mut() {
-                *f = formula(f, Place::Column(&name));
-            }
-        }
-        for scenario in read.scenarios.values_mut() {
-            scenario.overrides = std::mem::take(&mut scenario.overrides)
-                .into_iter()
-                .map(|(name, value)| (outside(&name), value))
-                .collect();
-            scenario.dates = std::mem::take(&mut scenario.dates)
-                .into_iter()
-                .map(|name| outside(&name))
-                .collect();
-            for expected in &mut scenario.expect {
-                expected.name = outside(&expected.name);
-            }
-        }
-        for expected in &mut read.expect {
-            expected.name = outside(&expected.name);
-        }
-        if mapped && file == self.file {
-            read = self.renamed(&read);
-        }
-        let mut json = serde_json::to_value(&read).expect("a model is written as JSON");
-        // A game's payoffs and a network's probabilities read names too
-        for section in ["games", "network"] {
-            if let Some(section) = json.get_mut(section) {
-                formulas_in(section, &|f| formula(f, Place::Elsewhere));
-            }
-        }
-        let includes: serde_json::Map<String, Json> = model
-            .resolved_includes
-            .iter()
-            .map(|(alias, included)| {
-                (
-                    alias.clone(),
-                    self.canonical(&included.model, &file_of(included), mapped),
-                )
-            })
-            .collect();
-        serde_json::json!({"model": json, "includes": includes})
-    }
-
-    /// What the model in `texts` reads, as [`Rename::canonical`] gives it,
-    /// with the names its analyses read, which their commands read from the
-    /// file
-    fn read_as(
-        &self,
-        model: &ParsedModel,
-        texts: &HashMap<String, String>,
-        main: &str,
-        mapped: bool,
-    ) -> Json {
-        let analyses: serde_json::Map<String, Json> = nodes(model, main)
-            .iter()
-            .map(|node| {
-                let names = analysis_names(&texts[&node.file])
-                    .iter()
-                    .map(|name| {
-                        let was = node.outside(name);
-                        let now = if mapped { self.map(&was) } else { was };
-                        Json::String(format!("{now:?}"))
-                    })
-                    .collect();
-                (node.file.clone(), Json::Array(names))
-            })
-            .collect();
-        serde_json::json!({
-            "model": self.canonical(model, main, mapped),
-            "analyses": analyses,
-        })
-    }
-
-    /// Whether `after`, read from `new`, is `before`, read from `old`, with
-    /// this rename and nothing else
-    fn only(
-        &self,
-        (before, old): (&ParsedModel, &HashMap<String, String>),
-        (after, new): (&ParsedModel, &HashMap<String, String>),
-        main: &str,
-    ) -> Result<(), String> {
-        if self.read_as(before, old, main, true) == self.read_as(after, new, main, false) {
-            Ok(())
-        } else {
-            Err("Forge reads the new text as more than this rename, so it was not made".into())
-        }
-    }
-}
-
-/// The names a file's analyses read, as YAML reads the file: a
-/// simulation's outputs and correlated inputs, a tornado's output and inputs
-fn analysis_names(text: &str) -> Vec<String> {
-    use yaml_serde::Value as Yaml;
-    if !text.contains("monte_carlo") && !text.contains("tornado") {
-        return Vec::new();
-    }
-    let yaml: Yaml = yaml_serde::from_str(text).unwrap_or_default();
-    let items = |value: &Yaml| value.as_sequence().cloned().unwrap_or_default();
-    let simulation = &yaml["monte_carlo"];
-    let mut found: Vec<Yaml> = items(&simulation["outputs"])
-        .iter()
-        .map(|output| output["variable"].clone())
-        .collect();
-    for correlation in items(&simulation["correlations"]) {
-        found.extend(items(&correlation["variables"]));
-    }
-    found.push(yaml["tornado"]["output"].clone());
-    found.extend(
-        items(&yaml["tornado"]["inputs"])
-            .iter()
-            .map(|input| input["name"].clone()),
-    );
-    found
-        .iter()
-        .filter_map(Yaml::as_str)
-        .map(str::to_string)
-        .collect()
-}
-
-/// Each formula in `json` rewritten by `formula`: a text starting with `=`,
-/// but for the text of [`TEXT_KEYS`]
-fn formulas_in(json: &mut Json, formula: &dyn Fn(&str) -> String) {
-    match json {
-        Json::String(text) if text.starts_with('=') => *text = formula(text),
-        Json::Array(items) => items.iter_mut().for_each(|j| formulas_in(j, formula)),
-        Json::Object(map) => map
-            .iter_mut()
-            .filter(|(key, _)| !TEXT_KEYS.contains(&key.as_str()))
-            .for_each(|(_, j)| formulas_in(j, formula)),
-        _ => {},
     }
 }
 
@@ -748,8 +392,8 @@ pub(super) fn apply(
             .map_err(|why| format!("{why} ({})", node.file))?;
         changed.insert(node.file, text);
     }
-    let after = check::read(&changed, main)
-        .and_then(|after| check::valid(&after).map(|()| after))
+    let after = model_check::read(&changed, main)
+        .and_then(|after| model_check::valid(&after).map(|()| after))
         .map_err(|e| format!("Forge refuses the model with this change: {e}"))?;
     rename.only((before, files), (&after, &changed), main)?;
     *files = changed;
@@ -810,14 +454,14 @@ tornado:
 ";
     const COSTS: &str = "_forge_version: \"5.1.0\"\nrent: 900   # a month\nspare: 1\nscenarios:\n  dear:\n    rent: 950\n";
 
-    fn files() -> HashMap<String, String> {
+    pub(super) fn files() -> HashMap<String, String> {
         HashMap::from([
             ("model.yaml".to_string(), MODEL.to_string()),
             ("costs.yaml".to_string(), COSTS.to_string()),
         ])
     }
 
-    fn rename(path: &str, new: &str) -> Change {
+    pub(super) fn rename(path: &str, new: &str) -> Change {
         Change {
             op: Op::Rename,
             path: path.into(),
@@ -1165,17 +809,6 @@ tornado:
             message.contains("in =LET(k, 2, k * rate), k would read something else once renamed"),
             "{message}"
         );
-        // A game is not renamed yet
-        let game = std::fs::read_to_string(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("examples/games/public-goods.yaml"),
-        )
-        .unwrap();
-        let message = one(&game, rename("pg", "public")).unwrap_err();
-        assert!(
-            message.contains("it is a game, which edit does not rename yet"),
-            "{message}"
-        );
         // An expectation of a name the model does not have would read the
         // renamed scalar
         let unknown = "_forge_version: \"5.6.0\"\nrate: 1\nexpect:\n  nothing: 1\n";
@@ -1208,25 +841,6 @@ tornado:
         assert_eq!(changed["costs.yaml"], COSTS.replace("rent:", "lease:"));
     }
 
-    #[test]
-    fn a_name_of_an_alias_the_model_does_not_have_reads_nothing() {
-        let model = super::super::check::read(&files(), "model.yaml").unwrap();
-        let node = super::Node {
-            file: "model.yaml".to_string(),
-            model: &model,
-        };
-        for name in ["@rates.x", "@costs", "@costs.nothing"] {
-            assert_eq!(node.outside(name).named, super::Named::Other, "{name}");
-        }
-        assert_eq!(
-            node.outside("@costs.rent"),
-            super::Ref {
-                file: "costs.yaml".to_string(),
-                named: super::Named::Scalar("rent".to_string())
-            }
-        );
-    }
-
     /// Every scalar, group, table and column of every example, and every
     /// scalar of a file one includes: renamed, which Forge reads back as the
     /// same model but for the name, and renamed back to the files as they
@@ -1247,13 +861,20 @@ tornado:
                 .collect()
         });
         let renamed: usize = results.iter().map(|(n, _)| n).sum();
-        let failures: Vec<&String> = results.iter().flat_map(|(_, f)| f).collect();
+        // The players of two tournaments written once (`players: &roster`,
+        // then `*roster`) are refused: one key would rename a player of both
+        let (roster, failures): (Vec<&String>, Vec<&String>) =
+            results.iter().flat_map(|(_, f)| f).partition(|f| {
+                f.contains("noisy-tournament.yaml clean.players.")
+                    || f.contains("noisy-tournament.yaml noisy.players.")
+            });
         assert!(
             failures.is_empty(),
             "{} failed:\n{failures:#?}",
             failures.len()
         );
-        assert!(renamed > 1200, "{renamed} renamed");
+        assert_eq!(roster.len(), 10, "{roster:#?}");
+        assert!(renamed > 1300, "{renamed} renamed");
     }
 
     /// Each name of one folder of examples renamed and back: how many were,
@@ -1289,6 +910,7 @@ tornado:
                             .map(|n| format!("@{alias}.{n}")),
                     );
                 }
+                names.extend(super::game::tests::names_of_games(&model));
                 for path in names {
                     let place = format!("{}/{main} {path}", dir.display());
                     let (head, last) = path
