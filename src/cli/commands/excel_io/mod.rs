@@ -691,13 +691,14 @@ g:
             let text = fs::read_to_string(root.join(name)).unwrap();
             assert!(text.contains("MC."), "{name} has no MC. distribution");
         }
-        // The rest, 54 models, all round-trip with no difference. The ten
+        // The rest, 56 models (the guide's two among them), all round-trip
+        // with no difference. The ten
         // in games/, bagel/price_war.yaml, bagel/street_fund.yaml and
         // acquisition/deal_game.yaml come
         // back as their results, numbers as of the export: the export warns
         // that the games themselves are not written. So does the network of
         // expected_loss.yaml, under group network_results
-        assert_eq!(results.len() - skipped.len(), 54);
+        assert_eq!(results.len() - skipped.len(), 56);
     }
 }
 

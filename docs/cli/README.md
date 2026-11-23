@@ -235,7 +235,7 @@ Options:
           Delete a game's player, the payoffs of its first strategy kept
 
       --insert <TEMPLATE>
-          Add a game from a template (forge templates): TEMPLATE, or TEMPLATE=NAME for the game's name (game_of_two=duel)
+          Add a game from a template (forge templates): TEMPLATE, or TEMPLATE=NAME for the game's name (`game_of_two=duel`)
 
       --changes <JSON>
           Changes as JSON, as Forge's MCP edit tool takes them

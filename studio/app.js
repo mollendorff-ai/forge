@@ -4,7 +4,7 @@
 // calculates nothing; see studio/tests/no-engine.mjs.
 
 import { call, start } from "./forge.js";
-import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
+import { esc, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
 import { tableCard, tournamentCard, pathHover } from "./games.js";
 import { gameEditor, listenGameEdits } from "./gameedit.js";
@@ -498,21 +498,26 @@ function resultsList(game) {
     `</tbody></table></details>`;
 }
 let typing = 0;
+// An input's value written by Forge's `edit`, one change after another so
+// that a fast typist's changes are never made on stale files
+let writing = Promise.resolve();
 function setInput(path, value) {
-  const { ns, group, name } = split(path);
-  const file = fileOfNs(ns);
-  const text = setInputText(S.files[file], group, name, value);
-  if (text == null) {
-    openSheet("Not changed", `<p>The line for <span class="mono">${esc(path)}</span> was not found in ${esc(file)}. Change it on the YAML tab.</p>`);
-    return;
-  }
-  S.files[file] = text;
-  refreshEditor(file);
-  const s = allScalars().find((x) => x.path === path);
-  if (s) s.value = value;
-  save();
-  clearTimeout(typing);
-  typing = setTimeout(recalc, 120);
+  writing = writing.then(async () => {
+    let answer;
+    try {
+      answer = await call("edit", { files: S.files, main: S.main, changes: [{ op: "set_value", path, value }] });
+    } catch (e) {
+      openSheet("Not changed", `<p>${esc(e.message)}</p>`);
+      return;
+    }
+    S.files = { ...S.files, ...answer.files };
+    for (const file of Object.keys(answer.files)) refreshEditor(file);
+    const s = allScalars().find((x) => x.path === path);
+    if (s) s.value = value;
+    save();
+    clearTimeout(typing);
+    typing = setTimeout(recalc, 120);
+  });
 }
 // The generation under the pointer on a game's dynamics chart
 $("#view-model").addEventListener("pointermove", pathHover);
@@ -742,16 +747,6 @@ function closeFormulaEditor(path) {
   delete slot.dataset.before;
   slot.classList.remove("editing");
 }
-async function check(files) {
-  try {
-    // An edit that moves a figure away from its expect: is how a model is explored, so it is kept (ADR-074)
-    await call("validate", { files, main: S.main, expectations: false });
-  } catch (e) {
-    // validate cannot evaluate distributions; a short simulation evaluates every formula
-    if (!/MC\.\* distributions/.test(e.message)) throw e;
-    await call("simulate", { files, main: S.main, iterations: 10, seed: 1 });
-  }
-}
 async function saveFormula(path) {
   const slot = slotOf(path);
   if (!slot) return;
@@ -765,29 +760,9 @@ async function saveFormula(path) {
   const why = await writeFormula(path, formula);
   if (why) { msg.hidden = false; msg.textContent = why; button.disabled = false; }
 }
-// `formula` written into its line and kept when Forge reads back exactly it;
-// otherwise the reason, and the file as it was
-async function writeFormula(path, formula) {
-  const { ns, group, name } = split(path);
-  const file = fileOfNs(ns);
-  const text = setFormulaText(S.files[file], group, name, formula);
-  if (text == null) return `Studio could not find this formula's line in ${file}. Change it on the YAML tab.`;
-  const files = { ...S.files, [file]: text };
-  try {
-    await check(files);
-    const after = await call("model", { files, main: S.main });
-    const expected = JSON.parse(JSON.stringify(S.structure));
-    formulaOf(expected, path).formula = formula;
-    if (JSON.stringify(after) !== JSON.stringify(expected)) return "Forge reads the new text differently from what was typed, so it was not saved. Change it on the YAML tab.";
-  } catch (e) {
-    return e.message;
-  }
-  S.files = files;
-  save();
-  refreshEditor(file);
-  await load();
-  return null;
-}
+// `formula` written by Forge's `edit`: the reason when it is refused, and the
+// files as they were
+const writeFormula = (path, formula) => editModel([{ op: "set_formula", path, formula }]);
 
 // A change Forge writes itself (ADR-075): `edit` answers the new text of each
 // file it changed, kept only when Forge reads the model back as asked;
@@ -807,38 +782,9 @@ async function editModel(changes) {
 }
 
 // ---------- adding and deleting an element (roadmap S9) ----------
-// As for a formula: the new text is kept only when the model still validates
-// and Forge reads back exactly the model before, with the one element added
-// or gone. Otherwise Forge's message is shown and the file is as it was.
-const clone = (x) => JSON.parse(JSON.stringify(x));
-// The structure without the element at `path` (a scalar or a table column);
-// false when it is not there
-function without(structure, path) {
-  const st = clone(structure);
-  const parts = [st, ...st.includes];
-  for (const part of parts) {
-    const i = part.scalars.findIndex((x) => x.path === path);
-    if (i >= 0) { part.scalars.splice(i, 1); return st; }
-    for (const t of part.tables) {
-      const j = t.columns.findIndex((c) => `${t.name}.${c.name}` === path);
-      if (j >= 0) { t.columns.splice(j, 1); return st; }
-    }
-  }
-  return false;
-}
-// Check `text` as the new content of `file` with Forge, and keep it when
-// `expected(after)` holds for the model Forge reads from it
-async function commit(file, text, expected) {
-  const files = { ...S.files, [file]: text };
-  await check(files);
-  const after = await call("model", { files, main: S.main });
-  if (!expected(after)) throw new Error("Forge reads the new text differently from what was asked, so it was not kept. Change it on the YAML tab.");
-  S.files = files;
-  save();
-  refreshEditor(file);
-  await load();
-}
-
+// Forge's `edit` writes the new lines and keeps them only when it reads back
+// the model before with the one element added or gone. Otherwise its message
+// is shown and the files are as they were.
 function openAddForm(button) {
   const slot = $(`[data-addslot="${CSS.escape(button.dataset.add)}"]`, $("#view-model"));
   if (!slot) return;
@@ -870,7 +816,6 @@ async function saveAdd(slot) {
   const say = (text) => { msg.hidden = false; msg.textContent = text; };
   const { ns, group, after, kind } = slot.dataset;
   const name = $("[data-aname]", slot).value.trim();
-  if (!NAME.test(name)) { say("A name starts with a letter or _, and has only letters, digits and _."); return; }
   const prefix = `${ns ? "@" + ns + "." : ""}${group ? group + "." : ""}`;
   const path = prefix + name;
   if (formulaOf(S.structure, path) || allScalars().some((x) => x.path === path)) { say(`${path} is already in the model.`); return; }
@@ -886,20 +831,10 @@ async function saveAdd(slot) {
     if (!formula.startsWith("=")) formula = "=" + formula;
     entry = { kind, formula, unit };
   }
-  const file = fileOfNs(ns || null);
-  const text = addEntryText(S.files[file], group || null, name, { ...entry, after: after || undefined });
-  if (text == null) { say(`Studio cannot add to this part of ${file} the way it is written. Add it on the YAML tab.`); return; }
   button.disabled = true;
-  try {
-    await commit(file, text, (model) => {
-      const added = formulaOf(model, path);
-      if (!added) return false;
-      if (kind === "input" && (added.value !== entry.value || added.formula != null || (added.unit ?? null) !== unit)) return false;
-      if (kind !== "input" && (added.formula !== entry.formula || (kind === "formula" && (added.unit ?? null) !== unit))) return false;
-      return JSON.stringify(without(model, path)) === JSON.stringify(S.structure);
-    });
-  } catch (e) {
-    say(e.message);
+  const why = await editModel([{ op: "add", path, ...(kind === "input" ? { value: entry.value } : { formula: entry.formula }), ...(entry.unit ? { unit: entry.unit } : {}), ...(!group && after ? { after } : {}) }]);
+  if (why) {
+    say(why);
     button.disabled = false;
   }
 }
@@ -910,16 +845,9 @@ function askDelete(button) {
   button.insertAdjacentHTML("afterend", `<span class="del-ask">Delete ${esc(leaf(path))}? <button type="button" class="edit-btn warn" data-delyes="${esc(path)}">Delete</button><button type="button" class="edit-btn" data-delno>Keep</button></span>`);
 }
 async function deleteElement(path) {
-  const { ns, group, name } = split(path);
-  const file = fileOfNs(ns);
-  const fail = (text) => openSheet("Not deleted", `<p>${esc(text)}</p>`);
-  const text = deleteEntryText(S.files[file], group, name);
-  if (text == null) { fail(`Studio cannot delete ${path} from ${file} the way it is written (it may be the last one in its group). Delete it on the YAML tab.`); return; }
-  const expected = without(S.structure, path);
-  try {
-    await commit(file, text, (model) => expected && JSON.stringify(model) === JSON.stringify(expected));
-  } catch (e) {
-    fail(e.message);
+  const why = await editModel([{ op: "delete", path }]);
+  if (why) {
+    openSheet("Not deleted", `<p>${esc(why)}</p>`);
     renderModel(); updateValues();
   }
 }

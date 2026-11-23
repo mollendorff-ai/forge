@@ -3,7 +3,7 @@
 //
 //   node studio/screenshots.mjs <built Studio dir or address> <out dir>
 //
-// studio-phone.png is an iPhone-sized view of the bagel example's results;
+// studio-phone.png is an iPhone-sized view of the results of the bagel example's uncertain model (bagel_simulate.yaml: the plan, and the range under each output);
 // studio-desktop.png the editor and the cards side by side.
 
 import { createServer } from "node:http";
@@ -26,14 +26,20 @@ const server = createServer((req, res) => {
 });
 if (!remote) await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = remote ? where.replace(/\/$/, "") : `http://127.0.0.1:${server.address().port}`;
-const ready = (page) => page.waitForFunction(() => document.body.dataset.state === "ready", null, { timeout: 120000 });
+// Ready when the model is calculated, its ranges are worked out (an uncertain
+// model has them) and the welcome card is put away
+const ready = async (page) => {
+  await page.waitForFunction(() => document.body.dataset.state === "ready" && ["ready", "none"].includes(document.body.dataset.band), null, { timeout: 120000 });
+  const gotIt = page.locator("#welcome button", { hasText: "Got it" });
+  if (await gotIt.isVisible()) await gotIt.click();
+};
 
 const browser = await chromium.launch();
 
 // Phone: the year's results, under the scenarios
 {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: "light" });
-  await page.goto(`${base}/?example=bagel`);
+  await page.goto(`${base}/?example=bagel&model=bagel_simulate.yaml`);
   await ready(page);
   await page.evaluate(() => {
     const h = [...document.querySelectorAll("#view-model .eyebrow h2")].find((e) => e.textContent.trim() === "year");
@@ -47,7 +53,7 @@ const browser = await chromium.launch();
 // Desktop: the editor and the cards
 {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: "light" });
-  await page.goto(`${base}/?example=bagel`);
+  await page.goto(`${base}/?example=bagel&model=bagel_simulate.yaml`);
   await ready(page);
   await page.waitForTimeout(400);
   await page.screenshot({ path: join(out, "studio-desktop.png") });
