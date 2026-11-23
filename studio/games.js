@@ -38,12 +38,16 @@ function byCount(r) {
 }
 const splitName = (strategies, split) => split.map((n, i) => `${n} ${strategies[i]}`).join(", ");
 
+// A payoff's own button, under its value, shown while the card is being
+// changed (CSS): what it is written as, to change with Forge's `edit`
+const cellEdit = (w, v) => (w ? `<button type="button" class="edit-btn cell-edit" data-cellpath="${esc(w.path)}" data-cellwas="${esc(w.formula ?? v)}" aria-label="Change the payoff ${esc(w.path)}">${esc(w.formula ?? "number")}</button>` : "");
+
 export function tableCard(r) {
   const key = (list) => list.join("\u0001");
   const pure = new Set(r.equilibria.filter((e) => e.kind === "pure").map((e) => key(r.players.map((p) => pureOf(e.players[p])))));
   const cellHtml = (c) => {
     const eq = pure.has(key(c.strategies));
-    return `<td class="${eq ? "eq" : ""}" data-cell="${esc(c.strategies.join(","))}" data-pay="${c.payoffs.join(",")}"${eq ? ' data-eq="1"' : ""}>${c.payoffs.map((v) => `<span class="pay">${esc(fmt(v))}</span>`).join("")}${eq ? '<span class="eq-mark">equilibrium</span>' : ""}</td>`;
+    return `<td class="${eq ? "eq" : ""}" data-cell="${esc(c.strategies.join(","))}" data-pay="${c.payoffs.join(",")}"${eq ? ' data-eq="1"' : ""}>${c.payoffs.map((v, i) => `<span class="pay">${esc(fmt(v))}</span>${cellEdit(c.written && c.written[i], v)}`).join("")}${eq ? '<span class="eq-mark">equilibrium</span>' : ""}</td>`;
   };
   const alike = byCount(r);
   let h = `<div class="game-head"><b>${esc(r.game)}</b><span class="note">${alike ? `${r.players.length} players alike (${esc(r.players.join(", "))})` : esc(r.players.join(" vs "))}, played once</span></div>`;

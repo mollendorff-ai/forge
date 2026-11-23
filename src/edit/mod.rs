@@ -31,9 +31,10 @@ use rmcp::schemars;
 #[cfg_attr(feature = "cli", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Op {
-    /// An input's value (`value`)
+    /// An input's value (`value`), or a game's payoff as a number
     SetValue,
-    /// A formula, a scalar's or a table column's (`formula`)
+    /// A formula, a scalar's or a table column's, or a game's payoff
+    /// (`formula`)
     SetFormula,
     /// A new input (`value`, and `unit`), formula (`formula`, and `unit`) or
     /// table column (`formula`), at the end of its group; at the top level,
@@ -113,6 +114,10 @@ pub struct Change {
     pub op: Op,
     /// The name as formulas read it: `price`, `year.price`, a table's column
     /// `months.sales`, or `@costs.rent` in the file included as `costs`; for
+    /// `set_value` and `set_formula`, a game's payoff
+    /// `stag_hunt.payoffs.hare.stag` (a list's player last:
+    /// `inspection.payoffs.cheat.audit.human`; the count form's strategy:
+    /// `public_goods.payoffs.keep`); for
     /// `rename`, also a game `price_war`, its player `price_war.players.lune`
     /// (a tournament's too), and its strategy `price_war.strategies.hold`, or
     /// one player's `inspection.strategies.human.audit`; for `add_strategy`
@@ -256,6 +261,11 @@ fn apply(files: &mut HashMap<String, String>, main: &str, change: &Change) -> Re
     }
     if matches!(change.op, Op::MakeUncertain | Op::MakeCertain) {
         return uncertain::apply(files, main, &before, &target, change);
+    }
+    if matches!(change.op, Op::SetValue | Op::SetFormula)
+        && games::table_of(target.model, &target.name).is_some()
+    {
+        return games::set_cell(files, main, &before, &target, change);
     }
     if matches!(
         change.op,
