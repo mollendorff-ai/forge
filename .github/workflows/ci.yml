@@ -292,9 +292,6 @@ jobs:
       - name: Studio's formula colours are the VS Code grammar's
         run: node studio/tests/highlight.mjs
 
-      - name: Studio changes one value in a YAML file and nothing else
-        run: node studio/tests/text.mjs
-
       - name: Studio shows a percentage by the model's unit, and reads typed percentages as hundredths
         run: node studio/tests/format.mjs
 

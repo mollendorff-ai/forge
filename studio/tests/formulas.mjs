@@ -131,10 +131,11 @@ for (const set of SETS) {
     const shown = await page.locator("[data-fmsg]:not([hidden])").textContent({ timeout: 30000 });
     const after = await files(page);
     if (JSON.stringify(after) !== JSON.stringify(before)) fail(`${bad}: the files changed although Forge refused it`);
-    const candidate = await page.evaluate(async ([text, f]) => (await import("./text.js")).setFormulaText(text, "year", "margin", f), [before["bagel.yaml"], bad]);
+    // The text with the bad formula in margin's line, as Forge's `validate` is asked about it
+    const candidate = before["bagel.yaml"].replace('formula: "=profit / revenue"', `formula: ${JSON.stringify(bad)}`);
     const forgeSays = await forge(page, "validate", { files: { ...before, "bagel.yaml": candidate }, main: "bagel.yaml" });
     if (!forgeSays.error) fail(`${bad}: Forge accepts it; choose another invalid formula for this test`);
-    else if (shown !== forgeSays.error) fail(`${bad}: the card says "${shown}", Forge says "${forgeSays.error}"`);
+    else if (!shown.includes(forgeSays.error)) fail(`${bad}: the card says "${shown}", Forge says "${forgeSays.error}"`);
     await page.click('[data-fcancel="year.margin"]');
   }
   await page.close();

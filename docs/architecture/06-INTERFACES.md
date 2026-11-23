@@ -96,7 +96,7 @@ sequenceDiagram
 ```
 
 - **One function.** `call(tool, request)` takes the tool's name (the MCP tool's without `forge_`) and JSON text, and returns JSON text. `TOOLS` in `forge-wasm/src/lib.rs` lists them; `STUDIO_TOOLS` adds `model`, the parsed structure Studio draws its cards from.
-- **Files in memory, not on disk.** The request's `files` map (the main model and every file it includes, by the path written in `_includes`) is held in a thread-local for the length of the call (`src/parser/memory.rs`). `parse_model` and `read_model_text` read from it, so every core runs unchanged. Nothing is written back: Studio changes the YAML text itself (`studio/text.js`, or forge-wasm's `edit` to make an input uncertain or certain) and calls `calculate` again.
+- **Files in memory, not on disk.** The request's `files` map (the main model and every file it includes, by the path written in `_includes`) is held in a thread-local for the length of the call (`src/parser/memory.rs`). `parse_model` and `read_model_text` read from it, so every core runs unchanged. Nothing is written back: Studio's changes to the YAML text are forge-wasm's `edit` (ADR-075) and calls `calculate` again.
 - **A worker.** A long simulation runs off the page's thread; `forge.js` matches answers to requests by `id`.
 - **The same answers.** CI's `forge-wasm` job runs every case of `forge-wasm/tests/cases.json` through the WebAssembly module in Node and natively, and fails on any difference; Studio's screen tests compare what the page shows with `forge calculate` run natively ([07](07-TESTING-ARCHITECTURE.md#webassembly-and-studio)).
 - **A budget.** The gzipped module must stay under the ceiling of ADR-070; the CI summary prints its size.
