@@ -18,6 +18,7 @@ COMMANDS:
   validate      - Check model integrity
   audit         - Trace formula dependencies
   functions     - List all 203 supported functions
+  templates     - Blocks forge edit --insert adds: a game, a tournament
   schema        - Display JSON schema for model validation
   examples      - Show runnable YAML examples
   simulate      - Monte Carlo simulation with distributions
@@ -717,6 +718,23 @@ EXAMPLES:
     /// List all supported Excel-compatible functions
     Functions(FunctionsArgs),
 
+    #[command(
+        long_about = "List the templates forge edit --insert adds to a model, or show one.
+
+A template is a game written as the examples write one, with its numbers to
+change: a game of two players, a game of many players alike, a tournament, a
+population whose strategies spread. Each is valid in any model of format
+5.5.0 or later, and forge edit raises an earlier model to it.
+
+EXAMPLES:
+  forge templates                   # List the templates
+  forge templates tournament        # Show a template's block
+  forge templates --json            # List as JSON (for tooling)
+  forge edit model.yaml --insert tournament=war   # Add it to a model"
+    )]
+    /// List the templates a game can be added from, or show one
+    Templates(TemplatesArgs),
+
     #[command(long_about = "Display JSON schema for validating Forge YAML models.
 
 The versions are model formats (_forge_version), not Forge versions:
@@ -855,7 +873,7 @@ AVAILABLE TOOLS (22):
   Analysis:  forge_sensitivity, forge_goal_seek, forge_break_even, forge_variance, forge_compare
   Engines:   forge_simulate, forge_scenarios, forge_decision_tree, forge_real_options,
              forge_tornado, forge_bootstrap, forge_bayesian, forge_game
-  Discovery: forge_schema, forge_functions, forge_examples
+  Discovery: forge_schema, forge_functions, forge_templates, forge_examples
 
 FILES:
   The tools read and write the files an agent names, as your user, and only

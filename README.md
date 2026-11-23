@@ -228,7 +228,7 @@ Any agent that can write a file and run a command can use Forge: Claude Code, Co
 
 Why not let the agent edit a spreadsheet? A `.xlsx` file is zipped XML, and its formulas say `B7:G42` where a YAML model says `months.revenue`. For one five-year DCF, the workbook was about 7 times the size of the YAML (19 times counting the XML inside). Token counts were not measured, and an agent that reads only the cells it needs avoids much of that; the names are the bigger difference. A YAML model also diffs, reviews and merges like code.
 
-For tighter integration, `forge mcp` is an MCP server with 22 tools (validate, calculate, edit, audit, export and import; sensitivity, goal seek, break-even, variance, compare; simulate, scenarios, decision trees, real options, tornado, bootstrap, Bayesian networks, games; and schema, functions and examples for discovery). Every tool takes the YAML inline, so it works in sandboxed clients with no file system:
+For tighter integration, `forge mcp` is an MCP server with 23 tools (validate, calculate, edit, audit, export and import; sensitivity, goal seek, break-even, variance, compare; simulate, scenarios, decision trees, real options, tornado, bootstrap, Bayesian networks, games; and schema, functions, templates and examples for discovery). Every tool takes the YAML inline, so it works in sandboxed clients with no file system:
 
 ```json
 {
@@ -342,7 +342,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | --- | --- |
 | [Features](docs/FEATURES.md) | The model file, every command, every analysis |
 | [Functions](docs/FUNCTIONS.md) | The 203 functions |
-| [MCP](docs/MCP.md) | The MCP server and its 22 tools |
+| [MCP](docs/MCP.md) | The MCP server and its 23 tools |
 | [Examples](examples/) | Runnable models, each with a README; [docs/EXAMPLES.md](docs/EXAMPLES.md) walks through them |
 | [Glossary](docs/GLOSSARY.md) | The terms: a model, scenario, equilibrium, plan |
 | [Command line reference](docs/cli/README.md) | Every command and option, with its output |

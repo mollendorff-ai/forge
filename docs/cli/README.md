@@ -14,6 +14,7 @@ COMMANDS:
   validate      - Check model integrity
   audit         - Trace formula dependencies
   functions     - List all 203 supported functions
+  templates     - Blocks forge edit --insert adds: a game, a tournament
   schema        - Display JSON schema for model validation
   examples      - Show runnable YAML examples
   simulate      - Monte Carlo simulation with distributions
@@ -77,6 +78,7 @@ Commands:
   bootstrap      Bootstrap resampling for confidence intervals
   bayesian       Bayesian network inference
   functions      List all supported Excel-compatible functions
+  templates      List the templates a game can be added from, or show one
   schema         Display JSON schema for model validation
   examples       Show example YAML models for Forge capabilities
   upgrade        Upgrade a model to a newer format
@@ -169,7 +171,7 @@ A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
 made in this order: --changes, --set, --formula, --add, --delete, --rename,
 --uncertain, --certain, --add-strategy, --delete-strategy, --add-player,
---delete-player.
+--delete-player, --insert.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -186,6 +188,7 @@ EXAMPLES:
   forge edit inspection.yaml --add-strategy inspection.strategies.human.ignore
   forge edit price_war.yaml --add-player rivalry.players.copycat=tit_for_tat
   forge edit public-goods.yaml --delete-player pg.players.a5
+  forge edit bagel.yaml --insert game_of_two=duel          # forge templates lists them
   forge edit model.yaml --changes '[{"op": "add", "path": "year.fee", "value": 25, "unit": "CAD"}]'
 
 Usage: forge edit [OPTIONS] <FILE>
@@ -230,6 +233,9 @@ Options:
 
       --delete-player <PATH>
           Delete a game's player, the payoffs of its first strategy kept
+
+      --insert <TEMPLATE>
+          Add a game from a template (forge templates): TEMPLATE, or TEMPLATE=NAME for the game's name (game_of_two=duel)
 
       --changes <JSON>
           Changes as JSON, as Forge's MCP edit tool takes them
@@ -1584,7 +1590,7 @@ AVAILABLE TOOLS (22):
   Analysis:  forge_sensitivity, forge_goal_seek, forge_break_even, forge_variance, forge_compare
   Engines:   forge_simulate, forge_scenarios, forge_decision_tree, forge_real_options,
              forge_tornado, forge_bootstrap, forge_bayesian, forge_game
-  Discovery: forge_schema, forge_functions, forge_examples
+  Discovery: forge_schema, forge_functions, forge_templates, forge_examples
 
 FILES:
   The tools read and write the files an agent names, as your user, and only

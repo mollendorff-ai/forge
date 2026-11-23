@@ -1,0 +1,151 @@
+// A game edited on its card (ADR-076 decision 5), in a headless browser at
+// 390 px, on the inspection game (examples/games) and the bagel's price war and
+// its rivalry (price_war.yaml):
+//
+// - "change this game" holds Forge's own names: the game, each player and
+//   each strategy to rename, the strategies and players to delete;
+// - a strategy added, a player renamed, the strategy deleted again, and a
+//   player added to a tournament each change the card to what `game` answers
+//   for the files `edit` wrote, cell by cell and standing by standing;
+// - a change Forge refuses (a strategy of the game a tournament plays) is
+//   shown in the card with Forge's own message, and nothing changes.
+//
+//   node studio/tests/gameedit.mjs <built Studio dir or address>
+
+import { createServer } from "node:http";
+import { readFileSync, existsSync, statSync } from "node:fs";
+import { join, extname, resolve } from "node:path";
+import { chromium } from "playwright";
+
+const [where] = process.argv.slice(2);
+const remote = /^https?:/.test(where);
+const dir = resolve(where);
+const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".wasm": "application/wasm" };
+const server = createServer((req, res) => {
+  let file = join(dir, decodeURIComponent(new URL(req.url, "http://x").pathname));
+  if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
+  if (!file.startsWith(dir) || !existsSync(file)) { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { "content-type": TYPES[extname(file)] || "application/octet-stream" });
+  res.end(readFileSync(file));
+});
+if (!remote) await new Promise((r) => server.listen(0, "127.0.0.1", r));
+const base = remote ? where.replace(/\/$/, "") : `http://127.0.0.1:${server.address().port}`;
+
+const browser = await chromium.launch();
+const failures = [];
+const fail = (m) => failures.push(m);
+let page, id, main;
+async function visit(example, model, game) {
+  if (page) await page.close();
+  [id, main] = [example, model];
+  page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.on("pageerror", (e) => fail(e.message));
+  await page.goto(`${base}/?example=${id}&model=${main}`);
+  await page.waitForFunction(() => document.body.dataset.state !== "loading", null, { timeout: 120000 });
+  await page.waitForSelector(`[data-game="${game}"] table`);
+}
+
+// Forge's answer for the example's files with these changes made, in order:
+// the games, or the message `edit` refuses with
+const forge = (changes) => page.evaluate(async ([id, main, changes]) => {
+  const { call } = await import("./forge.js");
+  const set = (await (await fetch("examples.json")).json()).find((x) => x.id === id);
+  try {
+    const { files } = await call("edit", { files: { ...set.files }, main, changes });
+    return { games: await call("game", { files: { ...set.files, ...files }, main }) };
+  } catch (e) { return { why: e.message }; }
+}, [id, main, changes]);
+
+// What the cards show: a table's cells, a tournament's players in rank order
+const shown = () => page.evaluate(() => Object.fromEntries([...document.querySelectorAll("#view-model [data-game]")].map((card) => [card.dataset.game, {
+  cells: [...card.querySelectorAll("[data-cell]")].map((td) => `${td.dataset.cell}=${td.dataset.pay}`),
+  ranking: [...card.querySelectorAll("[data-standing]")].map((tr) => `${tr.dataset.standing}=${tr.dataset.score}`),
+}])));
+
+const settled = () => page.waitForFunction(() => document.body.dataset.state !== "loading"
+  && [...document.querySelectorAll("#view-model [data-game]")].every((c) => !/Forge is working out/.test(c.textContent)), null, { timeout: 60000 });
+
+async function matches(label, changes) {
+  const want = await forge(changes);
+  if (!want.games) { fail(`${label}: Forge refused: ${want.why}`); return; }
+  const got = await shown();
+  for (const g of want.games) {
+    const cells = g.kind === "tournament" ? [] : g.cells.map((c) => `${c.strategies.join(",")}=${c.payoffs.join(",")}`);
+    const ranking = g.kind === "tournament" ? g.ranking.map((s) => `${s.player}=${s.score}`) : [];
+    if (!got[g.game]) { fail(`${label}: no card for ${g.game}`); continue; }
+    if (JSON.stringify(got[g.game].cells) !== JSON.stringify(cells)) fail(`${label}: ${g.game}'s cells are ${got[g.game].cells}, Forge's are ${cells}`);
+    if (JSON.stringify(got[g.game].ranking) !== JSON.stringify(ranking)) fail(`${label}: ${g.game}'s standings are ${got[g.game].ranking}, Forge's are ${ranking}`);
+  }
+  if (Object.keys(got).length !== want.games.length) fail(`${label}: ${Object.keys(got)} cards for Forge's ${want.games.map((g) => g.game)}`);
+}
+
+const editor = (game) => `[data-gedit="${game}"]`;
+const open = (game) => page.evaluate((g) => { document.querySelector(`[data-gedit="${g}"]`).open = true; }, game);
+const rowOf = (game, row) => `${editor(game)} [data-grow="${row}"]`;
+
+// The inspection game: each player has its own strategies
+await visit("games", "inspection.yaml", "inspection");
+await open("inspection");
+const offered = await page.$$eval(`${rowOf("inspection", "rename")} option`, (os) => os.map((o) => o.value));
+const wantOffered = ["inspection", "inspection.players.ai", "inspection.players.human", "inspection.strategies.ai.comply", "inspection.strategies.ai.cheat", "inspection.strategies.human.audit", "inspection.strategies.human.trust"];
+if (offered.join(",") !== wantOffered.join(",")) fail(`rename offers ${offered}, Forge's names are ${wantOffered}`);
+await matches("as opened", []);
+
+// A strategy for both players, a player renamed, and the strategy deleted
+const changes = [];
+await page.fill(`${rowOf("inspection", "add_strategy")} input`, "bluff");
+await page.click(`${rowOf("inspection", "add_strategy")} button`);
+changes.push({ op: "add_strategy", path: "inspection.strategies.bluff" });
+await page.waitForSelector('[data-game="inspection"] [data-cell="bluff,bluff"]');
+await settled();
+await matches("add strategy", changes);
+
+await open("inspection");
+await page.selectOption(`${rowOf("inspection", "rename")} select`, "inspection.players.ai");
+await page.fill(`${rowOf("inspection", "rename")} input`, "machine");
+await page.click(`${rowOf("inspection", "rename")} button`);
+changes.push({ op: "rename", path: "inspection.players.ai", new_name: "machine" });
+await page.waitForFunction(() => /machine vs human/.test(document.querySelector('[data-game="inspection"]').textContent), null, { timeout: 60000 });
+await settled();
+await matches("rename player", changes);
+
+await open("inspection");
+await page.selectOption(`${rowOf("inspection", "delete_strategy")} select`, "inspection.strategies.bluff");
+await page.click(`${rowOf("inspection", "delete_strategy")} button`);
+changes.push({ op: "delete_strategy", path: "inspection.strategies.bluff" });
+await page.waitForFunction(() => document.querySelectorAll('[data-game="inspection"] [data-cell]').length === 4, null, { timeout: 60000 });
+await settled();
+await matches("delete strategy", changes);
+
+// The price war and its tournament
+await visit("bagel", "price_war.yaml", "price_war");
+await open("rivalry");
+await page.fill(`${rowOf("rivalry", "add_player")} input`, "newcomer");
+await page.selectOption(`${rowOf("rivalry", "add_player")} select`, "random");
+await page.click(`${rowOf("rivalry", "add_player")} button`);
+const tournament = [{ op: "add_player", path: "rivalry.players.newcomer", plays: "random" }];
+await page.waitForSelector('[data-game="rivalry"] [data-standing="newcomer"]');
+await settled();
+await matches("add tournament player", tournament);
+
+// A change Forge refuses is shown as Forge words it, and nothing moves: the
+// tournament plays the price war's strategies
+await open("price_war");
+const before = JSON.stringify(await shown());
+await page.fill(`${rowOf("price_war", "add_strategy")} input`, "bluff");
+await page.click(`${rowOf("price_war", "add_strategy")} button`);
+await page.waitForSelector(`${editor("price_war")} [data-gmsg]:not([hidden])`);
+const refusal = await forge([...tournament, { op: "add_strategy", path: "price_war.strategies.bluff" }]);
+const message = await page.textContent(`${editor("price_war")} [data-gmsg]`);
+if (!refusal.why) fail("Forge accepts a strategy for the game a tournament plays");
+else if (message !== refusal.why) fail(`the card says "${message}", Forge says "${refusal.why}"`);
+if (JSON.stringify(await shown()) !== before) fail("a refused change moved the cards");
+if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) fail("the cards are wider than the screen");
+
+await browser.close();
+if (!remote) server.close();
+if (failures.length) {
+  console.error(`${failures.length} problems:\n` + failures.join("\n"));
+  process.exit(1);
+}
+console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");

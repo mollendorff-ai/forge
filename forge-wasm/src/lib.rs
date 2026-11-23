@@ -18,7 +18,8 @@ use mollendorff_forge::cli::{
     audit_core, bayesian_core, bootstrap_core, calculate_core, calculate_plan_core, compare_core,
     decision_tree_core, examples_core, functions_core, game_core, goal_seek_core,
     probability_seek_core, real_options_core, scenarios_core, schema_core, sensitivity_core,
-    simulate_core, tornado_core, validate_core_with, variance_core, SeekGoal, SimulateOptions,
+    simulate_core, templates_core, tornado_core, validate_core_with, variance_core, SeekGoal,
+    SimulateOptions,
 };
 use mollendorff_forge::cli::{
     commands::render, commands::report_core, ReportFormat, ReportOptions,
@@ -33,7 +34,7 @@ use std::path::Path;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The tools, by the names of the MCP tools without `forge_`.
-pub const TOOLS: [&str; 24] = [
+pub const TOOLS: [&str; 25] = [
     "validate",
     "edit",
     "calculate",
@@ -54,6 +55,7 @@ pub const TOOLS: [&str; 24] = [
     "bayesian",
     "game",
     "functions",
+    "templates",
     "examples",
     "schema",
     "export",
@@ -106,6 +108,7 @@ pub fn run(tool: &str, request: &Value) -> Result<Value, String> {
         .ok_or("The request must be a JSON object")?;
     match tool {
         "functions" => return Ok(functions_core()),
+        "templates" => return templates_core(opt_str(args, "name")?).map_err(|e| e.to_string()),
         "examples" => return examples_core(opt_str(args, "name")?).map_err(|e| e.to_string()),
         "schema" => {
             return schema_core(opt_str(args, "version")?)
@@ -1001,6 +1004,41 @@ mod tests {
             );
             let message = refused.unwrap_err();
             assert!(message.contains("Failed to open Excel file"), "{message}");
+        }
+
+        /// `templates` lists the blocks `insert` adds, or answers one, and
+        /// `insert` adds one to the bagel (ADR-075 step 6)
+        #[test]
+        fn templates_are_listed_and_inserted() {
+            let all = run("templates", &serde_json::json!({})).unwrap();
+            let names: Vec<&str> = all
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|t| t["name"].as_str().unwrap())
+                .collect();
+            assert_eq!(
+                names,
+                ["game_of_two", "game_of_many", "tournament", "dynamics"]
+            );
+            let one = run("templates", &serde_json::json!({"name": "dynamics"})).unwrap();
+            assert_eq!(one["default"], "new_population");
+            assert_eq!(
+                run("templates", &serde_json::json!({"name": "nothing"})).unwrap_err(),
+                "Validation error: Unknown template 'nothing'. Available: game_of_two, game_of_many, tournament, dynamics"
+            );
+            let dir = examples().join("bagel");
+            let read = |name: &str| std::fs::read_to_string(dir.join(name)).unwrap();
+            let files = serde_json::json!({"bagel.yaml": read("bagel.yaml"), "costs.yaml": read("costs.yaml")});
+            let inserted = run(
+                "edit",
+                &serde_json::json!({"files": files, "main": "bagel.yaml",
+                                    "changes": [{"op": "insert", "path": "tournament", "new_name": "league"}]}),
+            )
+            .unwrap();
+            let text = inserted["files"]["bagel.yaml"].as_str().unwrap();
+            assert!(text.contains("\n\ngames:\n  league_round:\n"), "{text}");
+            assert!(text.contains("round: league_round"), "{text}");
         }
 
         /// `edit` changes the bagel's own files and answers the new text of

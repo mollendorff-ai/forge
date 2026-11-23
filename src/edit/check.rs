@@ -176,7 +176,8 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
         | Op::AddStrategy
         | Op::DeleteStrategy
         | Op::AddPlayer
-        | Op::DeletePlayer => true,
+        | Op::DeletePlayer
+        | Op::Insert => true,
         Op::SetValue => var.is_some_and(reads),
         Op::SetFormula => {
             var.and_then(|v| v.formula.as_ref()).or_else(column) == change.formula.as_ref()

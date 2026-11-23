@@ -436,6 +436,16 @@ pub struct BayesianArgs {
 }
 
 #[derive(Args)]
+pub struct TemplatesArgs {
+    /// The template to show; omit to list them
+    pub name: Option<String>,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args)]
 pub struct FunctionsArgs {
     /// Output as JSON
     #[arg(long)]

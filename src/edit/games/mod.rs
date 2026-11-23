@@ -369,7 +369,7 @@ fn after_tournament(old: &Tournament, entrants: &Entrants) -> Tournament {
 /// `json` without where each payoff is written and the counts a payoff of
 /// the count form reads: they are said for messages, from the names
 /// compared
-fn bare(json: &mut Json) {
+pub(super) fn bare(json: &mut Json) {
     fn strip(json: &mut Json) {
         match json {
             Json::Array(items) => items.iter_mut().for_each(strip),

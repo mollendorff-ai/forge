@@ -38,7 +38,7 @@ const answer = JSON.parse(forge.call("goal_seek", JSON.stringify({
 | `bootstrap` | `iterations`, `seed`, `confidence` (list) |
 | `bayesian` | `query`, `evidence` (`["sales=slow"]`) |
 | `game` | `game` (one game by name), `scenario`; each report is `kind: table` or `kind: tournament` |
-| `functions`, `examples` (`name`), `schema` (`version`) | no `files` |
+| `functions`, `templates` (`name`), `examples` (`name`), `schema` (`version`) | no `files` |
 | `export` | none: the workbook `forge export` writes, as `excel_base64`, with `byte_count`, `table_count`, `scalar_count` and `warnings` (the MCP tool's in-memory answer) |
 | `edit` | `changes` (as `forge_edit`'s, ADR-075): the new text of each changed file, as `files`, or Forge's reason |
 | `import` | `excel_base64`, `name` (`model.yaml`), no `files`: the model `forge import` writes from that workbook, as `files` (the main model and its included files, by name) and `main`, with `warnings` |

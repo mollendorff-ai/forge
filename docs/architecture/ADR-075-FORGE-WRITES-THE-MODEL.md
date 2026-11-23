@@ -98,5 +98,5 @@ One bug of the engine showed: a game that is not symmetric, whose first player h
 3. `rename` of a scalar, a group, a table and a column (done, 2026-11-22); of a game, a player and a strategy with step 5 (done, 2026-11-23).
 4. `make_uncertain` and `make_certain` (done, 2026-11-22). Studio's "fixed" button on the distribution card is ADR-076 step 4.
 5. The game changes (ADR-076, step 5), and `rename` of a game, a player and a strategy (done, 2026-11-23).
-6. `insert` of a template (ADR-076, step 6).
+6. `insert` of a template (ADR-076, step 6): done, 2026-11-23. `insert` takes the template as its `path` and the game's name as `new_name`; the templates are served by the `templates` tool (forge-wasm, the `forge_templates` MCP tool, `forge templates`). The block goes after the last game in the file's indentation, or as a `games:` at the end of a model that has none, and a model below format 5.5.0 is raised to it. Kept only when Forge reads the model back valid with the template's games added and nothing else changed. Every template is inserted into every model of the examples (`edit::insert`'s every-example test).
 7. Studio's one-line changes moved to `edit`; `text.js` keeps only the colours.
