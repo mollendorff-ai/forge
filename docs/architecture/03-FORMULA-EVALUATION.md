@@ -37,7 +37,9 @@ sequenceDiagram
             Ev-->>AC: a value, or an error naming the cell
         end
     end
-    AC->>AC: check format: against each value (formats.rs)
+    opt no cell failed
+        AC->>AC: check format: against each value (formats.rs)
+    end
     AC-->>Caller: the model with its results, or one report of every failure
 ```
 
@@ -46,10 +48,10 @@ The three entry points differ only in which failures fail the answer:
 | Method | Fails when | Used by |
 | --- | --- | --- |
 | `calculate_all` | Any cell fails | `calculate`, `validate`, export, most commands |
-| `calculate_scalar(name)` | `name` failed or reads a failed cell | goal seek, break-even, sensitivity: a search can pass through inputs where an output it does not ask for has no answer |
-| `calculate_outputs(scalars, columns)` | One of the outputs failed | `forge simulate --seek` |
+| `calculate_scalar(name)` | `name` failed or reads a failed cell | goal seek, break-even, sensitivity, tornado: a search can pass through inputs where an output it does not ask for has no answer |
+| `calculate_outputs(scalars, columns)` | One of the outputs failed or reads a failed cell | each iteration of `forge simulate --seek` (a plain `forge simulate` uses `calculate_all`) |
 
-Every method still calculates every cell: the difference is only in what is reported.
+Every method still calculates every cell: the difference is only in what is reported. When no cell failed, each also checks every `format:` against its value, and a mismatch fails the answer.
 
 ## From text to a syntax tree
 
@@ -90,13 +92,14 @@ flowchart TB
     one -- "an array of several" --> err1["error: aggregate it with SUM or INDEX"]
     kind -- "Cell::Column" --> rctx["context: the table's columns<br/>laid over the scalars"]
     rctx --> loop["evaluate_cell for row 0, 1, ... n-1"]
-    loop --> typ["column type from row 0:<br/>Number, Text, Boolean or Date"]
+    loop --> typ["column type from the first row:<br/>Text, Boolean, else Number<br/>(a date is its text)"]
     typ --> store2["a new Column in the table"]
     kind -- "Cell::Columns" --> rec["recursive.rs: the group's<br/>columns row by row together"]
     kind -- "Cell::Game" --> game["games.rs: payoffs, equilibria,<br/>results as scalars"]
+    kind -- "Cell::Network" --> net["network.rs: the Bayesian network,<br/>posteriors as scalars"]
 ```
 
-A name in a row formula is the value in the current row, except inside an argument Excel reads as a range (`SUM(revenue)`, `SUMIFS(months.revenue, ...)`), where it is the whole column. `whole_column.rs` holds the one table of which argument of which function is a range; the evaluator, the calculation order and the Excel export all read it.
+A name in a row formula is the value in the current row, except inside an argument Excel reads as a range (`SUM(revenue)`, `SUMIFS(months.revenue, ...)`), where it is the whole column. `whole_column.rs` holds the one table of which argument of which function is a range; the evaluator, the parser (which refuses an array constant where Excel wants a range), the columns that grow row by row through `PREV` (`recursive.rs`) and the Excel translation, both ways, all read it.
 
 ## Finding a function
 
@@ -113,7 +116,7 @@ flowchart LR
 
 `evaluate_function` in `evaluator/mod.rs` asks each family module's `try_evaluate(name, args, ctx)` in turn; the first to answer `Some` wins. A family module checks its arguments with the shared helpers (`require_args`, ...) and evaluates them itself, so a function decides whether an argument is read as a number, a column or a lambda.
 
-The **function registry** (`src/functions/definitions.rs`) is a separate list of every function's name, category, syntax and description. The calculator does not read it; `forge functions`, the MCP tool, Studio's suggestions, `docs/FUNCTIONS.md` (generated in CI) and the Excel export do. Tests tie the two together:
+The **function registry** (`src/functions/definitions.rs`) is a separate list of every function's name, category, syntax and description. Neither the calculator nor the Excel export reads it; `forge functions` (`functions_core`) does, and through it the MCP tool, Studio's suggestions and `docs/FUNCTIONS.md` (regenerated on `main` by CI). Tests tie them together:
 
 | Test | In | Checks |
 | --- | --- | --- |
@@ -164,10 +167,13 @@ The engine calculates in `f64` and keeps full precision between formulas. At its
 
 ## Caching between calculations
 
-A simulation, a sensitivity table or a goal seek calculates the same formulas thousands of times with different inputs. `CalcPlan` (`plan.rs`) keeps what depends only on names and formulas:
+A Monte Carlo simulation calculates the same formulas thousands of times with different inputs. `CalcPlan` (`plan.rs`) keeps what depends only on names and formulas:
 
-- parsed syntax trees, by the formula's text;
+- parsed syntax trees, by the formula's text (a syntax error is kept as its message);
 - the calculation order and each cell's dependencies, by a fingerprint of every name and formula in the model;
-- how each name resolves.
+- how each name resolves;
+- a plan of its own for each included file.
 
 A model with any other name or formula gets its own entry, so a cached plan never changes a result: `ArrayCalculator::with_plan` gives the same answers as `ArrayCalculator::new`, only faster. Values are never cached.
+
+`forge simulate` shares one plan across its iterations, and `forge simulate --seek` one across all its simulations. The other searches (goal seek, break-even, sensitivity, tornado) call `ArrayCalculator::new` at each step, so each step parses and orders the model afresh.

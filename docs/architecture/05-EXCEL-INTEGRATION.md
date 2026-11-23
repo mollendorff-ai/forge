@@ -7,7 +7,8 @@ How `forge export` writes a model as an `.xlsx` workbook with live formulas, and
 | Export | `src/excel/exporter.rs`, `src/excel/exporter/` | `rust_xlsxwriter` |
 | Import | `src/excel/importer/` | `calamine` |
 | Formula translation, both ways | `src/excel/workbook_refs.rs`, `src/excel/workbook_refs/` | Forge's own tokenizer |
-| The commands' cores | `src/cli/commands/excel_io/` (`export_core`, `export_bytes_core`, `import_core`, `import_text_core`) | |
+| The names Excel knows as functions | `EXCEL_FUNCTIONS` in `src/excel/formula_translator.rs` | |
+| The commands' cores | `src/cli/commands/excel_io/` (`export_core`, `export_buffer_core`, `export_bytes_core`, `import_core`, `import_text_core`) | |
 | What is carried and what is not, in the output | `src/cli/commands/carried.rs` | |
 
 Decisions: ADR-033 (export), ADR-034 (import), ADR-054 (dates), ADR-061 (number formats), ADR-064 (array constants).
@@ -70,7 +71,7 @@ flowchart TB
     plan --> warn
 ```
 
-Some parts of a model have no Excel equivalent at all and are listed as not exported: `scenarios`, the analysis sections (`tornado`, `monte_carlo`, ...), `better:` and comments. The YAML file stays the source of truth ([README](../../README.md#status-and-known-limitations)). `forge import` brings a value-only cell back as a value; it does not recreate the distribution or the scenarios.
+Some parts of a model have no Excel equivalent at all and are listed as not exported: `scenarios`, `games` (their results are written as numbers, which do not follow the inputs), the analysis sections (`tornado`, `monte_carlo`, ...), `better:` and comments. The YAML file stays the source of truth ([README](../../README.md#status-and-known-limitations)). `forge import` brings a value-only cell back as a value; it does not recreate the distribution or the scenarios.
 
 ## Export
 
@@ -99,7 +100,7 @@ sequenceDiagram
     X-->>Core: .xlsx bytes, and what was written as values
 ```
 
-`export_bytes_core` returns the workbook as bytes (forge-wasm, the MCP tool's inline answer); `export_core` writes a file.
+`export_core` writes a file (the command, the REST API, the MCP tool given an `excel_path`); `export_buffer_core` returns the workbook in base64 (the MCP tool's inline answer); `export_bytes_core` returns its bytes (forge-wasm). All three write the same workbook. `export_core` and `export_buffer_core` also read the YAML file for the parts only it holds (analysis sections, `better:`, comments: `carried.rs`) and list them as not exported; `export_bytes_core` does not.
 
 ## Import
 
