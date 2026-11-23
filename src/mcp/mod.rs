@@ -31,6 +31,7 @@
 //! ### Discovery Tools
 //! - `forge_schema` - JSON Schema for model validation
 //! - `forge_functions` - List 203 Excel-compatible functions
+//! - `forge_templates` - The blocks `forge_edit` inserts: a game, a tournament
 //! - `forge_examples` - Runnable YAML examples
 //!
 //! ## Usage
@@ -277,7 +278,7 @@ mod tests {
         // The answer to 7 comes first, and is passed over
         let answer: serde_json::Value = serde_json::from_str(&session.answer(8)).unwrap();
         assert_eq!(answer["id"], 8);
-        assert_eq!(answer["result"]["tools"].as_array().map(Vec::len), Some(22));
+        assert_eq!(answer["result"]["tools"].as_array().map(Vec::len), Some(23));
     }
 
     mod root {

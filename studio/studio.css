@@ -206,6 +206,14 @@ table.report td.neg { color: var(--ember) }
 .results { margin-top: 12px }
 .results summary { cursor: pointer; color: var(--muted); font-size: 13px }
 .results th { font-weight: 400; word-break: break-all; text-align: left }
+.game-add .slide-row { margin-top: 8px }
+.game-add .slide-row .sel, .game-add .slide-row .txt { flex: 1 1 120px; width: auto; min-width: 0 }
+.game-add .msg { margin-top: 8px }
+.game-edit { margin-top: 12px }
+.game-edit summary { cursor: pointer; color: var(--muted); font-size: 13px }
+.game-edit .slide-row { margin-top: 8px }
+.game-edit .slide-row .sel, .game-edit .slide-row .txt { flex: 1 1 120px; width: auto; min-width: 0 }
+.game-edit .msg { margin-top: 8px }
 /* games: the equilibrium cells of a payoff table */
 .game-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 8px }
 table.payoffs td.eq { background: var(--accent-soft); font-weight: 600 }

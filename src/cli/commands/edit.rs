@@ -23,6 +23,12 @@ pub struct EditResult {
     pub written: bool,
 }
 
+/// The folder `path` is in: empty for a bare name, and for a path with no
+/// parent (the root, or nothing).
+fn folder_of(path: &Path) -> &Path {
+    path.parent().unwrap_or_else(|| Path::new(""))
+}
+
 /// Make `changes` to the model at `file` and the files it includes, and,
 /// unless `dry_run`, write each file that changed, keeping the file as it was
 /// next to it (`model.yaml.bak`).
@@ -32,14 +38,14 @@ pub struct EditResult {
 /// Returns why when the model cannot be read, a change cannot be made (then
 /// no file is written), or a file cannot be written.
 pub fn edit_core(file: &Path, changes: &[Change], dry_run: bool) -> ForgeResult<EditResult> {
-    let dir = file.parent().unwrap_or_else(|| Path::new(""));
+    let dir = folder_of(file);
     let main = file
         .file_name()
         .unwrap_or_default()
         .to_string_lossy()
         .into_owned();
-    let model = parser::parse_model(file)?;
-    let mut files = HashMap::from([(main.clone(), parser::read_model_text(file)?)]);
+    let (model, text) = parser::parse_model_and_text(file)?;
+    let mut files = HashMap::from([(main.clone(), text)]);
     included_files(&model, &main, dir, &mut files);
     let new_texts = edit_files(&files, &main, changes)?;
     if !dry_run {
@@ -65,14 +71,16 @@ fn included_files(
     dir: &Path,
     files: &mut HashMap<String, String>,
 ) {
-    let from = Path::new(name).parent().unwrap_or_else(|| Path::new(""));
+    let from = folder_of(Path::new(name));
     for include in &model.includes {
         let path = parser::normalize(&from.join(&include.file));
         let text = std::fs::read_to_string(dir.join(&path)).unwrap_or_default();
         files.insert(path.clone(), text);
-        if let Some(included) = model.resolved_includes.get(&include.namespace) {
-            included_files(&included.model, &path, dir, files);
-        }
+        let included = model
+            .resolved_includes
+            .get(&include.namespace)
+            .expect("the parser resolves every include or fails");
+        included_files(&included.model, &path, dir, files);
     }
 }
 
@@ -102,7 +110,7 @@ pub fn edit(
             "✅ Nothing to change: the files already say this".green()
         );
     }
-    let dir = file.parent().unwrap_or_else(|| Path::new(""));
+    let dir = folder_of(file);
     for (name, text) in &result.files {
         if dry_run {
             outln!(c, "{}", format!("📋 Dry run: {name} would read").yellow());
@@ -143,7 +151,7 @@ A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
 made in this order: --changes, --set, --formula, --add, --delete, --rename,
 --uncertain, --certain, --add-strategy, --delete-strategy, --add-player,
---delete-player.
+--delete-player, --insert.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -160,6 +168,7 @@ EXAMPLES:
   forge edit inspection.yaml --add-strategy inspection.strategies.human.ignore
   forge edit price_war.yaml --add-player rivalry.players.copycat=tit_for_tat
   forge edit public-goods.yaml --delete-player pg.players.a5
+  forge edit bagel.yaml --insert game_of_two=duel          # forge templates lists them
   forge edit model.yaml --changes '[{\"op\": \"add\", \"path\": \"year.fee\", \"value\": 25, \"unit\": \"CAD\"}]'"
 )]
 pub struct EditArgs {
@@ -220,6 +229,11 @@ pub struct EditArgs {
     /// Delete a game's player, the payoffs of its first strategy kept
     #[arg(long = "delete-player", value_name = "PATH")]
     pub delete_player: Vec<String>,
+
+    /// Add a game from a template (forge templates): TEMPLATE, or
+    /// TEMPLATE=NAME for the game's name (`game_of_two=duel`)
+    #[arg(long = "insert", value_name = "TEMPLATE")]
+    pub insert: Vec<String>,
 
     /// Changes as JSON, as Forge's MCP edit tool takes them
     #[arg(long, value_name = "JSON")]
@@ -330,7 +344,7 @@ impl EditArgs {
         if changes.is_empty() {
             return Err(ForgeError::Validation(
                 "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain, \
-                 --add-strategy, --delete-strategy, --add-player, --delete-player or --changes"
+                 --add-strategy, --delete-strategy, --add-player, --delete-player, --insert or --changes"
                     .into(),
             ));
         }
@@ -363,6 +377,17 @@ impl EditArgs {
                 .iter()
                 .map(|path| change(Op::DeletePlayer, path.clone())),
         );
+        for arg in &self.insert {
+            let (template, name) = arg
+                .split_once('=')
+                .map_or((arg.as_str(), None), |(template, name)| {
+                    (template, Some(name.to_string()))
+                });
+            changes.push(Change {
+                new_name: name,
+                ..change(Op::Insert, template.to_string())
+            });
+        }
         changes
     }
 
@@ -406,6 +431,16 @@ year:
         dir
     }
 
+    #[test]
+    fn the_folder_of_a_path_is_empty_when_it_has_no_parent() {
+        use super::folder_of;
+        use std::path::Path;
+        assert_eq!(folder_of(Path::new("a/model.yaml")), Path::new("a"));
+        assert_eq!(folder_of(Path::new("model.yaml")), Path::new(""));
+        assert_eq!(folder_of(Path::new("/")), Path::new(""));
+        assert_eq!(folder_of(Path::new("")), Path::new(""));
+    }
+
     fn read(dir: &tempfile::TempDir, name: &str) -> String {
         std::fs::read_to_string(dir.path().join(name)).unwrap()
     }
@@ -430,7 +465,7 @@ year:
             "--delete",
             "@costs.@more.nothing",
         ]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1);
         assert!(
             ran.err
                 .contains("delete @costs.@more.nothing: it is not in the model (more.yaml)"),
@@ -455,7 +490,7 @@ year:
             "--set",
             "@costs.rent=950",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert!(ran.out.contains("   set_value year.price\n"), "{}", ran.out);
         assert!(
             ran.out.contains("✅ Wrote data/costs.yaml (as it was: "),
@@ -486,7 +521,7 @@ year:
             "--after",
             "rate",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert!(
             ran.out.contains("📋 Dry run: model.yaml would read\n"),
             "{}",
@@ -521,7 +556,7 @@ year:
             "--rename",
             "@costs.rent=lease",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert!(ran.out.contains("   rename year.price\n"), "{}", ran.out);
         assert_eq!(
             read(&dir, "model.yaml"),
@@ -548,7 +583,7 @@ year:
             "--uncertain",
             "year.units==MC.PERT(80, 100, 130)",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert!(
             ran.out.contains("   make_uncertain year.price\n"),
             "{}",
@@ -572,12 +607,40 @@ year:
             "--certain",
             "year.units=90",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         let back = read(&dir, "model.yaml");
         assert!(
             back.contains("  price: 16   # dollars\n  units: 90\n"),
             "{back}"
         );
+    }
+
+    #[test]
+    fn a_game_is_inserted_from_a_template_by_name() {
+        let dir = folder();
+        let model = dir.path().join("model.yaml");
+        let path = model.to_str().unwrap();
+        let ran = forge(&[
+            "edit",
+            path,
+            "--insert",
+            "dynamics=crowd",
+            "--insert",
+            "game_of_two",
+        ]);
+        let both = ran.both();
+        assert_eq!(ran.code, 0, "{both}");
+        assert!(ran.out.contains("   insert dynamics\n"), "{}", ran.out);
+        let made = read(&dir, "model.yaml");
+        assert!(
+            made.contains("\n  crowd:\n    description: A population of hunters"),
+            "{made}"
+        );
+        assert!(
+            made.contains("\n  new_game:\n    description: Two players choose"),
+            "{made}"
+        );
+        assert!(made.contains("_forge_version: \"5.5.0\""), "{made}");
     }
 
     #[test]
@@ -659,7 +722,7 @@ games:
         let model = dir.path().join("model.yaml");
         let json = r#"[{"op": "add", "path": "year.fee", "value": 25, "unit": "CAD"}]"#;
         let ran = forge(&["edit", model.to_str().unwrap(), "--changes", json]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert_eq!(
             read(&dir, "model.yaml"),
             format!("{MODEL}  fee:\n    value: 25\n    unit: CAD\n")
@@ -679,7 +742,7 @@ games:
         refused(
             &[],
             "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain, \
-             --add-strategy, --delete-strategy, --add-player, --delete-player or --changes",
+             --add-strategy, --delete-strategy, --add-player, --delete-player, --insert or --changes",
         );
         refused(
             &["--uncertain", "=x"],
@@ -705,11 +768,11 @@ games:
         // The backup's place is taken by a folder
         std::fs::create_dir(dir.path().join("model.yaml.bak")).unwrap();
         let ran = forge(&["edit", model.to_str().unwrap(), "--set", "rate=0.06"]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1);
         assert!(ran.err.starts_with("Error: IO error: "), "{}", ran.err);
         let missing = dir.path().join("none.yaml");
         let ran = forge(&["edit", missing.to_str().unwrap(), "--set", "rate=0.06"]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1);
     }
 
     #[test]

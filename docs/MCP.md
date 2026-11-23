@@ -1,6 +1,6 @@
 # Forge MCP Integration Guide
 
-Forge implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) over stdin/stdout using JSON-RPC 2.0. This gives AI agents structured access to all 22 Forge tools.
+Forge implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) over stdin/stdout using JSON-RPC 2.0. This gives AI agents structured access to all 23 Forge tools.
 
 Forge uses [rmcp](https://github.com/modelcontextprotocol/rust-sdk) (the Model Context Protocol project's official Rust SDK) for protocol handling. Tool definitions use typed request structs with automatic JSON schema generation. Additional transports (SSE, WebSocket) are planned for a future release.
 
@@ -97,14 +97,14 @@ When calling `forge_calculate` with `content` and `dry_run: false`, the server c
 
 The response will contain both the calculation results and a `calculated_content` field with the updated YAML.
 
-## Available Tools (22)
+## Available Tools (23)
 
 | Category | Count | Tools |
 |----------|-------|-------|
 | **Core** | 6 | validate, calculate, edit, audit, export, import |
 | **Analysis** | 5 | sensitivity, goal_seek, break_even, variance, compare |
 | **Engines** | 8 | simulate, scenarios, decision_tree, real_options, tornado, bootstrap, bayesian, game |
-| **Discovery** | 3 | schema, functions, examples |
+| **Discovery** | 4 | schema, functions, templates, examples |
 
 ## Tool Reference
 
@@ -148,7 +148,7 @@ Calculate all formulas in a Forge YAML model and optionally update the file.
 
 #### `forge_edit`
 
-Change a model's text, comments and layout kept (ADR-075): set an input's value or a formula, add an input, a formula or a table's column, delete one, rename a name and every name that reads it, make an input uncertain and certain again, or add or delete a game's strategy or player, in the model or in a file it includes. Every byte outside a change stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else; when one of the changes cannot be made, none is, and the message names it and says why. The answer is `files`, the new text of each file that changed by its path from the model's folder (`model.yaml`, `data/costs.yaml`), and `written`. With `file_path` the files are written, each kept as it was in a `.bak` next to it, unless `dry_run`; with `content` nothing is written (the main file is `model.yaml`). Results are not written: `forge_calculate` does that.
+Change a model's text, comments and layout kept (ADR-075): set an input's value or a formula, add an input, a formula or a table's column, delete one, rename a name and every name that reads it, make an input uncertain and certain again, add or delete a game's strategy or player, or insert a template's game, in the model or in a file it includes. Every byte outside a change stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else; when one of the changes cannot be made, none is, and the message names it and says why. The answer is `files`, the new text of each file that changed by its path from the model's folder (`model.yaml`, `data/costs.yaml`), and `written`. With `file_path` the files are written, each kept as it was in a `.bak` next to it, unless `dry_run`; with `content` nothing is written (the main file is `model.yaml`). Results are not written: `forge_calculate` does that.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -175,6 +175,7 @@ Each change has an `op` and a `path`, the name as formulas read it (`price`, `ye
 | `delete_strategy` | | A strategy, every player's of that name or one player's, with its cells, its payoff of the count form and its share in `dynamics.start`. A player keeps one strategy or more |
 | `add_player` | `plays` for a tournament's | A player of a game played once, `price_war.players.shop`, last: its strategies are the last player's (copied when each player has a list), and each cell becomes the new player's level, the cell as it was for each of its strategies with a payoff of 0 for it (`[3, 2]` becomes `{opera: [3, 2, 0], football: [3, 2, 0]}`). In the count form only `players:` changes. A symmetric game of two written out cannot have a third: Forge says how to write it in the count form. A tournament's player, `rivalry.players.copycat`, plays the habit `plays` (`tit_for_tat`, `random`, ...) |
 | `delete_player` | | A player, and its level of `payoffs:`: what is left is the payoffs of its first strategy, with its payoff out of each cell, so `add_player` and `delete_player` give back the file as it was. A game keeps two players or more, and a tournament two players or more |
+| `insert` | `new_name` | A template's block, a game (`path` is the template: `game_of_two`, `game_of_many`, `tournament`, `dynamics`; `forge_templates` lists them with their YAML), added after the last game of `games:`, in the indentation the games use, or as a `games:` at the end of a model that has none. `new_name` is the game's name (a tournament's round is `<name>_round`); without it, the first of the template's default name, `_2`, `_3`, ... that the model does not use. A model of an earlier format than 5.5.0 is raised to it, which adds to the earlier formats and changes none of their rules. Each template is a game with its numbers to change and valid in any model, tested in every example. A name the model uses is refused |
 
 A new strategy or player that the model cannot have is refused with Forge's message: a strategy of the game a tournament plays (its round has two strategies), a third player of a symmetric game written out, a strategy or player whose results a formula reads (`vd.equilibrium_6` when there are five), or a player of `players: *roster`, which two tournaments share.
 
@@ -497,6 +498,18 @@ List all 203 supported Excel-compatible functions with descriptions and syntax. 
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_functions","arguments":{}}}
+```
+
+#### `forge_templates`
+
+The blocks `forge_edit`'s `insert` adds to a model (ADR-075 step 6): a game of two players, a game of many players alike (the count form), a tournament, and a population whose strategies spread. Each answer has `name`, `line` (what it is), `default` (the game's name when none is asked for) and `yaml`, the block.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | no | Template name (`game_of_two`, `game_of_many`, `tournament`, `dynamics`). Omit to list all. |
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_templates","arguments":{"name":"tournament"}}}
 ```
 
 #### `forge_examples`

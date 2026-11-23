@@ -7,8 +7,8 @@ use super::args::{
     AuditArgs, BayesianArgs, BootstrapArgs, BreakEvenArgs, CalculateArgs, Cli, Commands,
     CompareArgs, DecisionTreeArgs, ExamplesArgs, ExportArgs, FunctionsArgs, GoalSeekArgs,
     ImportArgs, McpArgs, RealOptionsArgs, ReportArgs, ScenariosArgs, SchemaArgs, SensitivityArgs,
-    ServeArgs, SimulateArgs, TornadoArgs, UpdateArgs, UpgradeArgs, ValidateArgs, VarianceArgs,
-    WatchArgs,
+    ServeArgs, SimulateArgs, TemplatesArgs, TornadoArgs, UpdateArgs, UpgradeArgs, ValidateArgs,
+    VarianceArgs, WatchArgs,
 };
 use super::console::{errln, out};
 use super::Console;
@@ -108,6 +108,7 @@ impl Commands {
             Self::Bootstrap(a) => a.run(c),
             Self::Bayesian(a) => a.run(c),
             Self::Functions(a) => a.run(c),
+            Self::Templates(a) => a.run(c),
             Self::Schema(a) => a.run(c),
             Self::Examples(a) => a.run(c),
             Self::Upgrade(a) => a.run(c),
@@ -331,6 +332,12 @@ impl BayesianArgs {
 impl FunctionsArgs {
     fn run(self, c: &mut Console<'_>) -> ForgeResult<()> {
         super::functions(c, self.json)
+    }
+}
+
+impl TemplatesArgs {
+    fn run(self, c: &mut Console<'_>) -> ForgeResult<()> {
+        super::templates(c, self.name.as_deref(), self.json)
     }
 }
 

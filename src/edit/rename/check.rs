@@ -73,14 +73,10 @@ impl Rename {
         let mut json = serde_json::to_value(&read).expect("a model is written as JSON");
         // Where a game's payoff is written, and the counts a payoff of the
         // count form reads, are said for messages, from the names compared
-        if let Some(games) = json.get_mut("games") {
-            without_keys(games, &["at", "others"]);
-        }
+        without_keys(&mut json["games"], &["at", "others"]);
         // A game's payoffs and a network's probabilities read names too
         for section in ["games", "network"] {
-            if let Some(section) = json.get_mut(section) {
-                formulas_in(section, &|f| formula(f, Place::Elsewhere));
-            }
+            formulas_in(&mut json[section], &|f| formula(f, Place::Elsewhere));
         }
         let includes: serde_json::Map<String, Json> = model
             .resolved_includes

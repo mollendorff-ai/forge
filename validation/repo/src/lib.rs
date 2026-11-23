@@ -17,6 +17,7 @@ pub mod architecture_docs;
 pub mod conventions;
 pub mod doc_counts;
 pub mod doc_examples;
+pub mod function_cases;
 pub mod guide;
 pub mod help_examples;
 pub mod install_script;

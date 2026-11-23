@@ -331,6 +331,14 @@ pub struct SchemaRequest {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FunctionsRequest {}
 
+/// Parameters for the `forge_templates` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TemplatesRequest {
+    /// Template name (e.g., `game_of_two`, `tournament`). Omit to list all.
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
 /// Parameters for the `forge_examples` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ExamplesRequest {

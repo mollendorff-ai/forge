@@ -7,6 +7,8 @@ import { call, start } from "./forge.js";
 import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
 import { tableCard, tournamentCard, pathHover } from "./games.js";
+import { gameEditor, listenGameEdits } from "./gameedit.js";
+import { templateCard, listenTemplates } from "./templates.js";
 import { kindOf, questionsCard, setStrip, drawKinds } from "./sets.js";
 import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js";
 import { toolArgs, toolsHtml, answerHtml } from "./tools.js";
@@ -464,21 +466,23 @@ function updateValues() {
   }
   fillHelp($("#view-model"));
 }
+// The templates Forge serves for "add a game" (ADR-076 decision 6)
+let templates = [];
 // ---------- games (ADR-068): forge game's answer, drawn ----------
 // Every number here is in the answer of the `game` tool; the page only lays
 // them out. A cell's payoffs and an equilibrium's chances are also kept in
 // data- attributes, in full, for the screen test (tests/games.mjs).
 function gameCards() {
   const names = S.structure.games || [];
-  if (!names.length) return "";
-  return `<div class="eyebrow" id="games"><h2>games</h2><span class="tag">forge game · moves with the inputs</span><span data-help-slot="games"></span></div>` +
-    names.map((n) => `<div class="card row game" data-game="${esc(n)}"><p class="note">Forge is working out ${esc(n)}…</p></div>`).join("");
+  if (!names.length && !templates.length) return "";
+  return `<div class="eyebrow" id="games"><h2>games</h2><span class="tag">${names.length ? "forge game · moves with the inputs" : "none yet"}</span><span data-help-slot="games"></span></div>` +
+    names.map((n) => `<div class="card row game" data-game="${esc(n)}"><p class="note">Forge is working out ${esc(n)}…</p></div>`).join("") + templateCard(templates);
 }
 function drawGames() {
   for (const card of $$("#view-model [data-game]")) {
     const r = S.games && !S.games.error ? S.games.find((g) => g.game === card.dataset.game) : null;
     card.innerHTML = (r ? (r.kind === "tournament" ? tournamentCard(r) : tableCard(r))
-      : `<div class="msg bad">${esc(S.games && S.games.error ? S.games.error : S.error || "Not calculated")}</div>`) + resultsList(card.dataset.game);
+      : `<div class="msg bad">${esc(S.games && S.games.error ? S.games.error : S.error || "Not calculated")}</div>`) + resultsList(card.dataset.game) + (r ? gameEditor(r, S.open.has("gedit:" + r.game)) : "");
     pulse(card, "game:" + card.dataset.game, JSON.stringify(r));
   }
 }
@@ -515,9 +519,9 @@ $("#view-model").addEventListener("pointermove", pathHover);
 $("#view-model").addEventListener("pointerdown", pathHover);
 // A game's list of results stays open or shut while the games are drawn again
 $("#view-model").addEventListener("toggle", (e) => {
-  const d = e.target.closest && e.target.closest("[data-results], details[data-band]");
+  const d = e.target.closest && e.target.closest("[data-results], [data-gedit], details[data-band]");
   if (!d) return;
-  const k = d.dataset.results ? "results:" + d.dataset.results : "band:" + d.dataset.band;
+  const k = d.dataset.results ? "results:" + d.dataset.results : d.dataset.gedit ? "gedit:" + d.dataset.gedit : "band:" + d.dataset.band;
   if (d.open) S.open.add(k); else S.open.delete(k);
 }, true);
 $("#view-model").addEventListener("input", (e) => {
@@ -603,6 +607,8 @@ $("#view-model").addEventListener("click", (e) => {
 // A distribution card's kind or parameter changed: its formula is written as an edited formula is
 listenDistributions($("#view-model"), () => distributionsOf(functionList), (path, formula) => writeFormula(path, formula),
   (path) => editModel([{ op: "make_certain", path }]));
+listenGameEdits($("#view-model"), editModel);
+listenTemplates($("#view-model"), () => templates, editModel);
 $("#view-model").addEventListener("keydown", (e) => {
   const slot = e.target.closest("[data-addslot]");
   if (slot && e.target.matches("input")) {
@@ -1511,6 +1517,7 @@ async function boot() {
   } catch (e) {
     S.error = e.message; renderAll(); finish(); return;
   }
+  templates = await call("templates", {}).catch(() => []);
   await load();
   loadFunctions();
   keepOffline();

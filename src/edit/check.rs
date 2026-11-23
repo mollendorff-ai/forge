@@ -176,7 +176,8 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
         | Op::AddStrategy
         | Op::DeleteStrategy
         | Op::AddPlayer
-        | Op::DeletePlayer => true,
+        | Op::DeletePlayer
+        | Op::Insert => true,
         Op::SetValue => var.is_some_and(reads),
         Op::SetFormula => {
             var.and_then(|v| v.formula.as_ref()).or_else(column) == change.formula.as_ref()
@@ -261,6 +262,44 @@ mod tests {
         let after = model(after).unwrap();
         let target = locate(&before, "m.yaml", &change.path).unwrap();
         only(&before, &after, &target, target.kind(), change)
+    }
+
+    #[test]
+    fn a_name_that_is_not_a_scalar_or_a_column_is_not_read_as_asked() {
+        let m = model("_forge_version: \"5.1.0\"\nt:\n  a: [1]\n  b: =a * 2\n").unwrap();
+        let formula = |op: Op, name: &str, text: &str| Change {
+            op,
+            path: name.into(),
+            value: None,
+            formula: Some(text.into()),
+            unit: None,
+            after: None,
+            new_name: None,
+            plays: None,
+        };
+        let set = |name: &str, text: &str| as_asked(&m, name, &formula(Op::SetFormula, name, text));
+        // A column of a table
+        assert!(set("t.b", "=a * 2"));
+        assert!(!set("t.b", "=a * 3"));
+        // No dot, a table that is not there, a column that is not there
+        assert!(!set("b", "=a * 2"));
+        assert!(!set("u.b", "=a * 2"));
+        assert!(!set("t.c", "=a * 2"));
+        assert!(!as_asked(&m, "u.b", &formula(Op::Add, "u.b", "=1")));
+    }
+
+    #[test]
+    fn a_path_that_is_not_there_is_left_alone_when_copying_and_removing() {
+        let from = serde_json::json!({"a": 2, "b": {"c": 3}});
+        let mut to = serde_json::json!({"a": 1, "n": 5});
+        // Only a path both have is copied
+        copy(&mut to, &from, &[vec!["a"], vec!["zz"], vec!["b", "c"]]);
+        assert_eq!(to, serde_json::json!({"a": 2, "n": 5}));
+        // A parent that is missing or not an object removes nothing
+        remove(&mut to, &[vec!["q", "r"], vec!["a", "x"]]);
+        assert_eq!(to, serde_json::json!({"a": 2, "n": 5}));
+        remove(&mut to, &[vec!["n"]]);
+        assert_eq!(to, serde_json::json!({"a": 2}));
     }
 
     #[test]

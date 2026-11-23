@@ -45,6 +45,7 @@ mod report;
 pub mod results;
 mod schema;
 mod simulate;
+mod templates;
 // Self-update downloads releases (feature `cli`)
 #[cfg(feature = "cli")]
 mod update;
@@ -72,6 +73,7 @@ pub use prediction::{bayesian, bootstrap, decision_tree, real_options, scenarios
 pub use report::{report, ReportFormat, ReportOptions};
 pub use schema::schema;
 pub use simulate::simulate;
+pub use templates::templates;
 #[cfg(feature = "cli")]
 pub use update::update;
 pub use upgrade::upgrade;
@@ -101,6 +103,7 @@ pub use report::{
 };
 pub use schema::schema_core;
 pub use simulate::{simulate_core, SimulateOptions};
+pub use templates::templates_core;
 
 // Re-exports for tests (internal functions)
 #[cfg(test)]
