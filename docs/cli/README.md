@@ -1267,7 +1267,7 @@ OUTPUT:
 
 EXAMPLES:
   forge real-options model.yaml               # Value all options
-  forge real-options model.yaml --option defer  # Value specific option
+  forge real-options model.yaml --option "Sell assets"  # Value one option, by its name
   forge real-options model.yaml --compare-npv   # Compare with traditional NPV
 
 Usage: forge real-options [OPTIONS] <FILE>
