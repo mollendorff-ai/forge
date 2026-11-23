@@ -1,0 +1,45 @@
+_forge_version: "5.1.0"
+# Bagel Lune's first year: the model of lesson 2 of the guide
+_includes:
+  - file: costs.yaml
+    as: costs
+
+shop:
+  price_per_dozen: 16
+  dozens_per_day: 55
+  monthly_growth: 0.03
+  open_days_per_month: 30
+  staff_hours_per_day: 32
+  rent_per_month: 4800
+
+months:
+  month: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  season: [0.85, 1.25, 0.80, 0.80, 0.90, 0.95, 1.05, 1.15, 1.25, 1.25, 1.05, 1.00]
+  dozens: "=shop.dozens_per_day * (1 + shop.monthly_growth) ^ (month - 1) * season * shop.open_days_per_month"
+  revenue: "=dozens * shop.price_per_dozen"
+  ingredients: "=dozens * @costs.ingredients.per_dozen"
+  labour: "=shop.staff_hours_per_day * shop.open_days_per_month * @costs.labour.loaded_wage"
+  profit: "=revenue - ingredients - labour - shop.rent_per_month"
+  cash: "=PREV(cash, 0) + profit"
+
+year:
+  revenue: {formula: "=SUM(months.revenue)"}
+  profit: {formula: "=SUM(months.profit)"}
+  margin: {formula: "=profit / revenue"}
+  worst_month: {formula: "=MIN(months.profit)"}
+
+scenarios:
+  base:
+    probability: 0.6
+    description: The plan as written
+    scalars: {}
+  rainy_year:
+    probability: 0.3
+    description: A slow start and a wet summer
+    scalars:
+      shop.dozens_per_day: 45
+  flour_shock:
+    probability: 0.1
+    description: The price of flour up by half
+    scalars:
+      "@costs.ingredients.flour_per_dozen": 2.30

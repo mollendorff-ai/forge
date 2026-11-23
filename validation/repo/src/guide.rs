@@ -10,9 +10,17 @@
 //!   `forge calculate` and `forge edit` on the models it teaches without
 //!   changing the repository, and a later command sees what an earlier one
 //!   wrote.
+//!   A command may fail only when the page shows its `Error:` line, so a
+//!   lesson can teach what Forge says when it refuses a model.
 //! - **Files.** A `yaml` block whose first line is `# examples/….yaml` is that
 //!   file, the rest of the block line for line, so the model a lesson shows is
-//!   one the tests run and Studio opens.
+//!   one the tests run and Studio opens. A block headed by another file
+//!   (`# bagel.yaml`) is one the reader writes: it is written into the folder
+//!   the commands run in before the commands after it, and must also be the
+//!   file of `examples/` its header names, if it names one
+//!   (`# bagel.yaml, as examples/guide/02-bagel.yaml has it`). A block headed
+//!   `# bagel.yaml, after forge calculate` is lines of the file as the commands
+//!   above it left it.
 //! - **Links.** Every relative link and anchor resolves.
 //! - **Answers.** Every number in a code span inside `<details>` (the answer
 //!   to a lesson's challenge) is a number one of the page's commands printed.
@@ -22,7 +30,7 @@
 //! written, and nothing kept it so.
 
 use crate::architecture_docs::{broken_link, local_links};
-use crate::readme_commands::{rejoin_quotes, squeeze, text_blocks};
+use crate::readme_commands::{rejoin_quotes, squeeze};
 use crate::Ran;
 use std::path::{Path, PathBuf};
 
@@ -35,6 +43,8 @@ pub struct Checked {
     pub lines: usize,
     /// YAML blocks compared with their files
     pub files: usize,
+    /// Files a page has the reader write
+    pub written: usize,
     /// Links followed
     pub links: usize,
     /// Numbers of answers found among the printed ones
@@ -123,32 +133,169 @@ pub fn numbers_in(text: &str) -> Vec<String> {
     found
 }
 
+/// What the first line of a `yaml` block says the block is.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Shown {
+    /// `# examples/….yaml`: that file of the repository
+    Example(String),
+    /// `# bagel.yaml`: a file the reader writes, and the file of `examples/`
+    /// it must equal when the header names one
+    Written(String, Option<String>),
+    /// `# bagel.yaml, after forge calculate`: lines of the file as the
+    /// commands above left it
+    After(String),
+}
+
+/// A path that is a `.yaml` file of the repository's `examples/`.
+fn is_example(path: &str) -> bool {
+    path.starts_with("examples/") && has_extension(path, "yaml")
+}
+
+/// What `header`, the first line of a `yaml` block, says the block is: None
+/// for a block that is not a file.
+#[must_use]
+pub fn shown(header: &str) -> Option<Shown> {
+    let words: Vec<&str> = header
+        .strip_prefix("# ")?
+        .split_whitespace()
+        .map(|w| w.trim_matches(|c: char| matches!(c, ',' | ';' | ':' | '(' | ')')))
+        .collect();
+    let path = (*words.first()?).to_string();
+    if !has_extension(&path, "yaml") {
+        return None;
+    }
+    if is_example(&path) {
+        return Some(Shown::Example(path));
+    }
+    if words.contains(&"after") {
+        return Some(Shown::After(path));
+    }
+    let example = words[1..]
+        .iter()
+        .find(|w| is_example(w))
+        .map(|w| (*w).to_string());
+    Some(Shown::Written(path, example))
+}
+
+/// Every fenced block of `doc`, in order: its language and its lines.
+#[must_use]
+pub fn fenced_blocks(doc: &str) -> Vec<(String, Vec<String>)> {
+    let mut blocks = Vec::new();
+    let mut lines = doc.lines();
+    while let Some(line) = lines.next() {
+        let Some(lang) = line.trim().strip_prefix("```") else {
+            continue;
+        };
+        let block = lines
+            .by_ref()
+            .take_while(|inner| !inner.starts_with("```"))
+            .map(str::to_string)
+            .collect();
+        blocks.push((lang.to_string(), block));
+    }
+    blocks
+}
+
+/// A path that stays inside the folder it is joined to: relative, with no `..`.
+fn stays_inside(path: &str) -> bool {
+    Path::new(path)
+        .components()
+        .all(|part| matches!(part, std::path::Component::Normal(_)))
+}
+
+/// Whether `part` is a run of consecutive lines of `text`.
+fn has_lines(text: &str, part: &[String]) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    part.is_empty()
+        || lines
+            .windows(part.len())
+            .any(|window| window.iter().zip(part).all(|(a, b)| a == b))
+}
+
+/// Write a file the page has the reader write, or compare the lines it shows
+/// of one, in `folder`, where the page's commands run.
+fn check_yaml_block(
+    page: &str,
+    block: &[String],
+    folder: &Path,
+    checked: &mut Checked,
+) -> Result<(), String> {
+    match block.first().and_then(|header| shown(header)) {
+        Some(Shown::Written(path, _)) => {
+            if !stays_inside(&path) {
+                return Err(format!(
+                    "{page} writes {path}, outside the folder its commands run in"
+                ));
+            }
+            let target = folder.join(&path);
+            std::fs::create_dir_all(target.parent().expect("a file has a folder"))
+                .expect("a folder to write into");
+            std::fs::write(&target, block[1..].join("\n") + "\n").expect("a file to write");
+            checked.written += 1;
+        },
+        Some(Shown::After(path)) => {
+            let Ok(text) = std::fs::read_to_string(folder.join(&path)) else {
+                return Err(format!(
+                    "{page} shows {path} after the commands above it, which left no such file"
+                ));
+            };
+            if !has_lines(&text, &block[1..]) {
+                return Err(format!(
+                    "{page} shows lines of {path} that the commands above it did not leave there:\n{}\nThe file:\n{text}",
+                    block[1..].join("\n")
+                ));
+            }
+            checked.files += 1;
+        },
+        Some(Shown::Example(_)) | None => {},
+    }
+    Ok(())
+}
+
 /// Run each `$ forge` block of `doc` with `run` and compare the lines the page
 /// shows with the lines printed. Returns the counts, and everything the
 /// commands printed, for [`check_answers`].
 ///
 /// A block may show some of the lines a command prints, not all, and a block
-/// without a command shows more lines of the command above it.
+/// without a command shows more lines of the command above it. A command may
+/// fail only when its block shows the `Error:` line it prints. The `yaml`
+/// blocks of files the reader writes are written into `folder`, where `run`
+/// runs the commands, before the commands after them, and the lines a block
+/// shows of a file after the commands above it are compared with it there.
 ///
 /// # Errors
 ///
-/// Names the page and the command, or the line, that is wrong.
+/// Names the page and the command, the line or the file that is wrong.
 pub fn check_commands(
     page: &str,
     doc: &str,
     run: &mut dyn FnMut(&[String]) -> Ran,
+    folder: &Path,
 ) -> Result<(Checked, Vec<String>), String> {
     let mut checked = Checked::default();
     let mut printed: Vec<String> = Vec::new();
     let mut everything: Vec<String> = Vec::new();
     let mut label = String::new();
-    for block in text_blocks(doc) {
+    for (lang, block) in fenced_blocks(doc) {
+        if lang == "yaml" {
+            check_yaml_block(page, &block, folder, &mut checked)?;
+            continue;
+        }
+        if lang != "text" {
+            continue;
+        }
         let shown = if let Some(args) = block.first().and_then(|l| l.strip_prefix("$ forge ")) {
             let args = rejoin_quotes(&args.split_whitespace().collect::<Vec<_>>());
             label = format!("forge {}", args.join(" "));
             let out = run(&args);
-            if !out.success() {
-                return Err(format!("{page}: `{label}` fails:\n{}{}", out.out, out.err));
+            let shows_error = block[1..]
+                .iter()
+                .any(|line| line.trim_start().starts_with("Error:"));
+            if !out.success() && !shows_error {
+                return Err(format!(
+                    "{page}: `{label}` fails, and the page does not show its Error: line:\n{}{}",
+                    out.out, out.err
+                ));
             }
             printed = out
                 .out
@@ -181,8 +328,9 @@ pub fn check_commands(
     Ok((checked, everything))
 }
 
-/// The `yaml` blocks of `doc` whose first line is `# examples/….yaml`: the
-/// path, and the rest of the block.
+/// The `yaml` blocks of `doc` that are a file of `examples/`, headed
+/// `# examples/….yaml` or by a file the reader writes that is one: the path,
+/// and the rest of the block.
 #[must_use]
 pub fn file_blocks(doc: &str) -> Vec<(String, String)> {
     let mut blocks = Vec::new();
@@ -198,13 +346,12 @@ pub fn file_blocks(doc: &str) -> Vec<(String, String)> {
             }
             block.push(inner);
         }
-        let named = block
-            .first()
-            .and_then(|first| first.strip_prefix("# "))
-            .map(str::trim)
-            .filter(|path| path.starts_with("examples/") && has_extension(path, "yaml"));
+        let named = match block.first().and_then(|first| shown(first)) {
+            Some(Shown::Example(path) | Shown::Written(_, Some(path))) => Some(path),
+            _ => None,
+        };
         if let Some(path) = named {
-            blocks.push((path.to_string(), block[1..].join("\n")));
+            blocks.push((path, block[1..].join("\n")));
         }
     }
     blocks
@@ -300,7 +447,8 @@ pub fn check_answers(page: &str, doc: &str, printed: &[String]) -> Result<usize,
     Ok(wanted.len())
 }
 
-/// All four checks of one page, `page` being its path from the top.
+/// All four checks of one page, `page` being its path from the top, its
+/// commands run in `folder`.
 ///
 /// # Errors
 ///
@@ -310,9 +458,10 @@ pub fn check_page(
     doc: &str,
     run: &mut dyn FnMut(&[String]) -> Ran,
     read: &dyn Fn(&str) -> Option<String>,
+    folder: &Path,
 ) -> Result<Checked, String> {
-    let (mut checked, printed) = check_commands(page, doc, run)?;
-    checked.files = check_file_blocks(page, doc, read)?;
+    let (mut checked, printed) = check_commands(page, doc, run, folder)?;
+    checked.files += check_file_blocks(page, doc, read)?;
     checked.links = check_links(&crate::root().join(page), doc)?;
     checked.answers = check_answers(page, doc, &printed)?;
     Ok(checked)
@@ -375,7 +524,7 @@ pub fn wrong_pages_of(pages: &[String], doc_of: &dyn Fn(&str) -> String) -> Vec<
         .filter_map(|page| {
             let (_dir, path) = page_folder();
             let mut run = in_folder(&path);
-            check_page(page, &doc_of(page), &mut run, &repository_file).err()
+            check_page(page, &doc_of(page), &mut run, &repository_file, &path).err()
         })
         .collect()
 }
@@ -407,6 +556,16 @@ mod tests {
         }
     }
 
+    /// A command that prints nothing and succeeds.
+    fn quiet(_: &[String]) -> Ran {
+        ran(0, "")
+    }
+
+    /// The folder of a page that writes no file.
+    fn unused() -> &'static Path {
+        Path::new("no-such-folder")
+    }
+
     /// A page with one command that prints `out`.
     fn page_with(shown: &str) -> String {
         format!("A lesson.\n\n```text\n$ forge calculate a.yaml\n{shown}\n```\n")
@@ -429,10 +588,15 @@ mod tests {
     fn a_command_is_run_and_the_lines_a_page_shows_must_be_printed() {
         let doc = page_with("  year.profit  =  786.32\n\n```\n\n```text\nmore: 1");
         let mut seen: Vec<Vec<String>> = Vec::new();
-        let (checked, printed) = check_commands("p.md", &doc, &mut |args| {
-            seen.push(args.to_vec());
-            ran(0, "year.profit = 786.32\nmore: 1\nunshown: 2\n")
-        })
+        let (checked, printed) = check_commands(
+            "p.md",
+            &doc,
+            &mut |args| {
+                seen.push(args.to_vec());
+                ran(0, "year.profit = 786.32\nmore: 1\nunshown: 2\n")
+            },
+            unused(),
+        )
         .unwrap();
         assert_eq!(seen, [["calculate", "a.yaml"]]);
         assert_eq!(
@@ -450,19 +614,27 @@ mod tests {
     fn a_quoted_argument_is_one_argument() {
         let doc = "```text\n$ forge simulate m.yaml --seek \"P(x > 0) = 0.8\"\n```\n";
         let mut seen = Vec::new();
-        check_commands("p.md", doc, &mut |args| {
-            seen = args.to_vec();
-            ran(0, "")
-        })
+        check_commands(
+            "p.md",
+            doc,
+            &mut |args| {
+                seen = args.to_vec();
+                ran(0, "")
+            },
+            unused(),
+        )
         .unwrap();
         assert_eq!(seen, ["simulate", "m.yaml", "--seek", "P(x > 0) = 0.8"]);
     }
 
     #[test]
     fn a_line_the_command_does_not_print_is_named() {
-        let err = check_commands("p.md", &page_with("year.profit = 1"), &mut |_| {
-            ran(0, "year.profit = 2\n")
-        })
+        let err = check_commands(
+            "p.md",
+            &page_with("year.profit = 1"),
+            &mut |_| ran(0, "year.profit = 2\n"),
+            unused(),
+        )
         .unwrap_err();
         assert!(err.contains("p.md shows a line that `forge calculate a.yaml` does not print"));
         assert!(err.contains("year.profit = 1") && err.contains("It prints:\nyear.profit = 2"));
@@ -472,24 +644,37 @@ mod tests {
     fn a_command_that_fails_is_named_with_what_it_wrote() {
         let mut out = ran(1, "partial\n");
         out.err = "Error: no such file\n".to_string();
-        let err = check_commands("p.md", &page_with("x"), &mut |_| Ran {
-            code: out.code,
-            out: out.out.clone(),
-            err: out.err.clone(),
-        })
+        let err = check_commands(
+            "p.md",
+            &page_with("x"),
+            &mut |_| Ran {
+                code: out.code,
+                out: out.out.clone(),
+                err: out.err.clone(),
+            },
+            unused(),
+        )
         .unwrap_err();
-        assert!(err.contains("`forge calculate a.yaml` fails:\npartial\nError: no such file"));
+        assert!(
+            err.contains("`forge calculate a.yaml` fails, and the page does not show its Error: line:\npartial\nError: no such file"),
+            "{err}"
+        );
     }
 
     #[test]
     fn what_a_command_writes_to_standard_error_counts_as_printed() {
         let mut out = ran(0, "");
         out.err = "warning: stale\n".to_string();
-        let (checked, _) = check_commands("p.md", &page_with("warning: stale"), &mut |_| Ran {
-            code: out.code,
-            out: out.out.clone(),
-            err: out.err.clone(),
-        })
+        let (checked, _) = check_commands(
+            "p.md",
+            &page_with("warning: stale"),
+            &mut |_| Ran {
+                code: out.code,
+                out: out.out.clone(),
+                err: out.err.clone(),
+            },
+            unused(),
+        )
         .unwrap();
         assert_eq!(checked.lines, 1);
     }
@@ -497,7 +682,7 @@ mod tests {
     #[test]
     fn a_block_before_any_command_is_not_output() {
         let doc = "```text\nsomething else\n```\n\n```text\n$ forge validate a.yaml\nok\n```\n";
-        let (checked, _) = check_commands("p.md", doc, &mut |_| ran(0, "ok\n")).unwrap();
+        let (checked, _) = check_commands("p.md", doc, &mut |_| ran(0, "ok\n"), unused()).unwrap();
         assert_eq!((checked.commands, checked.lines), (1, 1));
     }
 
@@ -505,11 +690,16 @@ mod tests {
     fn a_block_that_is_not_text_is_not_run() {
         let doc = "```sh\n$ forge validate a.yaml\n```\n\n```text\n$ forge calculate a.yaml\n```\n";
         let mut run_count = 0;
-        let (checked, _) = check_commands("p.md", doc, &mut |args| {
-            run_count += 1;
-            assert_eq!(args[0], "calculate");
-            ran(0, "")
-        })
+        let (checked, _) = check_commands(
+            "p.md",
+            doc,
+            &mut |args| {
+                run_count += 1;
+                assert_eq!(args[0], "calculate");
+                ran(0, "")
+            },
+            unused(),
+        )
         .unwrap();
         assert_eq!((checked.commands, run_count), (1, 1));
     }
@@ -549,6 +739,127 @@ mod tests {
         let err = check_file_blocks("p.md", doc, &|_: &str| None).unwrap_err();
         assert_eq!(err, "p.md shows examples/guide/a.yaml, which is not a file");
         assert_eq!(check_file_blocks("p.md", "no blocks", &same), Ok(0));
+    }
+
+    #[test]
+    fn a_yaml_header_says_what_file_the_block_is() {
+        let example = |p: &str| Some(Shown::Example(p.to_string()));
+        assert_eq!(
+            shown("# examples/guide/a.yaml"),
+            example("examples/guide/a.yaml")
+        );
+        assert_eq!(
+            shown("# bagel.yaml"),
+            Some(Shown::Written("bagel.yaml".to_string(), None))
+        );
+        assert_eq!(
+            shown("# bagel.yaml, as examples/guide/02-bagel.yaml has it"),
+            Some(Shown::Written(
+                "bagel.yaml".to_string(),
+                Some("examples/guide/02-bagel.yaml".to_string())
+            ))
+        );
+        assert_eq!(
+            shown("# bagel.yaml, after forge calculate"),
+            Some(Shown::After("bagel.yaml".to_string()))
+        );
+        assert_eq!(shown("# A comment"), None);
+        assert_eq!(shown("plan: 1"), None);
+        assert_eq!(shown("# "), None);
+    }
+
+    #[test]
+    fn fenced_blocks_are_read_in_order_with_their_language() {
+        let doc = "```yaml\nx: 1\n```\ntext\n```text\n$ forge a\n```\n```\nplain\n```\n";
+        assert_eq!(
+            fenced_blocks(doc),
+            [
+                ("yaml".to_string(), vec!["x: 1".to_string()]),
+                ("text".to_string(), vec!["$ forge a".to_string()]),
+                (String::new(), vec!["plain".to_string()]),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_file_the_reader_writes_is_there_for_the_commands_after_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let doc = "```text\n$ forge calculate m/bagel.yaml\n```\n\n\
+                   ```yaml\n# m/bagel.yaml\nplan:\n  price: 16\n```\n\n\
+                   ```text\n$ forge calculate m/bagel.yaml\n```\n";
+        let mut seen = Vec::new();
+        let (checked, _) = check_commands(
+            "p.md",
+            doc,
+            &mut |_| {
+                seen.push(std::fs::read_to_string(dir.path().join("m/bagel.yaml")).ok());
+                ran(0, "")
+            },
+            dir.path(),
+        )
+        .unwrap();
+        assert_eq!(seen, [None, Some("plan:\n  price: 16\n".to_string())]);
+        assert_eq!((checked.commands, checked.written), (2, 1));
+    }
+
+    #[test]
+    fn a_file_the_reader_writes_stays_in_the_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        for path in ["../bagel.yaml", "/tmp/bagel.yaml"] {
+            let doc = format!("```yaml\n# {path}\nx: 1\n```\n");
+            let err = check_commands("p.md", &doc, &mut quiet, dir.path()).unwrap_err();
+            assert_eq!(
+                err,
+                format!("p.md writes {path}, outside the folder its commands run in")
+            );
+        }
+    }
+
+    #[test]
+    fn the_lines_shown_after_a_command_must_be_in_the_file_it_left() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.yaml"), "x: 1\ny: 2\nz: 3\n").unwrap();
+        let check = |shown: &str| {
+            let doc = format!(
+                "```text\n$ forge calculate a.yaml\n```\n\n```yaml\n# a.yaml, after forge calculate\n{shown}```\n"
+            );
+            check_commands("p.md", &doc, &mut quiet, dir.path())
+        };
+        assert_eq!(check("y: 2\nz: 3\n").unwrap().0.files, 1);
+        assert_eq!(check("").unwrap().0.files, 1);
+        let err = check("x: 1\nz: 3\n").unwrap_err();
+        assert!(
+            err.starts_with("p.md shows lines of a.yaml that the commands above it did not leave there:\nx: 1\nz: 3\nThe file:\nx: 1"),
+            "{err}"
+        );
+        let doc = "```yaml\n# gone.yaml, after forge calculate\nx: 1\n```\n";
+        let err = check_commands("p.md", doc, &mut quiet, dir.path()).unwrap_err();
+        assert_eq!(
+            err,
+            "p.md shows gone.yaml after the commands above it, which left no such file"
+        );
+    }
+
+    #[test]
+    fn a_command_may_fail_when_the_page_shows_its_error() {
+        let doc = page_with("Error: Unknown variable: x");
+        let mut failing = |_: &[String]| ran(1, "Error: Unknown variable: x\n");
+        let (checked, printed) = check_commands("p.md", &doc, &mut failing, unused()).unwrap();
+        assert_eq!((checked.commands, checked.lines), (1, 1));
+        assert_eq!(printed, ["Error: Unknown variable: x"]);
+        // The error shown must be the one printed
+        let doc = page_with("Error: something else");
+        assert!(check_commands("p.md", &doc, &mut failing, unused()).is_err());
+    }
+
+    #[test]
+    fn a_file_the_reader_writes_may_be_a_file_of_the_examples() {
+        let doc = "```yaml\n# bagel.yaml, as examples/guide/b.yaml has it\nx: 1\n```\n\n\
+                   ```yaml\n# bagel.yaml\nx: 2\n```\n";
+        assert_eq!(
+            file_blocks(doc),
+            [("examples/guide/b.yaml".to_string(), "x: 1".to_string())]
+        );
     }
 
     #[test]
@@ -603,7 +914,7 @@ mod tests {
         let read = |_: &str| Some("x: 1\n".to_string());
         let mut run = |_: &[String]| ran(0, "year.profit = 786.32\n");
         // Links resolve from the page's place in the repository
-        let checked = check_page("docs/p.md", &doc, &mut run, &read).unwrap();
+        let checked = check_page("docs/p.md", &doc, &mut run, &read, unused()).unwrap();
         assert_eq!(
             checked,
             Checked {
@@ -611,17 +922,18 @@ mod tests {
                 lines: 1,
                 files: 1,
                 links: 1,
-                answers: 1
+                answers: 1,
+                written: 0
             }
         );
         let bad_file = |_: &str| Some("x: 2\n".to_string());
-        assert!(check_page("docs/p.md", &doc, &mut run, &bad_file).is_err());
+        assert!(check_page("docs/p.md", &doc, &mut run, &bad_file, unused()).is_err());
         let doc_bad_link = format!("{doc}\n[x](gone.md)\n");
-        assert!(check_page("docs/p.md", &doc_bad_link, &mut run, &read).is_err());
+        assert!(check_page("docs/p.md", &doc_bad_link, &mut run, &read, unused()).is_err());
         let doc_bad_answer = doc.replace("`786.32`", "`1`");
-        assert!(check_page("docs/p.md", &doc_bad_answer, &mut run, &read).is_err());
+        assert!(check_page("docs/p.md", &doc_bad_answer, &mut run, &read, unused()).is_err());
         let mut fails = |_: &[String]| ran(1, "");
-        assert!(check_page("docs/p.md", &doc, &mut fails, &read).is_err());
+        assert!(check_page("docs/p.md", &doc, &mut fails, &read, unused()).is_err());
     }
 
     #[test]

@@ -16,6 +16,7 @@ Each folder but `options/` and `games/` has a README with the numbers it should 
 | --- | --- |
 | [`starter.yaml`](starter.yaml) | A first model, commented line by line. Then `forge report examples/starter.yaml` shows formulas and values side by side. |
 | [`bagel/`](bagel/) | A bagel shop's first year: seasonal months, costs in an included file, scenarios, a tornado, the year's actuals, and an uncertain version to simulate. |
+| [`guide/`](guide/) | The model [lesson 2 of the guide](../docs/guide/02-a-first-model.md) writes from an empty file: the bagel shop's year in `02-bagel.yaml`, and the suppliers' and staff's costs it includes from `costs.yaml`. |
 | [`mortgage/`](mortgage/) | A 450,000 CAD mortgage and what 300 more a month does. Canadian fixed rates compound twice a year, and the model says how. |
 | [`household/`](household/) | One household's October: the budget against what was spent. |
 | [`periods/`](periods/) | Two small models over time: a monthly plan and a five-year DCF, using period columns and `PREV`. |
