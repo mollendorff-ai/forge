@@ -11,7 +11,9 @@
 
 mod check;
 mod games;
+mod insert;
 mod rename;
+pub mod templates;
 pub mod text;
 mod uncertain;
 
@@ -63,6 +65,10 @@ pub enum Op {
     /// A game's player, and the payoffs of its strategies but the first; or
     /// a tournament's
     DeletePlayer,
+    /// A template's block, a game, added to `games:` (`path`: the template,
+    /// from the `templates` tool; `new_name`: the name its game gets, or a
+    /// free one)
+    Insert,
 }
 
 impl Op {
@@ -81,6 +87,7 @@ impl Op {
             Self::DeleteStrategy => "delete_strategy",
             Self::AddPlayer => "add_player",
             Self::DeletePlayer => "delete_player",
+            Self::Insert => "insert",
         }
     }
 }
@@ -110,7 +117,7 @@ pub struct Change {
     /// (a tournament's too), and its strategy `price_war.strategies.hold`, or
     /// one player's `inspection.strategies.human.audit`; for `add_strategy`
     /// and `delete_strategy` a strategy so named, and for `add_player` and
-    /// `delete_player` a player
+    /// `delete_player` a player; for `insert` the template
     pub path: String,
     /// The input's value (`set_value`, `add`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -124,7 +131,7 @@ pub struct Change {
     /// The top-level name a new top-level name follows (`add`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
-    /// The name it gets, one word: `cost` for `year.price` (`rename`)
+    /// The name it gets, one word: `cost` for `year.price` (`rename`), or a template's game (`insert`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub new_name: Option<String>,
     /// The habit a tournament's new player plays: `tit_for_tat`,
@@ -241,6 +248,9 @@ fn apply(files: &mut HashMap<String, String>, main: &str, change: &Change) -> Re
         check::read(files, main).map_err(|e| format!("Forge cannot read the model: {e}"))?;
     fields(change)?;
     let target = locate(&before, main, &change.path)?;
+    if change.op == Op::Insert {
+        return insert::apply(files, main, &before, change);
+    }
     if change.op == Op::Rename {
         return rename::apply(files, main, &before, &target, change);
     }
@@ -281,7 +291,7 @@ fn fields(change: &Change) -> Result<(), String> {
         Op::SetFormula | Op::MakeUncertain => &["formula"],
         Op::Add => &["value", "formula", "unit", "after"],
         Op::Delete | Op::AddStrategy | Op::DeleteStrategy | Op::DeletePlayer => &[],
-        Op::Rename => &["new_name"],
+        Op::Rename | Op::Insert => &["new_name"],
         Op::AddPlayer => &["plays"],
     };
     given

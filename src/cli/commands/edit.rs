@@ -143,7 +143,7 @@ A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
 made in this order: --changes, --set, --formula, --add, --delete, --rename,
 --uncertain, --certain, --add-strategy, --delete-strategy, --add-player,
---delete-player.
+--delete-player, --insert.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -160,6 +160,7 @@ EXAMPLES:
   forge edit inspection.yaml --add-strategy inspection.strategies.human.ignore
   forge edit price_war.yaml --add-player rivalry.players.copycat=tit_for_tat
   forge edit public-goods.yaml --delete-player pg.players.a5
+  forge edit bagel.yaml --insert game_of_two=duel          # forge templates lists them
   forge edit model.yaml --changes '[{\"op\": \"add\", \"path\": \"year.fee\", \"value\": 25, \"unit\": \"CAD\"}]'"
 )]
 pub struct EditArgs {
@@ -220,6 +221,11 @@ pub struct EditArgs {
     /// Delete a game's player, the payoffs of its first strategy kept
     #[arg(long = "delete-player", value_name = "PATH")]
     pub delete_player: Vec<String>,
+
+    /// Add a game from a template (forge templates): TEMPLATE, or
+    /// TEMPLATE=NAME for the game's name (`game_of_two=duel`)
+    #[arg(long = "insert", value_name = "TEMPLATE")]
+    pub insert: Vec<String>,
 
     /// Changes as JSON, as Forge's MCP edit tool takes them
     #[arg(long, value_name = "JSON")]
@@ -330,7 +336,7 @@ impl EditArgs {
         if changes.is_empty() {
             return Err(ForgeError::Validation(
                 "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain, \
-                 --add-strategy, --delete-strategy, --add-player, --delete-player or --changes"
+                 --add-strategy, --delete-strategy, --add-player, --delete-player, --insert or --changes"
                     .into(),
             ));
         }
@@ -363,6 +369,17 @@ impl EditArgs {
                 .iter()
                 .map(|path| change(Op::DeletePlayer, path.clone())),
         );
+        for arg in &self.insert {
+            let (template, name) = arg
+                .split_once('=')
+                .map_or((arg.as_str(), None), |(template, name)| {
+                    (template, Some(name.to_string()))
+                });
+            changes.push(Change {
+                new_name: name,
+                ..change(Op::Insert, template.to_string())
+            });
+        }
         changes
     }
 
@@ -581,6 +598,34 @@ year:
     }
 
     #[test]
+    fn a_game_is_inserted_from_a_template_by_name() {
+        let dir = folder();
+        let model = dir.path().join("model.yaml");
+        let path = model.to_str().unwrap();
+        let ran = forge(&[
+            "edit",
+            path,
+            "--insert",
+            "dynamics=crowd",
+            "--insert",
+            "game_of_two",
+        ]);
+        let both = ran.both();
+        assert_eq!(ran.code, 0, "{both}");
+        assert!(ran.out.contains("   insert dynamics\n"), "{}", ran.out);
+        let made = read(&dir, "model.yaml");
+        assert!(
+            made.contains("\n  crowd:\n    description: A population of hunters"),
+            "{made}"
+        );
+        assert!(
+            made.contains("\n  new_game:\n    description: Two players choose"),
+            "{made}"
+        );
+        assert!(made.contains("_forge_version: \"5.5.0\""), "{made}");
+    }
+
+    #[test]
     fn a_games_strategy_and_players_are_added_and_deleted() {
         let dir = tempfile::tempdir().unwrap();
         let model = dir.path().join("game.yaml");
@@ -679,7 +724,7 @@ games:
         refused(
             &[],
             "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain, \
-             --add-strategy, --delete-strategy, --add-player, --delete-player or --changes",
+             --add-strategy, --delete-strategy, --add-player, --delete-player, --insert or --changes",
         );
         refused(
             &["--uncertain", "=x"],

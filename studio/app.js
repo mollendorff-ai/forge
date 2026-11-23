@@ -8,6 +8,7 @@ import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME,
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
 import { tableCard, tournamentCard, pathHover } from "./games.js";
 import { gameEditor, listenGameEdits } from "./gameedit.js";
+import { templateCard, listenTemplates } from "./templates.js";
 import { kindOf, questionsCard, setStrip, drawKinds } from "./sets.js";
 import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js";
 import { toolArgs, toolsHtml, answerHtml } from "./tools.js";
@@ -465,15 +466,17 @@ function updateValues() {
   }
   fillHelp($("#view-model"));
 }
+// The templates Forge serves for "add a game" (ADR-076 decision 6)
+let templates = [];
 // ---------- games (ADR-068): forge game's answer, drawn ----------
 // Every number here is in the answer of the `game` tool; the page only lays
 // them out. A cell's payoffs and an equilibrium's chances are also kept in
 // data- attributes, in full, for the screen test (tests/games.mjs).
 function gameCards() {
   const names = S.structure.games || [];
-  if (!names.length) return "";
-  return `<div class="eyebrow" id="games"><h2>games</h2><span class="tag">forge game · moves with the inputs</span><span data-help-slot="games"></span></div>` +
-    names.map((n) => `<div class="card row game" data-game="${esc(n)}"><p class="note">Forge is working out ${esc(n)}…</p></div>`).join("");
+  if (!names.length && !templates.length) return "";
+  return `<div class="eyebrow" id="games"><h2>games</h2><span class="tag">${names.length ? "forge game · moves with the inputs" : "none yet"}</span><span data-help-slot="games"></span></div>` +
+    names.map((n) => `<div class="card row game" data-game="${esc(n)}"><p class="note">Forge is working out ${esc(n)}…</p></div>`).join("") + templateCard(templates);
 }
 function drawGames() {
   for (const card of $$("#view-model [data-game]")) {
@@ -605,6 +608,7 @@ $("#view-model").addEventListener("click", (e) => {
 listenDistributions($("#view-model"), () => distributionsOf(functionList), (path, formula) => writeFormula(path, formula),
   (path) => editModel([{ op: "make_certain", path }]));
 listenGameEdits($("#view-model"), editModel);
+listenTemplates($("#view-model"), () => templates, editModel);
 $("#view-model").addEventListener("keydown", (e) => {
   const slot = e.target.closest("[data-addslot]");
   if (slot && e.target.matches("input")) {
@@ -1513,6 +1517,7 @@ async function boot() {
   } catch (e) {
     S.error = e.message; renderAll(); finish(); return;
   }
+  templates = await call("templates", {}).catch(() => []);
   await load();
   loadFunctions();
   keepOffline();

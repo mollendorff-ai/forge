@@ -391,6 +391,10 @@ jobs:
         working-directory: studio
         run: node tests/gameedit.mjs ../studio-site
 
+      - name: A game is added from a template, as Forge's insert writes it
+        working-directory: studio
+        run: node tests/templates.mjs ../studio-site
+
       - name: "Studio shows what a model's expect: states, as Forge checks it"
         working-directory: studio
         run: node tests/expect.mjs ../studio-site

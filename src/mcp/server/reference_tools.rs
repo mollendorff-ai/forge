@@ -3,12 +3,12 @@
 //! server's folder.
 
 use super::{to_json, ForgeMcpServer};
-use crate::mcp::types::{ExamplesRequest, FunctionsRequest, SchemaRequest};
+use crate::mcp::types::{ExamplesRequest, FunctionsRequest, SchemaRequest, TemplatesRequest};
 
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{tool, tool_router};
 
-use crate::cli::{examples_core, functions_core, schema_core};
+use crate::cli::{examples_core, functions_core, schema_core, templates_core};
 
 #[tool_router(router = reference_tools, vis = "pub(super)")]
 #[allow(clippy::unused_self)] // rmcp #[tool] macro requires &self on all tool methods
@@ -27,6 +27,16 @@ impl ForgeMcpServer {
     )]
     fn functions(&self, Parameters(_req): Parameters<FunctionsRequest>) -> String {
         to_json(&functions_core())
+    }
+
+    #[tool(
+        name = "forge_templates",
+        description = "The blocks forge_edit's insert adds to a model: a game of two players, a game of many players alike, a tournament, a population whose strategies spread. Use without a name to list them, or specify a name for its YAML. Each is valid in any model of format 5.5.0 or later; insert raises an earlier model to it. Insert it with forge_edit: {op: insert, path: <template>, new_name: <the game's name>}."
+    )]
+    fn templates(&self, Parameters(req): Parameters<TemplatesRequest>) -> Result<String, String> {
+        templates_core(req.name.as_deref())
+            .map(|r| to_json(&r))
+            .map_err(|e| format!("Templates error: {e}"))
     }
 
     #[tool(
@@ -93,6 +103,28 @@ mod tests {
             "there is no enterprise edition"
         );
         assert_eq!(parsed["total"].as_u64().unwrap(), 203);
+    }
+
+    #[test]
+    fn test_call_templates() {
+        let server = ForgeMcpServer::new();
+        let all = json(&ok_text(
+            server.templates(Parameters(TemplatesRequest { name: None })),
+        ));
+        assert_eq!(all.as_array().unwrap().len(), 4);
+        let one = json(&ok_text(server.templates(Parameters(TemplatesRequest {
+            name: Some("tournament".into()),
+        }))));
+        assert_eq!(one["default"], "new_tournament");
+        assert!(one["yaml"].as_str().unwrap().contains("tournament:"));
+        assert_eq!(
+            server
+                .templates(Parameters(TemplatesRequest {
+                    name: Some("nothing".into()),
+                }))
+                .unwrap_err(),
+            "Templates error: Validation error: Unknown template 'nothing'. Available: game_of_two, game_of_many, tournament, dynamics"
+        );
     }
 
     #[test]
