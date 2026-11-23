@@ -33,7 +33,7 @@ COMMANDS:
   export        - YAML -> Excel (.xlsx) with formulas
   import        - Excel -> YAML
   watch         - Auto-calculate on save
-  upgrade       - Upgrade YAML to latest schema
+  upgrade       - Upgrade a model to a newer format
   update        - Check for updates and self-update
   mcp           - Start MCP server for AI integration
   serve         - Start HTTP REST API server
@@ -79,7 +79,7 @@ Commands:
   functions      List all supported Excel-compatible functions
   schema         Display JSON schema for model validation
   examples       Show example YAML models for Forge capabilities
-  upgrade        Upgrade YAML files to latest schema version
+  upgrade        Upgrade a model to a newer format
   update         Check for updates and install latest version
   mcp            Start MCP server for AI integration (JSON-RPC over stdio)
   serve          Start HTTP REST API server
@@ -321,7 +321,8 @@ Options:
 ## import
 
 ```
-Import an Excel .xlsx workbook as a Forge model (format 5.1.0).
+Import an Excel .xlsx workbook as a Forge model (format 5.1.0, or 5.3.0
+with empty cells, 5.4.0 with dates or formats).
 
 Reads the layout forge export writes, and plain workbooks too:
   A sheet whose header is Name, Value -> a scalar group (Scalars -> ungrouped)
@@ -902,8 +903,12 @@ Start a new model from `starter`; the others show Forge's analysis commands:
   tornado       - One-at-a-time sensitivity analysis
   bootstrap     - Non-parametric confidence intervals
   bayesian      - Probabilistic graphical models
+  expected-loss - A network's posterior feeding an expected loss
   variance      - Budget vs actual analysis
   breakeven     - Break-even calculations
+  stag-hunt, chicken, axelrod, inspection, noisy-tournament,
+  battle-of-the-sexes, continuation, public-goods, volunteers-dilemma,
+  hawk-dove     - Games: equilibria, tournaments and dynamics
 
 EXAMPLES:
   forge examples                    # List all examples
@@ -932,7 +937,8 @@ Options:
 ## upgrade
 
 ```
-Upgrade a model and its includes to the latest model format (5.1.0).
+Upgrade a model and its includes to a newer model format: 5.1.0 by
+default, up to 5.6.0 with --to.
 
 _forge_version is the model format version, not the Forge version.
 Creates backups before modifying files.
@@ -1010,10 +1016,14 @@ YAML CONFIGURATION:
     iterations: 10000
     sampling: latin_hypercube  # spreads samples evenly; steadier results per iteration
     seed: 12345                # For reproducibility
+    correlations:              # rank correlation between two MC.* inputs
+      - variables: [revenue, costs]
+        coefficient: 0.5
     outputs:
       - variable: valuation.npv
         percentiles: [10, 50, 90]
         thresholds: ["> 0", "> 250000"]
+        expected_shortfall: [5]  # mean of the worst 5% of runs
 
   assumptions:
     revenue:
@@ -1419,7 +1429,9 @@ YAML CONFIGURATION:
     confidence_levels: [0.90, 0.95, 0.99]
     seed: 12345
     data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12]
-    statistic: mean  # or median, std, var
+    statistic: mean  # or median, std, var, min, max, percentile
+    # percentile_value: 90  # with statistic: percentile
+    method: bca      # the interval: percentile (default), basic or bca
 
 OUTPUT:
   - Original statistic value
@@ -1467,6 +1479,7 @@ Bayesian networks are probabilistic graphical models for causal reasoning.
 Uses Variable Elimination algorithm for efficient inference.
 
 YAML CONFIGURATION:
+  _forge_version: "5.6.0"
   bayesian_network:
     name: "Credit Risk"
     nodes:
@@ -1486,10 +1499,17 @@ YAML CONFIGURATION:
   A node with several parents (parents: [a, b]) has one CPT row per
   combination of their states, in that order: "x, y": [...]
 
+  A prior or a CPT entry may be a formula over the model's scalars
+  ("=1 - risk.p"), worked out under --scenario. Named queries give
+  posteriors as scalars formulas can read, bayesian_network.<query>.<state>:
+    queries:
+      in_a_bad_year: {node: default_probability, evidence: {economic_conditions: bad}}
+
 EXAMPLES:
   forge bayesian model.yaml                           # Query all nodes
-  forge bayesian model.yaml --query default_prob      # Query specific node
-  forge bayesian model.yaml -e economy=bad            # Set evidence
+  forge bayesian model.yaml --query default_probability   # Query one node
+  forge bayesian model.yaml -e economic_conditions=bad    # Set evidence
+  forge bayesian model.yaml --scenario stress             # Under a scenario
 
 Usage: forge bayesian [OPTIONS] <FILE>
 
@@ -1572,7 +1592,8 @@ Options:
 ```
 Start HTTP REST API server.
 
-Provides RESTful endpoints for all Forge operations:
+Provides five operations on model files over HTTP (the other analyses are
+MCP tools and commands):
   POST /api/v1/validate  - Validate YAML model files
   POST /api/v1/calculate - Calculate formulas (with dry-run support)
   POST /api/v1/audit     - Audit variable dependency trees
