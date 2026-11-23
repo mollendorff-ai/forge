@@ -798,6 +798,17 @@ months:
     }
 
     #[test]
+    fn a_value_an_alias_shares_is_refused_because_forge_would_read_two_changes() {
+        let text = "_forge_version: \"5.1.0\"\nx: &a 2\ny: *a\n";
+        let one = HashMap::from([("m.yaml".to_string(), text.to_string())]);
+        assert_eq!(
+            edit_files(&one, "m.yaml", &[value(Op::SetValue, "x", Value::Number(3.0))])
+                .map_err(|e| e.to_string()),
+            Err("Validation error: set_value x: Forge reads the new text as more than this change, so it was not made. No file was changed".to_string())
+        );
+    }
+
+    #[test]
     fn names_in_any_alphabet_are_changed_and_added() {
         let text = "_forge_version: \"5.1.0\"\nhypothèses:\n  coût_unitaire: 3   # €\n  quantité: 2\n假设:\n  单价: 5\n  总价:\n    formula: \"=假设.单价 * hypothèses.quantité\"\n";
         let one = HashMap::from([("m.yaml".to_string(), text.to_string())]);
@@ -892,6 +903,17 @@ months:
         }
     }
 
+    /// Where a result failed and why, for a test that expects it not to
+    fn failure<T>(
+        place: &str,
+        result: &Result<T, crate::error::ForgeError>,
+    ) -> (String, Option<String>) {
+        (
+            place.to_string(),
+            result.as_ref().err().map(ToString::to_string),
+        )
+    }
+
     /// Each folder of examples, its YAML files by their path in it
     pub(super) fn example_sets() -> Vec<(std::path::PathBuf, HashMap<String, String>)> {
         fn walk(dir: &Path, root: &Path, files: &mut HashMap<String, String>) {
@@ -920,10 +942,9 @@ months:
                     dirs.push(path);
                 }
             }
-            if !files.is_empty() {
-                sets.push((dir, files));
-            }
+            sets.push((dir, files));
         }
+        sets.retain(|(_, files)| !files.is_empty());
         sets.sort_by(|a, b| a.0.cmp(&b.0));
         sets
     }
@@ -938,8 +959,9 @@ months:
             let mut mains: Vec<&String> = files.keys().filter(|k| !k.contains('/')).collect();
             mains.sort();
             for main in mains {
+                let place = format!("{}/{main}", dir.display());
                 let model = check::read(&files, main).and_then(|m| check::valid(&m).map(|()| m));
-                assert!(model.is_ok(), "{}/{main}: {:?}", dir.display(), model.err());
+                assert_eq!((&place, model.as_ref().err()), (&place, None));
                 let model = model.unwrap();
                 models += 1;
                 let columns = model.tables.values().flat_map(|t| {
@@ -956,12 +978,8 @@ months:
                     };
                     let changed =
                         edit_files(&files, main, &[formula_of(Op::SetFormula, &path, &new)]);
-                    assert!(
-                        changed.is_ok(),
-                        "{}/{main}: {:?}",
-                        dir.display(),
-                        changed.err()
-                    );
+                    let place = format!("{}/{main}", dir.display());
+                    assert_eq!(failure(&place, &changed), (place.clone(), None));
                     assert_eq!(changed.unwrap().len(), usize::from(new != f), "{path}");
                 }
                 for (path, var) in &model.scalars {
@@ -986,30 +1004,22 @@ months:
                         formulas += 1;
                     }
                     let changed = edit_files(&files, main, &[c]);
-                    assert!(
-                        changed.is_ok(),
-                        "{}/{main}: {:?}",
-                        dir.display(),
-                        changed.err()
-                    );
+                    let place = format!("{}/{main}", dir.display());
+                    assert_eq!(failure(&place, &changed), (place.clone(), None));
                     let changed = changed.unwrap();
                     if same {
                         assert!(changed.is_empty(), "{path}");
                     }
                     let lines = |t: &str| t.lines().count();
                     for (name, text) in &changed {
-                        assert_eq!(
-                            lines(text),
-                            lines(&files[name]),
-                            "{}/{name} {path}",
-                            dir.display()
-                        );
+                        let at = format!("{}/{name} {path}", dir.display());
+                        assert_eq!((&at, lines(text)), (&at, lines(&files[name])));
                         let differ = text
                             .lines()
                             .zip(files[name].lines())
                             .filter(|(a, b)| a != b)
                             .count();
-                        assert_eq!(differ, 1, "{}/{name} {path}", dir.display());
+                        assert_eq!((&at, differ), (&at, 1));
                     }
                 }
             }
@@ -1060,14 +1070,14 @@ months:
                 for add in adds {
                     let where_ = format!("{}/{main} {}", dir.display(), add.path);
                     let changed = edit_files(&files, main, std::slice::from_ref(&add));
-                    assert!(changed.is_ok(), "{where_}: {:?}", changed.err());
+                    assert_eq!(failure(&where_, &changed), (where_.clone(), None));
                     let text = &changed.unwrap()[main.as_str()];
                     let extra = text.lines().count() - files[main.as_str()].lines().count();
                     assert!((1..=3).contains(&extra), "{where_}");
                     let mut now = files.clone();
                     now.insert(main.clone(), text.clone());
                     let back = edit_files(&now, main, &[change(Op::Delete, &add.path)]);
-                    assert!(back.is_ok(), "{where_}: {:?}", back.err());
+                    assert_eq!(failure(&where_, &back), (where_.clone(), None));
                     assert_eq!(
                         back.unwrap().get(main.as_str()),
                         Some(&files[main.as_str()]),
