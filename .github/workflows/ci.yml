@@ -530,10 +530,10 @@ jobs:
           done < mcp-output.txt
           echo "PASS: All $LINES stdout lines are valid JSON"
 
-          # tools/list must return exactly 22 tools
+          # tools/list must return exactly 23 tools
           TOOLS=$(jq -r 'select(.result.tools) | .result.tools | length' mcp-output.txt)
-          if [ "$TOOLS" != "22" ]; then
-            echo "FAIL: Expected 22 tools, got ${TOOLS:-none}"
+          if [ "$TOOLS" != "23" ]; then
+            echo "FAIL: Expected 23 tools, got ${TOOLS:-none}"
             exit 1
           fi
           echo "PASS: Tool count is $TOOLS"
