@@ -387,6 +387,10 @@ jobs:
         working-directory: studio
         run: node tests/games.mjs ../studio-site
 
+      - name: A game is edited on its card, and Forge's refusal is shown as it words it
+        working-directory: studio
+        run: node tests/gameedit.mjs ../studio-site
+
       - name: "Studio shows what a model's expect: states, as Forge checks it"
         working-directory: studio
         run: node tests/expect.mjs ../studio-site

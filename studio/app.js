@@ -7,6 +7,7 @@ import { call, start } from "./forge.js";
 import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
 import { tableCard, tournamentCard, pathHover } from "./games.js";
+import { gameEditor, listenGameEdits } from "./gameedit.js";
 import { kindOf, questionsCard, setStrip, drawKinds } from "./sets.js";
 import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js";
 import { toolArgs, toolsHtml, answerHtml } from "./tools.js";
@@ -478,7 +479,7 @@ function drawGames() {
   for (const card of $$("#view-model [data-game]")) {
     const r = S.games && !S.games.error ? S.games.find((g) => g.game === card.dataset.game) : null;
     card.innerHTML = (r ? (r.kind === "tournament" ? tournamentCard(r) : tableCard(r))
-      : `<div class="msg bad">${esc(S.games && S.games.error ? S.games.error : S.error || "Not calculated")}</div>`) + resultsList(card.dataset.game);
+      : `<div class="msg bad">${esc(S.games && S.games.error ? S.games.error : S.error || "Not calculated")}</div>`) + resultsList(card.dataset.game) + (r ? gameEditor(r, S.open.has("gedit:" + r.game)) : "");
     pulse(card, "game:" + card.dataset.game, JSON.stringify(r));
   }
 }
@@ -515,9 +516,9 @@ $("#view-model").addEventListener("pointermove", pathHover);
 $("#view-model").addEventListener("pointerdown", pathHover);
 // A game's list of results stays open or shut while the games are drawn again
 $("#view-model").addEventListener("toggle", (e) => {
-  const d = e.target.closest && e.target.closest("[data-results], details[data-band]");
+  const d = e.target.closest && e.target.closest("[data-results], [data-gedit], details[data-band]");
   if (!d) return;
-  const k = d.dataset.results ? "results:" + d.dataset.results : "band:" + d.dataset.band;
+  const k = d.dataset.results ? "results:" + d.dataset.results : d.dataset.gedit ? "gedit:" + d.dataset.gedit : "band:" + d.dataset.band;
   if (d.open) S.open.add(k); else S.open.delete(k);
 }, true);
 $("#view-model").addEventListener("input", (e) => {
@@ -603,6 +604,7 @@ $("#view-model").addEventListener("click", (e) => {
 // A distribution card's kind or parameter changed: its formula is written as an edited formula is
 listenDistributions($("#view-model"), () => distributionsOf(functionList), (path, formula) => writeFormula(path, formula),
   (path) => editModel([{ op: "make_certain", path }]));
+listenGameEdits($("#view-model"), editModel);
 $("#view-model").addEventListener("keydown", (e) => {
   const slot = e.target.closest("[data-addslot]");
   if (slot && e.target.matches("input")) {
