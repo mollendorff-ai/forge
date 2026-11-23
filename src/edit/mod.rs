@@ -10,6 +10,7 @@
 //! Studio (forge-wasm's `edit`) share it.
 
 mod check;
+mod games;
 mod rename;
 pub mod text;
 mod uncertain;
@@ -49,6 +50,19 @@ pub enum Op {
     /// A distribution becomes an input (`value`: the figure to keep; the
     /// `value:` beside the formula, or else the distribution's plan figure)
     MakeCertain,
+    /// A game's strategy, for every player (`sealed_bids.strategies.bid_50`) or
+    /// for one (`inspection.strategies.human.ignore`), its cells 0
+    AddStrategy,
+    /// A game's strategy, every player's of that name or one player's, with
+    /// its cells
+    DeleteStrategy,
+    /// A game's player (`price_war.players.shop`), last, with the last
+    /// player's strategies and payoffs of 0; a tournament's
+    /// (`rivalry.players.copycat`) with the habit it `plays`
+    AddPlayer,
+    /// A game's player, and the payoffs of its strategies but the first; or
+    /// a tournament's
+    DeletePlayer,
 }
 
 impl Op {
@@ -63,6 +77,10 @@ impl Op {
             Self::Rename => "rename",
             Self::MakeUncertain => "make_uncertain",
             Self::MakeCertain => "make_certain",
+            Self::AddStrategy => "add_strategy",
+            Self::DeleteStrategy => "delete_strategy",
+            Self::AddPlayer => "add_player",
+            Self::DeletePlayer => "delete_player",
         }
     }
 }
@@ -82,14 +100,17 @@ pub enum Value {
 #[cfg_attr(feature = "cli", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Change {
-    /// `set_value`, `set_formula`, `add`, `delete`, `rename`, `make_uncertain`
-    /// or `make_certain`
+    /// `set_value`, `set_formula`, `add`, `delete`, `rename`,
+    /// `make_uncertain`, `make_certain`, `add_strategy`, `delete_strategy`,
+    /// `add_player` or `delete_player`
     pub op: Op,
     /// The name as formulas read it: `price`, `year.price`, a table's column
     /// `months.sales`, or `@costs.rent` in the file included as `costs`; for
     /// `rename`, also a game `price_war`, its player `price_war.players.lune`
     /// (a tournament's too), and its strategy `price_war.strategies.hold`, or
-    /// one player's `inspection.strategies.human.audit`
+    /// one player's `inspection.strategies.human.audit`; for `add_strategy`
+    /// and `delete_strategy` a strategy so named, and for `add_player` and
+    /// `delete_player` a player
     pub path: String,
     /// The input's value (`set_value`, `add`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -106,6 +127,10 @@ pub struct Change {
     /// The name it gets, one word: `cost` for `year.price` (`rename`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub new_name: Option<String>,
+    /// The habit a tournament's new player plays: `tit_for_tat`,
+    /// `always_defect`, ... (`add_player`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plays: Option<String>,
 }
 
 /// The model's files after each change in turn.
@@ -222,6 +247,12 @@ fn apply(files: &mut HashMap<String, String>, main: &str, change: &Change) -> Re
     if matches!(change.op, Op::MakeUncertain | Op::MakeCertain) {
         return uncertain::apply(files, main, &before, &target, change);
     }
+    if matches!(
+        change.op,
+        Op::AddStrategy | Op::DeleteStrategy | Op::AddPlayer | Op::DeletePlayer
+    ) {
+        return games::apply(files, main, &before, &target, change);
+    }
     let kind = target.kind();
     let text = write(&files[&target.file], &target, kind, change)
         .map_err(|why| format!("{why} ({})", target.file))?;
@@ -243,13 +274,15 @@ fn fields(change: &Change) -> Result<(), String> {
         ("unit", change.unit.is_some()),
         ("after", change.after.is_some()),
         ("new_name", change.new_name.is_some()),
+        ("plays", change.plays.is_some()),
     ];
     let takes: &[&str] = match change.op {
         Op::SetValue | Op::MakeCertain => &["value"],
         Op::SetFormula | Op::MakeUncertain => &["formula"],
         Op::Add => &["value", "formula", "unit", "after"],
-        Op::Delete => &[],
+        Op::Delete | Op::AddStrategy | Op::DeleteStrategy | Op::DeletePlayer => &[],
         Op::Rename => &["new_name"],
+        Op::AddPlayer => &["plays"],
     };
     given
         .iter()
@@ -441,6 +474,7 @@ months:
             unit: None,
             after: None,
             new_name: None,
+            plays: None,
         }
     }
 

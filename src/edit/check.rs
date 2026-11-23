@@ -169,7 +169,14 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
         _ => v.value.is_some(),
     };
     match change.op {
-        Op::Delete | Op::Rename | Op::MakeUncertain | Op::MakeCertain => true,
+        Op::Delete
+        | Op::Rename
+        | Op::MakeUncertain
+        | Op::MakeCertain
+        | Op::AddStrategy
+        | Op::DeleteStrategy
+        | Op::AddPlayer
+        | Op::DeletePlayer => true,
         Op::SetValue => var.is_some_and(reads),
         Op::SetFormula => {
             var.and_then(|v| v.formula.as_ref()).or_else(column) == change.formula.as_ref()
@@ -186,7 +193,7 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
 }
 
 /// A model and the models it includes, by alias, as JSON
-fn snapshot(model: &ParsedModel) -> Json {
+pub(super) fn snapshot(model: &ParsedModel) -> Json {
     let includes: serde_json::Map<String, Json> = model
         .resolved_includes
         .iter()
@@ -266,6 +273,7 @@ mod tests {
             unit: None,
             after: None,
             new_name: None,
+            plays: None,
         };
         let before = "_forge_version: \"5.1.0\"\na: 1\nb: 2\n";
         assert_eq!(
