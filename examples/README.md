@@ -6,6 +6,8 @@ Every file here runs as it is. Start with the first one, or open the same exampl
 forge calculate examples/starter.yaml
 ```
 
+Installed with `install.sh --examples`, the same files are in `forge-examples/`: write that where this page says `examples/`.
+
 ## Models with a story
 
 Each folder but `options/` and `games/` has a README with the numbers it should print; the games state theirs in `expect:`. All figures are made up.

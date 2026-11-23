@@ -737,6 +737,82 @@ studio:
   # Excel. The grid stays a read-only view (ADR-056 addendum, S11).
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ADOPTION — a manual for each kind of reader (decided 2026-11-23)
+# ═══════════════════════════════════════════════════════════════════════════════
+# The maintainer asked (2026-11-23) to make Forge easy, trustworthy and fun to
+# adopt for new users, developers, maintainers and AI agents. This supersedes,
+# for documentation only, "adoption is not a goal" (2026-11-16): the engine's
+# tiers still wait for nothing, and no item here is justified by growth, but a
+# reader who turns up must find a way in. Found by installing rc.34 with
+# install.sh and running examples/bagel (calculations, simulations, games), then
+# reading every README: Forge has reference pages (FEATURES, MCP, cli/README),
+# tested prompts (PROMPTS) and tested posts, but no learning path, no
+# Studio user guide, no recipe for a pipeline, and a README documentation table
+# that omits four pages. Rules for every item: a page states nothing that
+# validation/repo does not run (posts.rs, doc_examples.rs, readme_commands.rs
+# show how); the headings Studio's help.json links to stay (S-HELP); a lesson
+# ends with how to check the result yourself.
+# Order: A0 and A1 first, A2 before any lesson, then A3 to A9 in parallel, A10
+# last. Model and effort for each are in the item.
+
+adoption:
+  - id: A0-DOC-ERRORS
+    title: "The documentation's verified errors fixed"
+    why: "Found 2026-11-23: docs/MCP.md says 21 tools (22) and links rmcp to anthropics/rust-mcp-sdk as 'Anthropic's official' (its repository is modelcontextprotocol/rust-sdk); its Claude Desktop config path is the Linux-only ~/.config/claude; the starter.yaml and EXAMPLES.md comment says a column cannot reduce a column (ADR-058 allows =revenue / SUM(revenue), run on rc.34); the README's development commands are weaker than CI's; its documentation table omits GLOSSARY, EXAMPLES, the CLI reference and CONTRIBUTING; its commands say examples/ where install.sh --examples writes forge-examples/"
+    acceptance: "Each is fixed and, where a test can hold it (the tool count, the starter model in EXAMPLES.md, the README's commands), is held by one in validation/repo"
+    model: "Sonnet 5.5, medium"
+  - id: A1-DOCS-MAP
+    title: "An ADR: the readers, where each one's pages live, and what stays the reference"
+    why: "Five readers (new user, AI agent or its user, pipeline builder, developer who embeds Forge, contributor or maintainer) and no map. FEATURES.md stays the reference and Studio's help anchors stay; new pages go in docs/guide/ (lessons built on examples/bagel and docs/posts), docs/EMBEDDING.md and docs/MAINTAINING.md, with a docs/README.md index"
+    acceptance: "ADR-078 accepted by the maintainer, naming each page, its reader and the test that keeps it true"
+    model: "Opus 5.5, high"
+    drafted: "2026-11-23: docs/architecture/ADR-078-A-WAY-IN-FOR-EACH-READER.md, proposed; accepted by merging it"
+  - id: A2-GUIDE-TESTS
+    title: "The guide's commands and numbers run by validation/repo before any lesson is written"
+    acceptance: "A page in docs/guide/ whose command prints other than the page shows, or whose number differs, fails the Repository checks job; at 100% coverage and pedantic clippy"
+    model: "Sonnet 5.5, high"
+  - id: A3-GUIDE-CORE
+    title: "Lessons: the first ten minutes, a first model written by hand, keeping a model"
+    how: "Build the bagel shop from an empty file: scalars, a table, PREV, _includes, scenarios; then calculate rewrites the file (use --dry-run), the .bak, validate as the gate for stale values, edit, upgrade, git diff. Each lesson ends with a challenge and a way to check the answer"
+    acceptance: "A fresh agent that has never seen Forge follows them cold and reports no step that fails (A10)"
+    model: "Opus 5.5, high"
+  - id: A4-GUIDE-ANALYSES
+    title: "Lessons: what if, how likely, what will they do (calculations, simulations, games)"
+    how: "Built on docs/posts and examples/bagel; how to read simulate's drivers and 'mean below plan', a game's equilibria and dynamics"
+    acceptance: "Every number is asserted by A2's checks"
+    model: "Opus 5.5, medium"
+  - id: A5-GUIDE-AI
+    title: "Forge with an AI: a chat, the MCP server in each client, and rules for an agent working in a model repository"
+    how: "From PROMPTS.md, MCP.md and the server's own instructions; a template for CLAUDE.md or AGENTS.md; whether an llms.txt earns its place. Client configuration paths read from each client's current documentation, not from memory"
+    acceptance: "The template's rules are each exercised against forge mcp in a test or a recorded run"
+    model: "Sonnet 5.5, medium"
+  - id: A6-GUIDE-PIPELINE
+    title: "A pipeline recipe that has been run: forge validate as the gate, JSON output, exit codes, a pull request showing the diff"
+    why: "docs/WORKFLOWS.md says no whole pipeline without AI has been run, and the one with AI has run once (Sentinel)"
+    acceptance: "The recipe, a workflow file in examples/, ran green and red in a scratch repository, and the page says so with the run's link"
+    model: "Opus 5.5, high"
+  - id: A7-STUDIO-LINK
+    title: "A Studio link that carries a model in its # part, and nowhere else"
+    why: "A link opens only a bundled example today (?example=), so a lesson or an AI's answer cannot hand over its own YAML. The part after # is never sent to a server, so 'nothing you type leaves the tab' holds; an ADR first"
+    acceptance: "ADR accepted; a studio test opens a link with a model in it and finds its results equal to forge calculate's; the privacy text in the README and studio/README.md still true"
+    model: "Opus 5.5, high"
+  - id: A8-STUDIO-GUIDE
+    title: "A Studio user guide with screenshots"
+    why: "studio/README.md is for people who build Studio; the in-app ? has fifteen entries and no walk through"
+    acceptance: "Every screenshot made by studio/screenshots.mjs; every link to a heading that exists"
+    model: "Sonnet 5.5, medium"
+  - id: A9-ROLES
+    title: "CONTRIBUTING.md, docs/MAINTAINING.md, docs/EMBEDDING.md and the library's docs.rs page"
+    why: "CONTRIBUTING.md is 35 lines with no set-up (Rust version, the wasm target, Gnumeric, R, Node); nothing says how a release is made beyond release.yml; src/lib.rs still describes 'a YAML formula calculator with Excel-style arrays'"
+    acceptance: "A fresh agent sets up a clone from CONTRIBUTING.md alone and runs make check green; the release steps are reviewed by the maintainer"
+    model: "Sonnet 5.5, medium"
+  - id: A10-README-AND-TRIALS
+    title: "The README as the front door, then a trial by a fresh reader of each kind"
+    how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
+    acceptance: "readme_commands.rs passes; four trial reports name no step that failed, or each is a roadmap item"
+    model: "Opus 5.5, high for the README; Sonnet 5.5, medium for the trials"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done, and only when a use calls for one;
 # adoption is not a goal, 2026-11-16)
 # ═══════════════════════════════════════════════════════════════════════════════
