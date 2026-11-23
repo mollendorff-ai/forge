@@ -20,7 +20,6 @@ dist/
 /forge-wasm/pkg-web/
 /studio-site/
 /studio/node_modules/
-/studio/package-lock.json
 /studio-screenshots/
 /forge-wasm/xlsx/
 __pycache__/

@@ -361,12 +361,10 @@ tier1:
   # own section; a scalar `y: {<<: *x}`, accepted silently before, is refused
   # too (CHANGELOG [Unreleased], Fixed).
 
-  - id: T1-SUPPLY-CHAIN
-    title: "Workflow and dependency hygiene"
-    why: "Checked on f77fa0a. Release attestations are done (d335791). Left: six of seven workflows have no top-level permissions: block (pages.yml has one); actions are pinned by tag or branch (actions/checkout@v7, dtolnay/rust-toolchain@stable and @master, taiki-e/install-action@cargo-llvm-cov), not by commit; studio/ has a package.json but no lockfile and CI and pages.yml run npm install; .cargo/audit.toml ignores RUSTSEC-2024-0436 (paste), but Cargo.lock has pastey, not paste, so the ignore is stale"
-    how: "permissions: contents: read at the top of each workflow, widened per job where a job writes; pin each action by commit with its tag in a comment; commit studio/package-lock.json and use npm ci; drop the stale audit ignore"
-    acceptance: "Every workflow starts with a permissions: block; no uses: line ends in a branch or tag name that can move; npm ci works in studio/ and CI uses it; cargo audit passes with no ignore for a crate absent from Cargo.lock"
-
+  # T1-SUPPLY-CHAIN is done (2026-11-23): permissions: contents: read in every
+  # workflow, every action pinned by commit, studio/package-lock.json and npm ci,
+  # the stale paste ignore dropped from .cargo/audit.toml. (cargo audit itself
+  # runs in the Weekly workflow.)
   # T1-MA-EXAMPLE is done (2026-11-18): examples/acquisition, Project
   # Kittiwake, runs every analytics command on one takeover (calculate,
   # scenarios, tornado, break-even, goal-seek, sensitivity, compare, export,
