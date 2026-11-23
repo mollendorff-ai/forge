@@ -268,12 +268,14 @@ fn walk(node: &YamlNode, path: &mut Vec<String>, sites: &mut Vec<Site>) {
                 };
                 path.push(key.as_string());
                 sites.push(site(&key, path, true, flow));
-                if let Some(value) = entry.value_node() {
-                    if let YamlNode::Scalar(scalar) = &value {
-                        sites.push(site(scalar, path, false, flow));
-                    } else {
-                        walk(&value, path, sites);
-                    }
+                // The parser gives every entry a value, empty where none is written
+                let value = entry
+                    .value_node()
+                    .expect("an entry of a file that parses has a value");
+                if let YamlNode::Scalar(scalar) = &value {
+                    sites.push(site(scalar, path, false, flow));
+                } else {
+                    walk(&value, path, sites);
                 }
                 path.pop();
             }
@@ -414,6 +416,57 @@ months:
         let at = lines.iter().position(|l| l.contains(needle)).unwrap();
         lines[at] = line;
         lines.join("\n")
+    }
+
+    /// Text that is not YAML, and a name that is not there, for each
+    /// function that reads a file
+    #[test]
+    fn text_that_is_not_yaml_or_has_not_the_group_is_refused_with_the_reason() {
+        let broken = "its YAML cannot be read (Unclosed flow sequence. Expected: ']' to close sequence. Found: end of input. Context: in flow sequence. Suggestion: Add ']' to close the array, or check for missing commas between elements)".to_string();
+        let no_group = "z is not written as a group of names".to_string();
+        let names: &[&str] = &["z", "b"];
+        let new = || New::Input {
+            value: "1",
+            unit: None,
+        };
+        assert_eq!(set_formula("a: [", &["a"], "=1"), Err(broken.clone()));
+        assert_eq!(set_formula("a: 1\n", names, "=1"), Err(no_group.clone()));
+        assert_eq!(add("a: [", &["a"], new(), None), Err(broken.clone()));
+        assert_eq!(add("a: 1\n", names, new(), None), Err(no_group.clone()));
+        assert_eq!(delete("a: [", &["a"]), Err(broken.clone()));
+        assert_eq!(delete("a: 1\n", names), Err(no_group));
+        assert_eq!(sites("a: [").err(), Some(broken));
+    }
+
+    #[test]
+    fn a_name_with_nothing_after_it_is_a_site_of_its_name_and_an_empty_value() {
+        let seen = |text: &str| -> Vec<(Vec<String>, bool, String)> {
+            sites(text)
+                .unwrap()
+                .into_iter()
+                .map(|s| (s.path, s.key, s.text))
+                .collect()
+        };
+        let path = |names: &[&str]| names.iter().map(ToString::to_string).collect::<Vec<_>>();
+        assert_eq!(
+            seen("a:\nb: 1\n"),
+            vec![
+                (path(&["a"]), true, "a".to_string()),
+                (path(&["a"]), false, String::new()),
+                (path(&["b"]), true, "b".to_string()),
+                (path(&["b"]), false, "1".to_string()),
+            ]
+        );
+        assert_eq!(
+            seen("x: {a, b: 1}\n"),
+            vec![
+                (path(&["x"]), true, "x".to_string()),
+                (path(&["x", "a"]), true, "a".to_string()),
+                (path(&["x", "a"]), false, String::new()),
+                (path(&["x", "b"]), true, "b".to_string()),
+                (path(&["x", "b"]), false, "1".to_string()),
+            ]
+        );
     }
 
     #[test]
