@@ -123,14 +123,16 @@ pub fn edit(
 /// The arguments of `forge edit`.
 #[derive(clap::Args)]
 #[command(
-    about = "Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, comments kept",
+    about = "Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, a game's strategies and players, comments kept",
     long_about = "Change a model's text: set an input's value or a formula, add or delete an
 input, a formula or a table's column, or rename a scalar, a group, a table, a
 column, a game, a player or a strategy and every name that reads it (formulas,
 scenarios, expectations, a simulation's outputs, a tornado's inputs, a game's
 results, in every file of the model), or make
 an input uncertain (a distribution, its value kept as the plan) and certain
-again, in the model or in a file it includes (@alias.name). Every byte outside
+again, or add or delete a game's strategy or player (a new cell is 0; a new
+player comes last, with the last player's strategies), in the model or in a
+file it includes (@alias.name). Every byte outside
 the change stays as it was, comments and layout included. A change is made
 only when Forge reads the model back valid, with that change and nothing else;
 when one cannot be made, no file is written and the message says why. Each
@@ -140,7 +142,8 @@ not written: forge calculate does.
 A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
 made in this order: --changes, --set, --formula, --add, --delete, --rename,
---uncertain, --certain.
+--uncertain, --certain, --add-strategy, --delete-strategy, --add-player,
+--delete-player.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -153,6 +156,10 @@ EXAMPLES:
   forge edit model.yaml --uncertain year.price           # A triangle, 80% to 120%
   forge edit model.yaml --uncertain 'year.price==MC.PERT(12, 16, 22)'
   forge edit model.yaml --certain year.price             # Back to its value
+  forge edit deal_game.yaml --add-strategy sealed_bids.strategies.bid_50   # Its cells 0
+  forge edit inspection.yaml --add-strategy inspection.strategies.human.ignore
+  forge edit price_war.yaml --add-player rivalry.players.copycat=tit_for_tat
+  forge edit public-goods.yaml --delete-player pg.players.a5
   forge edit model.yaml --changes '[{\"op\": \"add\", \"path\": \"year.fee\", \"value\": 25, \"unit\": \"CAD\"}]'"
 )]
 pub struct EditArgs {
@@ -193,6 +200,27 @@ pub struct EditArgs {
     #[arg(long = "certain", value_name = "PATH")]
     pub certain: Vec<String>,
 
+    /// Add a strategy to a game, its cells 0: PATH, every player's
+    /// (inspection.strategies.wait) or one player's
+    /// (inspection.strategies.human.ignore)
+    #[arg(long = "add-strategy", value_name = "PATH")]
+    pub add_strategy: Vec<String>,
+
+    /// Delete a game's strategy, every player's of that name or one
+    /// player's, with its cells
+    #[arg(long = "delete-strategy", value_name = "PATH")]
+    pub delete_strategy: Vec<String>,
+
+    /// Add a player to a game, last, with the last player's strategies and
+    /// payoffs of 0 (inspection.players.board); a tournament's player with
+    /// its habit, PATH=HABIT (rivalry.players.copycat=random)
+    #[arg(long = "add-player", value_name = "PATH")]
+    pub add_player: Vec<String>,
+
+    /// Delete a game's player, the payoffs of its first strategy kept
+    #[arg(long = "delete-player", value_name = "PATH")]
+    pub delete_player: Vec<String>,
+
     /// Changes as JSON, as Forge's MCP edit tool takes them
     #[arg(long, value_name = "JSON")]
     pub changes: Option<String>,
@@ -229,6 +257,7 @@ impl EditArgs {
             unit: None,
             after: None,
             new_name: None,
+            plays: None,
         };
         for arg in &self.set {
             let (path, v) = pair("set", arg)?;
@@ -297,12 +326,44 @@ impl EditArgs {
                 });
             }
         }
+        changes.extend(self.game_changes(change));
         if changes.is_empty() {
             return Err(ForgeError::Validation(
-                "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain or --changes".into(),
+                "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain, \
+                 --add-strategy, --delete-strategy, --add-player, --delete-player or --changes"
+                    .into(),
             ));
         }
         Ok(changes)
+    }
+
+    /// The changes of a game's strategies and players the flags name, each
+    /// made by `change`
+    fn game_changes(&self, change: impl Fn(Op, String) -> Change) -> Vec<Change> {
+        let mut changes = Vec::new();
+        for (paths, op) in [
+            (&self.add_strategy, Op::AddStrategy),
+            (&self.delete_strategy, Op::DeleteStrategy),
+        ] {
+            changes.extend(paths.iter().map(|path| change(op, path.clone())));
+        }
+        for arg in &self.add_player {
+            let (path, plays) = arg
+                .split_once('=')
+                .map_or((arg.as_str(), None), |(path, habit)| {
+                    (path, Some(habit.to_string()))
+                });
+            changes.push(Change {
+                plays,
+                ..change(Op::AddPlayer, path.to_string())
+            });
+        }
+        changes.extend(
+            self.delete_player
+                .iter()
+                .map(|path| change(Op::DeletePlayer, path.clone())),
+        );
+        changes
     }
 
     /// Run the command on `c`.
@@ -520,6 +581,79 @@ year:
     }
 
     #[test]
+    fn a_games_strategy_and_players_are_added_and_deleted() {
+        let dir = tempfile::tempdir().unwrap();
+        let model = dir.path().join("game.yaml");
+        let text = "_forge_version: \"5.6.0\"
+games:
+  pd:
+    players: [me, you]
+    strategies: [cooperate, defect]
+    symmetric: true
+    payoffs:
+      cooperate: {cooperate: 3, defect: 0}
+      defect: {cooperate: 5, defect: 1}
+  duel:
+    tournament: {round: pd, players: {a: tit_for_tat, b: always_defect}, rounds: 10}
+  pair:
+    players: [x, y]
+    strategies: [up, down]
+    payoffs: {up: {up: [1, 1], down: [0, 0]}, down: {up: [0, 0], down: [2, 2]}}
+";
+        std::fs::write(&model, text).unwrap();
+        let path = model.to_str().unwrap();
+        let ran = forge(&[
+            "edit",
+            path,
+            "--add-strategy",
+            "pair.strategies.wait",
+            "--add-player",
+            "duel.players.c=random",
+            "--add-player",
+            "pair.players.z",
+            "--delete-player",
+            "duel.players.a",
+        ]);
+        let both = ran.both();
+        assert_eq!(ran.code, 0, "{both}");
+        assert!(
+            ran.out.contains("   add_player duel.players.c\n"),
+            "{}",
+            ran.out
+        );
+        let made = read(&dir, "game.yaml");
+        assert!(
+            made.contains("players: {b: always_defect, c: random}"),
+            "{made}"
+        );
+        assert!(
+            made.contains("    players: [x, y, z]\n    strategies: [up, down, wait]\n"),
+            "{made}"
+        );
+        assert!(
+            made.contains("payoffs: {up: {up: {up: [1, 1, 0], down: [1, 1, 0], wait: [1, 1, 0]}"),
+            "{made}"
+        );
+        let ran = forge(&[
+            "edit",
+            path,
+            "--delete-strategy",
+            "pair.strategies.wait",
+            "--delete-player",
+            "pair.players.z",
+        ]);
+        let both = ran.both();
+        assert_eq!(ran.code, 0, "{both}");
+        assert_eq!(
+            read(&dir, "game.yaml"),
+            text.replace(
+                "{a: tit_for_tat, b: always_defect}",
+                "{b: always_defect, c: random}"
+            )
+        );
+    }
+
+    #[test]
     fn changes_can_be_given_as_json() {
         let dir = folder();
         let model = dir.path().join("model.yaml");
@@ -544,7 +678,8 @@ year:
         };
         refused(
             &[],
-            "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain or --changes",
+            "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain, \
+             --add-strategy, --delete-strategy, --add-player, --delete-player or --changes",
         );
         refused(
             &["--uncertain", "=x"],

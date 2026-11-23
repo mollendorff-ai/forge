@@ -3,6 +3,8 @@
 //! Every link and anchor in them resolves, every repository path named by the
 //! pages that describe today's code exists, every ADR is in the index, and
 //! every module of `src/lib.rs` is in the module map (roadmap T1-CLAIMS).
+//! Every ADR states its status, and the index gives the same one: the index
+//! once said ADR-076's step 4 was not built when the ADR said it was.
 //!
 //! The ADRs are records of a decision at their date, so a path an ADR names
 //! is not checked; their links are.
@@ -131,6 +133,81 @@ pub fn broken_link(page: &Path, target: &str) -> Option<String> {
     } else {
         Some(format!("{target}: no heading with that anchor"))
     }
+}
+
+/// The statuses an ADR can have, the longer first where one ends another.
+pub const STATUSES: [&str; 7] = [
+    "Proposed",
+    "Partly superseded",
+    "Superseded",
+    "Not implemented",
+    "Implemented",
+    "Accepted",
+    "Restored",
+];
+
+/// An ADR's status as it writes it, without bold: the text after
+/// `**Status:**` (or `**Status**:`), or the first line under a `## Status` heading.
+#[must_use]
+pub fn adr_status(doc: &str) -> Option<String> {
+    let mut lines = doc.lines();
+    while let Some(line) = lines.next() {
+        if let Some(rest) = line
+            .strip_prefix("**Status:**")
+            .or_else(|| line.strip_prefix("**Status**:"))
+        {
+            return Some(rest.replace("**", "").trim().to_string());
+        }
+        if line.trim() == "## Status" {
+            let first = lines.by_ref().find(|l| !l.trim().is_empty())?;
+            return Some(first.replace("**", "").trim().to_string());
+        }
+    }
+    None
+}
+
+/// The status a status text starts with, one of [`STATUSES`].
+#[must_use]
+pub fn status_word(status: &str) -> Option<&'static str> {
+    STATUSES
+        .into_iter()
+        .find(|word| status.to_lowercase().starts_with(&word.to_lowercase()))
+}
+
+/// The rows of the ADR index: each ADR's file and the status the index gives.
+#[must_use]
+pub fn index_statuses(index: &str) -> Vec<(String, String)> {
+    index
+        .lines()
+        .filter_map(|line| {
+            let (_, link) = line.strip_prefix("| [ADR-")?.split_once("](")?;
+            let (file, _) = link.split_once(')')?;
+            let row = line.trim_end().trim_end_matches('|').trim_end();
+            let status = row.rsplit(" | ").next().unwrap_or(row).trim();
+            Some((file.to_string(), status.to_string()))
+        })
+        .collect()
+}
+
+/// What is wrong with the index's status of the ADR `file`, whose own
+/// status is `own`: `None` when both start with the same status, and the index says
+/// something is "not yet" built only if the ADR does.
+#[must_use]
+pub fn status_mismatch(file: &str, index: &str, own: &str) -> Option<String> {
+    let Some(word) = status_word(own) else {
+        return Some(format!(
+            "{file}: the ADR's status is none of {STATUSES:?}: {own}"
+        ));
+    };
+    if status_word(index) != Some(word) {
+        return Some(format!(
+            "{file}: the index says \"{index}\", the ADR \"{own}\""
+        ));
+    }
+    let not_yet = |s: &str| s.to_lowercase().contains("not yet");
+    (not_yet(index) && !not_yet(own)).then(|| {
+        format!("the index says \"{index}\", but the ADR has nothing not yet built: \"{own}\"")
+    })
 }
 
 #[cfg(test)]
@@ -280,5 +357,93 @@ mod tests {
             missing.is_empty(),
             "modules missing from the module map in 01-COMPONENT-ARCHITECTURE.md: {missing:?}"
         );
+    }
+
+    #[test]
+    fn an_adr_states_its_status_in_either_form() {
+        assert_eq!(
+            adr_status("# ADR\n\n**Status:** **Accepted** - v1\n").as_deref(),
+            Some("Accepted - v1")
+        );
+        assert_eq!(
+            adr_status("# ADR\n## Status\n\n**Superseded** (by 2)\n").as_deref(),
+            Some("Superseded (by 2)")
+        );
+        assert_eq!(
+            adr_status("**Status**: Accepted (updated)\n").as_deref(),
+            Some("Accepted (updated)")
+        );
+        assert_eq!(adr_status("# ADR\n## Status\n\n"), None);
+        assert_eq!(adr_status("# ADR\n"), None);
+    }
+
+    #[test]
+    fn a_status_starts_with_one_of_the_statuses() {
+        assert_eq!(
+            status_word("Partly superseded (see)"),
+            Some("Partly superseded")
+        );
+        assert_eq!(status_word("superseded by ADR-072"), Some("Superseded"));
+        assert_eq!(status_word("Accepted by merging"), Some("Accepted"));
+        assert_eq!(status_word("Proposed"), Some("Proposed"));
+        assert_eq!(status_word("Draft"), None);
+    }
+
+    #[test]
+    fn the_index_gives_each_adr_its_file_and_status() {
+        let index = "| ADR | Title | Status |\n|-----|\n| [ADR-001](ADR-001-NO-GRPC.md) | No gRPC | Accepted |\n| [ADR-2](x.md) | A | B | Superseded; by 3 |\n| [ADR-3] | no link |\n| [ADR-4](open | A |\n";
+        assert_eq!(
+            index_statuses(index),
+            [
+                ("ADR-001-NO-GRPC.md".to_string(), "Accepted".to_string()),
+                ("x.md".to_string(), "Superseded; by 3".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_index_and_the_adr_disagree_on_a_status_or_on_what_is_not_built() {
+        assert_eq!(
+            status_mismatch("x.md", "Accepted; built", "Accepted (2026-11-22)"),
+            None
+        );
+        assert_eq!(
+            status_mismatch(
+                "x.md",
+                "Accepted; step 4 not yet",
+                "Accepted; step 4 not yet built"
+            ),
+            None
+        );
+        assert!(status_mismatch("x.md", "Accepted", "Draft")
+            .unwrap()
+            .contains("none of"));
+        assert!(status_mismatch("x.md", "Partly superseded", "Accepted")
+            .unwrap()
+            .contains("x.md: the index says \"Partly superseded\""));
+        assert!(status_mismatch(
+            "x.md",
+            "Accepted; step 4 not yet",
+            "Accepted. Steps 1 to 4 built"
+        )
+        .unwrap()
+        .contains("nothing not yet built"));
+    }
+
+    #[test]
+    fn every_adr_states_the_status_the_index_gives() {
+        let index = read("docs/architecture/README.md");
+        let rows = index_statuses(&index);
+        let count = rows.len();
+        assert!(count >= 70, "only {count} ADRs in the index");
+        let wrong: Vec<String> = rows
+            .iter()
+            .filter_map(|(file, status)| {
+                let doc = read(&format!("docs/architecture/{file}"));
+                let own = adr_status(&doc).unwrap_or_default();
+                status_mismatch(file, status, &own)
+            })
+            .collect();
+        assert_eq!(wrong, Vec::<String>::new());
     }
 }

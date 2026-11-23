@@ -367,24 +367,48 @@ fn is_function_name(token: &str) -> bool {
 mod tests {
     use super::*;
 
+    /// Every spelling `parse` knows, in any case, and one it does not
     #[test]
-    fn test_unit_category_from_str() {
-        assert!(matches!(
-            UnitCategory::parse("CAD"),
-            UnitCategory::Currency(_)
-        ));
-        assert!(matches!(
-            UnitCategory::parse("USD"),
-            UnitCategory::Currency(_)
-        ));
-        assert!(matches!(UnitCategory::parse("%"), UnitCategory::Percentage));
-        assert!(matches!(UnitCategory::parse("count"), UnitCategory::Count));
-        assert!(matches!(UnitCategory::parse("days"), UnitCategory::Time(_)));
-        assert!(matches!(UnitCategory::parse("ratio"), UnitCategory::Ratio));
-        assert!(matches!(
-            UnitCategory::parse("unknown_unit"),
-            UnitCategory::Unknown
-        ));
+    fn test_unit_category_parse() {
+        let time = |t: &str| UnitCategory::Time(t.to_string());
+        let currency = |c: &str| UnitCategory::Currency(c.to_string());
+        let cases = [
+            ("CAD", currency("CAD")),
+            ("usd", currency("USD")),
+            ("EUR", currency("EUR")),
+            ("GBP", currency("GBP")),
+            ("JPY", currency("JPY")),
+            ("CNY", currency("CNY")),
+            ("$", currency("$")),
+            ("%", UnitCategory::Percentage),
+            ("percent", UnitCategory::Percentage),
+            ("Percentage", UnitCategory::Percentage),
+            ("count", UnitCategory::Count),
+            ("units", UnitCategory::Count),
+            ("items", UnitCategory::Count),
+            ("qty", UnitCategory::Count),
+            ("quantity", UnitCategory::Count),
+            ("days", time("days")),
+            ("day", time("days")),
+            ("d", time("days")),
+            ("months", time("months")),
+            ("month", time("months")),
+            ("mo", time("months")),
+            ("years", time("years")),
+            ("year", time("years")),
+            ("yr", time("years")),
+            ("hours", time("hours")),
+            ("hour", time("hours")),
+            ("hr", time("hours")),
+            ("ratio", UnitCategory::Ratio),
+            ("factor", UnitCategory::Ratio),
+            ("multiplier", UnitCategory::Ratio),
+            ("x", UnitCategory::Ratio),
+            ("unknown_unit", UnitCategory::Unknown),
+        ];
+        let (units, want): (Vec<_>, Vec<_>) = cases.into_iter().unzip();
+        let got: Vec<_> = units.iter().map(|u| UnitCategory::parse(u)).collect();
+        assert_eq!(got, want);
     }
 
     #[test]
@@ -454,90 +478,6 @@ mod tests {
         assert_eq!(UnitCategory::Time("days".to_string()).display(), "days");
         assert_eq!(UnitCategory::Ratio.display(), "ratio");
         assert_eq!(UnitCategory::Unknown.display(), "unknown");
-    }
-
-    #[test]
-    fn test_unit_category_parse_currencies() {
-        assert!(matches!(
-            UnitCategory::parse("EUR"),
-            UnitCategory::Currency(_)
-        ));
-        assert!(matches!(
-            UnitCategory::parse("GBP"),
-            UnitCategory::Currency(_)
-        ));
-        assert!(matches!(
-            UnitCategory::parse("JPY"),
-            UnitCategory::Currency(_)
-        ));
-        assert!(matches!(
-            UnitCategory::parse("CNY"),
-            UnitCategory::Currency(_)
-        ));
-        assert!(matches!(
-            UnitCategory::parse("$"),
-            UnitCategory::Currency(_)
-        ));
-    }
-
-    #[test]
-    fn test_unit_category_parse_percentage() {
-        assert!(matches!(
-            UnitCategory::parse("percent"),
-            UnitCategory::Percentage
-        ));
-        assert!(matches!(
-            UnitCategory::parse("percentage"),
-            UnitCategory::Percentage
-        ));
-    }
-
-    #[test]
-    fn test_unit_category_parse_count() {
-        assert!(matches!(UnitCategory::parse("units"), UnitCategory::Count));
-        assert!(matches!(UnitCategory::parse("items"), UnitCategory::Count));
-        assert!(matches!(UnitCategory::parse("qty"), UnitCategory::Count));
-        assert!(matches!(
-            UnitCategory::parse("quantity"),
-            UnitCategory::Count
-        ));
-    }
-
-    #[test]
-    fn test_unit_category_parse_time() {
-        assert!(matches!(UnitCategory::parse("day"), UnitCategory::Time(_)));
-        assert!(matches!(UnitCategory::parse("d"), UnitCategory::Time(_)));
-        assert!(matches!(
-            UnitCategory::parse("months"),
-            UnitCategory::Time(_)
-        ));
-        assert!(matches!(
-            UnitCategory::parse("month"),
-            UnitCategory::Time(_)
-        ));
-        assert!(matches!(UnitCategory::parse("mo"), UnitCategory::Time(_)));
-        assert!(matches!(
-            UnitCategory::parse("years"),
-            UnitCategory::Time(_)
-        ));
-        assert!(matches!(UnitCategory::parse("year"), UnitCategory::Time(_)));
-        assert!(matches!(UnitCategory::parse("yr"), UnitCategory::Time(_)));
-        assert!(matches!(
-            UnitCategory::parse("hours"),
-            UnitCategory::Time(_)
-        ));
-        assert!(matches!(UnitCategory::parse("hour"), UnitCategory::Time(_)));
-        assert!(matches!(UnitCategory::parse("hr"), UnitCategory::Time(_)));
-    }
-
-    #[test]
-    fn test_unit_category_parse_ratio() {
-        assert!(matches!(UnitCategory::parse("factor"), UnitCategory::Ratio));
-        assert!(matches!(
-            UnitCategory::parse("multiplier"),
-            UnitCategory::Ratio
-        ));
-        assert!(matches!(UnitCategory::parse("x"), UnitCategory::Ratio));
     }
 
     // =========================================================================
@@ -922,7 +862,7 @@ mod tests {
 
         // Infer unit from simple formula
         let unit = validator.infer_unit("=price * 2");
-        assert!(matches!(unit, Some(UnitCategory::Currency(_))));
+        assert_eq!(unit, Some(UnitCategory::Currency("CAD".to_string())));
     }
 
     #[test]
@@ -941,10 +881,8 @@ mod tests {
 
         // When multiplying price * percentage, result should be currency (price's unit)
         let unit = validator.infer_unit("=rate * price");
-        assert!(
-            matches!(unit, Some(UnitCategory::Currency(ref c)) if c == "CAD"),
-            "Percentage * currency should yield currency, got {unit:?}"
-        );
+        // Percentage * currency yields the currency
+        assert_eq!(unit, Some(UnitCategory::Currency("CAD".to_string())));
     }
 
     #[test]
@@ -974,9 +912,7 @@ mod tests {
 
         // rate (percentage) * unknown_amount - should return percentage since no other unit found
         let unit = validator.infer_unit("=rate * unknown_amount");
-        assert!(
-            matches!(unit, Some(UnitCategory::Percentage)),
-            "Should fall back to percentage when other reference has no unit, got {unit:?}"
-        );
+        // The percentage, when the other reference has no unit
+        assert_eq!(unit, Some(UnitCategory::Percentage));
     }
 }
