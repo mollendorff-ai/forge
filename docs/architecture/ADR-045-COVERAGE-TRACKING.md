@@ -1,8 +1,8 @@
 # ADR-045: Function-Level Coverage Tracking
 
-> **Note (2026-11-08):** Not implemented: there is no function coverage matrix; CI publishes docs/FUNCTIONS.md only.
+> **Note (2026-11-23):** Superseded by a test, not by a report. `validation/repo/src/function_cases.rs` reads `forge functions --json` and fails when a function is called by no Gnumeric case and no formula of the R suite, unless it is listed with its reason (today only `MC.Discrete`); an entry whose case has since been added fails too, so the list only shrinks. The matrix, the manifest and the scripts of this ADR were not built; the 173 functions it counts are 203 now.
 
-**Status:** Not implemented
+**Status:** Superseded by a test, `validation/repo/src/function_cases.rs` (2026-11-23); its scripts were not built
 **Date:** 2025-12-17
 **Author:** forge-e2e Team
 **Version:** v0.12.0
