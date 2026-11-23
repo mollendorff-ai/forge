@@ -125,9 +125,10 @@ pub fn edit(
 #[command(
     about = "Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, comments kept",
     long_about = "Change a model's text: set an input's value or a formula, add or delete an
-input, a formula or a table's column, or rename a scalar, a group, a table or
-a column and every name that reads it (formulas, scenarios, expectations, a
-simulation's outputs, a tornado's inputs, in every file of the model), or make
+input, a formula or a table's column, or rename a scalar, a group, a table, a
+column, a game, a player or a strategy and every name that reads it (formulas,
+scenarios, expectations, a simulation's outputs, a tornado's inputs, a game's
+results, in every file of the model), or make
 an input uncertain (a distribution, its value kept as the plan) and certain
 again, in the model or in a file it includes (@alias.name). Every byte outside
 the change stays as it was, comments and layout included. A change is made
@@ -148,6 +149,7 @@ EXAMPLES:
   forge edit model.yaml --add fee=25 --after rate          # At the top level
   forge edit model.yaml --delete year.old_fee --dry-run
   forge edit model.yaml --rename year.price=unit_price   # And every name that reads it
+  forge edit model.yaml --rename price_war.strategies.hold=keep   # A game's strategy
   forge edit model.yaml --uncertain year.price           # A triangle, 80% to 120%
   forge edit model.yaml --uncertain 'year.price==MC.PERT(12, 16, 22)'
   forge edit model.yaml --certain year.price             # Back to its value
@@ -177,8 +179,9 @@ pub struct EditArgs {
     #[arg(long = "delete", value_name = "PATH")]
     pub delete: Vec<String>,
 
-    /// Rename a scalar, a group, a table or a column, and every name that
-    /// reads it: PATH=NAME, the new name one word (year.price=cost)
+    /// Rename a scalar, a group, a table, a column, a game, a player or a
+    /// strategy, and every name that reads it: PATH=NAME, the new name one
+    /// word (year.price=cost, rivalry.players.steady=calm)
     #[arg(long = "rename", value_name = "PATH=NAME")]
     pub rename: Vec<String>,
 
