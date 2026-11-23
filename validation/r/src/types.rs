@@ -2,8 +2,6 @@
 //!
 //! Defines test specifications and results for R validation.
 
-#![allow(dead_code)]
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

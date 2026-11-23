@@ -4,10 +4,7 @@
 //! the matching R validator, and compares the two. Forge's answer always comes
 //! from the real binary; R's answer comes from the validator script.
 
-// The runners build their YAML models a line at a time with
-// `push_str(&format!(..))`. (Roadmap T1-NO-SKIPPING: this allow goes too.)
-#![allow(clippy::format_push_string)]
-
+use std::fmt::Write;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -463,12 +460,14 @@ fn tornado(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         ) else {
             return error(spec, "Variable needs name, low, high and base".to_string());
         };
-        assumptions.push_str(&format!(
+        let _ = write!(
+            assumptions,
             "  {name}:\n    value: {base}\n    formula: null\n"
-        ));
-        inputs.push_str(&format!(
+        );
+        let _ = write!(
+            inputs,
             "    - name: {name}\n      low: {low}\n      high: {high}\n"
-        ));
+        );
         if let Some(c) = coef(name) {
             terms.push(if model_kind == "multiplicative" {
                 format!("(assumptions.{name} ^ ({c}))")
@@ -525,9 +524,10 @@ fn linear_or_product_model(spec: &AnalyticsTestSpec) -> Option<String> {
     for (name, value) in base {
         let name = name.as_str()?;
         let value = yaml_f64(value)?;
-        assumptions.push_str(&format!(
+        let _ = write!(
+            assumptions,
             "  {name}:\n    value: {value}\n    formula: null\n"
-        ));
+        );
         if let Some(c) = coefficients.and_then(|c| c.get(name)).and_then(yaml_f64) {
             terms.push(if model_kind == "multiplicative" {
                 format!("(assumptions.{name} ^ ({c}))")
@@ -834,16 +834,16 @@ fn tree_branches(
             .and_then(|n| n.as_str())
             .ok_or("child has no name")?;
         let key = slug(name);
-        out.push_str(&format!("{indent}{key}:\n"));
+        let _ = writeln!(out, "{indent}{key}:");
         if chance {
             let p = child
                 .get("probability")
                 .and_then(yaml_f64)
                 .ok_or("chance child needs probability")?;
-            out.push_str(&format!("{indent}  probability: {p}\n"));
+            let _ = writeln!(out, "{indent}  probability: {p}");
         }
         if let Some(cost) = child.get("cost").and_then(yaml_f64) {
-            out.push_str(&format!("{indent}  cost: {cost}\n"));
+            let _ = writeln!(out, "{indent}  cost: {cost}");
         }
         let kind = child
             .get("type")
@@ -851,15 +851,16 @@ fn tree_branches(
             .unwrap_or("terminal");
         if kind == "terminal" {
             let payoff = child.get("payoff").and_then(yaml_f64).unwrap_or(0.0);
-            out.push_str(&format!("{indent}  value: {payoff}\n"));
+            let _ = writeln!(out, "{indent}  value: {payoff}");
         } else {
             let id = format!("{path}_{key}");
-            out.push_str(&format!("{indent}  next: {id}\n"));
+            let _ = writeln!(out, "{indent}  next: {id}");
             let inner = tree_branches(child, kind == "chance", "        ", nodes, &id)?;
-            nodes.push_str(&format!(
+            let _ = write!(
+                nodes,
                 "    {id}:\n      type: {kind}\n      name: \"{}\"\n      branches:\n{inner}",
                 name.replace('"', "'")
-            ));
+            );
         }
     }
     Ok(out)
@@ -952,19 +953,26 @@ fn decision_tree(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
 /// Forge values a "defer" option as a call and an "abandon" option as a put,
 /// both American (binomial) or European (Black-Scholes). The spec's plain
 /// call and put are mapped onto those two.
-#[allow(clippy::many_single_char_names)]
+/// The number of binomial steps a spec asks for (`n`): a whole number, 100 when
+/// the spec gives none.
+fn binomial_steps(raw: &yaml_serde::Value) -> Result<usize, String> {
+    raw.get("n").map_or(Ok(100), |n| {
+        n.as_u64()
+            .and_then(|steps| usize::try_from(steps).ok())
+            .ok_or_else(|| "n must be a whole number of steps".to_string())
+    })
+}
+
 fn real_options(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
     let num = |key: &str| spec.raw.get(key).and_then(yaml_f64);
     let text = |key: &str| spec.raw.get(key).and_then(|v| v.as_str());
-    let (Some(s), Some(k)) = (num("S"), num("K")) else {
+    let (Some(spot), Some(strike)) = (num("S"), num("K")) else {
         return error(spec, "Spec needs S and K".to_string());
     };
-    let (r, sigma, t, q) = (
-        num("r").unwrap_or(0.05),
-        num("sigma").unwrap_or(0.3),
-        num("T").unwrap_or(1.0),
-        num("q").unwrap_or(0.0),
-    );
+    let rate = num("r").unwrap_or(0.05);
+    let sigma = num("sigma").unwrap_or(0.3);
+    let horizon = num("T").unwrap_or(1.0);
+    let dividend = num("q").unwrap_or(0.0);
     let method = text("model").unwrap_or("black_scholes");
     let kind = text("option_type").unwrap_or("call");
     let american = spec
@@ -972,22 +980,23 @@ fn real_options(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         .get("american")
         .and_then(yaml_serde::Value::as_bool)
         .unwrap_or(false);
-    // Steps are a whole number in the spec; this cast cannot lose a real value.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let steps = num("n").unwrap_or(100.0) as usize;
+    let steps = match binomial_steps(&spec.raw) {
+        Ok(steps) => steps,
+        Err(message) => return error(spec, message),
+    };
 
     let option = match (method, kind) {
         ("black_scholes", "call") => format!(
-            "    - type: defer\n      name: \"option\"\n      max_deferral: {t}\n      exercise_cost: {k}\n"
+            "    - type: defer\n      name: \"option\"\n      max_deferral: {horizon}\n      exercise_cost: {strike}\n"
         ),
         ("black_scholes", "put") => format!(
-            "    - type: abandon\n      name: \"option\"\n      salvage_value: {k}\n"
+            "    - type: abandon\n      name: \"option\"\n      salvage_value: {strike}\n"
         ),
-        ("binomial", "call") if american || q == 0.0 => format!(
-            "    - type: defer\n      name: \"option\"\n      max_deferral: {t}\n      exercise_cost: {k}\n"
+        ("binomial", "call") if american || dividend == 0.0 => format!(
+            "    - type: defer\n      name: \"option\"\n      max_deferral: {horizon}\n      exercise_cost: {strike}\n"
         ),
         ("binomial", "put") if american => format!(
-            "    - type: abandon\n      name: \"option\"\n      salvage_value: {k}\n"
+            "    - type: abandon\n      name: \"option\"\n      salvage_value: {strike}\n"
         ),
         _ => {
             return skip(
@@ -1002,7 +1011,7 @@ fn real_options(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         String::new()
     };
     let model = format!(
-        "_forge_version: \"5.0.0\"\n\nreal_options:\n  name: \"{name}\"\n  method: {method}\n  underlying:\n    current_value: {s}\n    volatility: {sigma}\n    risk_free_rate: {r}\n    time_horizon: {t}\n    dividend_yield: {q}\n{steps_line}  options:\n{option}",
+        "_forge_version: \"5.0.0\"\n\nreal_options:\n  name: \"{name}\"\n  method: {method}\n  underlying:\n    current_value: {spot}\n    volatility: {sigma}\n    risk_free_rate: {rate}\n    time_horizon: {horizon}\n    dividend_yield: {dividend}\n{steps_line}  options:\n{option}",
         name = spec.name
     );
     let forge = match forge_json(env, "real-options", &model) {
@@ -1032,8 +1041,8 @@ fn real_options(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         "spec's expected values, R not run"
     } else {
         let params = json!({
-            "option_type": kind, "model": method, "S": s, "K": k, "r": r,
-            "sigma": sigma, "T": t, "q": q, "n": steps, "american": true,
+            "option_type": kind, "model": method, "S": spot, "K": strike, "r": rate,
+            "sigma": sigma, "T": horizon, "q": dividend, "n": steps, "american": true,
         });
         let r_out = match r_results(env, "real_options_validator.R", &params) {
             Ok(r) => r,
@@ -1092,12 +1101,13 @@ fn bayesian_model(network: &yaml_serde::Value) -> Result<String, String> {
                 .collect::<Vec<_>>()
                 .join(", ")
         };
-        out.push_str(&format!(
+        let _ = write!(
+            out,
             "    \"{node}\":\n      type: discrete\n      states: [{}]\n",
             quoted(&levels)
-        ));
+        );
         if parents.is_empty() {
-            out.push_str(&format!("      prior: {probs:?}\n"));
+            let _ = writeln!(out, "      prior: {probs:?}");
             continue;
         }
         // One column per combination of parent states, the first parent
@@ -1115,10 +1125,7 @@ fn bayesian_model(network: &yaml_serde::Value) -> Result<String, String> {
                 levels.len()
             ));
         }
-        out.push_str(&format!(
-            "      parents: [{}]\n      cpt:\n",
-            quoted(&parents)
-        ));
+        let _ = writeln!(out, "      parents: [{}]\n      cpt:", quoted(&parents));
         for c in 0..combinations {
             let mut rest = c;
             let key: Vec<&str> = parent_levels
@@ -1132,7 +1139,7 @@ fn bayesian_model(network: &yaml_serde::Value) -> Result<String, String> {
             let row: Vec<f64> = (0..levels.len())
                 .map(|state| probs[state * combinations + c])
                 .collect();
-            out.push_str(&format!("        \"{}\": {row:?}\n", key.join(", ")));
+            let _ = writeln!(out, "        \"{}\": {row:?}", key.join(", "));
         }
     }
     Ok(out)
@@ -1243,4 +1250,23 @@ fn bayesian(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         }
     }
     verdict(spec, &problems, &format!("Forge matches the {source}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn raw(text: &str) -> yaml_serde::Value {
+        yaml_serde::from_str(text).unwrap()
+    }
+
+    #[test]
+    fn binomial_steps_default_to_100_and_must_be_whole_numbers() {
+        assert_eq!(binomial_steps(&raw("S: 100")), Ok(100));
+        assert_eq!(binomial_steps(&raw("n: 500")), Ok(500));
+        let refused = Err("n must be a whole number of steps".to_string());
+        assert_eq!(binomial_steps(&raw("n: 100.5")), refused);
+        assert_eq!(binomial_steps(&raw("n: -3")), refused);
+        assert_eq!(binomial_steps(&raw("n: many")), refused);
+    }
 }

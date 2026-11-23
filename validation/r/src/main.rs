@@ -82,7 +82,7 @@ fn main() -> anyhow::Result<()> {
     println!();
 
     if cli.all {
-        run_all_mode(&tests, &forge_binary, &r_config, cli.expected_only)?;
+        run_all_mode(&tests, &forge_binary, &r_config, cli.expected_only);
     } else {
         println!("Use --all to run all tests");
     }
@@ -115,13 +115,12 @@ fn load_tests(tests_dir: &PathBuf) -> anyhow::Result<Vec<forge_e2e_r::types::Ana
     Ok(all_tests)
 }
 
-#[allow(clippy::unnecessary_wraps)] // Result for consistent main() error handling
 fn run_all_mode(
     tests: &[AnalyticsTestSpec],
     forge_binary: &PathBuf,
     r_config: &RConfig,
     expected_only: bool,
-) -> anyhow::Result<()> {
+) {
     let start = Instant::now();
     let mut results = Vec::new();
 
@@ -204,8 +203,6 @@ fn run_all_mode(
     if bad > 0 || passed == 0 {
         std::process::exit(1);
     }
-
-    Ok(())
 }
 
 /// The model that `forge simulate` runs: one scalar of `formula`, drawn

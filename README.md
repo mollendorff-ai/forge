@@ -340,7 +340,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 | Document | What it holds |
 | --- | --- |
-| [Guide](docs/guide/README.md) | Lessons on one model, the bagel shop: the first ten minutes, a first model written by hand, keeping a model |
+| [Guide](docs/guide/README.md) | Lessons on one model, the bagel shop: the first ten minutes, a first model written by hand, keeping a model, what if, how likely, what will they do |
 | [Features](docs/FEATURES.md) | The model file, every command, every analysis |
 | [Functions](docs/FUNCTIONS.md) | The 203 functions |
 | [MCP](docs/MCP.md) | The MCP server and its 23 tools |

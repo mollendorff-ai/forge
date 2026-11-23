@@ -28,8 +28,6 @@ pub struct TestRunner {
     engine: GnumericEngine,
     /// `LibreOffice`, for the cases Gnumeric cannot read, or why it cannot be used.
     libreoffice: Result<LibreOfficeEngine, String>,
-    /// Directory containing test spec files.
-    tests_dir: PathBuf,
     /// All loaded test cases.
     test_cases: Vec<TestCase>,
     /// All loaded skip cases.
@@ -47,37 +45,24 @@ impl TestRunner {
         forge_binary: PathBuf,
         engine: GnumericEngine,
         libreoffice: Result<LibreOfficeEngine, String>,
-        tests_dir: PathBuf,
+        tests_dir: &Path,
     ) -> anyhow::Result<Self> {
-        let (test_cases, skip_cases) = Self::load_test_cases(&tests_dir)?;
+        let (test_cases, skip_cases) = Self::load_test_cases(tests_dir)?;
 
         Ok(Self {
             forge_binary,
             engine,
             libreoffice,
-            tests_dir,
             test_cases,
             skip_cases,
         })
     }
 
-    /// Finds all YAML files in a directory recursively.
-    #[allow(dead_code)]
-    fn find_yaml_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
-        let mut files = Vec::new();
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                files.extend(Self::find_yaml_files(&path)?);
-            } else if path.extension().is_some_and(|e| e == "yaml") {
-                files.push(path);
-            }
-        }
-        Ok(files)
-    }
-
     /// Loads all test cases from the tests directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the directory does not exist or a file cannot be read.
     pub fn load_test_cases(tests_dir: &Path) -> anyhow::Result<(Vec<TestCase>, Vec<SkipCase>)> {
         let mut all_cases = Vec::new();
         let mut all_skips = Vec::new();
@@ -123,16 +108,8 @@ impl TestRunner {
 
     /// Returns the total number of test cases.
     #[must_use]
-    #[allow(clippy::missing_const_for_fn)] // Uses len() which isn't const
-    pub fn total_tests(&self) -> usize {
+    pub const fn total_tests(&self) -> usize {
         self.test_cases.len() + self.skip_cases.len()
-    }
-
-    #[allow(dead_code)]
-    /// Returns test directory.
-    #[must_use]
-    pub const fn tests_dir(&self) -> &PathBuf {
-        &self.tests_dir
     }
 
     /// Returns all test cases.
@@ -142,6 +119,7 @@ impl TestRunner {
     }
 
     /// `LibreOffice`, or why it cannot be used.
+    #[must_use]
     pub const fn libreoffice(&self) -> &Result<LibreOfficeEngine, String> {
         &self.libreoffice
     }
