@@ -60,10 +60,43 @@ export function changeOf(game, op, row) {
   }
 }
 
+const NUMBER = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
+
+// The change a payoff's text asks for: a formula, or a number; otherwise why not
+export function cellChange(path, text) {
+  const t = text.trim();
+  if (t.startsWith("=")) return { change: { op: "set_formula", path, formula: t } };
+  if (NUMBER.test(t)) return { change: { op: "set_value", path, value: Number(t) } };
+  return { why: "A payoff is a number or a formula starting with =." };
+}
+
+// A payoff's button opened as a field, to check and save with `edit`
+function openCell(button) {
+  const form = document.createElement("span");
+  form.className = "cell-form";
+  form.dataset.cellform = button.dataset.cellpath;
+  form.innerHTML = `<input class="txt" data-cellinput aria-label="Payoff ${esc(button.dataset.cellpath)}" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(button.dataset.cellwas)}">` +
+    `<button type="button" class="btn primary" data-cellsave>Check and save</button><button type="button" class="btn" data-cellcancel>Cancel</button><span class="msg bad" data-cellmsg hidden></span>`;
+  button.hidden = true;
+  button.after(form);
+  form.querySelector("input").focus();
+}
+
 // A button pressed: `edit(changes)` answers why not, or null; why not is shown
 // in the card, as Forge words it
 export function listenGameEdits(view, edit) {
   view.addEventListener("click", async (e) => {
+    const cell = e.target.closest("[data-cellpath]");
+    if (cell) { openCell(cell); return; }
+    const form = e.target.closest("[data-cellform]");
+    if (form && e.target.closest("[data-cellcancel]")) { form.previousElementSibling.hidden = false; form.remove(); return; }
+    if (form && e.target.closest("[data-cellsave]")) {
+      const msg = form.querySelector("[data-cellmsg]"), save = e.target.closest("[data-cellsave]");
+      const { change, why } = cellChange(form.dataset.cellform, form.querySelector("[data-cellinput]").value);
+      const refused = why ?? (save.disabled = true, await edit([change]));
+      if (refused) { msg.hidden = false; msg.textContent = refused; save.disabled = false; }
+      return;
+    }
     const button = e.target.closest("[data-gop]");
     if (!button) return;
     const box = button.closest("[data-gedit]"), msg = box.querySelector("[data-gmsg]");

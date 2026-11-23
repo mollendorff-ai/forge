@@ -10,7 +10,10 @@
 //! file's style ([`write`]), and the model is read back: valid, with the
 //! game as asked and nothing else changed.
 
+mod cell;
 mod write;
+
+pub(super) use cell::{apply as set_cell, table_of};
 
 use super::{check, is_name, Change, Op, Target};
 use crate::games::model::Cell;
@@ -391,6 +394,21 @@ pub(super) fn bare(json: &mut Json) {
     }
 }
 
+/// `model`, or the model of the file included along `aliases`
+pub(super) fn included<'m>(
+    mut model: &'m mut ParsedModel,
+    aliases: &[String],
+) -> &'m mut ParsedModel {
+    for alias in aliases {
+        model = &mut model
+            .resolved_includes
+            .get_mut(alias)
+            .expect("the model read back has the includes it had")
+            .model;
+    }
+    model
+}
+
 /// The change, kept in `files` only when Forge reads the model back valid
 /// with the game as asked and nothing else changed
 pub(super) fn apply(
@@ -409,14 +427,7 @@ pub(super) fn apply(
         .and_then(|after| check::valid(&after).map(|()| after))
         .map_err(|e| format!("Forge refuses the model with this change: {e}"))?;
     let mut want = before.clone();
-    let mut model = &mut want;
-    for alias in &target.aliases {
-        model = &mut model
-            .resolved_includes
-            .get_mut(alias)
-            .expect("the model read back has the includes it had")
-            .model;
-    }
+    let model = included(&mut want, &target.aliases);
     model.games.insert(name, game.after());
     let mut was = check::snapshot(&want);
     let mut now = check::snapshot(&after_model);
