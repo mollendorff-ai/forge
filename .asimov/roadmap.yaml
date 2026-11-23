@@ -768,6 +768,7 @@ adoption:
     why: "Five readers (new user, AI agent or its user, pipeline builder, developer who embeds Forge, contributor or maintainer) and no map. FEATURES.md stays the reference and Studio's help anchors stay; new pages go in docs/guide/ (lessons built on examples/bagel and docs/posts), docs/EMBEDDING.md and docs/MAINTAINING.md, with a docs/README.md index"
     acceptance: "ADR-078 accepted by the maintainer, naming each page, its reader and the test that keeps it true"
     model: "Opus 5.5, high"
+    drafted: "2026-11-23: docs/architecture/ADR-078-A-WAY-IN-FOR-EACH-READER.md, proposed; accepted by merging it"
   - id: A2-GUIDE-TESTS
     title: "The guide's commands and numbers run by validation/repo before any lesson is written"
     acceptance: "A page in docs/guide/ whose command prints other than the page shows, or whose number differs, fails the Repository checks job; at 100% coverage and pedantic clippy"

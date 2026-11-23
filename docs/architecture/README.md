@@ -120,6 +120,7 @@ Each ADR records one decision: the context, the options, what was decided and wh
 | [ADR-075](ADR-075-FORGE-WRITES-THE-MODEL.md) | Forge Writes the Model | Accepted; built: the yaml-edit spike, `set_value`, `set_formula`, `add`, `delete` in `forge edit`, `forge_edit` and forge-wasm (steps 1 and 2), `rename` of a scalar, a group, a table and a column (step 3), `make_uncertain` and `make_certain` (step 4), and `rename` of a game, a player and a strategy (step 5; adding and deleting them left) |
 | [ADR-076](ADR-076-SIMULATIONS-AND-GAMES-ON-THE-CARDS.md) | Simulations and Games on Forge Studio's Cards | Accepted; steps 1 to 3 built (2026-11-22), step 4 not yet |
 | [ADR-077](ADR-077-WHAT-STUDIO-SHOWS-FIRST-AND-HOW-IT-HELPS.md) | What Forge Studio Shows First, and How It Helps | Accepted; built (the docs, Tools' whole answer, a set's questions, every model's Model view, the help) |
+| [ADR-078](ADR-078-A-WAY-IN-FOR-EACH-READER.md) | A Way In for Each Reader | Proposed (2026-11-23): five readers, the guide in `docs/guide/`, each page tested from its first commit |
 
 ### Numbers not in the list
 
