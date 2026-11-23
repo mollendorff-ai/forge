@@ -587,6 +587,8 @@ jobs:
           COV=$(jq '.data[0].totals.functions.percent' cov.json | xargs printf '%.0f')
           echo "COVERAGE=$COV" >> $GITHUB_ENV
 
+      # Raised to 100 on 2026-11-23, when the last 67 regions were covered: the
+      # floors are now the target, and a drop below it fails this job.
       # 100% coverage, no skipping (CLAUDE.md, roadmap T1-COVERAGE-GATE). Until
       # the code is at 100%, these floors are the coverage of the last merge,
       # rounded down to a tenth (the weekly run's new property-test seeds can
@@ -638,9 +640,9 @@ jobs:
       # functions 0.049.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "99.8"
-          FLOOR_FUNCTIONS: "99.7"
-          FLOOR_REGIONS: "99.8"
+          FLOOR_LINES: "100"
+          FLOOR_FUNCTIONS: "100"
+          FLOOR_REGIONS: "100"
         run: |
           fail=0
           for kind in lines functions regions; do
