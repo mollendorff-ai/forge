@@ -611,11 +611,15 @@ jobs:
       # (99.84%, 99.42%, 99.77%), the same way, rounded down to a tenth with
       # no tenth taken off: lines and functions keep under 0.05 of margin
       # (about 30 lines and 1 function), which only more tests widen.
+      # Raised 2026-11-23 from CI's run on main after PR #374 (99.93%, 99.85%,
+      # 99.88%), the same way: functions to 99.7 and regions to 99.8; lines
+      # stay at 99.8, since 99.9 would leave 0.03 of margin, and 99.8 for
+      # functions 0.049.
       - name: Fail below the coverage floor
         env:
           FLOOR_LINES: "99.8"
-          FLOOR_FUNCTIONS: "99.4"
-          FLOOR_REGIONS: "99.7"
+          FLOOR_FUNCTIONS: "99.7"
+          FLOOR_REGIONS: "99.8"
         run: |
           fail=0
           for kind in lines functions regions; do
