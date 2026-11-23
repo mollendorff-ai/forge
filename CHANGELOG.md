@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A game's payoff is changed with `edit`, and on its card in Studio** (ADR-075, ADR-076 step 5, roadmap S-GAMES-EDIT). `set_formula` and `set_value` take a payoff cell: `stag_hunt.payoffs.hare.stag` (and, when a cell is a list of payoffs, its player last: `inspection.payoffs.cheat.audit.human`; in a game of players alike, its strategy: `public_goods.payoffs.keep`). The payoff is written where it is in the file's own style, and Forge keeps the change only when it reads the model back valid with exactly the cells written there changed (a symmetric game's second player reads the first's). `forge game` answers, in each cell, `written`: where each payoff is written as `edit` names it, and its formula when it is one. In Studio, "change this game" shows each payoff's formula under its value; a tap opens it, to be changed to another formula or a number, with Forge's message when it refuses.
+
 ### Changed
 
 - **Forge Studio changes a value, a formula, an added or a deleted element with Forge's `edit`** (ADR-075 step 7, roadmap S-EDIT). Studio's own line-by-line YAML editing (`studio/text.js`) is gone: an input typed on a card, a formula, "Add" and "Delete" send `set_value`, `set_formula`, `add` and `delete` to forge-wasm's `edit`, which writes the same bytes (the cases of the old `studio/tests/text.mjs` are held by the tests of `src/edit/text.rs`), keeps a change only when Forge reads the model back with exactly it, and shows its message when it does not. A name added on a card may now be in any alphabet. `studio/text.js` keeps the editor\'s colours. The README's screenshots are made again from the bagel's uncertain model (`studio/screenshots.mjs`).

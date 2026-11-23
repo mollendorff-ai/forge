@@ -92,6 +92,37 @@ pub struct TableGame {
 }
 
 impl TableGame {
+    /// What each payoff of the profile at `index` (in table order) is
+    /// called by `edit` and whether it is a formula
+    ///
+    /// # Panics
+    ///
+    /// Never for a game read from a model: each cell says where it is written.
+    #[must_use]
+    pub fn written(&self, index: usize) -> Vec<(String, Option<&str>)> {
+        self.cells[index]
+            .iter()
+            .map(|cell| {
+                let (who, there) = cell
+                    .at
+                    .split_once(" payoff in games.")
+                    .expect("a cell says where it is written");
+                let path = there.split(", with").next().unwrap_or(there);
+                let player = who.trim_end_matches("'s");
+                let name = if self.symmetric {
+                    path.to_string()
+                } else {
+                    format!("{path}.{player}")
+                };
+                let formula = match &cell.payoff {
+                    Payoff::Formula(f) => Some(f.as_str()),
+                    Payoff::Number(_) => None,
+                };
+                (name, formula)
+            })
+            .collect()
+    }
+
     /// Every formula in the payoff table and the dynamics, once each.
     #[must_use]
     pub fn formulas(&self) -> Vec<&str> {
@@ -642,6 +673,61 @@ inspection:
         assert_eq!(
             game.formulas(),
             vec!["=-audit_cost", "=-penalty", "=gain", "=-harm"]
+        );
+    }
+
+    /// Each payoff is named as `edit` takes it, with its formula when it is one
+    #[test]
+    fn a_payoff_is_named_as_edit_takes_it() {
+        let hunt = one(STAG_HUNT);
+        // Cell (hare, stag): me gets what the table says, you what (stag, hare) says
+        assert_eq!(
+            hunt.written(2),
+            vec![
+                ("stag_hunt.payoffs.hare.stag".to_string(), Some("=3 - c")),
+                ("stag_hunt.payoffs.stag.hare".to_string(), None),
+            ]
+        );
+        let inspection = one("
+inspection:
+  players: [ai, human]
+  strategies:
+    ai: [comply, cheat]
+    human: [audit, trust]
+  payoffs:
+    comply: {audit: [0, =-audit_cost], trust: [0, 0]}
+    cheat: {audit: [=-penalty, =-audit_cost], trust: [=gain, =-harm]}
+");
+        assert_eq!(
+            inspection.written(2),
+            vec![
+                (
+                    "inspection.payoffs.cheat.audit.ai".to_string(),
+                    Some("=-penalty")
+                ),
+                (
+                    "inspection.payoffs.cheat.audit.human".to_string(),
+                    Some("=-audit_cost")
+                ),
+            ]
+        );
+        let alike = one("
+pg:
+  players: [a, b, c]
+  strategies: [contribute, keep]
+  symmetric: true
+  payoffs:
+    contribute: =10 * (pg.others.contribute + 1)
+    keep: 10
+");
+        let named: Vec<String> = alike.written(1).into_iter().map(|(n, _)| n).collect();
+        assert_eq!(
+            named,
+            [
+                "pg.payoffs.contribute",
+                "pg.payoffs.contribute",
+                "pg.payoffs.keep"
+            ]
         );
     }
 

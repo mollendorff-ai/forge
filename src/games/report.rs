@@ -34,6 +34,22 @@ pub struct Cell {
     pub strategies: Vec<String>,
     /// One payoff per player, in the same order
     pub payoffs: Vec<f64>,
+    /// Where each payoff is written, in the same order, as `edit` names it
+    /// (`set_formula` takes the name); empty where the report is not worked
+    /// out from a model
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub written: Vec<Written>,
+}
+
+/// One payoff as the model writes it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Written {
+    /// `stag_hunt.payoffs.hare.stag`, and a list's player last
+    /// (`inspection.payoffs.cheat.audit.human`)
+    pub path: String,
+    /// The formula, when the payoff is one
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub formula: Option<String>,
 }
 
 /// One equilibrium, player by player.
@@ -185,6 +201,7 @@ pub fn analyse(game: &str, table: &Table, symmetric: bool) -> TableReport {
                     .map(|(&s, list)| list[s].clone())
                     .collect(),
                 payoffs: table.payoffs[table.index(profile)].clone(),
+                written: Vec::new(),
             })
             .collect(),
         dynamics: None,
