@@ -235,7 +235,7 @@ pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
 /// that part, and one serves on a free port until told to stop. It runs
 /// until the process gets Ctrl+C or SIGTERM.
 pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
-    serve_until(config, shutdown_signal()).await
+    serve_until(config, Box::pin(shutdown_signal())).await
 }
 
 /// What is logged when `RUST_LOG` says nothing: this crate's messages (its log
@@ -245,7 +245,7 @@ const DEFAULT_LOG_FILTER: &str = "mollendorff_forge=info,tower_http=info";
 /// Serve until `shutdown` is ready
 async fn serve_until(
     config: ApiConfig,
-    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+    shutdown: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>,
 ) -> anyhow::Result<()> {
     let app = build_router(&config)
         .map_err(anyhow::Error::msg)?
@@ -834,9 +834,12 @@ mod tests {
             root: Some(dir.path().to_path_buf()),
             ..ApiConfig::default()
         };
-        let server = tokio::spawn(serve_until(config, async {
-            let _ = stopped.await;
-        }));
+        let server = tokio::spawn(serve_until(
+            config,
+            Box::pin(async {
+                let _ = stopped.await;
+            }),
+        ));
 
         let mut reply = String::new();
         for _ in 0..100 {
@@ -863,11 +866,16 @@ mod tests {
 
     #[tokio::test]
     async fn the_server_without_a_token_or_a_root_stops_when_told_to() {
+        // With its log off: each line of it is then not written, whatever the
+        // other tests have set up for the process
+        let _off = tracing::subscriber::set_default(tracing::subscriber::NoSubscriber::default());
         let config = ApiConfig {
             port: free_port(),
             ..ApiConfig::default()
         };
-        serve_until(config, std::future::ready(())).await.unwrap();
+        serve_until(config, Box::pin(std::future::ready(())))
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -877,7 +885,7 @@ mod tests {
             token: Some("secret".to_string()),
             ..ApiConfig::default()
         };
-        let err = serve_until(bad_host, std::future::ready(()))
+        let err = serve_until(bad_host, Box::pin(std::future::ready(())))
             .await
             .unwrap_err();
         assert!(err.to_string().contains("invalid socket address"), "{err}");
@@ -887,7 +895,9 @@ mod tests {
             port: taken.local_addr().unwrap().port(),
             ..ApiConfig::default()
         };
-        let err = serve_until(busy, std::future::ready(())).await.unwrap_err();
+        let err = serve_until(busy, Box::pin(std::future::ready(())))
+            .await
+            .unwrap_err();
         assert!(err.to_string().contains("in use"), "{err}");
     }
 
@@ -914,7 +924,16 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn ctrl_c_and_sigterm_stop_the_server() {
-        signal_the_shutdown("-INT").await;
+        // One signal with the log on and one with it off: the line it logs
+        // is written, or is not, whatever the other tests have set up
+        let on = tracing_subscriber::fmt()
+            .with_writer(std::io::sink)
+            .finish();
+        {
+            let _on = tracing::subscriber::set_default(on);
+            signal_the_shutdown("-INT").await;
+        }
+        let _off = tracing::subscriber::set_default(tracing::subscriber::NoSubscriber::default());
         signal_the_shutdown("-TERM").await;
     }
 
@@ -944,9 +963,12 @@ mod tests {
         let _installed = tracing::subscriber::set_default(subscriber);
         let port = config.port;
         let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
-        let server = tokio::spawn(serve_until(config, async {
-            let _ = stopped.await;
-        }));
+        let server = tokio::spawn(serve_until(
+            config,
+            Box::pin(async {
+                let _ = stopped.await;
+            }),
+        ));
         for _ in 0..200 {
             if tokio::net::TcpStream::connect(("127.0.0.1", port))
                 .await

@@ -98,7 +98,7 @@ impl Tournament {
     /// noise and the parameters chances from 0 to 1.
     pub fn work_out(
         &self,
-        mut value: impl FnMut(&str, &str) -> ForgeResult<f64>,
+        value: &mut dyn FnMut(&str, &str) -> ForgeResult<f64>,
     ) -> ForgeResult<Worked> {
         let mut number = |cell: &Cell| match &cell.payoff {
             Payoff::Number(n) => Ok(*n),
@@ -472,7 +472,7 @@ axelrod:
         assert_eq!(Game::Tournament(t.clone()).name(), "axelrod");
 
         let worked = t
-            .work_out(|formula, at| {
+            .work_out(&mut |formula, at| {
                 Ok(match formula {
                     "=w" => 0.9,
                     "=forgive" => {
@@ -501,7 +501,7 @@ t:
         );
         assert!(!t.self_play);
         assert_eq!(t.formulas(), ["=n"]);
-        let worked = t.work_out(|_, _| Ok(200.0)).unwrap();
+        let worked = t.work_out(&mut |_, _| Ok(200.0)).unwrap();
         assert_eq!(worked.length, Length::Rounds(200));
         assert!(worked.noise.abs() < f64::EPSILON);
         assert_eq!(worked.machines[1].cooperate, [0.0]);
@@ -513,7 +513,7 @@ t:
 ",
         );
         assert_eq!(t.formulas(), ["=p"]);
-        let worked = t.work_out(|_, _| Ok(0.25)).unwrap();
+        let worked = t.work_out(&mut |_, _| Ok(0.25)).unwrap();
         assert!((worked.noise - 0.25).abs() < f64::EPSILON);
         assert_eq!(worked.machines[0].cooperate, [0.25]);
     }
@@ -533,7 +533,7 @@ t:
             ))
         };
         let check = |t: &Tournament, p: f64, expected: &str| {
-            let err = t.work_out(|_, _| Ok(p)).unwrap_err().to_string();
+            let err = t.work_out(&mut |_, _| Ok(p)).unwrap_err().to_string();
             assert!(err.contains(expected), "{err}");
         };
         let rounds = "games.t.tournament.rounds is";
@@ -564,22 +564,22 @@ t:
         );
         // The error of a formula is the one `value` gives
         let err = with("rounds: 10", "")
-            .work_out(|_, at| Err(ForgeError::Eval(format!("{at}: Unknown variable: p"))))
+            .work_out(&mut |_, at| Err(ForgeError::Eval(format!("{at}: Unknown variable: p"))))
             .unwrap_err();
         assert_eq!(
             err.to_string(),
             "Formula evaluation error: games.t.tournament.players.b.cooperate: Unknown variable: p"
         );
         let err = with("rounds: =p", "")
-            .work_out(|_, _| Err(ForgeError::Eval("bad rounds".into())))
+            .work_out(&mut |_, _| Err(ForgeError::Eval("bad rounds".into())))
             .unwrap_err();
         assert!(err.to_string().contains("bad rounds"));
         let err = with("continuation: =p", "")
-            .work_out(|_, _| Err(ForgeError::Eval("bad continuation".into())))
+            .work_out(&mut |_, _| Err(ForgeError::Eval("bad continuation".into())))
             .unwrap_err();
         assert!(err.to_string().contains("bad continuation"));
         let err = with("rounds: 10", "noise: =p")
-            .work_out(|_, _| Err(ForgeError::Eval("bad noise".into())))
+            .work_out(&mut |_, _| Err(ForgeError::Eval("bad noise".into())))
             .unwrap_err();
         assert!(err.to_string().contains("bad noise"));
     }

@@ -216,7 +216,7 @@ t:
                 Game::Table(_) => None,
             })
             .unwrap();
-        let worked = t.work_out(|_, _| Ok(value)).unwrap();
+        let worked = t.work_out(&mut |_, _| Ok(value)).unwrap();
         standings(&t, round, &worked)
     }
 

@@ -126,7 +126,8 @@ impl ArrayCalculator {
                 GameReport::Table(report)
             },
             Game::Tournament(tournament) => {
-                let worked = tournament.work_out(|formula, at| value(self, formula, at, &[]))?;
+                let worked =
+                    tournament.work_out(&mut |formula, at| value(self, formula, at, &[]))?;
                 // The round is a dependency, so it was calculated first
                 let round = &self.game_tables[&tournament.round];
                 GameReport::Tournament(standings(&tournament, round, &worked))

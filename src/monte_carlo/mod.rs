@@ -95,7 +95,7 @@ mod tests {
 
             // Run with simple NPV calculation
             let result = engine
-                .run_with_evaluator(|inputs| {
+                .run_with_evaluator(&mut |inputs| {
                     let revenue = inputs.get("revenue").copied().unwrap_or(1_000_000.0);
                     let costs = inputs.get("costs").copied().unwrap_or(500_000.0);
                     let discount_rate = inputs.get("discount_rate").copied().unwrap_or(0.10);

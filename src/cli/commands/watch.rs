@@ -9,19 +9,19 @@ use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use colored::Colorize;
 use notify::RecursiveMode;
-use notify_debouncer_mini::{new_debouncer, DebounceEventResult, DebouncedEventKind, Debouncer};
+use notify_debouncer_mini::{new_debouncer, DebounceEventResult, DebouncedEventKind};
+use std::any::Any;
 use std::path::Path;
 use std::sync::mpsc::{channel, Receiver};
 use std::time::Duration;
 
+/// The events a watcher sends, and the watcher, which must stay alive while
+/// they come.
+type Watching = (Receiver<DebounceEventResult>, Box<dyn Any>);
+
 /// Start watching `dir` (not its subdirectories), debouncing rapid-fire
 /// events such as a save that writes a file twice.
-fn start_watching(
-    dir: &Path,
-) -> ForgeResult<(
-    Receiver<DebounceEventResult>,
-    Debouncer<notify::RecommendedWatcher>,
-)> {
+fn start_watching(dir: &Path) -> ForgeResult<Watching> {
     let (tx, rx) = channel();
     new_debouncer(Duration::from_millis(200), tx)
         .and_then(|mut debouncer| {
@@ -30,7 +30,7 @@ fn start_watching(
                 .watch(dir, RecursiveMode::NonRecursive)
                 .map(|()| debouncer)
         })
-        .map(|debouncer| (rx, debouncer))
+        .map(|debouncer| (rx, Box::new(debouncer) as Box<dyn Any>))
         .map_err(|e| {
             ForgeError::Validation(format!("Failed to watch directory {}: {e}", dir.display()))
         })
@@ -48,18 +48,18 @@ pub fn watch(
     validate_only: bool,
     verbose: bool,
 ) -> ForgeResult<()> {
-    watch_with(c, file, validate_only, verbose, start_watching)
+    watch_with(c, file, validate_only, verbose, &mut start_watching)
 }
 
 /// The watch command, with what watches the directory given: the events it
 /// sends, and the watcher that must stay alive while they come. It returns
 /// when the events stop coming.
-fn watch_with<W>(
+fn watch_with(
     c: &mut Console<'_>,
     file: &Path,
     validate_only: bool,
     verbose: bool,
-    start: impl FnOnce(&Path) -> ForgeResult<(Receiver<DebounceEventResult>, W)>,
+    start: &mut dyn FnMut(&Path) -> ForgeResult<Watching>,
 ) -> ForgeResult<()> {
     outln!(c, "{}", "👁️  Forge - Watch Mode".bold().green());
     outln!(c, "   Watching: {}", file.display());
@@ -349,7 +349,7 @@ mod tests {
         file: &Path,
         validate_only: bool,
         verbose: bool,
-        events: Vec<DebounceEventResult>,
+        mut events: Vec<DebounceEventResult>,
     ) -> (ForgeResult<()>, String, String) {
         // Not `capture`: it reads the clear-screen code as a colour code
         let (mut out, mut err, mut input) = (Vec::new(), Vec::new(), std::io::empty());
@@ -358,12 +358,12 @@ mod tests {
             file,
             validate_only,
             verbose,
-            |_| {
+            &mut |_| {
                 let (tx, rx) = channel();
-                for event in events {
+                for event in std::mem::take(&mut events) {
                     tx.send(event).unwrap();
                 }
-                Ok((rx, ()))
+                Ok((rx, Box::new(()) as Box<dyn Any>))
             },
         );
         (
@@ -510,11 +510,7 @@ mod tests {
             &file,
             false,
             false,
-            |_| {
-                Err::<(Receiver<DebounceEventResult>, ()), _>(ForgeError::Validation(
-                    "no watcher".to_string(),
-                ))
-            },
+            &mut |_| Err(ForgeError::Validation("no watcher".to_string())),
         );
         assert!(result.unwrap_err().to_string().contains("no watcher"));
         assert!(!String::from_utf8(out).unwrap().contains("Initial run"));

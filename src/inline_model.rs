@@ -31,13 +31,26 @@ pub(crate) fn resolve_model_input(
             None => Ok((PathBuf::from(path), None)),
         },
         (None, Some(yaml)) => {
-            let tmp = TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
-            resolve_inline_includes(yaml, includes, tmp.path())?;
-            std::fs::write(tmp.path().join("model.yaml"), yaml)
-                .map_err(|e| format!("Failed to write temp model: {e}"))?;
-            Ok((tmp.path().join("model.yaml"), Some(tmp)))
+            let (path, tmp) = write_inline_model(&std::env::temp_dir(), yaml, includes)?;
+            Ok((path, Some(tmp)))
         },
     }
+}
+
+/// Write inline `yaml` and its includes to a new temporary folder made in
+/// `base`; the model's path and the folder's guard.
+fn write_inline_model(
+    base: &Path,
+    yaml: &str,
+    includes: Option<&HashMap<String, String>>,
+) -> Result<(PathBuf, TempDir), String> {
+    let tmp = tempfile::Builder::new()
+        .tempdir_in(base)
+        .map_err(|e| format!("Failed to create temp dir: {e}"))?;
+    resolve_inline_includes(yaml, includes, tmp.path())?;
+    let path = tmp.path().join("model.yaml");
+    std::fs::write(&path, yaml).map_err(|e| format!("Failed to write temp model: {e}"))?;
+    Ok((path, tmp))
 }
 
 /// Reject include paths that could leave the temp directory.
@@ -152,7 +165,7 @@ fn write_includes(
 
         // Content that does not parse is left for the parser to report
         if let Ok(inner) = crate::parser::read_yaml(include_content) {
-            let folder = relative.parent().unwrap_or_else(|| Path::new(""));
+            let folder = relative.parent().unwrap_or(from);
             write_includes(&inner, map, dir, folder, written)?;
         }
     }
@@ -319,6 +332,28 @@ mod tests {
         let no_name = "_includes:\n  - file: a.yaml\n";
         let err = resolve_model_input(None, None, Some(no_name), Some(&map(&[]))).unwrap_err();
         assert_eq!(err, "Include 'a.yaml' must have an 'as' field");
+    }
+
+    #[test]
+    fn a_folder_that_cannot_be_made_is_reported() {
+        let err = write_inline_model(Path::new("no-such-folder/x"), "a: 1\n", None).unwrap_err();
+        assert!(err.starts_with("Failed to create temp dir: "), "{err}");
+    }
+
+    #[test]
+    fn a_model_that_cannot_be_written_is_reported() {
+        // the model is a file and `model.yaml` is already a folder there
+        let base = tempfile::tempdir().unwrap();
+        let top = "_includes:\n  - file: model.yaml/inner.yaml\n    as: a\n";
+        let includes = map(&[("a", "k: 1\n")]);
+        let err = write_inline_model(base.path(), top, Some(&includes)).unwrap_err();
+        assert!(err.starts_with("Failed to write temp model: "), "{err}");
+    }
+
+    #[test]
+    fn inline_text_that_is_not_yaml_is_refused() {
+        let err = resolve_model_input(None, None, Some("a: [\n"), None).unwrap_err();
+        assert!(err.starts_with("Invalid YAML: "), "{err}");
     }
 
     #[test]

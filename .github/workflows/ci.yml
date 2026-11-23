@@ -581,9 +581,14 @@ jobs:
           for kind in lines functions regions; do
             echo "Coverage of $kind: $(jq ".data[0].totals.$kind.percent" cov.json)%"
           done
+          # Where the misses are, so that a failure below says which file
+          jq -r '.data[0].files[] | select(.summary.regions.notcovered > 0 or .summary.functions.notcovered > 0 or .summary.lines.notcovered > 0) | "missed: \(.filename): \(.summary.regions.notcovered) regions, \(.summary.functions.notcovered) functions, \(.summary.lines.notcovered) lines"' cov.json
+          python3 scripts/coverage_misses.py cov.json
           COV=$(jq '.data[0].totals.functions.percent' cov.json | xargs printf '%.0f')
           echo "COVERAGE=$COV" >> $GITHUB_ENV
 
+      # Raised to 100 on 2026-11-23, when the last 67 regions were covered: the
+      # floors are now the target, and a drop below it fails this job.
       # 100% coverage, no skipping (CLAUDE.md, roadmap T1-COVERAGE-GATE). Until
       # the code is at 100%, these floors are the coverage of the last merge,
       # rounded down to a tenth (the weekly run's new property-test seeds can
@@ -635,9 +640,9 @@ jobs:
       # functions 0.049.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "99.8"
-          FLOOR_FUNCTIONS: "99.7"
-          FLOOR_REGIONS: "99.8"
+          FLOOR_LINES: "100"
+          FLOOR_FUNCTIONS: "100"
+          FLOOR_REGIONS: "100"
         run: |
           fail=0
           for kind in lines functions regions; do

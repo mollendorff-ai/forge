@@ -289,22 +289,20 @@ mod tests {
     #[test]
     fn test_formula_error_helper() {
         let err = formula_error("=SUM(a)", "test.col", "error", Some("fix it"));
-        if let ForgeError::Formula(ctx) = err {
-            assert_eq!(ctx.formula, "=SUM(a)");
-            assert_eq!(ctx.suggestion, Some("fix it".to_string()));
-        } else {
-            panic!("Expected ForgeError::Formula");
-        }
+        let expected = ForgeError::Formula(
+            FormulaErrorContext::new("=SUM(a)", "test.col", "error").with_suggestion("fix it"),
+        );
+        assert_eq!(err.to_string(), expected.to_string());
+        assert!(err.to_string().contains("fix it"));
     }
 
     #[test]
     fn test_formula_error_helper_no_suggestion() {
         let err = formula_error("=SUM(a)", "test.col", "error", None);
-        if let ForgeError::Formula(ctx) = err {
-            assert!(ctx.suggestion.is_none());
-        } else {
-            panic!("Expected ForgeError::Formula");
-        }
+        let expected =
+            ForgeError::Formula(FormulaErrorContext::new("=SUM(a)", "test.col", "error"));
+        assert_eq!(err.to_string(), expected.to_string());
+        assert!(!err.to_string().contains("Suggestion"));
     }
 
     #[test]
@@ -349,7 +347,7 @@ mod tests {
     fn test_forge_error_from_io_error() {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
         let forge_err: ForgeError = io_err.into();
-        assert!(matches!(forge_err, ForgeError::Io(_)));
+        assert_eq!(forge_err.to_string(), "IO error: file not found");
     }
 
     #[test]
@@ -360,8 +358,11 @@ mod tests {
         assert!(yaml_result.is_err());
 
         let yaml_err = yaml_result.unwrap_err();
+        let yaml_err_text = yaml_err.to_string();
         let forge_err: ForgeError = yaml_err.into();
-        assert!(matches!(forge_err, ForgeError::Yaml(_)));
-        assert!(forge_err.to_string().contains("YAML parsing error"));
+        assert_eq!(
+            forge_err.to_string(),
+            format!("YAML parsing error: {yaml_err_text}")
+        );
     }
 }
