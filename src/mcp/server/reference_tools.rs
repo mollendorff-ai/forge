@@ -11,13 +11,12 @@ use rmcp::{tool, tool_router};
 use crate::cli::{examples_core, functions_core, schema_core, templates_core};
 
 #[tool_router(router = reference_tools, vis = "pub(super)")]
-#[allow(clippy::unused_self)] // rmcp #[tool] macro requires &self on all tool methods
 impl ForgeMcpServer {
     #[tool(
         name = "forge_schema",
         description = "Get JSON Schema for Forge YAML model formats. Write new models as _forge_version \"5.1.0\": inputs as plain numbers (price: 16), formula scalars as {formula: \"=...\"}, tables as lists and row-formula strings. For a table over time use \"5.2.0\": a period column (month: {start: 2026-12, count: 12, unit: month}) gives the rows, and PREV(value, first_row_value) reads the row above. \"5.3.0\" allows an empty cell (null) in a column of numbers. \"5.4.0\" allows a date as a scalar (last_actual: 2026-10-31) and format: beside unit:, an Excel number format that changes how a number is shown, never its value (price: {value: 16, format: \"$#,##0.00\"}); results then carry a formatted map."
     )]
-    fn schema(&self, Parameters(req): Parameters<SchemaRequest>) -> Result<String, String> {
+    fn schema(Parameters(req): Parameters<SchemaRequest>) -> Result<String, String> {
         schema_core(req.version.as_deref()).map_err(|e| format!("Schema error: {e}"))
     }
 
@@ -25,7 +24,7 @@ impl ForgeMcpServer {
         name = "forge_functions",
         description = "List all 203 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
     )]
-    fn functions(&self, Parameters(_req): Parameters<FunctionsRequest>) -> String {
+    fn functions(Parameters(_req): Parameters<FunctionsRequest>) -> String {
         to_json(&functions_core())
     }
 
@@ -33,7 +32,7 @@ impl ForgeMcpServer {
         name = "forge_templates",
         description = "The blocks forge_edit's insert adds to a model: a game of two players, a game of many players alike, a tournament, a population whose strategies spread. Use without a name to list them, or specify a name for its YAML. Each is valid in any model of format 5.5.0 or later; insert raises an earlier model to it. Insert it with forge_edit: {op: insert, path: <template>, new_name: <the game's name>}."
     )]
-    fn templates(&self, Parameters(req): Parameters<TemplatesRequest>) -> Result<String, String> {
+    fn templates(Parameters(req): Parameters<TemplatesRequest>) -> Result<String, String> {
         templates_core(req.name.as_deref())
             .map(|r| to_json(&r))
             .map_err(|e| format!("Templates error: {e}"))
@@ -43,7 +42,7 @@ impl ForgeMcpServer {
         name = "forge_examples",
         description = "Get runnable YAML examples for all Forge capabilities. Use without a name to list available examples, or specify a name to get the full YAML content. `starter` is a first model to start from."
     )]
-    fn examples(&self, Parameters(req): Parameters<ExamplesRequest>) -> Result<String, String> {
+    fn examples(Parameters(req): Parameters<ExamplesRequest>) -> Result<String, String> {
         examples_core(req.name.as_deref())
             .map(|r| to_json(&r))
             .map_err(|e| format!("Examples error: {e}"))
@@ -59,8 +58,7 @@ mod tests {
 
     #[test]
     fn test_call_schema_v5() {
-        let server = ForgeMcpServer::new();
-        let text = ok_text(server.schema(Parameters(SchemaRequest {
+        let text = ok_text(ForgeMcpServer::schema(Parameters(SchemaRequest {
             version: Some("v5".into()),
         })));
         assert!(text.contains("$schema"));
@@ -68,35 +66,31 @@ mod tests {
 
     #[test]
     fn test_call_schema_v1() {
-        let server = ForgeMcpServer::new();
-        assert!(server
-            .schema(Parameters(SchemaRequest {
-                version: Some("v1".into()),
-            }))
-            .is_ok());
+        assert!(ForgeMcpServer::schema(Parameters(SchemaRequest {
+            version: Some("v1".into()),
+        }))
+        .is_ok());
     }
 
     #[test]
     fn test_call_schema_list() {
-        let server = ForgeMcpServer::new();
-        let text = ok_text(server.schema(Parameters(SchemaRequest { version: None })));
+        let text = ok_text(ForgeMcpServer::schema(Parameters(SchemaRequest {
+            version: None,
+        })));
         assert!(text.contains("available_versions"));
     }
 
     #[test]
     fn test_call_schema_invalid() {
-        let server = ForgeMcpServer::new();
-        assert!(server
-            .schema(Parameters(SchemaRequest {
-                version: Some("v99".into()),
-            }))
-            .is_err());
+        assert!(ForgeMcpServer::schema(Parameters(SchemaRequest {
+            version: Some("v99".into()),
+        }))
+        .is_err());
     }
 
     #[test]
     fn test_call_functions() {
-        let server = ForgeMcpServer::new();
-        let text = server.functions(Parameters(FunctionsRequest {}));
+        let text = ForgeMcpServer::functions(Parameters(FunctionsRequest {}));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(
             parsed.get("edition").is_none(),
@@ -107,19 +101,19 @@ mod tests {
 
     #[test]
     fn test_call_templates() {
-        let server = ForgeMcpServer::new();
-        let all = json(&ok_text(
-            server.templates(Parameters(TemplatesRequest { name: None })),
-        ));
+        let all = json(&ok_text(ForgeMcpServer::templates(Parameters(
+            TemplatesRequest { name: None },
+        ))));
         assert_eq!(all.as_array().unwrap().len(), 4);
-        let one = json(&ok_text(server.templates(Parameters(TemplatesRequest {
-            name: Some("tournament".into()),
-        }))));
+        let one = json(&ok_text(ForgeMcpServer::templates(Parameters(
+            TemplatesRequest {
+                name: Some("tournament".into()),
+            },
+        ))));
         assert_eq!(one["default"], "new_tournament");
         assert!(one["yaml"].as_str().unwrap().contains("tournament:"));
         assert_eq!(
-            server
-                .templates(Parameters(TemplatesRequest {
+            ForgeMcpServer::templates(Parameters(TemplatesRequest {
                     name: Some("nothing".into()),
                 }))
                 .unwrap_err(),
@@ -129,16 +123,16 @@ mod tests {
 
     #[test]
     fn test_call_examples_list() {
-        let server = ForgeMcpServer::new();
-        let text = ok_text(server.examples(Parameters(ExamplesRequest { name: None })));
+        let text = ok_text(ForgeMcpServer::examples(Parameters(ExamplesRequest {
+            name: None,
+        })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(parsed.as_array().is_some_and(|a| a.len() >= 9));
     }
 
     #[test]
     fn test_call_examples_specific() {
-        let server = ForgeMcpServer::new();
-        let text = ok_text(server.examples(Parameters(ExamplesRequest {
+        let text = ok_text(ForgeMcpServer::examples(Parameters(ExamplesRequest {
             name: Some("monte-carlo".into()),
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
@@ -150,12 +144,10 @@ mod tests {
 
     #[test]
     fn test_call_examples_unknown() {
-        let server = ForgeMcpServer::new();
-        assert!(server
-            .examples(Parameters(ExamplesRequest {
-                name: Some("nonexistent".into()),
-            }))
-            .is_err());
+        assert!(ForgeMcpServer::examples(Parameters(ExamplesRequest {
+            name: Some("nonexistent".into()),
+        }))
+        .is_err());
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -169,8 +161,7 @@ mod tests {
     /// serves it: the plan fits it and a probability that is not a number does not.
     #[test]
     fn the_schema_the_tool_serves_accepts_the_bagel_plan() {
-        let server = ForgeMcpServer::new();
-        let text = ok_text(server.schema(Parameters(SchemaRequest {
+        let text = ok_text(ForgeMcpServer::schema(Parameters(SchemaRequest {
             version: Some("v5.4".into()),
         })));
         let validator = jsonschema::validator_for(&json(&text)).unwrap();
@@ -187,8 +178,9 @@ mod tests {
     /// The model formats the tool lists include the one bagel is written in.
     #[test]
     fn the_formats_the_tool_lists_include_the_bagel_plans() {
-        let server = ForgeMcpServer::new();
-        let text = ok_text(server.schema(Parameters(SchemaRequest { version: None })));
+        let text = ok_text(ForgeMcpServer::schema(Parameters(SchemaRequest {
+            version: None,
+        })));
         let versions = json(&text)["available_versions"].clone();
         assert!(versions
             .as_array()
@@ -201,8 +193,7 @@ mod tests {
     /// `year.worst_month_profit`, `year.npv_first_year`).
     #[test]
     fn the_function_list_has_the_functions_the_bagel_plan_calls() {
-        let server = ForgeMcpServer::new();
-        let listing = json(&server.functions(Parameters(FunctionsRequest {})));
+        let listing = json(&ForgeMcpServer::functions(Parameters(FunctionsRequest {})));
         let names: Vec<&str> = listing["categories"]
             .as_array()
             .unwrap()
@@ -224,9 +215,11 @@ mod tests {
     #[test]
     fn the_starter_example_the_tool_serves_calculates() {
         let server = ForgeMcpServer::new();
-        let example = json(&ok_text(server.examples(Parameters(ExamplesRequest {
-            name: Some("starter".into()),
-        }))));
+        let example = json(&ok_text(ForgeMcpServer::examples(Parameters(
+            ExamplesRequest {
+                name: Some("starter".into()),
+            },
+        ))));
         assert_eq!(example["command"], "forge calculate");
         let result = json(&ok_text(server.calculate(Parameters(CalculateRequest {
             file_path: None,

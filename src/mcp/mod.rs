@@ -268,6 +268,50 @@ mod tests {
         assert_eq!(answer, "");
     }
 
+    /// The server lists its tools at once (`ForgeMcpServer::list_tools`,
+    /// written as `#[tool_handler]` writes it, as a future that is ready): the
+    /// 23 tools to a client of an initialized session, and from protocol
+    /// 2026-07-28, named in a request's `_meta`, the same tools with leave to
+    /// keep the list (`ttlMs` 0, `cacheScope` public, `resultType` complete).
+    /// The answers are byte for byte those rmcp's generated `list_tools` gave.
+    #[test]
+    fn the_tools_are_listed_with_cache_hints_from_protocol_2026_07_28() {
+        let mut session = Session::start(None);
+        let mut list = |id: u64, meta: serde_json::Value| -> serde_json::Value {
+            session.send(&serde_json::json!({"jsonrpc": "2.0", "id": id,
+                "method": "tools/list", "params": {"_meta": meta}}));
+            let answer: serde_json::Value = serde_json::from_str(&session.answer(id)).unwrap();
+            answer["result"].clone()
+        };
+        let initialized = list(1, serde_json::json!({}));
+        let per_request = list(
+            2,
+            serde_json::json!({"io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {}}),
+        );
+        let names = |result: &serde_json::Value| -> Vec<String> {
+            result["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|tool| tool["name"].as_str().unwrap().to_string())
+                .collect()
+        };
+        assert_eq!(names(&initialized).len(), 23);
+        assert_eq!(initialized["tools"], per_request["tools"]);
+        let fields = |result: &serde_json::Value| -> Vec<String> {
+            result.as_object().unwrap().keys().cloned().collect()
+        };
+        assert_eq!(fields(&initialized), ["tools"]);
+        assert_eq!(
+            fields(&per_request),
+            ["cacheScope", "resultType", "tools", "ttlMs"]
+        );
+        assert_eq!(per_request["cacheScope"], "public");
+        assert_eq!(per_request["resultType"], "complete");
+        assert_eq!(per_request["ttlMs"], 0);
+    }
+
     #[test]
     fn an_answer_waits_past_the_answers_to_other_requests() {
         let mut session = Session::start(None);

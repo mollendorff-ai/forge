@@ -4,8 +4,12 @@
 //! Uses the rmcp SDK for Model Context Protocol over stdin/stdout.
 
 use rmcp::handler::server::router::tool::ToolRouter;
-use rmcp::model::{ServerCapabilities, ServerConfig};
-use rmcp::{tool_handler, ServerHandler};
+use rmcp::model::{
+    CacheScope, ListToolsResult, PaginatedRequestParams, ProtocolVersion, ResultType,
+    ServerCapabilities, ServerConfig,
+};
+use rmcp::service::{MaybeSendFuture, RequestContext};
+use rmcp::{tool_handler, ErrorData, RoleServer, ServerHandler};
 
 mod analysis_tools;
 mod model_tools;
@@ -66,9 +70,31 @@ pub(super) fn to_json<T: serde::Serialize>(result: &T) -> String {
 /// What the server tells the agent it serves.
 const INSTRUCTIONS: &str = "Forge MCP Server - 23 tools for AI-native financial modeling. Core: validate, calculate, edit (change a model's text, comments kept), audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian, game (equilibria and tournaments). Discovery: schema, functions, templates (blocks edit's insert adds), examples. 203 Excel-compatible functions. All tools return structured JSON. A new model: start from forge_examples name=starter; _forge_version is the model format version (5.1.0), not the Forge version; in a group of scalars a formula is {formula: \"=...\"}, in a table a column formula is a bare \"=...\".";
 
-#[allow(unknown_lints, clippy::unused_async_trait_impl)]
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for ForgeMcpServer {
+    /// The tools, as `#[tool_handler]` would list them, but as a future that
+    /// is ready at once: the list awaits nothing. A client from protocol
+    /// 2026-07-28 on is told it may keep the list (no expiry, the same for
+    /// every client), as rmcp does.
+    fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        context: RequestContext<RoleServer>,
+    ) -> impl std::future::Future<Output = Result<ListToolsResult, ErrorData>> + MaybeSendFuture + '_
+    {
+        let cache_hints = context
+            .protocol_version()
+            .is_some_and(|version| version >= ProtocolVersion::V_2026_07_28);
+        std::future::ready(Ok(ListToolsResult {
+            result_type: Some(ResultType::COMPLETE),
+            tools: self.tool_router.list_all(),
+            meta: None,
+            next_cursor: None,
+            ttl_ms: cache_hints.then_some(0),
+            cache_scope: cache_hints.then_some(CacheScope::Public),
+        }))
+    }
+
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_instructions(self.root.as_ref().map_or_else(
