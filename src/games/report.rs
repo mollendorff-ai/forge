@@ -132,7 +132,8 @@ pub fn analyse(game: &str, table: &Table, symmetric: bool) -> TableReport {
         })
         .collect();
     let mut found = equilibria(table);
-    let people = population(table).filter(|_| symmetric);
+    // A population reads the first player's payoffs for all: a symmetric game only
+    let people = symmetric.then(|| population(table)).flatten();
     let symmetric_searched = people.is_some() && !found.mixed_searched;
     if let Some(people) = people.as_ref().filter(|_| symmetric_searched) {
         add_symmetric_mixes(table, people, &mut found.list, &mut found.ties);
@@ -420,6 +421,24 @@ mod tests {
 
     fn value(scalars: &[(String, f64)], name: &str) -> f64 {
         scalars.iter().find(|(n, _)| n == name).unwrap().1
+    }
+
+    /// A game that is not symmetric, its first player with two strategies
+    /// and the other with one, has no population to read (it panicked once,
+    /// reading the other's second strategy)
+    #[test]
+    fn a_game_whose_other_player_has_one_strategy_is_analysed() {
+        let table = two(
+            ["row", "column"],
+            &["up", "down"],
+            &["only"],
+            &[[1.0, 1.0], [0.0, 0.0]],
+        );
+        let report = analyse("g", &table, false);
+        let scalars = report.scalars();
+        assert!((value(&scalars, "g.pure_equilibria") - 1.0).abs() < 1e-12);
+        assert!((value(&scalars, "g.equilibrium_1.row.up") - 1.0).abs() < 1e-12);
+        assert!((value(&scalars, "g.dominated.row.down") - 1.0).abs() < 1e-12);
     }
 
     #[test]

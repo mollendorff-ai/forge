@@ -470,6 +470,7 @@ tornado:
             unit: None,
             after: None,
             new_name: Some(new.into()),
+            plays: None,
         }
     }
 
@@ -758,6 +759,7 @@ tornado:
         refused(
             Change {
                 new_name: None,
+                plays: None,
                 ..rename("rate", "x")
             },
             "rename rate: it needs `new_name`",
