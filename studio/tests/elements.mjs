@@ -9,7 +9,7 @@
 //   an input other formulas use are refused with a message, and the file is
 //   as it was;
 // - an element the file already has is deleted with its lines and nothing
-//   else (the same lines text.js's deleteEntryText removes).
+//   else (its key line and the formula under it).
 //
 //   node studio/tests/elements.mjs <built Studio dir or address>
 
@@ -17,7 +17,6 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, extname, resolve } from "node:path";
 import { chromium } from "playwright";
-import { deleteEntryText } from "../text.js";
 
 const [where] = process.argv.slice(2);
 const remote = /^https?:/.test(where);
@@ -141,7 +140,10 @@ msg = await del(page, "assumptions.price_per_dozen");
 if (!msg) fail("an input other formulas use was deleted");
 await unchanged("deleting an input other formulas use");
 msg = await del(page, "year.first_year_return");
-const want = deleteEntryText(original, "year", "first_year_return");
+// its two lines go (the key and its formula), and nothing else
+const gone = original.split("\n");
+gone.splice(gone.findIndex((l) => l === "  first_year_return:"), 2);
+const want = gone.join("\n");
 if (msg) fail(`year.first_year_return was not deleted: ${msg}`);
 else if ((await filesOf(page, bagel))["bagel.yaml"] !== want) fail("deleting year.first_year_return changed more than its lines");
 else deleted++;

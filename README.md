@@ -12,9 +12,9 @@
 Forge reads a financial model written in YAML (inputs, formulas, tables, scenarios) and calculates it with 203 Excel-style functions, plus what a spreadsheet leaves to plug-ins: Monte Carlo, tornado charts, decision trees, real options, Bayesian networks, game theory. One engine, written in Rust, runs on the command line, as an MCP server for AI agents, and in your browser.
 
 <p align="center">
-  <a href="https://forge.mollendorff.ai/"><img src="https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/images/studio-phone.png" alt="Forge Studio on a phone: the bagel example's year, with revenue 386,827.45, profit 786.32 and the formula under each result" width="260"></a>
+  <a href="https://forge.mollendorff.ai/"><img src="https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/images/studio-phone.png" alt="Forge Studio on a phone: the bagel example's uncertain model, with revenue 386,827.45, profit 786.32 at the plan and its range under it (5th percentile -78.5k, 95th 46.5k), and the formula under each result" width="260"></a>
   &nbsp;
-  <a href="https://forge.mollendorff.ai/"><img src="https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/images/studio-desktop.png" alt="Forge Studio on a laptop: the YAML model on the left, its inputs as sliders on the right" width="560"></a>
+  <a href="https://forge.mollendorff.ai/"><img src="https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/images/studio-desktop.png" alt="Forge Studio on a laptop: the uncertain bagel model's YAML on the left, its scenarios, an Add a game card and its inputs as sliders on the right" width="560"></a>
 </p>
 
 | **You work with numbers** | **You build with AI agents** |

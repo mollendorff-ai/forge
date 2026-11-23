@@ -30,7 +30,7 @@ Every number is Forge's. The page reads no YAML itself: a change on a card is wr
 | `index.html`, `studio.css` | The page |
 | `app.js` | State, the six views, events; the parts below are its modules |
 | `forge.js`, `worker.js` | The only way to a number: `call(tool, request)` to forge-wasm, in a worker |
-| `text.js` | Text work on YAML: changing one input's or one formula's line, colouring the editor with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
+| `text.js` | The editor's colours (and `esc`): colouring the YAML with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
 | `help.js`, `help.json` | The "?" on each heading and its sheet (the text is `help.json`; the manual is linked on GitHub at the running release's tag), and the line under the suggestions with Forge's own syntax and description of a function or a key (ADR-077) |
 | `tools.js` | The Tools view: the MCP server's tools, the request each is shown with, and an answer shown whole |
 | `games.js` | The game cards: payoff tables, equilibria, tournaments and dynamics, drawn from `game`'s answer (ADR-068, ADR-073) |
@@ -72,7 +72,7 @@ All of these but `live.mjs` (run by `pages.yml` after a release) run in CI, in t
 | `expect.mjs` | On the stag hunt, each result with an `expect:` shows it as Forge's `calculate` reports it, in the plan and under a scenario, marked when they differ; an input typed that moves a result away from it is kept (ADR-074) |
 | `grid.mjs` | Every cell of every table and every scalar in the Grid tab is what Forge returns, with its formula; a tap leads to the card |
 | `formats.mjs` | A `format:` on screen: the bagel's price, margin, season and dozens, and the rolling forecast's date, percentages and counts, are the text Forge gives on the cards and in the grid, with the values underneath unchanged |
-| `text.mjs`, `formulas.mjs` | Changing an input or a formula changes its one line and nothing else, byte for byte, for each way YAML writes it; an invalid formula is refused with Forge's message and the file stays as it was |
+| `formulas.mjs` | A formula changed on its card is Forge's `edit`: it changes its one line and nothing else, in every example; an invalid formula is refused with Forge's message and the file stays as it was (the bytes for each way YAML writes a value are held by the tests of `src/edit/text.rs`) |
 | `elements.mjs` | An input, a formula and a column added to every group and table of every example, then deleted: only the new lines, and the file back byte for byte; refusals leave it as it was |
 | `suggest.mjs`, `yamlformula.mjs`, `keys.mjs` | The first letters of every name, function and key in every example are offered at their place (a few more for a name a game's results crowd out of the 16 offered) (on a card, in the Add form and in the YAML editor), only Forge's functions and the schema's keys are offered, and nothing inside a text, a number, a comment or after a colon |
 | `excel.mjs`, `save.mjs` | The workbook Studio downloads is the one `forge export` writes, part by part; a workbook `forge export` wrote opens in Studio and calculates to the same numbers; Save shares the model's files and the workbook within the tap Safari requires |
@@ -88,4 +88,4 @@ All of these but `live.mjs` (run by `pages.yml` after a release) run in CI, in t
 | `sets.mjs` | A set of several models lists them as questions on the welcome card, each with the kind of model Forge's `model` says its file is; a question, a chip of the strip at the top of the Model view and Files open each model of every such set (ADR-077) |
 | `live.mjs` | After each release, the published page runs the release's Forge and the bagel example's `year.profit` is 786.32 |
 
-Run one with `node studio/tests/<name>.mjs studio-site` (after `npm install` here); `no-engine.mjs`, `text.mjs`, `format.mjs` and `highlight.mjs` need no built site. `screen.mjs` and `uncertain.mjs` also take `forge-wasm/expected.json`, `excel.mjs` and `save.mjs` the folder of workbooks `forge export` wrote (`forge-wasm/xlsx`), and `layout.mjs` a folder for its screenshots, as in `.github/workflows/ci.yml`.
+Run one with `node studio/tests/<name>.mjs studio-site` (after `npm install` here); `no-engine.mjs`, `format.mjs` and `highlight.mjs` need no built site. `screen.mjs` and `uncertain.mjs` also take `forge-wasm/expected.json`, `excel.mjs` and `save.mjs` the folder of workbooks `forge export` wrote (`forge-wasm/xlsx`), and `layout.mjs` a folder for its screenshots, as in `.github/workflows/ci.yml`.
