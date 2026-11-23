@@ -1058,4 +1058,149 @@ mod tests {
         let message = imported["data"]["message"].as_str().unwrap();
         assert!(message.starts_with("Error: "), "{message}");
     }
+
+    /// The state of a server with `--root`
+    fn rooted(dir: &std::path::Path) -> State<Arc<AppState>> {
+        State(Arc::new(AppState {
+            version: "5.0.0".to_string(),
+            token: None,
+            loopback_only: true,
+            root: Some(crate::path_root::Root::new(dir).unwrap()),
+        }))
+    }
+
+    /// With `--root`, export and import refuse a file outside it, each of the
+    /// two paths on its own, and say so in `message`; inside it, they work
+    #[tokio::test]
+    async fn export_and_import_stay_inside_the_root() {
+        let root = tempfile::TempDir::new().unwrap();
+        let outside = tempfile::TempDir::new().unwrap();
+        std::fs::copy("test-data/budget.yaml", root.path().join("budget.yaml")).unwrap();
+        std::fs::copy("test-data/budget.yaml", outside.path().join("budget.yaml")).unwrap();
+        let outside_yaml = outside
+            .path()
+            .join("budget.yaml")
+            .to_string_lossy()
+            .to_string();
+        let outside_xlsx = outside
+            .path()
+            .join("out.xlsx")
+            .to_string_lossy()
+            .to_string();
+
+        let export_of = |yaml_path: String, excel_path: String| async {
+            answer(
+                export(
+                    rooted(root.path()),
+                    Json(ExportRequest {
+                        yaml_path,
+                        excel_path,
+                    }),
+                )
+                .await,
+            )
+            .await
+        };
+        let import_of = |excel_path: String, yaml_path: String| async {
+            answer(
+                import_excel(
+                    rooted(root.path()),
+                    Json(ImportRequest {
+                        excel_path,
+                        yaml_path,
+                    }),
+                )
+                .await,
+            )
+            .await
+        };
+
+        for (yaml, excel) in [
+            (outside_yaml.clone(), "out.xlsx".to_string()),
+            ("budget.yaml".to_string(), outside_xlsx.clone()),
+        ] {
+            let refused = export_of(yaml, excel).await;
+            assert_eq!(refused["data"]["exported"], false, "{refused}");
+            assert!(refused["data"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with("Error: "));
+        }
+        assert!(!outside.path().join("out.xlsx").exists());
+
+        let exported = export_of("budget.yaml".to_string(), "out.xlsx".to_string()).await;
+        assert_eq!(exported["data"]["exported"], true, "{exported}");
+        assert!(root.path().join("out.xlsx").exists());
+
+        for (excel, yaml) in [
+            (outside_xlsx, "back.yaml".to_string()),
+            ("out.xlsx".to_string(), outside_yaml),
+        ] {
+            let refused = import_of(excel, yaml).await;
+            assert_eq!(refused["data"]["imported"], false, "{refused}");
+            assert!(refused["data"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with("Error: "));
+        }
+
+        let imported = import_of("out.xlsx".to_string(), "back.yaml".to_string()).await;
+        assert_eq!(imported["data"]["imported"], true, "{imported}");
+        assert!(root.path().join("back.yaml").exists());
+    }
+
+    /// A model named by `file_path` is calculated and written back, and the
+    /// answer says so; inline content is not (its text comes back instead)
+    #[tokio::test]
+    async fn calculating_a_file_says_the_file_was_updated() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let file = dir.path().join("budget.yaml");
+        std::fs::copy("test-data/budget.yaml", &file).unwrap();
+        let response = answer(
+            calculate(
+                no_root(),
+                Json(CalculateRequest {
+                    source: ModelSource {
+                        file_path: Some(file.to_string_lossy().to_string()),
+                        ..Default::default()
+                    },
+                    dry_run: false,
+                    scenario: None,
+                    plan: false,
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(response["data"]["calculated"], true, "{response}");
+        assert_eq!(
+            response["data"]["message"],
+            "Calculation completed and file updated"
+        );
+    }
+
+    /// A file that is not a model is `valid: false` with Forge's reason, not
+    /// an HTTP error
+    #[tokio::test]
+    async fn validating_a_file_that_is_not_a_model_says_why() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let file = dir.path().join("broken.yaml");
+        std::fs::write(&file, "scalars: [unclosed").unwrap();
+        let response = answer(
+            validate(
+                no_root(),
+                Json(ValidateRequest {
+                    source: ModelSource {
+                        file_path: Some(file.to_string_lossy().to_string()),
+                        ..Default::default()
+                    },
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(response["success"], true, "{response}");
+        assert_eq!(response["data"]["valid"], false, "{response}");
+        assert_ne!(response["data"]["message"], "", "{response}");
+    }
 }
