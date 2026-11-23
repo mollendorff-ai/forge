@@ -154,9 +154,6 @@ impl SampleStats {
     }
 }
 
-// Financial math: exact float comparison validated against Excel/Gnumeric/R
-// sampler/samples, sampler1/samples1 — standard statistical terminology
-#[allow(clippy::similar_names)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,32 +211,32 @@ mod tests {
     #[test]
     fn test_monte_carlo_samples() {
         let mut sampler = Sampler::new(SamplingMethod::MonteCarlo, Some(12345));
-        let samples = sampler.generate_uniform_samples(1000);
+        let draws = sampler.generate_uniform_samples(1000);
 
-        assert_eq!(samples.len(), 1000);
-        assert!(samples.iter().all(|&x| (0.0..1.0).contains(&x)));
+        assert_eq!(draws.len(), 1000);
+        assert!(draws.iter().all(|&x| (0.0..1.0).contains(&x)));
 
         // Mean should be approximately 0.5
-        let mean = samples.iter().sum::<f64>() / precision::count(samples.len());
+        let mean = draws.iter().sum::<f64>() / precision::count(draws.len());
         assert!((mean - 0.5).abs() < 0.05);
     }
 
     #[test]
     fn test_latin_hypercube_samples() {
         let mut sampler = Sampler::new(SamplingMethod::LatinHypercube, Some(12345));
-        let samples = sampler.generate_uniform_samples(1000);
+        let draws = sampler.generate_uniform_samples(1000);
 
-        assert_eq!(samples.len(), 1000);
-        assert!(samples.iter().all(|&x| (0.0..1.0).contains(&x)));
+        assert_eq!(draws.len(), 1000);
+        assert!(draws.iter().all(|&x| (0.0..1.0).contains(&x)));
 
         // Mean should be approximately 0.5
-        let mean = samples.iter().sum::<f64>() / precision::count(samples.len());
+        let mean = draws.iter().sum::<f64>() / precision::count(draws.len());
         assert!((mean - 0.5).abs() < 0.02); // LHS should be closer to 0.5
 
         // LHS should have better coverage - check each stratum has exactly one sample
-        let n = samples.len();
+        let n = draws.len();
         let mut stratum_counts = vec![0; n];
-        for &sample in &samples {
+        for &sample in &draws {
             let stratum = (sample * precision::count(n))
                 .floor()
                 .to_usize()
@@ -268,8 +265,8 @@ mod tests {
         let mut mc_variances = Vec::new();
         for seed in 0..10 {
             let mut sampler = Sampler::new(SamplingMethod::MonteCarlo, Some(seed));
-            let samples = sampler.generate_uniform_samples(n);
-            let mean = samples.iter().sum::<f64>() / precision::count(n);
+            let draws = sampler.generate_uniform_samples(n);
+            let mean = draws.iter().sum::<f64>() / precision::count(n);
             mc_variances.push((mean - 0.5).powi(2));
         }
         let mc_avg_variance: f64 =
@@ -279,8 +276,8 @@ mod tests {
         let mut lhs_variances = Vec::new();
         for seed in 0..10 {
             let mut sampler = Sampler::new(SamplingMethod::LatinHypercube, Some(seed));
-            let samples = sampler.generate_uniform_samples(n);
-            let mean = samples.iter().sum::<f64>() / precision::count(n);
+            let draws = sampler.generate_uniform_samples(n);
+            let mean = draws.iter().sum::<f64>() / precision::count(n);
             lhs_variances.push((mean - 0.5).powi(2));
         }
         let lhs_avg_variance: f64 =
@@ -295,14 +292,14 @@ mod tests {
 
     #[test]
     fn test_seed_reproducibility() {
-        let mut sampler1 = Sampler::new(SamplingMethod::LatinHypercube, Some(42));
-        let samples1 = sampler1.generate_uniform_samples(100);
+        let mut first_sampler = Sampler::new(SamplingMethod::LatinHypercube, Some(42));
+        let first_draws = first_sampler.generate_uniform_samples(100);
 
-        let mut sampler2 = Sampler::new(SamplingMethod::LatinHypercube, Some(42));
-        let samples2 = sampler2.generate_uniform_samples(100);
+        let mut second_sampler = Sampler::new(SamplingMethod::LatinHypercube, Some(42));
+        let second_draws = second_sampler.generate_uniform_samples(100);
 
         assert_eq!(
-            samples1, samples2,
+            first_draws, second_draws,
             "Same seed should produce identical results"
         );
     }
@@ -310,19 +307,19 @@ mod tests {
     #[test]
     fn test_multidimensional_samples() {
         let mut sampler = Sampler::new(SamplingMethod::LatinHypercube, Some(12345));
-        let samples = sampler.generate_uniform_samples_nd(100, 3);
+        let draws = sampler.generate_uniform_samples_nd(100, 3);
 
-        assert_eq!(samples.len(), 3);
-        assert!(samples.iter().all(|dim| dim.len() == 100));
-        assert!(samples
+        assert_eq!(draws.len(), 3);
+        assert!(draws.iter().all(|dim| dim.len() == 100));
+        assert!(draws
             .iter()
             .all(|dim| dim.iter().all(|&x| (0.0..1.0).contains(&x))));
     }
 
     #[test]
     fn test_sample_stats() {
-        let samples = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let stats = SampleStats::from_samples(&samples);
+        let draws = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let stats = SampleStats::from_samples(&draws);
 
         assert_exact!(stats.mean, 3.0);
         assert_exact!(stats.min, 1.0);
