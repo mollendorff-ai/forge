@@ -105,7 +105,7 @@ pub fn run(tool: &str, request: &Value) -> Result<Value, String> {
         .as_object()
         .ok_or("The request must be a JSON object")?;
     match tool {
-        "functions" => return functions_core().map_err(|e| e.to_string()),
+        "functions" => return Ok(functions_core()),
         "examples" => return examples_core(opt_str(args, "name")?).map_err(|e| e.to_string()),
         "schema" => {
             return schema_core(opt_str(args, "version")?)

@@ -187,7 +187,8 @@ scalars:
     fn test_tool_count() {
         let server = ForgeMcpServer::new();
         let tools = server.tool_router.list_all();
-        assert_eq!(tools.len(), 22, "Expected 22 tools, got {}", tools.len());
+        let count = tools.len();
+        assert_eq!(count, 22, "Expected 22 tools, got {count}");
     }
 
     #[test]

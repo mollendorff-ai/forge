@@ -67,8 +67,12 @@ pub fn run_stdio(root: Option<&std::path::Path>) -> crate::error::ForgeResult<()
 ///
 /// # Errors
 ///
-/// Returns an error if `root` is not a folder, the runtime cannot start or
-/// the connection fails.
+/// Returns an error if `root` is not a folder or the connection fails.
+///
+/// # Panics
+///
+/// Panics if the machine cannot start a runtime, or the task serving the
+/// connection panics.
 pub fn serve_on<R, W>(
     root: Option<&std::path::Path>,
     transport: (R, W),
@@ -86,11 +90,13 @@ where
     }
     let failed =
         |e: &dyn std::fmt::Display| ForgeError::Validation(format!("MCP server error: {e}"));
-    let runtime = tokio::runtime::Runtime::new()
-        .map_err(|e| ForgeError::Validation(format!("Failed to create runtime: {e}")))?;
+    let runtime = tokio::runtime::Runtime::new().expect("a runtime starts");
     runtime.block_on(async {
         let service = server.serve(transport).await.map_err(|e| failed(&e))?;
-        service.waiting().await.map_err(|e| failed(&e))?;
+        service
+            .waiting()
+            .await
+            .expect("the task serving the connection does not panic");
         Ok(())
     })
 }
@@ -169,21 +175,24 @@ impl Session {
     /// a minute.
     #[must_use]
     pub fn answer(&mut self, id: u64) -> String {
-        loop {
-            let lines = &mut self.from_server;
-            let line = self
-                .runtime
-                .block_on(async move {
-                    tokio::time::timeout(Self::ANSWER_TIMEOUT, lines.next_line()).await
-                })
-                .expect("the server answered in time")
-                .expect("the connection reads")
-                .expect("the server is still serving");
-            let message: serde_json::Value = serde_json::from_str(&line).expect("JSON");
-            if message["id"] == id {
-                return line;
-            }
-        }
+        std::iter::repeat_with(|| self.next_line())
+            .find(|line| {
+                let message: serde_json::Value = serde_json::from_str(line).expect("JSON");
+                message["id"] == id
+            })
+            .expect("repeat_with never ends")
+    }
+
+    /// The next line the server writes.
+    fn next_line(&mut self) -> String {
+        let lines = &mut self.from_server;
+        self.runtime
+            .block_on(
+                async move { tokio::time::timeout(Self::ANSWER_TIMEOUT, lines.next_line()).await },
+            )
+            .expect("the server answered in time")
+            .expect("the connection reads")
+            .expect("the server is still serving")
     }
 
     /// Call `tool` with `arguments` as request `id`: the server's answer.
@@ -256,6 +265,19 @@ mod tests {
         let err = result.unwrap_err().to_string();
         assert!(err.contains("--root nowhere-at-all"), "{err}");
         assert_eq!(answer, "");
+    }
+
+    #[test]
+    fn an_answer_waits_past_the_answers_to_other_requests() {
+        let mut session = Session::start(None);
+        for id in [7, 8] {
+            session.send(&serde_json::json!({"jsonrpc": "2.0", "id": id,
+                "method": "tools/list", "params": {}}));
+        }
+        // The answer to 7 comes first, and is passed over
+        let answer: serde_json::Value = serde_json::from_str(&session.answer(8)).unwrap();
+        assert_eq!(answer["id"], 8);
+        assert_eq!(answer["result"]["tools"].as_array().map(Vec::len), Some(22));
     }
 
     mod root {

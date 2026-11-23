@@ -572,4 +572,43 @@ sales:
         .to_string();
         assert!(err.contains("so write 'sales.amount'"), "{err}");
     }
+
+    #[test]
+    fn documents_that_cannot_share_their_names_are_refused() {
+        let head = "_forge_version: \"5.1.0\"\n";
+        let refused = |a: &str, b: &str| {
+            let text = format!("---\n{head}{a}---\n{head}{b}");
+            parse_multi_document_yaml(&text, Path::new("m.yaml"))
+                .unwrap_err()
+                .to_string()
+        };
+        let again = |kind: &str, name: &str| {
+            format!(
+                "Validation error: {kind} '{name}' is defined in document 'doc1' and again in 'doc2'. The documents of a file share one set of names; rename one, or put the two in separate files (and compare them with forge variance)"
+            )
+        };
+        assert_eq!(
+            refused("t:\n  x: [1]\n", "a: [\n"),
+            "Parse error: Failed to parse document 2: did not find expected node content at line 3 column 1, while parsing a flow node"
+        );
+        assert_eq!(
+            refused("t:\n  x: [1]\n", "1:\n  value: 5\n"),
+            "Parse error: Table name must be a string"
+        );
+        assert_eq!(
+            refused("t:\n  x: [1]\n", "t:\n  y: [2]\n"),
+            again("Table", "t")
+        );
+        let scenario = |n: &str| {
+            format!("{n}: 1\nscenarios:\n  s:\n    probability: 1\n    scalars: {{{n}: 2}}\n")
+        };
+        assert_eq!(
+            refused(&scenario("n"), &scenario("m")),
+            again("Scenario", "s")
+        );
+        assert_eq!(
+            refused("t:\n  x: [1]\n", "t:\n  a: {value: 1}\n"),
+            "Validation error: 't' is both a table and the group of scalar 't.a'; rename one"
+        );
+    }
 }

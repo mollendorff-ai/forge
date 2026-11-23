@@ -805,10 +805,7 @@ mod tests {
                     scenarios:\n  short:\n    scalars: {w: 0.4}\n    expect: {out.twice: 0.8}\n";
         let answer = |text: &str| {
             std::fs::write(&path, text).unwrap();
-            validate_response(
-                String::new(),
-                validate_core(&path).map_err(|e| e.to_string()),
-            )
+            validate_response(String::new(), Ok(validate_core(&path).unwrap()))
         };
         let met = answer(text);
         assert!(met.valid);

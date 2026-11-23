@@ -57,19 +57,16 @@ impl ForgeMcpServer {
         }
         .map_err(|e| format!("Calculation failed: {e}"))?;
 
-        let mut json_val: serde_json::Value =
-            serde_json::to_value(&result).map_err(|e| format!("Serialization failed: {e}"))?;
+        let mut json_val = serde_json::to_value(&result).unwrap_or_default();
 
         // When using inline content with dry_run=false, read back the calculated
         // file; under a scenario nothing is written (ADR-074)
         if is_inline && !dry_run && req.scenario.is_none() {
-            if let Ok(calculated) = std::fs::read_to_string(&path) {
-                json_val["calculated_content"] = serde_json::Value::String(calculated);
-            }
+            json_val["calculated_content"] =
+                serde_json::Value::String(std::fs::read_to_string(&path).unwrap_or_default());
         }
 
-        serde_json::to_string(&crate::core::precision::Rounded(&json_val))
-            .map_err(|e| format!("Serialization failed: {e}"))
+        Ok(to_json(&json_val))
     }
 
     #[tool(
@@ -398,7 +395,7 @@ mod tests {
     fn test_mcp_doc_inline_examples_run() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/MCP.md");
         let doc = std::fs::read_to_string(path).expect("docs/MCP.md should exist");
-        let mut ran = 0;
+        let mut ran: Vec<(String, Result<String, String>)> = Vec::new();
         for line in doc.lines().filter(|l| l.starts_with("{\"jsonrpc\"")) {
             let call: serde_json::Value =
                 serde_json::from_str(line).expect("doc example should be valid JSON");
@@ -408,21 +405,29 @@ mod tests {
                 continue; // file_path examples name files that do not exist here
             }
             let server = ForgeMcpServer::new();
-            let result = match name {
-                "forge_validate" => server.validate(Parameters(
+            assert!(
+                ["forge_validate", "forge_calculate"].contains(&name),
+                "{name} is an inline example this test does not run"
+            );
+            let result = if name == "forge_validate" {
+                server.validate(Parameters(
                     serde_json::from_value(args).expect("validate arguments"),
-                )),
-                "forge_calculate" => server.calculate(Parameters(
+                ))
+            } else {
+                server.calculate(Parameters(
                     serde_json::from_value(args).expect("calculate arguments"),
-                )),
-                other => panic!("docs/MCP.md has an inline example for {other}; add it here"),
+                ))
             };
-            if let Err(e) = result {
-                panic!("docs/MCP.md example for {name} failed: {e}\n{line}");
-            }
-            ran += 1;
+            ran.push((name.to_string(), result.map(|_| line.to_string())));
         }
-        assert!(ran >= 3, "expected at least 3 inline examples, ran {ran}");
+        assert!(
+            ran.len() >= 3,
+            "expected at least 3 inline examples, ran {ran:?}"
+        );
+        assert!(
+            ran.iter().all(|(_, result)| result.is_ok()),
+            "an inline example of docs/MCP.md failed: {ran:?}"
+        );
     }
 
     #[test]
@@ -988,6 +993,53 @@ scalars:
         assert!(
             err_text(server.edit(Parameters(request(None, None, false))))
                 .contains("Either file_path or content")
+        );
+    }
+
+    const PRICED: &str =
+        "_forge_version: \"5.1.0\"\nprice: 4\nout:\n  total: {formula: \"=price * 2\"}\n";
+
+    #[test]
+    fn a_tool_that_fails_says_which_and_why() {
+        let server = ForgeMcpServer::new();
+        let content = Some(PRICED.to_string());
+        assert_eq!(
+            err_text(server.audit(Parameters(AuditRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+                variable: "nope".into(),
+            }))),
+            "Audit failed: Validation error: 'nope' is not a scalar or a table column of the model.\n  Scalars: price, out.total\n  Columns: "
+        );
+        let excel_path = Some("/nonexistent-folder/x.xlsx".to_string());
+        assert_eq!(
+            err_text(server.export(Parameters(ExportRequest {
+                yaml_path: None,
+                content,
+                includes: None,
+                excel_path,
+            }))),
+            "Export failed: IO error: Failed to save Excel file: No such file or directory (os error 2)"
+        );
+        // A table too wide for a worksheet is refused in memory too
+        let columns: Vec<String> = (0..=16_384).map(|i| format!("  c{i}: [1]")).collect();
+        let wide = format!("_forge_version: \"5.2.0\"\nt:\n{}\n", columns.join("\n"));
+        assert_eq!(
+            err_text(server.export(Parameters(ExportRequest {
+                yaml_path: None,
+                content: Some(wide),
+                includes: None,
+                excel_path: None,
+            }))),
+            "Export failed: Excel export error: t: 16385 columns do not fit in an Excel worksheet, which holds 16384"
+        );
+        assert_eq!(
+            err_text(server.import(Parameters(ImportRequest {
+                excel_path: "nowhere.xlsx".into(),
+                yaml_path: "out.yaml".into(),
+            }))),
+            "Import failed: IO error: Failed to open Excel file: I/O error: No such file or directory (os error 2)"
         );
     }
 }

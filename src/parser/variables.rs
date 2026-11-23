@@ -39,7 +39,10 @@ pub fn parse_table(name: &str, map: &yaml_serde::Mapping) -> ForgeResult<Table> 
         if let Value::Mapping(col_map) = value {
             if super::periods::looks_like_period_column(col_map) {
                 let dates = super::periods::period_column(name, col_name, col_map)?;
-                table.add_column(Column::new(col_name.to_string(), dates));
+                table.add_column(Column::new(
+                    col_name.to_string(),
+                    crate::types::ColumnValue::Date(dates),
+                ));
                 continue;
             }
         }
