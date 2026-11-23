@@ -83,11 +83,11 @@ Each ADR records one decision: the context, the options, what was decided and wh
 | [ADR-038](ADR-038-EDGE-CASE-DISCOVERY.md) | Edge Case Discovery | Accepted |
 | [ADR-039](ADR-039-STATISTICAL-VALIDATION.md) | Statistical Validation | Accepted |
 | [ADR-040](ADR-040-FINANCIAL-ANALYTICS-VALIDATION.md) | Financial Analytics Validation | Accepted |
-| [ADR-041](ADR-041-AUTO-GENERATED-EXPECTED.md) | Auto-Generated Expected Values | Not implemented |
+| [ADR-041](ADR-041-AUTO-GENERATED-EXPECTED.md) | Auto-Generated Expected Values | Superseded by ADR-057 and ADR-062 (2026-11-23); its design was not built |
 | [ADR-042](ADR-042-FUZZING-STRATEGY.md) | Property-Based Fuzzing Strategy | Superseded by ADR-062 and the property tests (2026-11-22); its design was not built |
-| [ADR-043](ADR-043-REGRESSION-DETECTION.md) | Regression Detection | Not implemented |
+| [ADR-043](ADR-043-REGRESSION-DETECTION.md) | Regression Detection | Superseded by ADR-057 (2026-11-23); its design was not built |
 | [ADR-044](ADR-044-SMART-ROUTING.md) | Smart Test Routing | Superseded |
-| [ADR-045](ADR-045-COVERAGE-TRACKING.md) | Function-Level Coverage Tracking | Not implemented |
+| [ADR-045](ADR-045-COVERAGE-TRACKING.md) | Function-Level Coverage Tracking | Superseded by a test, `validation/repo/src/function_cases.rs` (2026-11-23); its scripts were not built |
 | [ADR-046](ADR-046-R-VALIDATED-ANALYTICS.md) | R-Validated Analytics E2E Tests | Accepted |
 | [ADR-047](ADR-047-MCP-CORE-EXTRACTION.md) | Dual CLI/MCP Output (Core Extraction) | Accepted |
 | [ADR-048](ADR-048-RMCP-MIGRATION.md) | rmcp Migration | Accepted |

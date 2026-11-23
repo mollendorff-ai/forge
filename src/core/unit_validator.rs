@@ -182,7 +182,7 @@ impl<'a> UnitValidator<'a> {
     /// Validate a single formula for unit consistency
     fn validate_formula(&self, location: &str, formula: &str) -> Option<UnitWarning> {
         // Extract variable references from formula
-        let refs = self.extract_references(formula);
+        let refs = Self::extract_references(formula);
 
         if refs.is_empty() {
             return None;
@@ -220,7 +220,7 @@ impl<'a> UnitValidator<'a> {
                 // Check if all units are compatible for addition
                 let first = units_in_additive[0];
                 for unit in &units_in_additive[1..] {
-                    if !self.can_add(first, unit) {
+                    if !Self::can_add(first, unit) {
                         return Some(UnitWarning {
                             location: location.to_string(),
                             formula: formula.to_string(),
@@ -240,9 +240,7 @@ impl<'a> UnitValidator<'a> {
     }
 
     /// Check if two units can be added/subtracted
-    // Takes &self for API consistency; tested extensively via validator.can_add() in tests.
-    #[allow(clippy::unused_self)]
-    fn can_add(&self, a: &UnitCategory, b: &UnitCategory) -> bool {
+    fn can_add(a: &UnitCategory, b: &UnitCategory) -> bool {
         match (a, b) {
             // Same currency can be added
             (UnitCategory::Currency(c1), UnitCategory::Currency(c2)) => c1 == c2,
@@ -260,9 +258,7 @@ impl<'a> UnitValidator<'a> {
     }
 
     /// Extract variable references from a formula
-    // Takes &self for API consistency; tested via validator.extract_references() in tests.
-    #[allow(clippy::unused_self)]
-    fn extract_references(&self, formula: &str) -> Vec<String> {
+    fn extract_references(formula: &str) -> Vec<String> {
         let formula = formula.trim_start_matches('=');
         // Strip string literals to avoid parsing their contents as variable references
         // e.g., =LEN("Hello") should not treat "Hello" as a variable reference
@@ -295,7 +291,7 @@ impl<'a> UnitValidator<'a> {
     /// Infer the resulting unit of a formula (for calculated columns)
     #[must_use]
     pub fn infer_unit(&self, formula: &str) -> Option<UnitCategory> {
-        let refs = self.extract_references(formula);
+        let refs = Self::extract_references(formula);
 
         // Get the first reference with a known unit
         for r in &refs {
@@ -413,54 +409,34 @@ mod tests {
 
     #[test]
     fn test_can_add_same_currency() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
         let cad1 = UnitCategory::Currency("CAD".to_string());
         let cad2 = UnitCategory::Currency("CAD".to_string());
-        assert!(validator.can_add(&cad1, &cad2));
+        assert!(UnitValidator::can_add(&cad1, &cad2));
     }
 
     #[test]
     fn test_cannot_add_different_currencies() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
         let cad = UnitCategory::Currency("CAD".to_string());
         let usd = UnitCategory::Currency("USD".to_string());
-        assert!(!validator.can_add(&cad, &usd));
+        assert!(!UnitValidator::can_add(&cad, &usd));
     }
 
     #[test]
     fn test_cannot_add_currency_and_percentage() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
         let cad = UnitCategory::Currency("CAD".to_string());
         let pct = UnitCategory::Percentage;
-        assert!(!validator.can_add(&cad, &pct));
+        assert!(!UnitValidator::can_add(&cad, &pct));
     }
 
     #[test]
     fn test_extract_references() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
-        let refs = validator.extract_references("=revenue - expenses");
+        let refs = UnitValidator::extract_references("=revenue - expenses");
         assert_eq!(refs, vec!["revenue", "expenses"]);
     }
 
     #[test]
     fn test_extract_references_with_functions() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
-        let refs = validator.extract_references("=SUM(revenue) + total_costs");
+        let refs = UnitValidator::extract_references("=SUM(revenue) + total_costs");
         assert!(refs.contains(&"revenue".to_string()));
         assert!(refs.contains(&"total_costs".to_string()));
         assert!(!refs.contains(&"SUM".to_string()));
@@ -605,72 +581,53 @@ mod tests {
 
     #[test]
     fn test_can_add_same_time_units() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
         let days1 = UnitCategory::Time("days".to_string());
         let days2 = UnitCategory::Time("days".to_string());
-        assert!(validator.can_add(&days1, &days2));
+        assert!(UnitValidator::can_add(&days1, &days2));
     }
 
     #[test]
     fn test_cannot_add_different_time_units() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
         let days = UnitCategory::Time("days".to_string());
         let months = UnitCategory::Time("months".to_string());
-        assert!(!validator.can_add(&days, &months));
+        assert!(!UnitValidator::can_add(&days, &months));
     }
 
     #[test]
     fn test_can_add_counts() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
-        assert!(validator.can_add(&UnitCategory::Count, &UnitCategory::Count));
+        assert!(UnitValidator::can_add(
+            &UnitCategory::Count,
+            &UnitCategory::Count
+        ));
     }
 
     #[test]
     fn test_can_add_ratios() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
-        assert!(validator.can_add(&UnitCategory::Ratio, &UnitCategory::Ratio));
+        assert!(UnitValidator::can_add(
+            &UnitCategory::Ratio,
+            &UnitCategory::Ratio
+        ));
     }
 
     #[test]
     fn test_can_add_percentages() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
-        assert!(validator.can_add(&UnitCategory::Percentage, &UnitCategory::Percentage));
+        assert!(UnitValidator::can_add(
+            &UnitCategory::Percentage,
+            &UnitCategory::Percentage
+        ));
     }
 
     #[test]
     fn test_can_add_with_unknown() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
         let cad = UnitCategory::Currency("CAD".to_string());
-        assert!(validator.can_add(&UnitCategory::Unknown, &cad));
-        assert!(validator.can_add(&cad, &UnitCategory::Unknown));
+        assert!(UnitValidator::can_add(&UnitCategory::Unknown, &cad));
+        assert!(UnitValidator::can_add(&cad, &UnitCategory::Unknown));
     }
 
     #[test]
     fn test_cannot_add_currency_and_count() {
-        let validator = UnitValidator {
-            model: &ParsedModel::new(),
-            unit_map: HashMap::new(),
-        };
         let cad = UnitCategory::Currency("CAD".to_string());
-        assert!(!validator.can_add(&cad, &UnitCategory::Count));
+        assert!(!UnitValidator::can_add(&cad, &UnitCategory::Count));
     }
 
     // =========================================================================

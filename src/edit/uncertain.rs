@@ -141,20 +141,19 @@ pub(super) fn make_certain(
     let Some(YamlNode::Mapping(inner)) = entry.value_node() else {
         return Err(missing());
     };
-    let Some(YamlNode::Scalar(_)) = inner.get("formula") else {
+    let Some(YamlNode::Scalar(formula)) = inner.get("formula") else {
         return Err(missing());
     };
     let slot = match inner.get("value") {
         Some(YamlNode::Scalar(s)) => Some(s),
         _ => None,
     };
-    match (slot, value) {
+    let kept = match (slot, value) {
         (None, Some(v)) => {
             // The formula's place takes the value
             inner.rename_key("formula", "value");
-            if let Some(YamlNode::Scalar(scalar)) = inner.get("value") {
-                scalar.set_value(v);
-            }
+            formula.set_value(v);
+            formula
         },
         (Some(scalar), given) if given.is_some() || !scalar.is_null() => {
             if let Some(v) = given {
@@ -167,19 +166,18 @@ pub(super) fn make_certain(
                 scalar.set_value(&spaced);
             }
             inner.remove("formula");
+            scalar
         },
         _ => return Err("it has no value to keep: give `value`".into()),
-    }
+    };
     // `price:` with `value: 16` under it and nothing else is written `price: 16`
     let written = file.to_string();
-    let (Some(YamlNode::Scalar(key)), Some(YamlNode::Scalar(kept))) =
-        (entry.key_node(), inner.get("value"))
-    else {
-        return Ok(written);
-    };
     if inner.is_flow_style() || inner.len() != 1 {
         return Ok(written);
     }
+    let key = entry
+        .key_node()
+        .expect("an entry found by its name has a key");
     let key_end = key.byte_range().end as usize;
     let start = kept.byte_range().start as usize;
     let collapsed = written[key_end..start]
@@ -426,16 +424,15 @@ four:
     /// `change` gives `want` for the file it changes (the main file, with
     /// the simulation block when `block`), and `back` gives the file as it
     /// was, but for that block
-    fn made_and_unmade(forward: Change, back: Change, from: &str, to: &str, block: bool) {
+    fn made_and_unmade(forward: Change, back: Change, from: &str, to: &str) {
         let made = run(&files(), forward).unwrap();
-        let extra = if block { BLOCK } else { "" };
-        let want = format!("{}{extra}", MODEL.replacen(from, to, 1));
+        let want = format!("{}{BLOCK}", MODEL.replacen(from, to, 1));
         assert_eq!(made.keys().collect::<Vec<_>>(), ["model.yaml"]);
         assert_eq!(made["model.yaml"], want);
         let mut now = files();
         now.extend(made);
         let again = run(&now, back).unwrap();
-        assert_eq!(again["model.yaml"], format!("{MODEL}{extra}"));
+        assert_eq!(again["model.yaml"], format!("{MODEL}{BLOCK}"));
     }
 
     #[test]
@@ -446,7 +443,6 @@ four:
             certain("year.price"),
             "  price: 16   # dollars\n",
             "  price:\n    value: 16   # dollars\n    formula: \"=MC.Triangular(12.8, 16, 19.2)\"\n",
-            true,
         );
         // Short, at the top level
         made_and_unmade(
@@ -454,7 +450,6 @@ four:
             certain("rate"),
             "rate: 0.05   # a rate\n",
             "rate:\n  value: 0.05   # a rate\n  formula: \"=MC.Triangular(0.04, 0.05, 0.06)\"\n",
-            true,
         );
         // A block with its unit
         made_and_unmade(
@@ -462,7 +457,6 @@ four:
             certain("year.tax"),
             "    unit: ratio\n",
             "    unit: ratio\n    formula: \"=MC.Triangular(0.12, 0.15, 0.18)\"\n",
-            true,
         );
         // A flow mapping
         made_and_unmade(
@@ -470,7 +464,6 @@ four:
             certain("year.fee"),
             "{value: 25, unit: CAD}",
             "{value: 25, unit: CAD, formula: \"=MC.Triangular(20, 25, 30)\"}",
-            true,
         );
         // A group indented by 4 indents what is under the name by 4 more
         made_and_unmade(
@@ -478,7 +471,6 @@ four:
             certain("four.deep"),
             "    deep: 1\n",
             "    deep:\n        value: 1\n        formula: \"=MC.Triangular(0.8, 1, 1.2)\"\n",
-            true,
         );
     }
 
@@ -724,6 +716,53 @@ four:
             make_uncertain("y: 1\n", &["z"], "=MC.Uniform(1, 3)"),
             Err("z is not written where edit can find it".to_string())
         );
+        // A distribution is not made one again, and an input needs a value
+        refused(
+            "d:\n  value: 1\n  formula: \"=MC.Uniform(1, 3)\"\n",
+            uncertain("d"),
+            "it is a distribution already",
+        );
+        refused(
+            "n:\n  value:\n  unit: x\n",
+            uncertain("n"),
+            "it has no value",
+        );
+        // A group written on one line cannot be made certain either
+        refused(
+            "g: {a: {value: 1, formula: \"=MC.Uniform(1, 3)\"}}\n",
+            certain("g.a"),
+            "its group is written on one line ({...}); edit changes a block (m.yaml)",
+        );
+        // The plan's figure is asked for when there is no value, and a
+        // distribution the plan refuses stops it
+        refused(
+            "d:\n  formula: \"=MC.Normal(1, -3)\"\n",
+            certain("d"),
+            "make_certain d: d: Normal distribution stdev must be > 0",
+        );
+        // An anchor on the input would make its alias a distribution too
+        refused(
+            "x: &a 2\ny: *a\n",
+            uncertain("x"),
+            "Forge reads the new text as more than this change, so it was not made",
+        );
+        // Text that is not YAML, or has not the group, is refused by the
+        // functions themselves
+        let broken = "its YAML cannot be read (Unclosed flow sequence. Expected: ']' to close sequence. Found: end of input. Context: in flow sequence. Suggestion: Add ']' to close the array, or check for missing commas between elements)";
+        assert_eq!(make_certain("y: [", &["y"], None), Err(broken.to_string()));
+        assert_eq!(
+            make_uncertain("y: [", &["y"], "=MC.Uniform(1, 3)"),
+            Err(broken.to_string())
+        );
+        assert_eq!(
+            make_certain("a: 1\n", &["z", "b"], None),
+            Err("z is not written as a group of names".to_string())
+        );
+        // A last input written as a block, with no line break after it
+        assert_eq!(
+            make_uncertain("x:\n  value: 2", &["x"], "=MC.Uniform(1, 3)"),
+            Ok("x:\n  value: 2\n  formula: \"=MC.Uniform(1, 3)\"".to_string())
+        );
         // A table's column is not an input
         refused(
             "t:\n  a: [1, 2]\n  b: \"=MC.Uniform(1, 3)\"\n",
@@ -801,13 +840,18 @@ four:
         let made: usize = results.iter().map(|r| r.0).sum();
         let refused: usize = results.iter().map(|r| r.1).sum();
         let failures: Vec<&String> = results.iter().flat_map(|r| &r.2).collect();
-        assert!(
-            failures.is_empty(),
-            "{} failed:\n{failures:#?}",
-            failures.len()
-        );
+        assert_eq!(failures, Vec::<&String>::new());
         assert!(made > 470, "{made} made");
         assert_eq!(refused, 20);
+    }
+
+    /// `change` made to `main` of `files`, or why not
+    fn attempt(
+        files: &HashMap<String, String>,
+        main: &str,
+        change: Change,
+    ) -> Result<BTreeMap<String, String>, String> {
+        edit_files(files, main, &[change]).map_err(|e| e.to_string())
     }
 
     /// One folder of examples: how many inputs were made uncertain and
@@ -843,33 +887,25 @@ four:
             }
             for path in names {
                 let place = format!("{}/{main} {path}", dir.display());
-                let there = match edit_files(files, main, &[uncertain(&path)]) {
-                    Ok(there) => there,
-                    // An input of a file that an included file includes
-                    // too: that file calculates it without a plan figure
-                    Err(e)
-                        if e.to_string().contains("included file '")
-                            && e.to_string().contains("Unknown function: MC.") =>
-                    {
-                        refused += 1;
-                        continue;
-                    },
-                    Err(e) => {
-                        failures.push(format!("{place}: {e}"));
-                        continue;
-                    },
-                };
+                let first = attempt(files, main, uncertain(&path));
+                // An input of a file that an included file includes too: that
+                // file calculates it without a plan figure
+                let plan_refusal = first.as_ref().err().is_some_and(|e| {
+                    e.contains("included file '") && e.contains("Unknown function: MC.")
+                });
+                let note = format!("{place}: {:?}", first.as_ref().err());
+                failures.extend((first.is_err() && !plan_refusal).then_some(note));
+                refused += usize::from(plan_refusal);
+                if first.is_err() {
+                    continue;
+                }
                 let mut now = files.clone();
-                now.extend(there);
-                let back = match edit_files(&now, main, &[certain(&path)]) {
-                    Ok(back) => back,
-                    Err(e) => {
-                        failures.push(format!("{place} back: {e}"));
-                        continue;
-                    },
-                };
-                now.extend(back);
-                made += 1;
+                now.extend(first.unwrap_or_default());
+                let back = attempt(&now, main, certain(&path));
+                let note = format!("{place} back: {:?}", back.as_ref().err());
+                failures.extend(back.is_err().then_some(note));
+                made += usize::from(back.is_ok());
+                now.extend(back.unwrap_or_default());
                 let block_less = |name: &String, text: &String| {
                     let own = &files[name];
                     text == own
@@ -877,9 +913,8 @@ four:
                             .strip_prefix(own.as_str())
                             .is_some_and(|rest| rest.starts_with("\nmonte_carlo:"))
                 };
-                if !now.iter().all(|(name, text)| block_less(name, text)) {
-                    failures.push(format!("{place} back: not the file it was"));
-                }
+                let same = now.iter().all(|(name, text)| block_less(name, text));
+                failures.extend((!same).then_some(format!("{place} back: not the file it was")));
             }
         }
         (made, refused, failures)

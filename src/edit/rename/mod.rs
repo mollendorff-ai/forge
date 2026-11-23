@@ -721,12 +721,23 @@ tornado:
         let changed = edit_files(&one, "m.yaml", &[rename("outlook.p_bad", "p_down")]).unwrap();
         let prior = "\"=1 - outlook.p_neutral - outlook.p_bad\", \"=outlook.p_neutral\", \"=outlook.p_bad\"";
         assert!(text.contains(prior));
-        assert!(
-            changed["m.yaml"]
-                .contains("\"=1 - outlook.p_neutral - outlook.p_down\", \"=outlook.p_neutral\", \"=outlook.p_down\""),
-            "{}",
-            changed["m.yaml"]
-        );
+        assert!(changed["m.yaml"].contains(
+            "\"=1 - outlook.p_neutral - outlook.p_down\", \"=outlook.p_neutral\", \"=outlook.p_down\""
+        ));
+    }
+
+    /// A file that is not YAML has no names to rename in it
+    #[test]
+    fn text_that_is_not_yaml_is_refused_when_a_file_is_renamed_in() {
+        let model = crate::edit::check::read(&files(), "model.yaml").unwrap();
+        let target = crate::edit::locate(&model, "model.yaml", "rate").unwrap();
+        let rename = super::Rename::of(&target, "interest").unwrap();
+        let node = super::read::Node {
+            file: "model.yaml".to_string(),
+            model: &model,
+        };
+        let broken = "its YAML cannot be read (Unclosed flow sequence. Expected: ']' to close sequence. Found: end of input. Context: in flow sequence. Suggestion: Add ']' to close the array, or check for missing commas between elements)";
+        assert_eq!(rename.write_file("a: [", &node), Err(broken.to_string()));
     }
 
     #[test]
@@ -870,11 +881,7 @@ tornado:
                 f.contains("noisy-tournament.yaml clean.players.")
                     || f.contains("noisy-tournament.yaml noisy.players.")
             });
-        assert!(
-            failures.is_empty(),
-            "{} failed:\n{failures:#?}",
-            failures.len()
-        );
+        assert_eq!(failures, Vec::<&String>::new());
         assert_eq!(roster.len(), 10, "{roster:#?}");
         assert!(renamed > 1300, "{renamed} renamed");
     }
@@ -933,12 +940,16 @@ tornado:
                     };
                     let mut now = files.clone();
                     now.extend(there);
-                    match edit_files(&now, main, &[rename(&new, last)]) {
-                        Ok(back) if back.iter().all(|(name, text)| files[name] == *text) => {
-                            renamed += 1;
-                        },
-                        other => failures.push(format!("{place} back: {other:?}")),
-                    }
+                    let back = edit_files(&now, main, &[rename(&new, last)]);
+                    let same = back
+                        .as_ref()
+                        .is_ok_and(|back| back.iter().all(|(name, text)| files[name] == *text));
+                    let note = format!(
+                        "{place} back: not the file it was, or {:?}",
+                        back.as_ref().err()
+                    );
+                    failures.extend((!same).then_some(note));
+                    renamed += usize::from(same);
                 }
             }
         }

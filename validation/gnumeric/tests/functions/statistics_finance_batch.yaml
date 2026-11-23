@@ -5,7 +5,7 @@
 #   NORM.S.DIST, NORM.S.INV, RRI, SYD, CUMIPMT, CUMPRINC, VDB, MROUND, WEEKNUM, ISOWEEKNUM, XMATCH
 # Expected values come from outside Forge: R (lm, cor, quantile types 7 and 6, pnorm, dnorm, qnorm,
 # an amortisation loop for CUMIPMT and CUMPRINC), and Python (a depreciation loop for VDB, the
-# calendar for weeks, round-half-away for MROUND). TEXTJOIN returns text and is checked in its unit tests.
+# calendar for weeks, round-half-away for MROUND).
 
 _forge_version: "5.0.0"
 

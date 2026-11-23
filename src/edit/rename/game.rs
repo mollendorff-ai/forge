@@ -735,18 +735,65 @@ pub(super) mod tests {
         let target = |path: &str| crate::edit::locate(&model, "price_war.yaml", path).unwrap();
         let respell = |path: &str, game: &str, rest: &str| {
             let rename = super::super::Rename::of(&target(path), "z").unwrap();
-            rename.game_result(game, rest).map(|named| match named {
-                super::Named::Game { game, rest } => format!("{game}.{rest}"),
-                other => format!("{other:?}"),
-            })
+            rename.game_result(game, rest)
+        };
+        let game_result = |text: &str| {
+            let (game, rest) = text.split_once('.').unwrap();
+            super::Named::Game {
+                game: game.to_string(),
+                rest: rest.to_string(),
+            }
         };
         for (path, game, rest, want) in RESPELLED {
             assert_eq!(
-                respell(path, game, rest).as_deref(),
-                want,
+                respell(path, game, rest),
+                want.map(game_result),
                 "{path}: {game}.{rest}"
             );
         }
+    }
+
+    /// A player, strategy or entrant that is not of the kind of game it is
+    /// said to be in, or of no game at all, renames nothing
+    #[test]
+    fn a_name_of_another_kind_of_game_or_of_no_game_renames_nothing() {
+        use super::super::{Entity, Rename};
+        let named = |entity: Entity| Rename {
+            file: "m.yaml".to_string(),
+            entity,
+            new: "z".to_string(),
+        };
+        let unchanged = |file: &str, entity: Entity| {
+            let mut model = crate::edit::check::read(&folder("games"), file).unwrap();
+            let before = serde_json::to_value(&model.games).unwrap();
+            named(entity).rename_games(&mut model);
+            (before, serde_json::to_value(&model.games).unwrap())
+        };
+        let player = |game: &str| Entity::Player {
+            game: game.to_string(),
+            player: "ai".to_string(),
+        };
+        let strategy = |game: &str| Entity::Strategy {
+            game: game.to_string(),
+            player: None,
+            strategy: "cheat".to_string(),
+        };
+        let entrant = |game: &str| Entity::Entrant {
+            game: game.to_string(),
+            entrant: "ai".to_string(),
+        };
+        for entity in [
+            player("nope"),
+            player("clean"),
+            strategy("nope"),
+            strategy("clean"),
+            entrant("nope"),
+        ] {
+            let (before, after) = unchanged("noisy-tournament.yaml", entity);
+            assert_eq!(before, after);
+        }
+        let (before, after) = unchanged("inspection.yaml", entrant("inspection"));
+        assert_eq!(before, after);
     }
 
     #[test]
