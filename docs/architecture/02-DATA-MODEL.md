@@ -256,7 +256,7 @@ flowchart LR
 
 Every byte outside a change stays as it was, comments included. `edit` never writes results; `forge calculate` does.
 
-- **`rename`** (`edit/rename.rs`) renames a scalar, a group, a table or a column, and every name that reads it, in every file of the model. What a name in a formula reads is found by the calculator's own reader, so a short name is written again short unless, renamed, it would read something else. Names outside formulas (a scenario's, an expectation's, a simulation's output, a tornado's input, a network's prior formula) are renamed too. The model read back must read the same things, renamed.
+- **`rename`** (`edit/rename/`) renames a scalar, a group, a table or a column, a game, a player or a strategy (`rename/game.rs`), and every name that reads it, in every file of the model, a game's results included (`price_war.dominated.lune.hold`). What a name in a formula reads is found by the calculator's own reader, so a short name is written again short unless, renamed, it would read something else. Names outside formulas (a scenario's, an expectation's, a simulation's output, a tornado's input, a network's prior formula) are renamed too. The model read back must read the same things, renamed.
 - **`make_uncertain` and `make_certain`** (`edit/uncertain.rs`, ADR-076) turn an input into a distribution, its value kept as the plan, and back. A model with no `monte_carlo:` block gets one, with the model's results as its outputs.
 
 Forge Studio makes an input uncertain or certain through forge-wasm's `edit`; it still changes a value, a formula, an added or a deleted element with `studio/text.js`, and moving those onto `edit` is a later step of ADR-075.
