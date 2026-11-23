@@ -583,6 +583,7 @@ jobs:
           done
           # Where the misses are, so that a failure below says which file
           jq -r '.data[0].files[] | select(.summary.regions.notcovered > 0 or .summary.functions.notcovered > 0 or .summary.lines.notcovered > 0) | "missed: \(.filename): \(.summary.regions.notcovered) regions, \(.summary.functions.notcovered) functions, \(.summary.lines.notcovered) lines"' cov.json
+          python3 scripts/coverage_misses.py cov.json
           COV=$(jq '.data[0].totals.functions.percent' cov.json | xargs printf '%.0f')
           echo "COVERAGE=$COV" >> $GITHUB_ENV
 
