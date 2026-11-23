@@ -33,6 +33,7 @@ Every number is Forge's. The page reads no YAML itself: a change on a card is wr
 | `text.js` | Text work on YAML: changing one input's or one formula's line, colouring the editor with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
 | `help.js`, `help.json` | The "?" on each heading and its sheet (the text is `help.json`; the manual is linked on GitHub at the running release's tag), and the line under the suggestions with Forge's own syntax and description of a function or a key (ADR-077) |
 | `tools.js` | The Tools view: the MCP server's tools, the request each is shown with, and an answer shown whole |
+| `games.js` | The game cards: payoff tables, equilibria, tournaments and dynamics, drawn from `game`'s answer (ADR-068, ADR-073) |
 | `analyses.js` | A decision tree, real options, a bootstrap and a Bayesian network drawn on the Model view from their tools' answers, each number with the place in the answer it comes from (ADR-077) |
 | `uncertain.js` | An uncertain model (ADR-076): the ranges under the outputs from `simulate`, each number with the place in the answer it comes from, when they are worked out again, the distribution card from Forge's function list, and Analyze's scenarios reason |
 | `sets.js` | A set's models: its questions on the welcome card, the strip, and each model's kind from Forge's `model` answer (ADR-077) |
@@ -60,13 +61,15 @@ Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub 
 
 ## How it is checked
 
-All of these run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact. Most of them compare what the page shows with what Forge returns for every example, so they check the page against the engine, not against a number someone typed.
+All of these but `live.mjs` (run by `pages.yml` after a release) run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact. Most of them compare what the page shows with what Forge returns for every example, so they check the page against the engine, not against a number someone typed.
 
 | Test | What it checks |
 | --- | --- |
 | `no-engine.mjs` | No file of the page loads a YAML library or implements what Forge calculates |
 | `screen.mjs` | Every scalar on screen equals `forge calculate` run natively for that model, and the same with a scenario applied (`expected.json` comes from `cargo run -p forge-wasm --release --example expected`) |
 | `games.mjs` | The bagel's price war: every payoff cell, the equilibria marked, the tournament's ranking, scores, stable players and matches are what `forge game` answers, in the plan and both scenarios; an input typed on a card moves them; Tools runs `forge_game` and shows its whole answer, the tool's JSON, with Copy and Download. The Games set: every game of its ten files is Forge's, each equilibrium with its chances and stability, and the stag hunt's scenario and a typed cost move its mixed equilibrium. A game of five players alike is drawn by count, each number every player's payoff in Forge's cells there, its pure equilibria by split (6 at r = 5 for the public goods game's 32); the dynamics end at Forge's shares (hawks at 2/3, the stag hunt all stag, or all hare in `few_stags`), and the chart's pointer shows a generation of Forge's path. The acquisition's sealed bids (`deal_game.yaml`): both pure equilibria marked, and only both at 30% in its scenario. A link with `model=` opens the price war on its games, and a file the set does not have opens the set's own model |
+| `scenarios.mjs` | The acquisition's Analyze table has the weighted scenarios Forge returns and names the ones without a probability; a model whose only scenario has none gets Forge's reason (ADR-067, ADR-076) |
+| `expect.mjs` | On the stag hunt, each result with an `expect:` shows it as Forge's `calculate` reports it, in the plan and under a scenario, marked when they differ; an input typed that moves a result away from it is kept (ADR-074) |
 | `grid.mjs` | Every cell of every table and every scalar in the Grid tab is what Forge returns, with its formula; a tap leads to the card |
 | `formats.mjs` | A `format:` on screen: the bagel's price, margin, season and dozens, and the rolling forecast's date, percentages and counts, are the text Forge gives on the cards and in the grid, with the values underneath unchanged |
 | `text.mjs`, `formulas.mjs` | Changing an input or a formula changes its one line and nothing else, byte for byte, for each way YAML writes it; an invalid formula is refused with Forge's message and the file stays as it was |
@@ -83,4 +86,4 @@ All of these run in CI, in the `forge-wasm` job, which keeps the built site as t
 | `sets.mjs` | A set of several models lists them as questions on the welcome card, each with the kind of model Forge's `model` says its file is; a question, a chip of the strip at the top of the Model view and Files open each model of every such set (ADR-077) |
 | `live.mjs` | After each release, the published page runs the release's Forge and the bagel example's `year.profit` is 786.32 |
 
-Run one with `node studio/tests/<name>.mjs studio-site` (after `npm install` here); `no-engine.mjs`, `text.mjs`, `format.mjs` and `highlight.mjs` need no built site.
+Run one with `node studio/tests/<name>.mjs studio-site` (after `npm install` here); `no-engine.mjs`, `text.mjs`, `format.mjs` and `highlight.mjs` need no built site. `screen.mjs` and `uncertain.mjs` also take `forge-wasm/expected.json`, `excel.mjs` and `save.mjs` the folder of workbooks `forge export` wrote (`forge-wasm/xlsx`), and `layout.mjs` a folder for its screenshots, as in `.github/workflows/ci.yml`.

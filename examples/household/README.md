@@ -4,7 +4,7 @@ One household's October: the budget (`budget.yaml`) and what actually came in an
 
 The side work brought in 150 instead of 400, and groceries, utilities, eating out and subscriptions went over while transport came in under. Expenses were 3,305.85 against 3,100 budgeted, so 2,044.15 was left over instead of 2,500, and the savings rate fell from 44.6% to 38.2%. With a 10% threshold, `forge variance` flags eight lines; transport is the only favourable one.
 
-No line carries a `better:` of its own: anything under `income` is better higher and anything under `expenses` better lower, including a salary, which a business would count as a cost. Only `result` says `better: higher`, since nothing in those names says which way is good. `src/cli/commands/examples.rs` (its `demo_examples` tests) checks the totals, directions and alerts.
+No line carries a `better:` of its own: anything under `income` is better higher and anything under `expenses` better lower, including a salary, which a business would count as a cost. Only `result` says `better: higher`, since nothing in those names says which way is good. `src/cli/commands/examples/mod.rs` (its `demo_examples` tests) checks the totals, directions and alerts.
 
 ```bash
 forge calculate examples/household/budget.yaml --dry-run

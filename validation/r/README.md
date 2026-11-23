@@ -33,11 +33,11 @@ This is one of the validation suites of [Forge](../..), in `validation/r`; the o
 
 ### Which checks call Forge
 
-`validators/r/run_all.sh` runs six validators. Three of them send formulas through `forge calculate` and compare the result with R: math (48 checks), date (40) and financial (31), 119 checks in all. These are the 119 that VALIDATION.md in the Forge repository reports. The other two validators (bootstrap and distribution) check R's own output and do not call Forge, and the script's summary counts them as well, so it prints a larger total (136 when I ran it). The Forge comparison for bootstrap and the distributions is done by the analytics runner (`cargo run --release -- --all`) described above.
+`validators/r/run_all.sh` runs six validators. Three of them send formulas through `forge calculate` and compare the result with R: math (48 checks), date (40) and financial (31), 119 checks in all. These are the 119 that VALIDATION.md in the Forge repository reports. The other three (bootstrap, distribution and Monte Carlo) check R's own output and do not call Forge, and the script's summary counts them as well, so it prints a larger total (136 when I ran it). The Forge comparison for bootstrap and the distributions is done by the analytics runner (`cargo run --release -- --all`) described above.
 
 ### Versioning
 
-This repository has no releases or tags of its own. It is run by Forge's Validation workflow. On a Forge pull request the workflow uses the branch of this repository with the same name as the Forge branch, if there is one; on the weekly schedule, and when there is no such branch, it uses `main`. A change here that goes with a Forge change should use the same branch name.
+The suite is part of Forge's repository (ADR-057) and has no releases of its own. Forge's Validation workflow (`.github/workflows/validation.yml`) runs it at the same commit as the Forge it checks: on pull requests that change the source, a suite or `Cargo.toml`, on main after a merge, and weekly. A change here that goes with a Forge change is made in the same pull request.
 
 ## Requirements
 

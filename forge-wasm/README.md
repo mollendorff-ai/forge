@@ -21,8 +21,9 @@ const answer = JSON.parse(forge.call("goal_seek", JSON.stringify({
 
 | Tool | Arguments |
 | --- | --- |
-| `validate`, `decision_tree`, `real_options` | none |
-| `calculate` | `scenario` |
+| `validate` | `expectations` (true: checks `expect:`; Studio checks an edit with false) |
+| `decision_tree`, `real_options` | none |
+| `calculate` | `scenario`, `plan` (each uncertain input at its plan figure, ADR-076) |
 | `audit` | `variable` |
 | `scenarios` | `scenario_filter` |
 | `compare` | `scenarios` (list) |
@@ -39,6 +40,7 @@ const answer = JSON.parse(forge.call("goal_seek", JSON.stringify({
 | `game` | `game` (one game by name), `scenario`; each report is `kind: table` or `kind: tournament` |
 | `functions`, `examples` (`name`), `schema` (`version`) | no `files` |
 | `export` | none: the workbook `forge export` writes, as `excel_base64`, with `byte_count`, `table_count`, `scalar_count` and `warnings` (the MCP tool's in-memory answer) |
+| `edit` | `changes` (as `forge_edit`'s, ADR-075): the new text of each changed file, as `files`, or Forge's reason |
 | `import` | `excel_base64`, `name` (`model.yaml`), no `files`: the model `forge import` writes from that workbook, as `files` (the main model and its included files, by name) and `main`, with `warnings` |
 | `model` (not an MCP tool) | none: the model read and not calculated, as Forge Studio's cards show it: each scalar's input value or formula with its unit, each table's columns (data or formula) in the file's order, and each included file's scalars as `@namespace.group.name`, and the names of the model's games |
 

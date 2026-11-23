@@ -108,7 +108,7 @@ Known problems as of 2026-11-12 (what is planned, and in what order, is in the [
 - `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value, an uncertain input (`MC.*`) as its plan value, and lists it. `forge import` brings such a cell back as that value: the distribution stays in the YAML file.
 - `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
 - A two-dimensional array constant such as `{1,2;3,4}` is refused (Forge has no two-dimensional values), and `forge import` brings a formula with one in as its values.
-- `forge calculate` cannot evaluate `MC.*` distributions (for example `examples/monte-carlo.yaml`); it says so and points to `forge simulate`.
+- `forge calculate` does not draw `MC.*` distributions (for example `examples/monte-carlo.yaml`): it says so and points to `forge simulate`, or calculates the model at plan with `--plan`, each uncertain input at its `value:`.
 - Each analytics command has been checked once end to end, on the `examples/bagel` models, against calculations written outside Forge. That is one model each, not broad coverage.
 
 ## Four questions, answered
@@ -194,17 +194,19 @@ A spreadsheet calculates cells. The questions above need more than that, and For
 | What if things go well, or badly? | `forge scenarios`: probability-weighted, with the expected value |
 | Invest now, wait, or walk away? | `forge decision-tree` (backward induction), `forge real-options` (Black-Scholes and binomial: defer, expand, contract, abandon, switch) |
 | How sure is that average? | `forge bootstrap`: percentile, basic and BCa intervals |
-| How does one risk lead to another? | `forge bayesian`: Bayesian networks, with evidence |
-| What will a rival do, and what then? | `forge game`: the equilibria of a game in the model's `games:` section (dominated strategies, pure and mixed; a symmetric game of any number of players is written as one payoff for each strategy over how many of the others play each, with its symmetric mixes and whether a population returns to each), the shares of a population generation by generation (`dynamics:`), and tournaments of repeated play between built-in strategies |
+| How does one risk lead to another? | `forge bayesian`: Bayesian networks, with evidence and under a scenario; a probability may be a formula over the model, and a named query's posterior is a scalar later formulas read |
+| What will a rival do, and what then? | `forge game`: the equilibria of a game in the model's `games:` section (dominated strategies, pure and mixed; a symmetric game of any number of players is written as one payoff for each strategy over how many of the others play each; with two strategies, its symmetric mixes and whether a population returns to each), the shares of a population generation by generation (`dynamics:`), and tournaments of repeated play between built-in strategies |
 | Where did the budget go? | `forge variance`, `forge report` |
 | What price breaks even? Hits a target? | `forge break-even`, `forge goal-seek` |
 | Can my colleague open it in Excel? | `forge export` writes a workbook with live formulas; `forge import` reads one back |
+| Does the model still give the figures it states? | `forge validate`: each stored result against its formula, and the `expect:` of the file and of each scenario |
+| Can an agent change the model without breaking it? | `forge edit`: set a value or a formula, add or delete, rename a name and every name that reads it, make an input uncertain or certain again; a change is kept only when the model reads back valid, comments and layout untouched |
 
 How each one is set up in YAML, with examples: [docs/FEATURES.md](docs/FEATURES.md). Every command is listed there too, and `forge examples` prints a runnable model for most of them.
 
 ### 203 functions
 
-Most are Excel's, under Excel's names, so a formula reads as it would in a cell. Seven are not in Excel: `VARIANCE`, `VARIANCE_PCT` and `VARIANCE_STATUS` (which knows that a cost under budget is good news), `BREAKEVEN_UNITS`, `BREAKEVEN_REVENUE`, `SCENARIO`, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is, and [docs/FUNCTIONS.md](docs/FUNCTIONS.md) has them all. A formula can hold a list in braces as in Excel, a row `{1,2,3}` or a column `{1;2;3}`: `=LARGE(x, {1,2,3})` ([ADR-064](docs/architecture/ADR-064-ARRAY-CONSTANTS.md)).
+Most are Excel's, under Excel's names, so a formula reads as it would in a cell. Some are not in Excel: `VARIANCE`, `VARIANCE_PCT` and `VARIANCE_STATUS` (which knows that a cost under budget is good news), `BREAKEVEN_UNITS`, `BREAKEVEN_REVENUE`, `SCENARIO`, `PREV` for the row above, `COUNTUNIQUE`, and the six `MC.*` distributions `forge simulate` draws. Not every Excel function is covered; `forge functions` lists what is, and [docs/FUNCTIONS.md](docs/FUNCTIONS.md) has them all. A formula can hold a list in braces as in Excel, a row `{1,2,3}` or a column `{1;2;3}`: `=LARGE(x, {1,2,3})` ([ADR-064](docs/architecture/ADR-064-ARRAY-CONSTANTS.md)).
 
 | Category | Examples |
 |----------|----------|
@@ -354,7 +356,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 ```bash
 cargo test                              # Run all tests
 cargo clippy -- -D warnings             # Lint (pedantic)
-make check                              # Full CI check
+make check                              # Quick check: format, lint, unit tests, Markdown
 cargo build --release && (cd validation/gnumeric && cargo run --release)   # Against Gnumeric and LibreOffice (VALIDATION.md)
 cargo build --lib --no-default-features # The engine alone: no command line, servers or Excel (ADR-055)
 ```

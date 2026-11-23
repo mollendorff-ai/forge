@@ -8,7 +8,7 @@ forge calculate examples/starter.yaml
 
 ## Models with a story
 
-Each has a README with the numbers it should print. All figures are made up.
+Each folder but `options/` and `games/` has a README with the numbers it should print; the games state theirs in `expect:`. All figures are made up.
 
 | Example | What it is |
 | --- | --- |
@@ -26,7 +26,7 @@ Each has a README with the numbers it should print. All figures are made up.
 | [`fund/`](fund/) | A venture fund seen by its investors: calls, fees and exits on their own dates, the return by `XIRR` and the value by `XNPV`, fees and carry taking 15.7% down to 10.8%, and what a year's delay or a cold exit market costs. |
 | [`inherited-budget/`](inherited-budget/) | A coffee roaster's budget handed over as a workbook someone else built: titles, merged headings, a total row, a named range and one month's staff cost typed in. `forge import` reads it to the workbook's own numbers and names what it could not keep, `forge audit` finds the typed number, a pay rise is made in the YAML, and `forge export` goes back to a workbook LibreOffice recalculates to the same numbers. |
 | [`options/`](options/compare-options.yaml) | Two rentals compared. |
-| [`games/`](games/) | Games and tournaments, run with `forge game`: kinship-protocol's stag hunt, chicken and Axelrod tournament with the flags it wrote by hand now read from the games; the inspection game, where a harsher penalty lowers the audit rate and not the cheating (`forge tornado`); a tournament where noise moves a forgiving strategy ahead of TitForTat; the battle of the sexes; and the continuation at which cooperation holds (`forge sensitivity`). |
+| [`games/`](games/) | Games and tournaments, run with `forge game`: kinship-protocol's stag hunt, chicken and Axelrod tournament with the flags it wrote by hand now read from the games; the inspection game, where a harsher penalty lowers the audit rate and not the cheating (`forge tornado`); a tournament where noise moves a forgiving strategy ahead of TitForTat; the battle of the sexes; the continuation at which cooperation holds (`forge sensitivity`); and three games of many players: the public goods game, the volunteer's dilemma, and hawks and doves generation by generation (`dynamics:`). |
 
 Studio opens all of these, `games/` included, but not `inherited-budget/` (it starts from a workbook) or the one-command files below.
 
@@ -38,13 +38,13 @@ Small files, each written for one analysis. The first comment of each file says 
 | --- | --- |
 | [`breakeven.yaml`](breakeven.yaml) | `forge calculate` (break-even) |
 | [`variance.yaml`](variance.yaml) | `forge calculate` (budget against actual) |
-| [`scenarios.yaml`](scenarios.yaml) | scenarios on an acquisition (see the file) |
+| [`scenarios.yaml`](scenarios.yaml) | `forge scenarios` |
 | [`tornado.yaml`](tornado.yaml) | `forge tornado` |
 | [`monte-carlo.yaml`](monte-carlo.yaml) | `forge simulate` |
 | [`bootstrap.yaml`](bootstrap.yaml) | `forge bootstrap` |
 | [`bayesian.yaml`](bayesian.yaml) | `forge bayesian` |
 | [`decision-tree.yaml`](decision-tree.yaml) | `forge decision-tree` |
 | [`real-options.yaml`](real-options.yaml) | `forge real-options` |
-| [`quota_forecast.yaml`](quota_forecast.yaml) | nested references between groups |
+| [`quota_forecast.yaml`](quota_forecast.yaml) | `forge calculate` (nested references between groups) |
 
 The long walkthrough is [docs/EXAMPLES.md](../docs/EXAMPLES.md).

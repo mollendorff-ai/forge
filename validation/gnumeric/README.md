@@ -12,8 +12,8 @@ All validation comes from trusted third-party sources.
 ### Test Coverage
 
 - **2,162 formula tests** across 64 YAML files (`VALIDATION.md` has the latest run)
-- **32 function test files** covering math, text, date, financial, lookup, aggregation, statistical, trigonometric, logical, and information functions
-- **19 edge case test files** covering boundary conditions, type coercion, error propagation, and numeric precision
+- **33 function test files** covering math, text, date, financial, lookup, aggregation, statistical, trigonometric, logical, and information functions
+- **31 edge case test files** (2 of them in `edge/includes`) covering boundary conditions, type coercion, error propagation, and numeric precision
 
 ## Requirements
 
@@ -84,8 +84,8 @@ src/
 └── excel.rs     # XLSX read/write helpers
 
 tests/
-├── functions/   # 32 YAML files: Excel function tests
-└── edge/        # 19 YAML files: edge cases
+├── functions/   # 33 YAML files: Excel function tests
+└── edge/        # 31 YAML files: edge cases, 2 in edge/includes
 ```
 
 ## Test Format
