@@ -125,3 +125,7 @@ Each included file is a whole model, calculated on its own before the model that
 ## Games
 
 A game's payoff cells are formulas over the model (ADR-068). The game is one cell, `Cell::Game`, whose dependencies are every cell its payoffs read (`game_dependencies`). Its results (`price_war.equilibria`, `price_war.equilibrium_1.lune.payoff`, `price_war.dominated.lune.hold`, ...) become scalars named under it, and a formula that reads one depends on the game. So a model can calculate a payoff from its inputs, find the equilibrium, and use the equilibrium's payoff in a later formula, in one order.
+
+## Bayesian networks
+
+A network is ordered as a game is (ADR-074, `src/core/array_calculator/network.rs`). Its priors and table entries may be formulas over the model's scalars (`src/bayesian/written.rs`), and the network is one cell, `Cell::Network`, whose dependencies are every cell those formulas read. Once they are worked out, each row is checked to be probabilities and inference runs; the posterior of each named query (`bayesian_network.queries.<q>: {node, evidence}`) becomes a scalar `bayesian_network.<q>.<state>`, and a formula that reads one depends on the network. A network whose formulas read its own results is a cycle, and is refused. `examples/expected_loss.yaml` feeds the probability of default, given the economy, into an expected loss.

@@ -36,7 +36,7 @@ flowchart TB
 | **Inside the calculation** | `games:`, whose payoff cells are formulas over the model | The game is one cell of the order; its results are scalars later formulas read ([04](04-DEPENDENCY-RESOLUTION.md#games)) | `price_war.equilibrium_1.lune.payoff` |
 | **Section** | Only its own top-level section, deserialized into a config struct | The numbers written in that section | `forge decision-tree` reads `decision_tree:`'s nodes and values |
 
-The section engines do not read the model's formulas today: a value in a decision tree is a number, not `=year.profit`. ADR-074's later steps plan a Bayesian network that reads the model. A test can still tie the two: `decision_tree.rs`'s tests calculate the model and check that the tree's written values are its results.
+Most section engines do not read the model's formulas: a value in a decision tree is a number, not `=year.profit`. The Bayesian network is the exception (ADR-074): a prior or a table entry may be a formula over the model's scalars, and its named queries' posteriors are scalars later formulas read, so it is a cell of the calculation as a game is ([04](04-DEPENDENCY-RESOLUTION.md#bayesian-networks)); `forge bayesian --scenario` works it out under a scenario. For the other section engines, a test can tie the two: `decision_tree.rs`'s tests calculate the model and check that the tree's written values are its results.
 
 ## A recalculating engine: Monte Carlo
 

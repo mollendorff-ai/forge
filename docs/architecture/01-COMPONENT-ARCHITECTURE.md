@@ -46,7 +46,7 @@ flowchart TB
 Arrows point from caller to callee. Every layer also uses `error` (`ForgeError`) and `core::precision`; MCP and REST use `inline_model` and `path_root`. The rules that keep this shape:
 
 - **Each command has a core.** `calculate_core`, `simulate_core`, `game_core` and the others in `src/cli/commands/` take arguments and return a value (`CalculationResult`, `SimulationResult`, ...) that derives `Serialize`. A core prints nothing.
-- **MCP, REST and forge-wasm call the core, never the engine directly.** They turn a request into arguments, call the `*_core` function, and turn its result into JSON, so the three give the same answer for the same model. One exception: REST's export and import call `forge export`'s and `forge import`'s printing functions and discard what they print ([08](08-API-SERVER-ARCHITECTURE.md#endpoints)).
+- **MCP, REST and forge-wasm call the core, never the engine directly.** They turn a request into arguments, call the `*_core` function, and turn its result into JSON, so the three give the same answer for the same model.
 - **The command line prints from the core.** Each printing function calls its command's core once and formats the result on a `Console`; what it prints that a client could use is in the result, so MCP, REST and forge-wasm have it too. `validate` calls its core's steps (`ModelToValidate`: read, check the lengths, check), so it can say what it found before a step fails. A fix made in a core reaches every door.
 - **The engine knows nothing about the front ends.** `parser`, `types`, `core`, `functions`, `writer` and the analysis modules build without the `cli` feature and without a file system (see [below](#feature-builds)).
 - **The analysis engines reuse the calculator.** An engine that moves an input (simulation, tornado, scenarios, goal seek) changes the `ParsedModel` and calculates it again with `ArrayCalculator`; it has no formula logic of its own. [09](09-ANALYSIS-ENGINES.md) explains the two kinds of engine.
@@ -112,7 +112,7 @@ Every top-level module of `src/lib.rs`, with what it owns, where to start readin
 | `core` | The calculator (`core::array_calculator`), number precision (`core::precision`), unit checks (`core::unit_validator`) | `src/core/array_calculator/mod.rs` (`ArrayCalculator`) | ADR-058, ADR-065, ADR-066 |
 | `functions` | The function registry: name, category, syntax, description of every function | `src/functions/definitions.rs` | ADR-013, ADR-015 |
 | `writer` | Writing results into the model file, editing its text in place and checking nothing else changed | `src/writer/mod.rs` (`write_calculated_results`) | ADR-051 |
-| `edit` | Changing a model's text on request (set an input's value or a formula, add or delete an element) through yaml-edit's lossless tree, kept only if the model reads back valid with that change and nothing else; shared by `forge edit`, `forge_edit` and forge-wasm's `edit` | `src/edit/mod.rs` (`edit_files`) | ADR-075 |
+| `edit` | Changing a model's text on request (set an input's value or a formula, add or delete an element, rename a name and every name that reads it, make an input uncertain or certain again) through yaml-edit's lossless tree, kept only if the model reads back valid with that change and nothing else; shared by `forge edit`, `forge_edit` and forge-wasm's `edit` | `src/edit/mod.rs` (`edit_files`) | ADR-075 |
 | `error` | `ForgeError` and `ForgeResult`, used everywhere | `src/error.rs` | |
 | `monte_carlo` | Distributions, sampling (Monte Carlo, Latin hypercube), correlation, statistics, drivers, the simulation's workbook | `src/monte_carlo/engine.rs` | ADR-016, ADR-017, ADR-076 |
 | `scenarios` | Probability-weighted scenarios and their expected values | `src/scenarios/engine.rs` | ADR-018, ADR-067, ADR-074 |
@@ -120,7 +120,7 @@ Every top-level module of `src/lib.rs`, with what it owns, where to start readin
 | `decision_trees` | Backward induction over decision and chance nodes | `src/decision_trees/engine.rs` | ADR-019 |
 | `real_options` | Black-Scholes and binomial valuation of defer, expand, contract, abandon, switch | `src/real_options/engine.rs` | ADR-020 |
 | `bootstrap` | Resampling, percentile, basic and BCa intervals | `src/bootstrap/engine.rs` | ADR-022 |
-| `bayesian` | Networks of discrete nodes, inference with evidence | `src/bayesian/engine.rs` | ADR-023 |
+| `bayesian` | Networks of discrete nodes, inference with evidence; a probability may be a formula over the model's scalars, and named queries give posteriors as scalars (`written.rs`) | `src/bayesian/engine.rs` | ADR-023, ADR-074 |
 | `games` | Games read from `games:`, dominance, pure and mixed equilibria, the count form, dynamics, tournaments | `src/games/model.rs` | ADR-068, ADR-073 |
 | `excel` | Export to and import from `.xlsx`; formula translation both ways (`workbook_refs`) | `src/excel/workbook_refs.rs` | ADR-033, ADR-034, ADR-054 |
 | `cli` | Commands and their help (`cli/args.rs`), their options (`cli/args/options.rs`), running a command in-process (`cli/run.rs`), the `Console`, and every command with its core (`cli/commands/`) | `src/cli/run.rs` (`run_from`) | ADR-032, ADR-047 |
