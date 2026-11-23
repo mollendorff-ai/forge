@@ -2,8 +2,6 @@
 //!
 //! Calls R validation scripts and compares results with forge output.
 
-#![allow(clippy::similar_names)]
-
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -132,10 +130,70 @@ pub fn validate_with_json(
     command.arg("--json");
     command.arg(&params_json);
 
-    let output = execute_with_timeout(&mut command, config.timeout)
+    let output = execute_with_timeout(&mut command, config.timeout, "Rscript")
         .with_context(|| format!("Failed to execute R validator: {validator}"))?;
 
     parse_r_output(&output, validator)
+}
+
+/// Runs `command` and collects its output, killing it after `timeout`. `what`
+/// names the process in the errors ("forge", "Rscript").
+///
+/// # Errors
+///
+/// Returns an error if the process cannot be started, cannot be waited for, or
+/// runs past `timeout`.
+pub fn execute_with_timeout(
+    command: &mut Command,
+    timeout: Duration,
+    what: &str,
+) -> Result<Output> {
+    use std::io::{BufRead, BufReader};
+    use std::thread;
+
+    let mut child = command
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .with_context(|| format!("Failed to spawn {what} process"))?;
+
+    let start = std::time::Instant::now();
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let stdout = child.stdout.take().map_or_else(Vec::new, |s| {
+                    BufReader::new(s)
+                        .lines()
+                        .map_while(Result::ok)
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                        .into_bytes()
+                });
+                let stderr = child.stderr.take().map_or_else(Vec::new, |s| {
+                    BufReader::new(s)
+                        .lines()
+                        .map_while(Result::ok)
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                        .into_bytes()
+                });
+                return Ok(Output {
+                    status,
+                    stdout,
+                    stderr,
+                });
+            },
+            Ok(None) => {
+                if start.elapsed() > timeout {
+                    let _ = child.kill();
+                    return Err(anyhow!("{what} timed out after {timeout:?}"));
+                }
+                thread::sleep(Duration::from_millis(10));
+            },
+            Err(e) => return Err(anyhow!("Error waiting for {what} process: {e}")),
+        }
+    }
 }
 
 /// Compares forge output with R validation result.
@@ -223,57 +281,6 @@ pub fn compare_results(
         forge_stats,
         r_stats,
         details: "All statistics within tolerance".to_string(),
-    }
-}
-
-#[allow(clippy::cast_possible_truncation)]
-fn execute_with_timeout(command: &mut Command, timeout: Duration) -> Result<Output> {
-    use std::io::{BufRead, BufReader};
-    use std::thread;
-
-    let mut child = command
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .context("Failed to spawn Rscript process")?;
-
-    let timeout_ms = timeout.as_millis() as u64;
-    let start = std::time::Instant::now();
-
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let stdout = child.stdout.take().map_or_else(Vec::new, |s| {
-                    BufReader::new(s)
-                        .lines()
-                        .map_while(Result::ok)
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                        .into_bytes()
-                });
-                let stderr = child.stderr.take().map_or_else(Vec::new, |s| {
-                    BufReader::new(s)
-                        .lines()
-                        .map_while(Result::ok)
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                        .into_bytes()
-                });
-                return Ok(Output {
-                    status,
-                    stdout,
-                    stderr,
-                });
-            },
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    let _ = child.kill();
-                    return Err(anyhow!("R script timed out after {timeout_ms}ms"));
-                }
-                thread::sleep(Duration::from_millis(10));
-            },
-            Err(e) => return Err(anyhow!("Error waiting for R process: {e}")),
-        }
     }
 }
 
@@ -376,6 +383,33 @@ pub fn check_r_package(package: &str, config: &RConfig) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_process_that_finishes_gives_its_output() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "echo out; echo err >&2"]);
+        let output = execute_with_timeout(&mut command, Duration::from_secs(30), "sh").unwrap();
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"out");
+        assert_eq!(output.stderr, b"err");
+    }
+
+    #[test]
+    fn a_process_past_its_time_is_killed_and_named() {
+        let mut command = Command::new("sleep");
+        command.arg("30");
+        let error =
+            execute_with_timeout(&mut command, Duration::from_millis(50), "sleep").unwrap_err();
+        assert_eq!(error.to_string(), "sleep timed out after 50ms");
+    }
+
+    #[test]
+    fn a_process_that_cannot_start_is_named() {
+        let mut command = Command::new("/nonexistent/forge-e2e-r-test");
+        let error =
+            execute_with_timeout(&mut command, Duration::from_secs(1), "ghost").unwrap_err();
+        assert_eq!(error.to_string(), "Failed to spawn ghost process");
+    }
 
     #[test]
     fn test_r_params_default() {

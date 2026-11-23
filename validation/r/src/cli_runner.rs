@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::Duration;
 
+use crate::r_validator::execute_with_timeout;
+
 /// A forge CLI command to execute.
 #[derive(Debug, Clone)]
 pub struct ForgeCommand {
@@ -85,66 +87,16 @@ pub fn run_forge_command(cmd: &ForgeCommand, config: &RunnerConfig) -> Result<An
         command.current_dir(dir);
     }
 
-    let output = execute_with_timeout(&mut command, config.timeout).with_context(|| {
-        format!(
-            "Failed to execute: forge {} {}",
-            cmd.cmd,
-            cmd.fixture.display()
-        )
-    })?;
+    let output =
+        execute_with_timeout(&mut command, config.timeout, "forge").with_context(|| {
+            format!(
+                "Failed to execute: forge {} {}",
+                cmd.cmd,
+                cmd.fixture.display()
+            )
+        })?;
 
     parse_forge_output(&output)
-}
-
-#[allow(clippy::cast_possible_truncation)]
-fn execute_with_timeout(command: &mut Command, timeout: Duration) -> Result<Output> {
-    use std::io::{BufRead, BufReader};
-    use std::thread;
-
-    let mut child = command
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .context("Failed to spawn forge process")?;
-
-    let timeout_ms = timeout.as_millis() as u64;
-    let start = std::time::Instant::now();
-
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let stdout = child.stdout.take().map_or_else(Vec::new, |s| {
-                    BufReader::new(s)
-                        .lines()
-                        .map_while(Result::ok)
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                        .into_bytes()
-                });
-                let stderr = child.stderr.take().map_or_else(Vec::new, |s| {
-                    BufReader::new(s)
-                        .lines()
-                        .map_while(Result::ok)
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                        .into_bytes()
-                });
-                return Ok(Output {
-                    status,
-                    stdout,
-                    stderr,
-                });
-            },
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    let _ = child.kill();
-                    return Err(anyhow!("Command timed out after {timeout_ms}ms"));
-                }
-                thread::sleep(Duration::from_millis(10));
-            },
-            Err(e) => return Err(anyhow!("Error waiting for process: {e}")),
-        }
-    }
 }
 
 fn parse_forge_output(output: &Output) -> Result<AnalyticsOutput> {

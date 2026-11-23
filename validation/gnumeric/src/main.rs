@@ -68,7 +68,7 @@ fn main() -> anyhow::Result<()> {
     // fails when it cannot be used)
     let libreoffice = LibreOfficeEngine::detect();
 
-    let runner = TestRunner::new(forge_binary.clone(), engine, libreoffice, cli.tests.clone())?;
+    let runner = TestRunner::new(forge_binary.clone(), engine, libreoffice, &cli.tests)?;
     run_all(&cli, &runner, &forge_binary);
 
     Ok(())

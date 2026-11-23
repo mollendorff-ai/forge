@@ -2,8 +2,6 @@
 //!
 //! Defines the data structures for test specifications, test cases, and results.
 
-#![allow(dead_code)]
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

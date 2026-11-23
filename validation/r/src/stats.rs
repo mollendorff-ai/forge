@@ -2,9 +2,6 @@
 //!
 //! Provides functions for comparing stochastic outputs within tolerance.
 
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_sign_loss)]
-
 use serde::{Deserialize, Serialize};
 
 /// Tolerance levels for statistical comparison.

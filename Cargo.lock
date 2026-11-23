@@ -1242,10 +1242,8 @@ name = "mollendorff-forge-e2e-gnumeric"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "calamine",
  "clap",
  "pretty_assertions",
- "rust_xlsxwriter",
  "serde",
  "tempfile",
  "yaml_serde",

@@ -4,6 +4,5 @@
 //! against Gnumeric (via ssconvert) at runtime.
 
 pub mod engine;
-pub mod excel;
 pub mod runner;
 pub mod types;
