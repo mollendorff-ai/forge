@@ -12,6 +12,7 @@ repository's documents, workflows and sources with its code and with what the
 | `doc_examples` | Every model in docs/EXAMPLES.md runs and prints the numbers the doc shows |
 | `readme_commands` | Every `$ forge` command in the README prints the lines the README shows |
 | `help_examples` | Every example in `forge <command> --help` names a command and flags Forge has, and the models whose YAML CONFIGURATION is a whole one (bayesian, bootstrap, decision-tree, real-options) run with their examples |
+| `agent_rules` | The rules `docs/guide/ai.md` gives an agent for a model repository: each rule is numbered, has a row under the template naming the tools it rests on, and a case that starts `forge mcp --root` on a copy of `examples/`, makes those calls one at a time and asserts the answers |
 | `guide` | Every page of docs/guide/ (ADR-078): each `$ forge` command runs in a copy of `examples/` and prints the lines the page shows, each `yaml` block headed by `# examples/….yaml` is that file, a block headed by another file (`# bagel.yaml`) is written for the commands after it and one headed `# bagel.yaml, after ...` or `# examples/….yaml, part of it` is lines of it, in a row, as they left it, a command fails only where the page shows its `Error:` line, every link and anchor resolves, and every number in a `<details>` answer is one a command printed; and docs/cli/README.md is what `forge --help` prints |
 | `posts` | The numbers in docs/posts/ are what the commands print |
 | `workflows_doc` | Every command docs/WORKFLOWS.md names exists |

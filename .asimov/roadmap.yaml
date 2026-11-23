@@ -793,6 +793,8 @@ adoption:
     how: "From PROMPTS.md, MCP.md and the server's own instructions; a template for CLAUDE.md or AGENTS.md; whether an llms.txt earns its place. Client configuration paths read from each client's current documentation, not from memory"
     acceptance: "The template's rules are each exercised against forge mcp in a test or a recorded run"
     model: "Sonnet 5.5, medium"
+    built: "2026-11-23: docs/guide/ai.md (a chat that runs commands: the README's prompt and PROMPTS.md; the MCP server in Claude Desktop, Claude Code and Gemini CLI, with --root; nine rules for AGENTS.md or CLAUDE.md) and validation/repo/src/agent_rules.rs: each rule has a row naming its tools and a case that talks to forge mcp --root on a copy of examples/, a call at a time (rmcp runs requests sent together at the same time, so an agent's order is kept by waiting for each answer). The llms.txt question stays with A14"
+    open: "Cursor, VS Code with Copilot, Codex CLI and Claude Desktop's own documentation could not be read from the build sandbox (cursor.com, code.visualstudio.com, developers.openai.com and modelcontextprotocol.io do not resolve), so ai.md names none of them but Claude Desktop (from docs/MCP.md, fixed in A0). Read them where the web is open, and add each with its page and date. Gemini CLI was read from its repository, not its site"
   - id: A6-GUIDE-PIPELINE
     title: "A pipeline recipe that has been run: forge validate as the gate, JSON output, exit codes, a pull request showing the diff"
     why: "docs/WORKFLOWS.md says no whole pipeline without AI has been run, and the one with AI has run once (Sentinel)"
