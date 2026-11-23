@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Every example in `forge <command> --help` is run or checked** (`validation/repo`'s `help_examples`). Each example names a command and flags Forge has, and the models that the help of `bayesian`, `bootstrap`, `decision-tree` and `real-options` shows run with every example under them. The bayesian example had been refused as shown; this check found the next: `forge real-options --help`'s `--option defer` named an option that the model it shows has not (options are found by name), so it now reads `--option "Sell assets"`.
 - **Every Mermaid diagram of the docs is rendered on each pull request** (roadmap T1-MERMAID-CHECK). GitHub shows a diagram that does not parse as an error box and says nothing else. `validation/mermaid/check.mjs` renders every ` ```mermaid ` block of every Markdown file in Chromium with mermaid 12.3.0 and fails naming the file, the line and the block; the `Diagrams` workflow runs it whenever a Markdown file changes, docs-only pull requests included, and keeps a PNG of each diagram as the run's artifact. The 47 diagrams on main render.
 
 ### Changed

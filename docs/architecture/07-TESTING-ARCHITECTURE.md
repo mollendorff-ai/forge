@@ -97,6 +97,7 @@ An expected value is never changed silently: a pull request that changes or remo
 | Module | Checks |
 | --- | --- |
 | `readme_commands.rs` | Every `$ forge ...` block in the README runs and prints what the README shows |
+| `help_examples.rs` | Every example in `forge <command> --help` uses a command and flags Forge has; the whole models the help shows (bayesian, bootstrap, decision-tree, real-options) run with their examples |
 | `doc_counts.rs` | Function counts, test counts and stale wording in the README and docs |
 | `doc_examples.rs` | Every model in `docs/EXAMPLES.md` runs and gives the numbers shown |
 | `posts.rs` | The numbers in `docs/posts/` are what Forge prints |
