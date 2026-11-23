@@ -130,6 +130,9 @@ pub(super) fn fingerprint(model: &ParsedModel) -> u64 {
             .collect::<std::collections::BTreeMap<_, _>>()
             .hash(&mut hasher);
     }
+    if let Some(network) = &model.network {
+        network.formulas().hash(&mut hasher);
+    }
     for (name, game) in &model.games {
         name.hash(&mut hasher);
         game.formulas().hash(&mut hasher);

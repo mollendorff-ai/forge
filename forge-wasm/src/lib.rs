@@ -105,7 +105,7 @@ pub fn run(tool: &str, request: &Value) -> Result<Value, String> {
         .as_object()
         .ok_or("The request must be a JSON object")?;
     match tool {
-        "functions" => return functions_core().map_err(|e| e.to_string()),
+        "functions" => return Ok(functions_core()),
         "examples" => return examples_core(opt_str(args, "name")?).map_err(|e| e.to_string()),
         "schema" => {
             return schema_core(opt_str(args, "version")?)
@@ -238,6 +238,7 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
                 main,
                 opt_str(args, "query")?,
                 &opt_strings(args, "evidence")?,
+                opt_str(args, "scenario")?,
             )
             .map_err(fail)?,
         ),
@@ -799,6 +800,21 @@ mod tests {
             );
         }
 
+        /// `examples/expected_loss.yaml` in its recession: the prior reads the
+        /// scenario's outlook (ADR-074), so a default makes a bad year
+        /// 0.0865 / 0.1254 likely, by Bayes' rule by hand
+        #[test]
+        fn a_network_under_a_scenario() {
+            let answer = case("bayesian expected loss, recession");
+            let economy = &answer["queries"]["economy"];
+            assert_eq!(
+                economy["states"],
+                serde_json::json!(["good", "neutral", "bad"])
+            );
+            close(number(economy, "/probabilities/2"), 0.0865 / 0.1254, 1e-12);
+            assert_eq!(answer["evidence"], serde_json::json!({"default": "yes"}));
+        }
+
         /// kinship-protocol's tournament with c = 0.2 (examples/games): the
         /// exact scores, by hand for AD, 2.208 - c; src/cli/commands/game.rs
         /// checks them against the axelrod library
@@ -1026,6 +1042,31 @@ mod tests {
                 .collect();
             assert_eq!(differ.len(), 1, "{differ:?}");
             assert!(differ[0].contains("123.5"), "{differ:?}");
+            // A rename, and every name that reads it
+            let renamed = run(
+                "edit",
+                &serde_json::json!({"files": files, "main": "bagel.yaml",
+                                    "changes": [{"op": "rename", "path": price, "new_name": "edit_renamed"}]}),
+            )
+            .unwrap();
+            let last = price.rsplit('.').next().unwrap();
+            let text = renamed["files"]["bagel.yaml"].as_str().unwrap();
+            assert!(text.contains("edit_renamed:"), "{text}");
+            assert!(!text.contains(&format!("{last}:")), "{text}");
+            // An input made uncertain keeps its value as the plan, and the
+            // model asks for a simulation
+            let uncertain = run(
+                "edit",
+                &serde_json::json!({"files": files, "main": "bagel.yaml",
+                                    "changes": [{"op": "make_uncertain", "path": price}]}),
+            )
+            .unwrap();
+            let text = uncertain["files"]["bagel.yaml"].as_str().unwrap();
+            assert!(text.contains("formula: \"=MC.Triangular("), "{text}");
+            assert!(
+                text.contains("\nmonte_carlo:\n  iterations: 5000\n"),
+                "{text}"
+            );
 
             let message = |request: Value| run("edit", &request).unwrap_err();
             assert_eq!(

@@ -84,7 +84,7 @@ pub fn bootstrap(
     outln!(c, "   File: {}", file.display());
     outln!(c);
 
-    let config = load_config(
+    let result = bootstrap_core(
         file,
         iterations_override,
         seed_override,
@@ -96,29 +96,24 @@ pub fn bootstrap(
     outln!(
         c,
         "      Iterations: {}",
-        config.iterations.to_string().bright_blue()
+        result.iterations.to_string().bright_blue()
     );
     outln!(
         c,
         "      Statistic: {}",
-        format!("{:?}", config.statistic).bright_blue()
+        format!("{:?}", result.statistic).bright_blue()
     );
-    outln!(c, "      Data points: {}", config.data.len());
-    outln!(c, "      Confidence levels: {:?}", config.confidence_levels);
-    outln!(c, "      Interval method: {:?}", config.method);
-    if let Some(seed) = config.seed {
+    outln!(c, "      Data points: {}", result.sample_size);
+    outln!(c, "      Confidence levels: {:?}", result.confidence_levels);
+    outln!(c, "      Interval method: {:?}", result.method);
+    if let Some(seed) = result.seed {
         outln!(c, "      Seed: {seed}");
     }
     outln!(c);
 
-    // Create engine and analyze
-    let mut engine = BootstrapEngine::new(config).map_err(ForgeError::Validation)?;
-
     if verbose {
         outln!(c, "{}", "🔄 Resampling...".cyan());
     }
-
-    let result = engine.analyze().map_err(ForgeError::Eval)?;
 
     // Display results
     outln!(c, "{}", "📊 Bootstrap Results:".bold().green());
@@ -335,5 +330,29 @@ bootstrap:
                 assert!((ci.upper - upper).abs() <= 0.006, "{level}: {}", ci.upper);
             }
         }
+    }
+
+    /// What the command shows of the configuration is in the result, so MCP,
+    /// REST and Studio have it too (T1-CLI-FROM-CORES).
+    #[test]
+    fn the_result_says_what_was_resampled() {
+        let result =
+            bootstrap_core(Path::new("examples/bootstrap.yaml"), Some(50), None, None).unwrap();
+        assert_eq!(result.iterations, 50);
+        assert_eq!(result.statistic, crate::bootstrap::BootstrapStatistic::Mean);
+        assert_eq!(result.sample_size, 12);
+        assert_eq!(result.confidence_levels, [0.9, 0.95, 0.99]);
+        assert_eq!(result.seed, Some(42));
+        let json = serde_json::to_value(&result).unwrap();
+        assert_eq!(json["statistic"], "mean");
+        assert_eq!(json["sample_size"], 12);
+        let unseeded = bootstrap_core(
+            Path::new("examples/bagel/first_month.yaml"),
+            Some(50),
+            None,
+            Some(vec![0.5]),
+        )
+        .unwrap();
+        assert_eq!(unseeded.confidence_levels, [0.5]);
     }
 }

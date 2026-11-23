@@ -84,9 +84,11 @@ pub(super) fn parse_multi_document_from(
     path: &Path,
 ) -> ForgeResult<ParsedModel> {
     let mut merged_model = ParsedModel::new();
-    // Which document defined each name, for the collision message
+    // Which document defined each name, and the network, for the collision
+    // message
     let mut defined_in: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
+    let mut network_in: Option<String> = None;
     let mut doc_index = 0;
 
     for doc_content in split_yaml_documents(content) {
@@ -136,6 +138,16 @@ pub(super) fn parse_multi_document_from(
         for (game_name, game) in doc_model.games {
             claim("Game", &game_name)?;
             merged_model.games.insert(game_name, game);
+        }
+        if let Some(network) = doc_model.network {
+            if let Some(first) = &network_in {
+                return Err(ForgeError::Validation(format!(
+                    "A file has one Bayesian network, and documents '{first}' and '{doc_name}' \
+                     each have one. Put one of them in a file of its own"
+                )));
+            }
+            network_in = Some(doc_name.clone());
+            merged_model.network = Some(network);
         }
         for analysis in doc_model.analyses {
             if !merged_model.analyses.contains(&analysis) {
@@ -326,6 +338,33 @@ expenses:
         let model = parse_multi_document_yaml(content, Path::new("m.yaml")).unwrap();
         assert_eq!(model.analyses, ["bootstrap", "monte_carlo"]);
         assert_eq!(model.documents.len(), 2);
+    }
+
+    /// A file has one network, in any of its documents (ADR-074)
+    #[test]
+    fn a_file_has_one_network() {
+        let net = "bayesian_network:\n  nodes:\n    a: {states: [x, y], prior: [=p, =1 - p]}\n";
+        let doc = |name: &str, extra: &str| {
+            format!("---\n_forge_version: \"5.6.0\"\n_name: {name}\n{extra}")
+        };
+        let one = format!("{}{}", doc("inputs", "p: 0.25\n"), doc("network", net));
+        let model = parse_multi_document_yaml(&one, Path::new("m.yaml")).unwrap();
+        assert_eq!(
+            model.network.unwrap().formulas(),
+            ["=p", "=1 - p"],
+            "the network reads a scalar of another document"
+        );
+        let two = format!("{}{}", doc("one", net), doc("two", net));
+        let err = parse_multi_document_yaml(&two, Path::new("m.yaml"))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains(
+                "A file has one Bayesian network, and documents 'one' and 'two' each have one. \
+                 Put one of them in a file of its own"
+            ),
+            "{err}"
+        );
     }
 
     #[test]
@@ -532,5 +571,44 @@ sales:
         .unwrap_err()
         .to_string();
         assert!(err.contains("so write 'sales.amount'"), "{err}");
+    }
+
+    #[test]
+    fn documents_that_cannot_share_their_names_are_refused() {
+        let head = "_forge_version: \"5.1.0\"\n";
+        let refused = |a: &str, b: &str| {
+            let text = format!("---\n{head}{a}---\n{head}{b}");
+            parse_multi_document_yaml(&text, Path::new("m.yaml"))
+                .unwrap_err()
+                .to_string()
+        };
+        let again = |kind: &str, name: &str| {
+            format!(
+                "Validation error: {kind} '{name}' is defined in document 'doc1' and again in 'doc2'. The documents of a file share one set of names; rename one, or put the two in separate files (and compare them with forge variance)"
+            )
+        };
+        assert_eq!(
+            refused("t:\n  x: [1]\n", "a: [\n"),
+            "Parse error: Failed to parse document 2: did not find expected node content at line 3 column 1, while parsing a flow node"
+        );
+        assert_eq!(
+            refused("t:\n  x: [1]\n", "1:\n  value: 5\n"),
+            "Parse error: Table name must be a string"
+        );
+        assert_eq!(
+            refused("t:\n  x: [1]\n", "t:\n  y: [2]\n"),
+            again("Table", "t")
+        );
+        let scenario = |n: &str| {
+            format!("{n}: 1\nscenarios:\n  s:\n    probability: 1\n    scalars: {{{n}: 2}}\n")
+        };
+        assert_eq!(
+            refused(&scenario("n"), &scenario("m")),
+            again("Scenario", "s")
+        );
+        assert_eq!(
+            refused("t:\n  x: [1]\n", "t:\n  a: {value: 1}\n"),
+            "Validation error: 't' is both a table and the group of scalar 't.a'; rename one"
+        );
     }
 }

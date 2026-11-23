@@ -25,30 +25,29 @@ use crate::cli::{
 fn compact_bootstrap(result: &crate::bootstrap::BootstrapResult) -> serde_json::Value {
     let mut value = serde_json::to_value(result).unwrap_or_default();
     let sorted = &result.distribution;
-    if let Some(map) = value.as_object_mut() {
-        map.remove("distribution");
-        if !sorted.is_empty() {
-            let at = |p: f64| {
-                let i = (p * precision::count(sorted.len() - 1))
-                    .round()
-                    .to_usize()
-                    .unwrap_or(0)
-                    .min(sorted.len() - 1);
-                sorted[i]
-            };
-            let percentiles: Vec<serde_json::Value> = [1, 5, 10, 25, 50, 75, 90, 95, 99]
-                .iter()
-                .map(|p| serde_json::json!({"percentile": p, "value": at(f64::from(*p) / 100.0)}))
-                .collect();
-            map.insert(
-                "distribution_percentiles".to_string(),
-                serde_json::Value::Array(percentiles),
-            );
-            map.insert(
-                "distribution_size".to_string(),
-                serde_json::json!(sorted.len()),
-            );
-        }
+    let map = value.as_object_mut().expect("a result is an object");
+    map.remove("distribution");
+    if !sorted.is_empty() {
+        let at = |p: f64| {
+            let i = (p * precision::count(sorted.len() - 1))
+                .round()
+                .to_usize()
+                .unwrap_or(0)
+                .min(sorted.len() - 1);
+            sorted[i]
+        };
+        let percentiles: Vec<serde_json::Value> = [1, 5, 10, 25, 50, 75, 90, 95, 99]
+            .iter()
+            .map(|p| serde_json::json!({"percentile": p, "value": at(f64::from(*p) / 100.0)}))
+            .collect();
+        map.insert(
+            "distribution_percentiles".to_string(),
+            serde_json::Value::Array(percentiles),
+        );
+        map.insert(
+            "distribution_size".to_string(),
+            serde_json::json!(sorted.len()),
+        );
     }
     value
 }
@@ -88,9 +87,9 @@ impl ForgeMcpServer {
             let goal = crate::cli::SeekGoal::parse(seek)?;
             return crate::cli::probability_seek_core(&path, options, &goal, vary, min, max)
                 .map_err(|e| format!("Seek failed: {e}"))
-                .and_then(|r| {
+                .map(|r| {
                     serde_json::to_string_pretty(&crate::core::precision::Rounded(&r))
-                        .map_err(|e| format!("Serialization failed: {e}"))
+                        .expect("a result is JSON")
                 });
         }
         simulate_core(&path, options)
@@ -156,7 +155,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_bayesian",
-        description = "Bayesian network inference. Query posterior probabilities with optional evidence. Returns probability distributions for each variable state."
+        description = "Bayesian network inference. Query posterior probabilities with optional evidence, optionally under a scenario. A prior or table entry may be a formula over the model's scalars; named queries under bayesian_network.queries also give scalars bayesian_network.<query>.<state>, which forge_calculate and forge_validate report. Returns probability distributions for each variable state."
     )]
     fn bayesian(&self, Parameters(req): Parameters<BayesianRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
@@ -166,9 +165,14 @@ impl ForgeMcpServer {
             req.includes.as_ref(),
         )?;
         let evidence = req.evidence.unwrap_or_default();
-        bayesian_core(&path, req.query_var.as_deref(), &evidence)
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Bayesian inference failed: {e}"))
+        bayesian_core(
+            &path,
+            req.query_var.as_deref(),
+            &evidence,
+            req.scenario.as_deref(),
+        )
+        .map(|r| to_json(&r))
+        .map_err(|e| format!("Bayesian inference failed: {e}"))
     }
 }
 
@@ -358,6 +362,7 @@ scalars:
             includes: None,
             query_var: None,
             evidence: None,
+            scenario: None,
         })));
         assert!(e.contains("bayesian_network"));
     }
@@ -372,6 +377,7 @@ scalars:
             includes: None,
             query_var: None,
             evidence: Some(vec!["economy=growth".into()]),
+            scenario: None,
         }));
     }
 
@@ -642,6 +648,7 @@ scalars:
                         includes,
                         query_var: Some("roadwork".into()),
                         evidence: Some(evidence.iter().map(ToString::to_string).collect()),
+                        scenario: None,
                     },
                 ))));
                 let query = &result["queries"]["roadwork"];
@@ -654,6 +661,34 @@ scalars:
                 "inline {inline}"
             );
         }
+    }
+
+    /// `examples/expected_loss.yaml`: under its recession the prior reads the
+    /// scenario's outlook, so P(default) = 0.1254 by Bayes' rule by hand; a
+    /// scenario the model does not have is named
+    #[test]
+    fn bayesian_takes_a_scenario() {
+        let ask = |scenario: &str| {
+            ForgeMcpServer::new().bayesian(Parameters(BayesianRequest {
+                file_path: Some("examples/expected_loss.yaml".into()),
+                content: None,
+                includes: None,
+                query_var: Some("default".into()),
+                evidence: None,
+                scenario: Some(scenario.into()),
+            }))
+        };
+        let result = json(&ok_text(ask("recession")));
+        let yes = result["queries"]["default"]["probabilities"][1]
+            .as_f64()
+            .unwrap();
+        assert!(close(yes, 0.1254, 1e-12), "{yes}");
+        let err = err_text(ask("slump"));
+        assert!(
+            err.starts_with("Bayesian inference failed: ")
+                && err.contains("Scenario 'slump' not found"),
+            "{err}"
+        );
     }
 
     /// examples/vineyard: 10,000 seasons in which the crop and the price are
@@ -734,5 +769,104 @@ scalars:
             })))
             .unwrap_err();
         assert_eq!(error, "seek needs vary, min and max");
+    }
+
+    #[test]
+    fn a_bootstrap_with_no_resamples_gives_no_percentiles() {
+        let result = crate::bootstrap::BootstrapResult {
+            original_estimate: 1.0,
+            bootstrap_mean: 1.0,
+            bootstrap_std_error: 0.0,
+            bias: 0.0,
+            method: crate::bootstrap::BootstrapMethod::Percentile,
+            confidence_intervals: Vec::new(),
+            distribution: Vec::new(),
+            iterations: 0,
+            statistic: crate::bootstrap::BootstrapStatistic::Mean,
+            sample_size: 0,
+            confidence_levels: Vec::new(),
+            seed: None,
+        };
+        let compact = compact_bootstrap(&result);
+        assert_eq!(compact.get("distribution"), None);
+        assert_eq!(compact.get("distribution_percentiles"), None);
+        assert_eq!(compact.get("distribution_size"), None);
+        assert_eq!(compact["iterations"], 0);
+    }
+
+    #[test]
+    fn an_analysis_the_model_does_not_have_is_refused_by_name() {
+        let server = ForgeMcpServer::new();
+        let content = Some(
+            "_forge_version: \"5.1.0\"\nprice: 4\nout:\n  total: {formula: \"=price * 2\"}\n"
+                .to_string(),
+        );
+        assert_eq!(
+            err_text(server.decision_tree(Parameters(DecisionTreeRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+            }))),
+            "Decision tree analysis failed: Validation error: No 'decision_tree' section found in YAML"
+        );
+        assert_eq!(
+            err_text(server.real_options(Parameters(RealOptionsRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+            }))),
+            "Real options analysis failed: Validation error: No 'real_options' section found in YAML"
+        );
+        assert_eq!(
+            err_text(server.bootstrap(Parameters(BootstrapRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+                iterations: None,
+                seed: None,
+                confidence_levels: None,
+            }))),
+            "Bootstrap analysis failed: Validation error: No 'bootstrap' section found in YAML"
+        );
+        assert_eq!(
+            err_text(server.simulate(Parameters(SimulateRequest {
+                file_path: None,
+                content,
+                includes: None,
+                iterations: None,
+                seed: None,
+                sampling: None,
+                scenario: None,
+                outputs: None,
+                seek: Some("P(out.total > 0) = 0.8".into()),
+                vary: Some("nope".into()),
+                min: Some(0.0),
+                max: Some(1.0),
+            }))),
+            "Seek failed: Validation error: --seek: 'out.total' is not an output of monte_carlo (outputs: )"
+        );
+    }
+
+    #[test]
+    fn a_seek_that_is_not_a_probability_goal_is_refused() {
+        let server = ForgeMcpServer::new();
+        let error = err_text(server.simulate(Parameters(SimulateRequest {
+            file_path: None,
+            content: Some("_forge_version: \"5.1.0\"\nprice: 4\n".to_string()),
+            includes: None,
+            iterations: None,
+            seed: None,
+            sampling: None,
+            scenario: None,
+            outputs: None,
+            seek: Some("nonsense".into()),
+            vary: Some("price".into()),
+            min: Some(0.0),
+            max: Some(1.0),
+        })));
+        assert_eq!(
+            error,
+            "--seek 'nonsense': write it as \"P(year.profit > 0) = 0.8\" (or = 80%)"
+        );
     }
 }

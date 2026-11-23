@@ -11,6 +11,7 @@ repository's documents, workflows and sources with its code and with what the
 | `doc_counts` | The function and test counts written in the docs |
 | `doc_examples` | Every model in docs/EXAMPLES.md runs and prints the numbers the doc shows |
 | `readme_commands` | Every `$ forge` command in the README prints the lines the README shows |
+| `help_examples` | Every example in `forge <command> --help` names a command and flags Forge has, and the models whose YAML CONFIGURATION is a whole one (bayesian, bootstrap, decision-tree, real-options) run with their examples |
 | `posts` | The numbers in docs/posts/ are what the commands print |
 | `workflows_doc` | Every command docs/WORKFLOWS.md names exists |
 | `install_script` | `install.sh`, the README and the prompts install what the release publishes |

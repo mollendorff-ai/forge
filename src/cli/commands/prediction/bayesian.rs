@@ -4,6 +4,7 @@ use super::write_result;
 use crate::bayesian::{BayesianConfig, BayesianEngine};
 use crate::cli::console::outln;
 use crate::cli::Console;
+use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use colored::Colorize;
@@ -11,16 +12,23 @@ use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// The network of a model file.
-fn read_network(file: &Path) -> ForgeResult<BayesianConfig> {
-    let yaml_content = parser::read_model_text(file)?;
-    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
-    let bn_value = value.get("bayesian_network").ok_or_else(|| {
-        ForgeError::Validation("No 'bayesian_network' section found in YAML".to_string())
-    })?;
-    yaml_serde::from_value(bn_value.clone())
-        .map_err(|e| ForgeError::Validation(format!("bayesian_network config error: {e}")))
+/// The network of a model file, each probability worked out: in the file
+/// as written, or under `scenario` (ADR-074). A probability may be a
+/// formula over the model's scalars, so the model is calculated first.
+fn read_network(file: &Path, scenario: Option<&str>) -> ForgeResult<BayesianConfig> {
+    let mut model = parser::parse_model(file)?;
+    if model.network.is_none() {
+        return Err(ForgeError::Validation(
+            "No 'bayesian_network' section found in the model".to_string(),
+        ));
+    }
+    let Some(name) = scenario else {
+        return ArrayCalculator::new(model).calculate_network();
+    };
+    super::super::apply_scenario(&mut model, name)?;
+    ArrayCalculator::new(model)
+        .calculate_network()
+        .map_err(|e| ForgeError::Validation(format!("Scenario '{name}': {e}")))
 }
 
 /// The `name=state` pairs; an entry without exactly one `=` is left out.
@@ -41,7 +49,9 @@ fn infer(
     evidence_map: &HashMap<String, &str>,
 ) -> ForgeResult<crate::bayesian::BayesianResult> {
     let network_name = config.name.clone();
-    let engine = BayesianEngine::new(config).map_err(ForgeError::Validation)?;
+    // The network was checked when the model was calculated
+    let engine = BayesianEngine::new(config).expect("a calculated network is a valid network");
+    let nodes = engine.outline();
     let Some(target) = query_var else {
         return if evidence_map.is_empty() {
             engine.query_all()
@@ -63,6 +73,7 @@ fn infer(
             .iter()
             .map(|(k, v)| (k.clone(), (*v).to_string()))
             .collect(),
+        nodes,
     })
 }
 
@@ -71,22 +82,32 @@ fn infer(
 /// # Errors
 ///
 /// Returns an error if the file cannot be parsed, no `bayesian_network` section exists,
-/// or inference fails.
+/// `scenario` is not one of the model's, a probability cannot be worked out
+/// or is not a probability, or inference fails.
 pub fn bayesian_core(
     file: &Path,
     query_var: Option<&str>,
     evidence: &[String],
+    scenario: Option<&str>,
 ) -> ForgeResult<crate::bayesian::BayesianResult> {
-    infer(read_network(file)?, query_var, &parse_evidence(evidence))
+    infer(
+        read_network(file, scenario)?,
+        query_var,
+        &parse_evidence(evidence),
+    )
 }
 
 /// The network's name and size, and with `--verbose` each node's states and
 /// parents.
-fn print_bayesian_network(c: &mut Console<'_>, config: &BayesianConfig, verbose: bool) {
-    outln!(c, "   {}", format!("Network: {}", config.name).bold());
-    outln!(c, "   Nodes: {}", config.nodes.len());
+fn print_bayesian_network(
+    c: &mut Console<'_>,
+    result: &crate::bayesian::BayesianResult,
+    verbose: bool,
+) {
+    outln!(c, "   {}", format!("Network: {}", result.name).bold());
+    outln!(c, "   Nodes: {}", result.nodes.len());
     if verbose {
-        for (name, node) in &config.nodes {
+        for (name, node) in &result.nodes {
             let parents = if node.parents.is_empty() {
                 "root".to_string()
             } else {
@@ -115,6 +136,7 @@ pub fn bayesian(
     file: &Path,
     query_var: Option<&str>,
     evidence: &[String],
+    scenario: Option<&str>,
     output_file: Option<PathBuf>,
     verbose: bool,
 ) -> ForgeResult<()> {
@@ -124,20 +146,18 @@ pub fn bayesian(
         "🔮 Forge - Bayesian Network Inference".bold().green()
     );
     outln!(c, "   File: {}", file.display());
+    if let Some(name) = scenario {
+        outln!(c, "   Scenario: {}", name.bright_yellow());
+    }
     outln!(c);
 
-    let config = read_network(file)?;
+    let result = bayesian_core(file, query_var, evidence, scenario)?;
 
-    print_bayesian_network(c, &config, verbose);
+    print_bayesian_network(c, &result, verbose);
 
-    let evidence_map = parse_evidence(evidence);
-
-    if !evidence_map.is_empty() {
+    if !result.evidence.is_empty() {
         outln!(c, "   {}", "Evidence:".bold());
-        // In name order: the map's own order changes from run to run
-        let mut shown: Vec<_> = evidence_map.iter().collect();
-        shown.sort_unstable();
-        for (var, val) in shown {
+        for (var, val) in &result.evidence {
             outln!(c, "      {} = {}", var.bright_blue(), val.cyan());
         }
         outln!(c);
@@ -147,9 +167,8 @@ pub fn bayesian(
         outln!(c, "{}", "🔄 Running inference...".cyan());
     }
 
-    let result = infer(config, query_var, &evidence_map)?;
     if let Some(target) = query_var {
-        let heading = if evidence_map.is_empty() {
+        let heading = if result.evidence.is_empty() {
             "📊 Query Result:"
         } else {
             "📊 Query Result (with evidence):"
@@ -228,7 +247,7 @@ mod tests {
         let mut input = std::io::empty();
         let mut console = Console::new(&mut out, &mut err, &mut input);
         let evidence: Vec<String> = evidence.iter().map(ToString::to_string).collect();
-        let result = bayesian(&mut console, file, target, &evidence, output, verbose);
+        let result = bayesian(&mut console, file, target, &evidence, None, output, verbose);
         let text = String::from_utf8(out).unwrap();
         (text, result.map_err(|e| e.to_string()))
     }
@@ -376,22 +395,29 @@ mod tests {
             (
                 "plain.yaml",
                 "_forge_version: \"5.1.0\"\nscalars: {}\n",
-                "Validation error: No 'bayesian_network' section found in YAML".to_string(),
+                "Validation error: No 'bayesian_network' section found in the model".to_string(),
             ),
             (
                 "bad.yaml",
                 "a: [1\n",
-                "Validation error: YAML parse error: ".to_string(),
+                "YAML parsing error: ".to_string(),
             ),
             (
                 "config.yaml",
-                "bayesian_network: 3\n",
-                "Validation error: bayesian_network config error: ".to_string(),
+                "_forge_version: \"5.1.0\"\nbayesian_network: 3\n",
+                "Validation error: The model does not fit model format 5.1.0:\n  - \
+                 'bayesian_network' must be a mapping, not the number 3"
+                    .to_string(),
             ),
             (
-                "empty.yaml",
-                "bayesian_network:\n  name: x\n  nodes:\n    a:\n      type: discrete\n      states: [\"y\", \"n\"]\n      prior: [0.5]\n",
-                "Validation error: ".to_string(),
+                "short.yaml",
+                "_forge_version: \"5.1.0\"\nbayesian_network:\n  name: x\n  nodes:\n    a:\n      type: discrete\n      states: [\"y\", \"n\"]\n      prior: [0.5]\n",
+                "Parse error: Node 'a': prior length (1) must match states (2)".to_string(),
+            ),
+            (
+                "unversioned.yaml",
+                "bayesian_network:\n  nodes:\n    a: {states: [y], prior: [1]}\n",
+                "Validation error: Missing required field: _forge_version".to_string(),
             ),
         ] {
             let path = dir.path().join(name);
@@ -399,11 +425,102 @@ mod tests {
             let (_, result) = run(&path, None, &[], None, false);
             let err = result.unwrap_err();
             assert!(err.starts_with(&want), "{name}: {err}");
-            let core = bayesian_core(&path, None, &[]).unwrap_err().to_string();
+            let core = bayesian_core(&path, None, &[], None)
+                .unwrap_err()
+                .to_string();
             assert_eq!(core, err, "{name}: bayesian_core says the same");
         }
         let missing = dir.path().join("missing.yaml");
         assert!(run(&missing, None, &[], None, false).1.is_err());
+    }
+
+    const LOSS: &str = "examples/expected_loss.yaml";
+
+    /// Under a scenario the prior's formulas read its overrides. By hand
+    /// (`examples/expected_loss.yaml`): in a recession a default comes in
+    /// 0.1254 of years, and makes a bad year 0.0865 / 0.1254 likely
+    #[test]
+    fn a_scenario_moves_the_prior_its_formulas_read() {
+        let (text, result) = run_under(LOSS, Some("economy"), &["default=yes"], "recession");
+        assert_eq!(result, Ok(()));
+        assert!(
+            text.starts_with(
+                "🔮 Forge - Bayesian Network Inference\n   File: examples/expected_loss.yaml\n   \
+                 Scenario: recession\n\n   Network: Default given the economy\n"
+            ),
+            "{text}"
+        );
+        let r = bayesian_core(
+            Path::new(LOSS),
+            Some("economy"),
+            &["default=yes".to_string()],
+            Some("recession"),
+        )
+        .unwrap();
+        let bad = r.queries["economy"].get_probability("bad").unwrap();
+        assert!((bad - 0.0865 / 0.1254).abs() < 1e-12, "{bad}");
+        // The file as written: 0.0346 / 0.0975
+        let r = bayesian_core(
+            Path::new(LOSS),
+            Some("economy"),
+            &["default=yes".to_string()],
+            None,
+        )
+        .unwrap();
+        let bad = r.queries["economy"].get_probability("bad").unwrap();
+        assert!((bad - 0.0346 / 0.0975).abs() < 1e-12, "{bad}");
+    }
+
+    /// `forge bayesian --scenario`, through the console
+    fn run_under(
+        file: &str,
+        target: Option<&str>,
+        evidence: &[&str],
+        scenario: &str,
+    ) -> (String, Result<(), String>) {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut input = std::io::empty();
+        let mut console = Console::new(&mut out, &mut err, &mut input);
+        let evidence: Vec<String> = evidence.iter().map(ToString::to_string).collect();
+        let result = bayesian(
+            &mut console,
+            Path::new(file),
+            target,
+            &evidence,
+            Some(scenario),
+            None,
+            false,
+        );
+        (
+            String::from_utf8(out).unwrap(),
+            result.map_err(|e| e.to_string()),
+        )
+    }
+
+    #[test]
+    fn a_scenario_that_is_missing_or_breaks_the_network_is_named() {
+        let (_, result) = run_under(LOSS, None, &[], "slump");
+        let err = result.unwrap_err();
+        assert!(err.contains("Scenario 'slump' not found"), "{err}");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("m.yaml");
+        let text = std::fs::read_to_string(LOSS).unwrap().replace(
+            "recession:\n",
+            "ruin:\n    scalars: {outlook.p_bad: 0.9}\n  recession:\n",
+        );
+        std::fs::write(&path, text).unwrap();
+        let err = bayesian_core(&path, None, &[], Some("ruin"))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.starts_with("Validation error: Scenario 'ruin': ")
+                && err.contains(
+                    "bayesian_network: Node 'economy': in its prior probabilities, state 'good' \
+                     has -0.4; a probability is from 0 to 1"
+                ),
+            "{err}"
+        );
     }
 
     mod acquisition_example {
@@ -420,7 +537,7 @@ mod tests {
         fn stuffing(evidence: &[&str]) -> f64 {
             let ev: Vec<String> = evidence.iter().map(ToString::to_string).collect();
             let file = Path::new("examples/acquisition/diligence.yaml");
-            let r = bayesian_core(file, Some("stuffing"), &ev).unwrap();
+            let r = bayesian_core(file, Some("stuffing"), &ev, None).unwrap();
             let q = &r.queries["stuffing"];
             q.probabilities[q.states.iter().position(|s| s == "yes").unwrap()]
         }
@@ -441,6 +558,34 @@ mod tests {
             ] {
                 let got = stuffing(evidence);
                 assert!((got - want).abs() <= 1e-12, "{evidence:?}: {got}");
+            }
+        }
+    }
+
+    /// Every node's states and parents are in the result, queried or not
+    /// (T1-CLI-FROM-CORES).
+    #[test]
+    fn the_result_outlines_the_network() {
+        let file = Path::new("examples/bayesian.yaml");
+        for evidence in [vec![], vec!["economic_conditions=bad".to_string()]] {
+            for query in [None, Some("default_probability")] {
+                let result = bayesian_core(file, query, &evidence, None).unwrap();
+                let names: Vec<&String> = result.nodes.keys().collect();
+                assert_eq!(
+                    names,
+                    [
+                        "company_revenue",
+                        "default_probability",
+                        "economic_conditions"
+                    ]
+                );
+                let revenue = &result.nodes["company_revenue"];
+                assert_eq!(revenue.states, ["high", "medium", "low"]);
+                assert_eq!(revenue.parents, ["economic_conditions"]);
+                assert_eq!(
+                    result.nodes["economic_conditions"].parents,
+                    Vec::<String>::new()
+                );
             }
         }
     }

@@ -5,10 +5,12 @@ mod games;
 mod graph;
 mod includes;
 mod names;
+mod network;
 mod order;
 pub mod parser;
 mod plan;
 mod recursive;
+pub mod references;
 pub mod tokenizer;
 pub mod whole_column;
 
@@ -56,6 +58,8 @@ pub struct ArrayCalculator {
     /// Each game played once calculated so far, with its payoffs worked
     /// out: the round of a tournament
     game_tables: std::collections::BTreeMap<String, crate::games::table::Table>,
+    /// The network as last calculated, each probability worked out
+    worked_network: Option<crate::bayesian::BayesianConfig>,
 }
 
 /// What a calculation of every cell left: the failures, each starting with
@@ -105,6 +109,7 @@ impl ArrayCalculator {
             step: None,
             game_reports: std::collections::BTreeMap::new(),
             game_tables: std::collections::BTreeMap::new(),
+            worked_network: None,
         }
     }
 
@@ -157,6 +162,7 @@ impl ArrayCalculator {
             .ok_or_else(|| {
                 ForgeError::Validation(
                     self.missing_game_result(name)
+                        .or_else(|| self.missing_network_result(name))
                         .unwrap_or_else(|| format!("Output variable '{name}' not found in model")),
                 )
             })?
@@ -211,6 +217,7 @@ impl ArrayCalculator {
     /// or a cycle.
     fn calculate_cells(&mut self) -> ForgeResult<Outcome> {
         self.clear_game_results();
+        self.clear_network_results();
         self.fingerprint = plan::fingerprint(&self.model);
         (self.included, self.included_tables) = self.included_values()?;
 
@@ -257,6 +264,7 @@ impl ArrayCalculator {
                 Cell::Scalar(name) => self.calculate_scalar_cell(name),
                 Cell::Columns { table, columns } => self.calculate_columns(table, columns),
                 Cell::Game(name) => self.calculate_game(name),
+                Cell::Network => self.calculate_network_cell(),
             };
             if let Err(e) = result {
                 outcome.failures.push(failure_text(e));
@@ -270,6 +278,7 @@ impl ArrayCalculator {
     fn calculate_column(&mut self, table_name: &str, col_name: &str) -> ForgeResult<()> {
         let formula = self.model.tables[table_name].row_formulas[col_name].clone();
         self.check_game_results(&formula)
+            .and_then(|()| self.check_network_results(&formula))
             .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
         let result = self
             .evaluate_rowwise_formula_ast(table_name, &formula)
@@ -293,6 +302,7 @@ impl ArrayCalculator {
             .clone()
             .unwrap_or_default();
         self.check_game_results(&formula)
+            .and_then(|()| self.check_network_results(&formula))
             .map_err(|e| locate_error(e, scalar_name, &formula))?;
         let (value, is_date) = self
             .evaluate_scalar_formula_ast(scalar_name, &formula)

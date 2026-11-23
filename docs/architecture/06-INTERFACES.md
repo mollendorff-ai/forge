@@ -96,7 +96,7 @@ sequenceDiagram
 ```
 
 - **One function.** `call(tool, request)` takes the tool's name (the MCP tool's without `forge_`) and JSON text, and returns JSON text. `TOOLS` in `forge-wasm/src/lib.rs` lists them; `STUDIO_TOOLS` adds `model`, the parsed structure Studio draws its cards from.
-- **Files in memory, not on disk.** The request's `files` map (the main model and every file it includes, by the path written in `_includes`) is held in a thread-local for the length of the call (`src/parser/memory.rs`). `parse_model` and `read_model_text` read from it, so every core runs unchanged. Nothing is written back: Studio edits the YAML text itself (`studio/text.js`) and calls `calculate` again.
+- **Files in memory, not on disk.** The request's `files` map (the main model and every file it includes, by the path written in `_includes`) is held in a thread-local for the length of the call (`src/parser/memory.rs`). `parse_model` and `read_model_text` read from it, so every core runs unchanged. Nothing is written back: Studio changes the YAML text itself (`studio/text.js`, or forge-wasm's `edit` to make an input uncertain or certain) and calls `calculate` again.
 - **A worker.** A long simulation runs off the page's thread; `forge.js` matches answers to requests by `id`.
 - **The same answers.** CI's `forge-wasm` job runs every case of `forge-wasm/tests/cases.json` through the WebAssembly module in Node and natively, and fails on any difference; Studio's screen tests compare what the page shows with `forge calculate` run natively ([07](07-TESTING-ARCHITECTURE.md#webassembly-and-studio)).
 - **A budget.** The gzipped module must stay under the ceiling of ADR-070; the CI summary prints its size.
@@ -110,7 +110,6 @@ A change to a command touches each door that exposes it. The table says what eac
 | Concern | Command line | MCP | REST | forge-wasm | Studio |
 | --- | --- | --- | --- | --- | --- |
 | Arguments | `src/cli/args.rs` | `src/mcp/types.rs` | `src/api/handlers.rs` | `run_on_files` in `forge-wasm/src/lib.rs` | `studio/tools.js` (Tools view) |
-| Calls | the printing function (see [01](01-COMPONENT-ARCHITECTURE.md#the-layers)) | the core | the core | the core | `call()` |
 | Model from text | no | `content`, `includes` | `content`, `includes` | `files` | the open set |
 | Writes the file | yes, unless `--dry-run` | yes, unless `dry_run` | yes, unless `dry_run` | never | never (edits text) |
 | Listed in | `forge --help` | the tool count test, [MCP.md](../MCP.md) | [08](08-API-SERVER-ARCHITECTURE.md) | `TOOLS` | [studio/README.md](../../studio/README.md) |

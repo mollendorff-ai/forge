@@ -42,11 +42,13 @@
 pub mod config;
 pub mod engine;
 pub mod inference;
+pub mod written;
 
 // Re-exports
-pub use config::{BayesianConfig, BayesianNode, NodeType as BayesianNodeType};
-pub use engine::{BayesianEngine, BayesianResult, VariableResult};
+pub use config::{BayesianConfig, BayesianNode, NodeType as BayesianNodeType, Query};
+pub use engine::{BayesianEngine, BayesianResult, NodeOutline, VariableResult};
 pub use inference::BeliefPropagation;
+pub use written::{Probability, WrittenNetwork};
 
 #[cfg(test)]
 mod tests {
@@ -466,18 +468,18 @@ mod tests {
 
             let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/bayesian.yaml");
 
-            let prior = bayesian_core(&file, Some("default_probability"), &[]).unwrap();
+            let prior = bayesian_core(&file, Some("default_probability"), &[], None).unwrap();
             let p = &prior.queries["default_probability"];
             assert!((p.get_probability("low").unwrap() - 0.4825).abs() < 1e-9);
             assert!((p.get_probability("high").unwrap() - 0.2205).abs() < 1e-9);
 
             let evidence = vec!["economic_conditions=bad".to_string()];
-            let bad = bayesian_core(&file, Some("default_probability"), &evidence).unwrap();
+            let bad = bayesian_core(&file, Some("default_probability"), &evidence, None).unwrap();
             let b = &bad.queries["default_probability"];
             assert!((b.get_probability("high").unwrap() - 0.408).abs() < 1e-9);
 
             let evidence = vec!["default_probability=high".to_string()];
-            let back = bayesian_core(&file, Some("economic_conditions"), &evidence).unwrap();
+            let back = bayesian_core(&file, Some("economic_conditions"), &evidence, None).unwrap();
             let e = &back.queries["economic_conditions"];
             assert!((e.get_probability("bad").unwrap() - 0.3701).abs() < 1e-3);
         }

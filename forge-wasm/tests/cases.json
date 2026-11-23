@@ -18,6 +18,7 @@
   {"name": "real options wait", "tool": "real_options", "dir": "bagel", "files": ["wait_option.yaml"], "main": "wait_option.yaml"},
   {"name": "bootstrap first month", "tool": "bootstrap", "dir": "bagel", "files": ["first_month.yaml"], "main": "first_month.yaml"},
   {"name": "bayesian slow week", "tool": "bayesian", "dir": "bagel", "files": ["slow_week.yaml"], "main": "slow_week.yaml", "args": {"query": "roadwork", "evidence": ["sales=slow", "weather=rainy"]}},
+  {"name": "bayesian expected loss, recession", "tool": "bayesian", "dir": "", "files": ["expected_loss.yaml"], "main": "expected_loss.yaml", "args": {"query": "economy", "evidence": ["default=yes"], "scenario": "recession"}},
   {"name": "model bagel price war", "tool": "model", "dir": "bagel", "files": ["price_war.yaml", "bagel.yaml", "costs.yaml"], "main": "price_war.yaml"},
   {"name": "game bagel price war", "tool": "game", "dir": "bagel", "files": ["price_war.yaml", "bagel.yaml", "costs.yaml"], "main": "price_war.yaml"},
   {"name": "game acquisition sealed bids", "tool": "game", "dir": "acquisition", "files": ["deal_game.yaml", "deal.yaml", "buyer.yaml", "target.yaml"], "main": "deal_game.yaml"},

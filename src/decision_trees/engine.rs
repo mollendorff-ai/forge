@@ -31,6 +31,12 @@ pub struct NodeResult {
 pub struct TreeResult {
     /// Tree name
     pub name: String,
+    /// The root node's name
+    #[serde(default)]
+    pub root_name: String,
+    /// How many nodes the tree lists under `nodes:`, the root apart
+    #[serde(default)]
+    pub node_count: usize,
     /// Expected value at root
     pub root_expected_value: f64,
     /// Node results
@@ -145,6 +151,8 @@ impl DecisionTreeEngine {
 
         Ok(TreeResult {
             name: self.config.name.clone(),
+            root_name: root.name.clone(),
+            node_count: self.config.nodes.len(),
             root_expected_value: root_result.expected_value,
             node_results,
             optimal_path,

@@ -290,6 +290,42 @@ mod tests {
         assert_eq!(printed.err, "");
     }
 
+    /// `examples/expected_loss.yaml` (ADR-074, step 6): its 17 figures, the
+    /// network's posteriors and Bayes' rule by hand, hold in the file and both
+    /// scenarios, and a figure moved fails with its scenario named
+    #[test]
+    fn the_expected_loss_states_its_figures_and_validate_checks_them() {
+        let (result, printed) =
+            capture(|c| examples(c, Some("expected-loss".to_string()), true, false));
+        result.unwrap();
+        assert!(
+            printed
+                .out
+                .contains("✅ 17 expected results match (the file as written and 2 scenarios)"),
+            "{}",
+            printed.out
+        );
+        let file = std::path::Path::new("examples/expected_loss.yaml");
+        let found = crate::cli::commands::validate_core(file).unwrap();
+        assert!(found.expectations_met);
+        let dir = tempfile::tempdir().unwrap();
+        let broken = dir.path().join("m.yaml");
+        let text = std::fs::read_to_string(file)
+            .unwrap()
+            .replace("loss.expected: 45180", "loss.expected: 45000");
+        std::fs::write(&broken, text).unwrap();
+        let found = crate::cli::commands::validate_core(&broken).unwrap();
+        let wrong: Vec<_> = found
+            .expectation_differences
+            .iter()
+            .map(|d| {
+                let forge_gives = d.got.is_some_and(|got| (got - 45180.0).abs() < 1e-6);
+                (d.scenario.as_deref(), d.name.as_str(), forge_gives)
+            })
+            .collect();
+        assert_eq!(wrong, [(Some("boom"), "loss.expected", true)]);
+    }
+
     #[test]
     fn an_example_that_fails_says_so_with_its_exit_code() {
         let broken = catalog::Example {
@@ -310,7 +346,7 @@ mod tests {
 
     #[test]
     fn test_example_count() {
-        assert_eq!(EXAMPLES.len(), 20, "Should have exactly 20 examples");
+        assert_eq!(EXAMPLES.len(), 21, "Should have exactly 21 examples");
     }
 
     #[test]
@@ -565,7 +601,7 @@ mod tests {
             let file = Path::new("examples/bagel/slow_week.yaml");
             let p_yes = |evidence: &[&str]| {
                 let ev: Vec<String> = evidence.iter().map(ToString::to_string).collect();
-                let r = bayesian_core(file, Some("roadwork"), &ev).unwrap();
+                let r = bayesian_core(file, Some("roadwork"), &ev, None).unwrap();
                 let q = &r.queries["roadwork"];
                 q.probabilities[q.states.iter().position(|s| s == "yes").unwrap()]
             };

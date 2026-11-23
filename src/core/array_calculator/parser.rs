@@ -1169,7 +1169,7 @@ mod tests {
             let path = dir.path().join("m.yaml");
             std::fs::write(&path, yaml).unwrap();
             calculate_core(&path, true, None)
-                .map(|r| r.scalars)
+                .map(|r| r.scalars.into_iter().collect())
                 .map_err(|e| e.to_string())
         }
 

@@ -1,4 +1,5 @@
 # Claude Max Quota Forecast
+# Run in the examples folder: forge calculate quota_forecast.yaml
 # Test case: Nested scalar references with calculations
 # This file tests: scalar groups, nested references, formula evaluation
 

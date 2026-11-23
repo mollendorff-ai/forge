@@ -10,7 +10,7 @@ JSON Schemas for the Forge model formats. The version is the model format (`_for
 | `forge-v5.4.0.schema.json` | 5.4.0 (ADR-060, ADR-061): 5.3.0 plus a date as a scalar (`last_actual: 2026-10-31`) and `format:` beside `unit:` (`{value: 16, format: "$#,##0.00"}`). Needed only by a file that has one. |
 | `forge-v5.3.0.schema.json` | 5.3.0 (ADR-059): 5.2.0 plus the empty cell, `null` in a column of numbers (`actual: [985, 1032, null]`). Needed only by a file that has one. |
 | `forge-v5.2.0.schema.json` | 5.2.0 (ADR-053): 5.1.0 plus the period column, a table column written as `{start: 2026-12, count: 300, unit: month}`. Needed only by a file that has one. |
-| `forge-v5.1.0.schema.json` | 5.1.0 (ADR-051): 5.0.0 plus plain-number inputs (`rate: 0.05`) and formula scalars written as `{formula: "=..."}` without `value: null`. `examples/` use it. |
+| `forge-v5.1.0.schema.json` | 5.1.0 (ADR-051): 5.0.0 plus plain-number inputs (`rate: 0.05`) and formula scalars written as `{formula: "=..."}` without `value: null`. Most of `examples/` uses it; a file that needs a later format names it. |
 | `forge-v5.0.0.schema.json` | 5.0.0: tables, row formulas, includes and the analysis sections (`monte_carlo`, `scenarios`, `decision_tree`, `tornado` and the others). `test-data/` uses it. |
 | `forge-v1.0.0.schema.json` | 1.0.0: scalars only. |
 
@@ -66,6 +66,6 @@ In CI, `editors/vscode/test/schema.js` validates every example with yaml-languag
 A change here changes what `forge validate` accepts. After one:
 
 ```bash
-cargo test                                                    # every example still passes (src/cli/commands/examples.rs (its demo_examples tests))
-cp schema/forge.schema.json schema/forge-v5.[1-5].0.schema.json editors/vscode/schemas/    # the extension's copies; its test checks they match
+cargo test                                                    # every example still passes (src/cli/commands/examples/mod.rs (its demo_examples tests))
+cp schema/forge.schema.json schema/forge-v5.[1-6].0.schema.json editors/vscode/schemas/    # the extension's copies; its test checks they match
 ```

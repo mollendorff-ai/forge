@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-rc.33"
+version = "10.0.0-rc.34"
 edition = "2021"
 # The oldest Rust that builds Forge; CI builds on it (the MSRV job) and
 # clippy.toml has the same version. Raise both together, on purpose.
@@ -211,10 +211,6 @@ proptest = { version = "1", default-features = false, features = ["std"] }
 petgraph = "0.8"
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
-
-# Allow coverage cfg for conditional compilation (ADR-006)
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 # Pedantic linting - code is for humans to read (ADR-004)
 [lints.clippy]

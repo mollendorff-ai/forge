@@ -244,14 +244,19 @@ Table columns are never written back: a row formula's results are recalculated e
 
 ## Changing the model's text
 
-Results are one kind of write; a change to the model itself (a new input value, a new formula, an added or deleted input, formula or column) is another. `src/edit/` makes those (ADR-075), for `forge edit`, the MCP tool `forge_edit` and forge-wasm's `edit`:
+Results are one kind of write; a change to the model itself (a new input value, a new formula, an added or deleted input, formula or column, a name renamed, an input made uncertain or certain again) is another. `src/edit/` makes those (ADR-075), for `forge edit`, the MCP tool `forge_edit` and forge-wasm's `edit`:
 
 ```mermaid
 flowchart LR
-    req["changes, each named and typed:<br/>set_value, set_formula, add, delete<br/>(in the model, or @alias.name in an include)"] --> text["edit/text.rs<br/>find the place in yaml-edit's<br/>lossless tree, write in the file's style"]
+    req["changes, each named and typed:<br/>set_value, set_formula, add, delete,<br/>rename, make_uncertain, make_certain<br/>(in the model, or @alias.name in an include)"] --> text["edit/text.rs<br/>find the place in yaml-edit's<br/>lossless tree, write in the file's style"]
     text --> check["edit/check.rs<br/>read the model back: valid, with<br/>that change and nothing else?"]
     check -- yes --> out["the new text of each changed file<br/>(forge edit writes it, with a .bak)"]
     check -- no --> none["no file changes; the message says why"]
 ```
 
-Every byte outside a change stays as it was, comments included. `edit` never writes results; `forge calculate` does. Forge Studio still changes its YAML with `studio/text.js`; moving it onto `edit` is a later step of ADR-075.
+Every byte outside a change stays as it was, comments included. `edit` never writes results; `forge calculate` does.
+
+- **`rename`** (`edit/rename/`) renames a scalar, a group, a table or a column, a game, a player or a strategy (`rename/game.rs`), and every name that reads it, in every file of the model, a game's results included (`price_war.dominated.lune.hold`). What a name in a formula reads is found by the calculator's own reader, so a short name is written again short unless, renamed, it would read something else. Names outside formulas (a scenario's, an expectation's, a simulation's output, a tornado's input, a network's prior formula) are renamed too. The model read back must read the same things, renamed.
+- **`make_uncertain` and `make_certain`** (`edit/uncertain.rs`, ADR-076) turn an input into a distribution, its value kept as the plan, and back. A model with no `monte_carlo:` block gets one, with the model's results as its outputs.
+
+Forge Studio makes an input uncertain or certain through forge-wasm's `edit`; it still changes a value, a formula, an added or a deleted element with `studio/text.js`, and moving those onto `edit` is a later step of ADR-075.

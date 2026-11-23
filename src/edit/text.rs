@@ -5,6 +5,7 @@
 //! reads a model's meaning: the caller says what a name is (an input, a
 //! formula, a column) and reads the result back.
 
+use std::ops::Range;
 use yaml_edit::{Mapping, Scalar, YamlFile, YamlNode};
 
 /// What `add` writes: an input, a formula, or a table's column
@@ -25,7 +26,7 @@ pub enum New<'a> {
 }
 
 /// The file as a tree, or why it cannot be edited
-fn parse(text: &str) -> Result<YamlFile, String> {
+pub(super) fn parse(text: &str) -> Result<YamlFile, String> {
     let parsed = YamlFile::parse(text);
     if let Some(error) = parsed.positioned_errors().first() {
         return Err(format!("its YAML cannot be read ({error})"));
@@ -38,7 +39,10 @@ fn parse(text: &str) -> Result<YamlFile, String> {
 }
 
 /// The mapping holding the last of `names`, and that last name
-fn place<'n>(file: &YamlFile, names: &'n [&'n str]) -> Result<(Mapping, &'n str), String> {
+pub(super) fn place<'n>(
+    file: &YamlFile,
+    names: &'n [&'n str],
+) -> Result<(Mapping, &'n str), String> {
     let (name, groups) = names.split_last().ok_or("no name was given")?;
     let mut mapping = file
         .document()
@@ -98,8 +102,7 @@ pub fn set_formula(text: &str, names: &[&str], formula: &str) -> Result<String, 
     let file = parse(text)?;
     let (mapping, name) = place(&file, names)?;
     let (scalar, flow) = scalar_of(&mapping, name, "formula")?;
-    let raw = scalar.value();
-    let style = match raw.chars().next() {
+    let style = match scalar.value().chars().next() {
         Some('"') => Style::Double,
         Some('\'') => Style::Single,
         _ => Style::Plain,
@@ -212,9 +215,128 @@ pub fn delete(text: &str, names: &[&str]) -> Result<String, String> {
     Ok(file.to_string())
 }
 
+/// A scalar of a file, a key or a value, and where it is written
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Site {
+    /// The keys from the top down to it, an item of a sequence as `#`; a
+    /// key's ends with the key itself
+    pub path: Vec<String>,
+    /// Whether it is a key
+    pub key: bool,
+    /// Its bytes in the file
+    pub range: Range<usize>,
+    /// What it says, unquoted
+    pub text: String,
+    /// Whether it is in a flow mapping or sequence (`{...}`, `[...]`)
+    pub flow: bool,
+}
+
+/// Every key and every scalar value of the file, in the file's order
+///
+/// # Errors
+///
+/// Returns why, when the file cannot be read as YAML or is not a mapping.
+pub fn sites(text: &str) -> Result<Vec<Site>, String> {
+    let file = parse(text)?;
+    let top = file
+        .document()
+        .and_then(|d| d.as_mapping())
+        .ok_or("it is not a mapping of names")?;
+    let mut sites = Vec::new();
+    walk(&YamlNode::Mapping(top), &mut Vec::new(), &mut sites);
+    Ok(sites)
+}
+
+fn site(scalar: &Scalar, path: &[String], key: bool, flow: bool) -> Site {
+    let range = scalar.byte_range();
+    Site {
+        path: path.to_vec(),
+        key,
+        range: range.start as usize..range.end as usize,
+        text: scalar.as_string(),
+        flow,
+    }
+}
+
+fn walk(node: &YamlNode, path: &mut Vec<String>, sites: &mut Vec<Site>) {
+    match node {
+        YamlNode::Mapping(mapping) => {
+            let flow = mapping.is_flow_style();
+            for entry in mapping.entries() {
+                let Some(YamlNode::Scalar(key)) = entry.key_node() else {
+                    continue;
+                };
+                path.push(key.as_string());
+                sites.push(site(&key, path, true, flow));
+                if let Some(value) = entry.value_node() {
+                    if let YamlNode::Scalar(scalar) = &value {
+                        sites.push(site(scalar, path, false, flow));
+                    } else {
+                        walk(&value, path, sites);
+                    }
+                }
+                path.pop();
+            }
+        },
+        YamlNode::Sequence(sequence) => {
+            let flow = sequence.is_flow_style();
+            path.push("#".to_string());
+            for value in sequence.values() {
+                if let YamlNode::Scalar(scalar) = &value {
+                    sites.push(site(scalar, path, false, flow));
+                } else {
+                    walk(&value, path, sites);
+                }
+            }
+            path.pop();
+        },
+        _ => {},
+    }
+}
+
+/// `text` with each range replaced by its text; the ranges do not overlap
+#[must_use]
+pub fn splice(text: &str, mut edits: Vec<(Range<usize>, String)>) -> String {
+    edits.sort_by_key(|(range, _)| range.start);
+    let mut out = String::with_capacity(text.len());
+    let mut at = 0;
+    for (range, new) in edits {
+        out.push_str(&text[at..range.start]);
+        out.push_str(&new);
+        at = range.end;
+    }
+    out.push_str(&text[at..]);
+    out
+}
+
+/// A name written in the quotes `raw` is written in (a name needs none)
+#[must_use]
+pub fn name_text(raw: &str, name: &str) -> String {
+    match raw.chars().next() {
+        Some(q @ ('"' | '\'')) => format!("{q}{name}{q}"),
+        _ => name.to_string(),
+    }
+}
+
+/// A formula's text, `text`, with some of its names changed to give `new`,
+/// written as `raw` writes it.
+///
+/// In its quotes, and byte for byte the same outside the names. `None` when
+/// `raw` is folded over several lines, as a block scalar or a long plain one.
+#[must_use]
+pub fn renamed_formula(raw: &str, text: &str, new: &str) -> Option<String> {
+    match raw.chars().next() {
+        Some('"') => Some(encode_formula(new, Style::Double, false)),
+        Some('\'') => Some(encode_formula(new, Style::Single, false)),
+        // A name is letters, digits, `_` and `.`, which a plain scalar
+        // reads as written
+        _ => (raw == text).then(|| new.to_string()),
+    }
+}
+
 /// How the file writes a formula
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Style {
+pub(super) enum Style {
     Plain,
     Single,
     Double,
@@ -222,7 +344,7 @@ enum Style {
 
 /// A formula for YAML in the style the file uses for it: plain when that is
 /// safe, 'single quotes', or "double quotes" (`text.js`'s `encodeFormula`).
-fn encode_formula(formula: &str, style: Style, flow: bool) -> String {
+pub(super) fn encode_formula(formula: &str, style: Style, flow: bool) -> String {
     let chars: Vec<char> = formula.chars().collect();
     let comment = chars
         .windows(2)
@@ -738,6 +860,67 @@ four:
             ),
             Ok(format!("{text}  数量:\n    value: 7\n    unit: \"个\"\n"))
         );
+    }
+
+    #[test]
+    fn every_key_and_value_is_found_where_it_is_written() {
+        // A key that is not a scalar, and an alias, are not sites
+        let text = "a: 1   # one\ng:\n  'x': \"=a + 1\"\n  f: {formula: =a, unit: CAD}\nl:\n  - p: |\n      =a\n  - [q, 'r']\n? [k]\n: 2\nm: &n 3\no: *n\n";
+        let shown: Vec<String> = sites(text)
+            .unwrap()
+            .iter()
+            .map(|s| {
+                format!(
+                    "{}{} {:?} {}{}",
+                    if s.key { "key " } else { "" },
+                    s.path.join("/"),
+                    &text[s.range.clone()],
+                    s.text.trim_end(),
+                    if s.flow { " flow" } else { "" },
+                )
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                "key a \"a\" a",
+                "a \"1\" 1",
+                "key g \"g\" g",
+                "key g/x \"'x'\" x",
+                "g/x \"\\\"=a + 1\\\"\" =a + 1",
+                "key g/f \"f\" f",
+                "key g/f/formula \"formula\" formula flow",
+                "g/f/formula \"=a\" =a flow",
+                "key g/f/unit \"unit\" unit flow",
+                "g/f/unit \"CAD\" CAD flow",
+                "key l \"l\" l",
+                "key l/#/p \"p\" p",
+                "l/#/p \"|\\n      =a\\n\" =a",
+                "l/#/# \"q\" q flow",
+                "l/#/# \"'r'\" r flow",
+                "key m \"m\" m",
+                "m \"3\" 3",
+                "key o \"o\" o",
+            ]
+        );
+        assert_eq!(
+            splice("abcdef", vec![(4..5, "E".into()), (0..2, "AB!".into())]),
+            "AB!cdEf"
+        );
+        assert_eq!(
+            sites("- 1\n"),
+            Err("it is not a mapping of names".to_string())
+        );
+        assert_eq!(name_text("'a'", "b"), "'b'");
+        assert_eq!(name_text("\"a\"", "b"), "\"b\"");
+        assert_eq!(name_text("a", "b"), "b");
+        let renamed = |raw| renamed_formula(raw, "=a + 'x'", "=bb + 'x'");
+        assert_eq!(renamed("=a + 'x'").as_deref(), Some("=bb + 'x'"));
+        assert_eq!(renamed("'=a + ''x'''").as_deref(), Some("'=bb + ''x'''"));
+        assert_eq!(renamed("\"=a + 'x'\"").as_deref(), Some("\"=bb + 'x'\""));
+        // Folded over several lines
+        assert_eq!(renamed("=a +\n  'x'"), None);
+        assert_eq!(renamed("|\n  =a + 'x'\n"), None);
     }
 
     #[test]

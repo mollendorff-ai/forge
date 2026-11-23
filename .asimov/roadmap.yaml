@@ -20,7 +20,17 @@
 
 state:
   version: >-
-    10.0.0-rc.33, released 2026-11-22: games of many players (a symmetric
+    10.0.0-rc.34, released 2026-11-22: a model states what it and each
+    scenario should give (expect:, model format 5.6.0), checked by forge
+    validate, the MCP server, the REST API and Forge Studio (ADR-074); a
+    Bayesian network that reads the model (formulas in its priors and
+    tables, --scenario, named queries whose posteriors are scalars) and a
+    worked example, examples/expected_loss.yaml; forge edit (ADR-075); an
+    uncertain model on Studio's cards (ADR-076). Wrong answer fixed:
+    forge calculate --scenario wrote the scenario's results into the file's
+    own stored values. The two weeks in docs/STABILITY.md start again from
+    rc.34: no earlier than 2026-12-06.
+    rc.33 (2026-11-22): games of many players (a symmetric
     game written as one payoff for each strategy over how many of the
     others play each), the mixed equilibria in which every player plays
     alike with their stability, strategies that spread (dynamics:), Forge
@@ -29,8 +39,7 @@ state:
     export of a range a:b, Black-Scholes prices of forge real-options, the
     normal distribution's last digits in correlated draws and BCa
     intervals, the optimal path of a decision tree with a chance node at
-    its root). Wrong answers fixed, so the two weeks in docs/STABILITY.md
-    start again from rc.33: no earlier than 2026-12-06.
+    its root).
     rc.32 (2026-11-21): wrong answers fixed (forge import read
     a range over part of a table's column as the whole column, SWITCH with
     two arguments, NaN and infinity in a model), a YAML merge key refused
@@ -544,26 +553,45 @@ tier1:
   # their links, anchors, paths, ADR index and module map current. What the
   # rewrite found in the code is below.
 
-  - id: T1-CLI-FROM-CORES
-    title: "Every command line command prints from its core's result"
-    run_with: "Opus 5.5, high effort: about a dozen commands whose output must stay byte for byte the same, under the 100% coverage gate"
-    why: "Found 2026-11-22 (docs/architecture/01-COMPONENT-ARCHITECTURE.md, The layers). MCP, REST and forge-wasm call each command's *_core function, so they agree. On the command line only audit, simulate, game and compare print from their core's result; calculate, validate, goal-seek, break-even, sensitivity, tornado, scenarios, variance, bootstrap, bayesian, real-options, decision-tree, export and import repeat the core's steps and print as they go. A fix made in a core does not reach the command line unless it is made twice, so the command line and the other three doors can drift apart without a test noticing"
-    how: "One command at a time: the printing function calls the core and formats its result on the Console; whatever it prints that the result lacks is added to the result (MCP, REST and forge-wasm then get it too). The command's existing output tests are the check: the output does not change. Start with the commands whose core and printer differ most (calculate, validate). 10-EXTENDING-FORGE.md already asks new commands to do this"
-    acceptance: "Each command's printing function calls its *_core and prints nothing it does not take from the result; every command's output tests pass unchanged; the paragraph in 01-COMPONENT-ARCHITECTURE.md that lists the exceptions is removed"
+  # T1-CLI-FROM-CORES is done (2026-11-22): every command line command
+  # prints from its core's result. calculate calls calculate_core (or
+  # calculate_plan_core); validate calls its core's steps (ModelToValidate:
+  # read, check_lengths, check), so a failing step still prints what was
+  # found before it; the others call their *_core once. What a printer showed
+  # that the result lacked was added to the result and serialized (the
+  # maintainer's choice), so MCP, REST, Studio and --output files have it:
+  # calculate's values_updated and the model's order (JSON keeps name order),
+  # bootstrap's statistic, sample_size, confidence_levels and seed, a network's
+  # nodes, real options' method and option_order, a tree's root_name and
+  # node_count, tornado's section as written, scenarios' formats, export's
+  # not_checked, import's tables, formulas_kept and files_written. Checked
+  # against the binary before the change on every example (about 1,500 runs
+  # with their flags and -o files): the console prints the same bytes on
+  # every run that succeeds. A run that fails no longer prints what the old
+  # printer printed before calculating (the maintainer's choice: one core
+  # call, nothing to drift). The --verbose scenario list of calculate was in
+  # HashMap order, random from run to run, before and after; it is sorted
+  # since 2026-11-22 (ParsedModel::scenario_names). REST's export and
+  # import called the printing functions; they call the cores since
+  # 2026-11-22 (T3-API's note).
 
-  - id: T1-LEFTOVERS-2026-11-22
-    title: "Remove the cfg(coverage) check-cfg and fix VALIDATION.md's missing section 5"
-    run_with: "Sonnet 5.5, low effort: mechanical, then clippy on both crates"
-    why: "Found 2026-11-22. No code uses cfg(coverage) any more (no_skipping.rs's budget for it is 0, ADR-006 retired), but Cargo.toml and forge-wasm/Cargo.toml still declare it in [lints.rust] check-cfg, under a comment citing ADR-006. VALIDATION.md jumps from section 4 to section 6 and refers to a section 5 (the Excel cases checked by hand) that is not there"
-    how: "Delete the check-cfg line and its comment in both Cargo.toml files; run cargo clippy --all-targets -D warnings and the MSRV job's clippy. Find what section 5 of VALIDATION.md held in git history (git log -p -- VALIDATION.md) and restore it, or renumber and fix the references"
-    acceptance: "Neither Cargo.toml mentions coverage; clippy passes on stable and on the oldest supported Rust; VALIDATION.md's sections run 1 to N and every 'section N' it names exists. Then update ADR-006's 2026-11-22 note, which names the leftover"
+  # T1-LEFTOVERS-2026-11-22 is done (2026-11-22): neither Cargo.toml declares
+  # cfg(coverage) any more, and clippy passes on 1.97 (stable here and the
+  # oldest supported). VALIDATION.md's section 5 (Real Excel, by hand) and its
+  # Known limits had been cut by the dynamics commit of 2026-11-21 (71970b99);
+  # both are back, sections run 1 to 6, and the summary, STABILITY.md and the
+  # section count six rounds of Excel. ADR-006's note says so.
 
-  - id: T1-MERMAID-CHECK
-    title: "CI renders every Mermaid diagram in the docs"
-    run_with: "Sonnet 5.5, medium effort: a Node script and a CI step, like Studio's tests"
-    why: "Found 2026-11-22 writing docs/architecture: GitHub shows a diagram that does not parse as an error box, silently, and two of the new diagrams did not parse at first ('graph' is a reserved word as a node id; a ';' ends a sequence diagram's message). The architecture pages have 40 diagrams, and README.md and docs/WORKFLOWS.md have more; nothing checks them"
-    how: "A script that renders each mermaid block of every Markdown file with mermaid (an exact version, as GitHub's renderer is close to the latest) in the Chromium the CI image has, failing on a parse error and naming the file and the block; a step in ci.yml's repo-checks or forge-wasm job. The script used for the rewrite rendered all 40 blocks and saved a PNG of each, which reviewers can be given as an artifact"
-    acceptance: "A pull request with a diagram that does not parse fails CI with the file and the block named; every diagram on main renders"
+  # T1-MERMAID-CHECK is done (2026-11-23): validation/mermaid/check.mjs
+  # renders every ```mermaid block of every Markdown file git tracks in
+  # Chromium, with mermaid 12.3.0 (exact, package.json), and fails naming
+  # the file, the line and the block; --out saves a PNG of each. It runs in
+  # a workflow of its own (.github/workflows/diagrams.yml), not in ci.yml,
+  # since ci.yml runs only when code changes and a docs-only pull request
+  # must be checked too; the workflow first checks that a diagram that does
+  # not parse fails, and uploads the PNGs as the run's artifact. All 47
+  # diagrams of 14 files on main render; both mistakes of the rewrite
+  # ('graph' as a node id, ';' in a sequence message) fail.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
@@ -573,15 +601,16 @@ tier2:
   - id: T2-SCENARIO-CHECKS
     title: "A model states what each scenario should give, and forge validate checks it"
     why: "Found 2026-11-22 trying to remove the last Python from kinship-protocol (github.com/mollendorff-ai/kinship-protocol), whose CI runs scripts/check_models.py (647 lines) to pin the figures its docs quote. forge validate checks the value: stored next to each formula, but only for the base case: it takes no --scenario, and most of kinship's figures are results of scenarios (a cost of conflict, a noise level, a horizon, a number of generations). So the expected figures live in a script, and nothing in the model says what a scenario should give. forge compare shows scenarios side by side and checks nothing. The maintainer chose this route (2026-11-22) over committed output files that CI diffs, which are regenerated, not stated"
-    how: "ADR-074 (accepted 2026-11-22). Built 2026-11-22: steps 1 to 4, expect: (format 5.6.0), forge validate, calculate --scenario writing nothing, MCP, REST and Studio; examples/games/stag-hunt.yaml states its figures. The Bayesian steps (5, 6) are next. The ADR: an expect: in each scenario and at the top of the file (format 5.6.0), checked by forge validate within 1e-6, calculate --scenario writing nothing, and for T2-BAYESIAN-LINK a network that reads scalars, --scenario and named queries, built together; =BAYES() left out. An ADR first (ADR-074): where a scenario's expected results are written (a value: on the formula for each scenario, or an expect: beside the scenario's scalars), what forge validate says when one differs (the scenario, the name, both numbers, as it does for the base case), the tolerance, and whether forge calculate --scenario writes them as it writes the base case's. The MCP validate and Studio say the same as the command. Decide it with kinship-protocol's models in front of it: every figure its script pins is the first real use. Then T2-BAYESIAN-LINK's first step, so that its Bayesian check can move too"
+    how: "ADR-074 (accepted 2026-11-22). Built 2026-11-22: steps 1 to 4, expect: (format 5.6.0), forge validate, calculate --scenario writing nothing, MCP, REST and Studio; examples/games/stag-hunt.yaml states its figures. Steps 5 and 6 built 2026-11-22 (see T2-BAYESIAN-LINK); kinship-protocol's v0.8.0 moves its figures in once they are released. The ADR: an expect: in each scenario and at the top of the file (format 5.6.0), checked by forge validate within 1e-6, calculate --scenario writing nothing, and for T2-BAYESIAN-LINK a network that reads scalars, --scenario and named queries, built together; =BAYES() left out. An ADR first (ADR-074): where a scenario's expected results are written (a value: on the formula for each scenario, or an expect: beside the scenario's scalars), what forge validate says when one differs (the scenario, the name, both numbers, as it does for the base case), the tolerance, and whether forge calculate --scenario writes them as it writes the base case's. The MCP validate and Studio say the same as the command. Decide it with kinship-protocol's models in front of it: every figure its script pins is the first real use. Then T2-BAYESIAN-LINK's first step, so that its Bayesian check can move too"
     acceptance: "kinship-protocol's expected figures live in its models and forge validate checks every one, scenario by scenario, so its scripts/check_models.py can be deleted; breaking a value in a scenario makes validate fail with the scenario named; the ADR says what was left out"
 
   - id: T2-BAYESIAN-LINK
     title: "Let a Bayesian network's results drive the model"
     why: "Asked 2026-11-15 whether Forge's Bayesian networks are 'too basic' (a Grok review). Read from the code: exact inference on discrete nodes by variable elimination with hard evidence, checked against R's bnlearn on ten networks; no learning from data, no continuous nodes (now refused with a reason; before, 'No factors remaining'), no soft evidence, no joint most-probable explanation. Competing with pgmpy or bnlearn on inference features would be scope creep. What is missing for an FP&A user is that the network sits beside the model: its probabilities cannot come from formulas, and its results cannot feed formulas, scenarios or a simulation, as the other engines' do (the probability of default given the economy feeding expected loss is the use no spreadsheet does)"
-    how: "ADR-074 (accepted 2026-11-22, not built yet) decides it: a prior or table entry may be a formula over scalars, forge bayesian takes --scenario, and named queries in the network give each posterior as a scalar of the model (bayesian_network.<query>.<state>), which formulas, expect:, simulate and tornado read; =BAYES() is left out, since a query is easier for an agent to write and check. An ADR first: a node's prior or table entries written as formulas, and a query result readable from a formula (such as =BAYES(network, node, state, evidence)), without a second model format. Decide it with a real use in front of it (T2-FIRST-USER), not before. A real use has come (2026-11-22): kinship-protocol's mistake_or_defection.yaml is checked at nine settings of the prior and the noise by a script that rewrites the network's numbers, because forge bayesian refuses a formula in a prior or a table ('invalid type: string, expected f64') and takes no --scenario. A first step smaller than =BAYES(): a node's prior and table entries may be formulas over scalars, and forge bayesian takes --scenario, so the nine settings are scenarios of one file; decide it in the same ADR as T2-SCENARIO-CHECKS or beside it"
+    how: "ADR-074 (accepted 2026-11-22, built: see below) decides it: a prior or table entry may be a formula over scalars, forge bayesian takes --scenario, and named queries in the network give each posterior as a scalar of the model (bayesian_network.<query>.<state>), which formulas, expect:, simulate and tornado read; =BAYES() is left out, since a query is easier for an agent to write and check. An ADR first: a node's prior or table entries written as formulas, and a query result readable from a formula (such as =BAYES(network, node, state, evidence)), without a second model format. Decide it with a real use in front of it (T2-FIRST-USER), not before. A real use has come (2026-11-22): kinship-protocol's mistake_or_defection.yaml is checked at nine settings of the prior and the noise by a script that rewrites the network's numbers, because forge bayesian refuses a formula in a prior or a table ('invalid type: string, expected f64') and takes no --scenario. A first step smaller than =BAYES(): a node's prior and table entries may be formulas over scalars, and forge bayesian takes --scenario, so the nine settings are scenarios of one file; decide it in the same ADR as T2-SCENARIO-CHECKS or beside it"
     acceptance: "A worked example in examples/ where a posterior feeds a result in the model, calculated and checked against a hand calculation, and the ADR says what was left out. For the first step: kinship-protocol's nine settings are scenarios of one file, and forge bayesian --scenario gives each of them, checked against Bayes' rule worked out by hand"
-    studio: "When forge_bayesian takes a scenario (ADR-074 step 7), Forge Studio's Bayesian card must pass the scenario chosen on the Model view (runAnalyses in studio/app.js), as the game card does; today it is drawn at the plan in every scenario"
+    built: "2026-11-22, ADR-074 steps 5 and 6. A prior or table entry is a number or a formula over the model's scalars (src/bayesian/written.rs), worked out after them and under the scenario applied, each row then checked to be probabilities, with the node named; forge bayesian --scenario, and scenario on forge_bayesian and forge-wasm's bayesian; named queries (bayesian_network.queries.<q>: {node, evidence}) checked when the file is read, whose posteriors are scalars bayesian_network.<q>.<state>, the network a cell of the calculation as a game is (src/core/array_calculator/network.rs), a cycle refused. examples/expected_loss.yaml: the probability of default given the economy feeding an expected loss, Bayes' rule by hand beside it, both pinned by expect: in the file and two scenarios. simulate moves a prior that reads an MC.* input, and tornado one that reads a scalar, each run checked by hand (src/cli/commands/simulate/mod.rs, src/tornado/engine.rs). What is left of the acceptance is kinship-protocol's: its nine settings as scenarios of one file, after a release"
+    studio: "forge_bayesian takes a scenario (2026-11-22), but Forge Studio's Bayesian card does not pass the scenario chosen on the Model view yet (runAnalyses in studio/app.js), as the game card does; it is drawn at the plan in every scenario. A test needs a network with scenarios in one of Studio's example sets (examples/expected_loss.yaml is in none)"
 
   - id: T2-GAME-THEORY
     title: "Games: a payoff table, and which strategies are an equilibrium"
@@ -690,16 +719,17 @@ studio:
     why: "bagel_simulate.yaml opens on a Problem pill and 'Not calculated' on every result"
     how: "calculate takes plan: true; simulate with the model's own settings after each change; Analyze's output list in the model's order"
     acceptance: "Every plan figure on screen equals simulate's at_plan, every band equals forge simulate natively (mean, P5, P95, thresholds), for every uncertain example; the distribution card's fields come from Forge's function list"
-    built: "2026-11-22: forge calculate --plan (CLI, forge_calculate, REST, forge-wasm; src/cli/commands/plan.rs), simulate's output_order, studio/uncertain.js (the plan, the bands, the distribution card), Analyze's order and scenarios reason; studio/tests/uncertain.mjs against forge-wasm's expected.json. Left for ADR-076 step 4: 'fixed' on the distribution card (make_certain), after S-EDIT"
+    built: "2026-11-22: forge calculate --plan (CLI, forge_calculate, REST, forge-wasm; src/cli/commands/plan.rs), simulate's output_order, studio/uncertain.js (the plan, the bands, the distribution card), Analyze's order and scenarios reason; studio/tests/uncertain.mjs against forge-wasm's expected.json. 2026-11-22, ADR-076 step 4: 'fixed' on the distribution card (make_certain) and 'Make uncertain' on a number input's card (make_uncertain), both through forge-wasm's edit; studio/tests/uncertain.mjs"
   - id: S-EDIT
     title: "forge edit: Forge writes a model's text, comments kept (ADR-075)"
     how: "The yaml-edit spike first, its findings in ADR-075; then set_value, set_formula, add, delete held to text.js's bytes; then rename, make_uncertain, the game changes, insert; the forge-wasm edit tool, forge_edit over MCP, forge edit on the command line"
     acceptance: "Each change is kept only when Forge reads back exactly it; every example goes through each change and back byte for byte outside the change; Studio's one-line changes moved to it"
     spike: "2026-11-22, in ADR-075: yaml-edit 0.3.6 (no default features) keeps all 174 YAML files byte for byte, changes 771 formulas and 1,326 numbers in place, matches text.mjs's 39 cases byte for byte, Unicode names; +155,687 bytes gzipped; brings hashbrown 0.14 beside 0.17, which waits on the maintainer"
-    built: "2026-11-22, steps 1 and 2 of ADR-075: src/edit/ (set_value, set_formula, add, delete), forge edit, forge_edit (22 MCP tools), forge-wasm's edit; hashbrown allowed by the maintainer. Left: rename, make_uncertain/make_certain, the game changes, insert, and Studio's cards moved to edit (ADR-075 steps 3 to 7)"
+    built: "2026-11-22, steps 1 and 2 of ADR-075: src/edit/ (set_value, set_formula, add, delete), forge edit, forge_edit (22 MCP tools), forge-wasm's edit; hashbrown allowed by the maintainer. Step 3, 2026-11-22: rename of a scalar, a group, a table and a column, with every name that reads it in every file (formulas by the calculator's reader, src/core/array_calculator/references.rs; scenarios, expect, monte_carlo, tornado), in forge edit --rename, forge_edit and forge-wasm's edit; every name of every example renamed and back byte for byte. Step 4, 2026-11-22: make_uncertain and make_certain (src/edit/uncertain.rs), in forge edit --uncertain/--certain, forge_edit and forge-wasm's edit; 479 inputs of the examples made uncertain and certain again byte for byte; 20 inputs two includes deep refused (the engine does not plan through nested includes). Left: Studio's 'fixed' button on the distribution card (ADR-076 step 4), the game changes with rename of a game, a player and a strategy, insert, and Studio's cards moved to edit (ADR-075 steps 5 to 7)"
   - id: S-GAMES-EDIT
     title: "A game edited on its card: cells, names, strategies, players, a tournament's habits, dynamics, and the inputs it reads (ADR-076, step 5)"
     acceptance: "Every change on a game card is written by edit and checked as S9's are; game answers each game's inputs; an included file's groups fold when it is not the open model"
+    built: "2026-11-23, the engine's part of the names: rename of a game, a player, a tournament's player and a strategy, with every result name that reads them (src/edit/rename/game.rs), in forge edit --rename, forge_edit and forge-wasm's edit; every game name of the examples renamed and back byte for byte, a roster two tournaments share refused. Left: adding and deleting a player or a strategy, and the game card in Studio"
   - id: S-TEMPLATES
     title: "Add from a template: uncertainty, a game of two, of many, a tournament, dynamics (ADR-076, step 6)"
     acceptance: "Forge serves the templates (a templates tool); each inserted into every example is valid; Studio's Add offers them"
@@ -718,7 +748,7 @@ tier3:
     title: "REST endpoints for the analytics tools (parity with the 20 MCP tools) + OpenAPI spec"
     why: "validate, calculate and audit already take inline content; the rest only exist over MCP"
     acceptance: "Each endpoint shares its core function with the MCP tool; an OpenAPI document is generated from the handlers, not written by hand"
-    note: "Found 2026-11-22 (docs/architecture/08-API-SERVER-ARCHITECTURE.md): of the five endpoints there are, export and import do not call a core yet; they run forge export's and forge import's printing functions on a Console and discard what they print. ApiResponse::err in src/api/handlers.rs is used only by its own tests, since a failed operation answers success: true with its flag false (T1-INTERFACE-PARITY). Both go with this item"
+    note: "Found 2026-11-22 (docs/architecture/08-API-SERVER-ARCHITECTURE.md): of the five endpoints there are, export and import did not call a core; they ran forge export's and forge import's printing functions on a Console and discarded what they printed. ApiResponse::err in src/api/handlers.rs was used only by its own tests, since a failed operation answers success: true with its flag false (T1-INTERFACE-PARITY). Both done 2026-11-22: export and import call export_core and import_core, their answers checked whole and unchanged (the same tests pass on the code before), and ApiResponse has only ok, its data no longer optional"
 
   - id: T3-TRANSPORT
     title: "MCP over HTTP/SSE via rmcp"

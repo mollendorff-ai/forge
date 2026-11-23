@@ -59,6 +59,18 @@ pub struct BootstrapResult {
     pub distribution: Vec<f64>,
     /// Number of bootstrap iterations
     pub iterations: usize,
+    /// The statistic resampled
+    #[serde(default)]
+    pub statistic: BootstrapStatistic,
+    /// How many data points were resampled
+    #[serde(default)]
+    pub sample_size: usize,
+    /// The confidence levels asked for, in the order given
+    #[serde(default)]
+    pub confidence_levels: Vec<f64>,
+    /// The seed of the resampling, when one was given
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seed: Option<u64>,
 }
 
 impl BootstrapResult {
@@ -199,6 +211,10 @@ impl BootstrapEngine {
             confidence_intervals,
             distribution,
             iterations: self.config.iterations,
+            statistic: self.config.statistic,
+            sample_size: n,
+            confidence_levels: self.config.confidence_levels.clone(),
+            seed: self.config.seed,
         })
     }
 

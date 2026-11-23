@@ -163,11 +163,10 @@ pg:
             let contributing = u32::try_from(plays.iter().filter(|&&c| c).count()).unwrap();
             for (player, &contributes) in plays.iter().enumerate() {
                 let k = contributing - u32::from(contributes);
+                let (got, expected) = (row[player], by_hand(r, contributes, k));
                 assert!(
-                    (row[player] - by_hand(r, contributes, k)).abs() < 1e-12,
-                    "cell {index}, player {player}: {} against {}",
-                    row[player],
-                    by_hand(r, contributes, k)
+                    (got - expected).abs() < 1e-12,
+                    "cell {index}, player {player}: {got} against {expected}"
                 );
             }
         }

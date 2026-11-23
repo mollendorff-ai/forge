@@ -56,35 +56,35 @@ pub fn real_options(
     outln!(c, "   File: {}", file.display());
     outln!(c);
 
-    let config = load(file)?;
+    let result = real_options_core(file)?;
 
     // Display config
-    outln!(c, "   {}", format!("Analysis: {}", config.name).bold());
+    outln!(c, "   {}", format!("Analysis: {}", result.name).bold());
     outln!(
         c,
         "      Method: {}",
-        format!("{:?}", config.method).bright_blue()
+        format!("{:?}", result.method).bright_blue()
     );
     outln!(
         c,
         "      Underlying value: {}",
-        money(config.underlying.current_value)
+        money(result.underlying.current_value)
     );
     outln!(
         c,
         "      Volatility: {:.1}%",
-        config.underlying.volatility * 100.0
+        result.underlying.volatility * 100.0
     );
     outln!(
         c,
         "      Risk-free rate: {:.1}%",
-        config.underlying.risk_free_rate * 100.0
+        result.underlying.risk_free_rate * 100.0
     );
     outln!(
         c,
         "      Time horizon: {} {}",
-        config.underlying.time_horizon,
-        if (config.underlying.time_horizon - 1.0).abs() < f64::EPSILON {
+        result.underlying.time_horizon,
+        if (result.underlying.time_horizon - 1.0).abs() < f64::EPSILON {
             "year"
         } else {
             "years"
@@ -92,14 +92,9 @@ pub fn real_options(
     );
     outln!(c);
 
-    // Create engine and value options
-    let engine = RealOptionsEngine::new(config).map_err(ForgeError::Validation)?;
-
     if verbose {
         outln!(c, "{}", "🔄 Valuing options...".cyan());
     }
-
-    let result = engine.analyze();
 
     // Filter if specific option requested
     if let Some(filter) = option_filter {
@@ -113,13 +108,7 @@ pub fn real_options(
     }
 
     // Display results, options in the order the file lists them
-    let order: Vec<String> = engine
-        .config()
-        .options
-        .iter()
-        .map(|o| o.name.clone())
-        .collect();
-    print_real_options_results(c, &result, &order, option_filter, compare_npv);
+    print_real_options_results(c, &result, option_filter, compare_npv);
 
     // Write output if specified
     if let Some(output_path) = output_file {
@@ -134,7 +123,6 @@ pub fn real_options(
 fn print_real_options_results(
     c: &mut Console<'_>,
     result: &crate::real_options::OptionsResult,
-    order: &[String],
     option_filter: Option<&str>,
     compare_npv: bool,
 ) {
@@ -158,7 +146,8 @@ fn print_real_options_results(
 
     outln!(c, "   {}", "Options (each valued on its own):".bold());
     // The options the file lists, each of which has a result
-    let shown = order
+    let shown = result
+        .option_order
         .iter()
         .filter(|name| option_filter.is_none_or(|filter| filter == name.as_str()))
         .filter_map(|name| result.options.get(name));
@@ -475,5 +464,27 @@ mod tests {
             );
             assert!(!text.contains("Results written"), "{text}");
         }
+    }
+
+    /// The method and the file's order of the options are in the result
+    /// (T1-CLI-FROM-CORES).
+    #[test]
+    fn the_result_has_the_method_and_the_order_of_the_file() {
+        let result =
+            super::real_options_core(std::path::Path::new("examples/real-options.yaml")).unwrap();
+        assert_eq!(
+            result.method,
+            crate::real_options::ValuationMethod::Binomial
+        );
+        assert_eq!(
+            result.option_order,
+            [
+                "Wait up to 2 years before building",
+                "Double capacity if demand high",
+                "Sell assets for salvage value"
+            ]
+        );
+        let json = serde_json::to_value(&result).unwrap();
+        assert_eq!(json["method"], "binomial");
     }
 }

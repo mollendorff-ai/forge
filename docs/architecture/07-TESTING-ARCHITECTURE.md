@@ -86,6 +86,7 @@ flowchart LR
 | `validation/sweep` | Generated arguments, drawn from a seed toward the edges | Gnumeric and LibreOffice | `validation.yml`: a few thousand cases per pull request, many more weekly (ADR-062) |
 | `validation/r` | Math, date and financial functions; the analytics (simulation, bootstrap, tornado, ...) | R | `validation.yml` |
 | `validation/games` | Equilibria, tournaments, dynamics, games of many players | Gambit, axelrod, egttools, R | `validation.yml` |
+| `validation/mermaid` | Every ` ```mermaid ` block of every Markdown file renders | mermaid 12.3.0 in Chromium, as GitHub draws it | `diagrams.yml`, on pull requests and pushes to main that change a Markdown file |
 
 An expected value is never changed silently: a pull request that changes or removes one must say so in its title and give each new value's source (`expected-values.yml`, ADR-057).
 
@@ -96,6 +97,7 @@ An expected value is never changed silently: a pull request that changes or remo
 | Module | Checks |
 | --- | --- |
 | `readme_commands.rs` | Every `$ forge ...` block in the README runs and prints what the README shows |
+| `help_examples.rs` | Every example in `forge <command> --help` uses a command and flags Forge has; the whole models the help shows (bayesian, bootstrap, decision-tree, real-options) run with their examples |
 | `doc_counts.rs` | Function counts, test counts and stale wording in the README and docs |
 | `doc_examples.rs` | Every model in `docs/EXAMPLES.md` runs and gives the numbers shown |
 | `posts.rs` | The numbers in `docs/posts/` are what Forge prints |

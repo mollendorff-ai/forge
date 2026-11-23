@@ -148,7 +148,7 @@ Calculate all formulas in a Forge YAML model and optionally update the file.
 
 #### `forge_edit`
 
-Change a model's text, comments and layout kept (ADR-075): set an input's value or a formula, add an input, a formula or a table's column, or delete one, in the model or in a file it includes. Every byte outside a change stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else; when one of the changes cannot be made, none is, and the message names it and says why. The answer is `files`, the new text of each file that changed by its path from the model's folder (`model.yaml`, `data/costs.yaml`), and `written`. With `file_path` the files are written, each kept as it was in a `.bak` next to it, unless `dry_run`; with `content` nothing is written (the main file is `model.yaml`). Results are not written: `forge_calculate` does that.
+Change a model's text, comments and layout kept (ADR-075): set an input's value or a formula, add an input, a formula or a table's column, delete one, rename a name and every name that reads it, or make an input uncertain and certain again, in the model or in a file it includes. Every byte outside a change stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else; when one of the changes cannot be made, none is, and the message names it and says why. The answer is `files`, the new text of each file that changed by its path from the model's folder (`model.yaml`, `data/costs.yaml`), and `written`. With `file_path` the files are written, each kept as it was in a `.bak` next to it, unless `dry_run`; with `content` nothing is written (the main file is `model.yaml`). Results are not written: `forge_calculate` does that.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -168,9 +168,12 @@ Each change has an `op` and a `path`, the name as formulas read it (`price`, `ye
 | `set_formula` | `formula` | A scalar's or a column's formula, one line starting with `=`, in the quotes the file already uses for it |
 | `add` | `value` or `formula`, and `unit`; `after` at the top level | An input or a formula at the end of its group, in the indentation of the keys there; a formula in a table is a column. At the top level it goes after the block of the name `after` |
 | `delete` | | An input, a formula or a column, with the lines under it and its comment on the line; a comment above it stays. The last name of a group is not deleted |
+| `rename` | `new_name` | A scalar, a group, a table, a column, a game, a player or a strategy called `new_name`, one word (`cost` for `year.price`), and every name that reads it, in every file of the model: formulas (a game's payoffs and a Bayesian network's priors and tables too), scenarios and their expectations, `expect:`, a simulation's outputs and correlated inputs, a tornado's output and inputs. What a name reads is found as the calculator reads it: a column's bare name reads its table first, a scalar's short name its group first. Each is written again as it was, full or short; a short name that would read something else once renamed is written in full. `@costs.rent` is renamed in the included file and where the model reads it. A game is `price_war`: its key, a tournament's `round:` and its results (`price_war.equilibrium_1.lune.payoff`). A player is `price_war.players.lune`, a tournament's `rivalry.players.steady`: its place in `players:` (and `strategies:`) and the results under it (`price_war.dominated.lune.hold`, `rivalry.score.steady`). A strategy is `price_war.strategies.hold`, every player's of that name, or `inspection.strategies.human.audit`, one player's in a game that is not symmetric: its lists, each level of `payoffs:` that is its player's, `dynamics.start`, and the results that end with it (`price_war.dynamics.share.hold`, `pg.others.contribute`). Forge then reads the model back: every name reads what it read, renamed, and nothing else changed. Players written once and read by two tournaments (`players: *roster`) are refused |
+| `make_uncertain` | `formula` | An input (a number, not a date) becomes a distribution with its value kept as the plan: `value:` and `formula:` under its name, in the style the file uses for it (`price: 16` becomes a block, a block gets a `formula:` line, a flow mapping gets `formula:` inside). `formula` is a distribution, `=MC.PERT(12, 16, 22)`; without it, a triangle from 80% to 120% of the value, the value its mode (a value of 0 needs `formula`). A model with no `monte_carlo:` gets one at the end of the main file (`iterations: 5000`, `seed: 7`, `sampling: latin_hypercube`, and the model's results, the formulas nothing else reads, as `outputs`). Forge reads the model back at plan. An input of a file that another included file includes too is refused: that file calculates it without a plan figure |
+| `make_certain` | `value` | A distribution becomes an input. Its `value:` is kept, or replaced by `value`; with none, the distribution's plan figure (its mode or mean, the midpoint of a uniform) takes the formula's place. A name left with `value:` alone is written short (`price: 16`), so `make_uncertain` and `make_certain` give back the file as it was. The `monte_carlo:` block stays |
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_edit","arguments":{"file_path":"/path/to/model.yaml","changes":[{"op":"set_value","path":"year.price","value":17},{"op":"add","path":"year.tax","value":0.15,"unit":"ratio"}]}}}
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_edit","arguments":{"file_path":"/path/to/model.yaml","changes":[{"op":"set_value","path":"year.price","value":17},{"op":"add","path":"year.tax","value":0.15,"unit":"ratio"},{"op":"rename","path":"year.price","new_name":"unit_price"}]}}}
 ```
 
 #### `forge_audit`
@@ -451,7 +454,7 @@ Non-parametric bootstrap resampling for confidence intervals. Returns original e
 
 #### `forge_bayesian`
 
-Bayesian network inference. Query posterior probabilities with optional evidence.
+Bayesian network inference. Query posterior probabilities with optional evidence, optionally under a scenario. A prior or table entry may be a formula over the model's scalars, worked out under the scenario. Named queries in the file (`bayesian_network.queries`) give their posteriors as scalars, `bayesian_network.<query>.<state>`, which `forge_calculate` and `forge_validate` report with the other results (ADR-074).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -460,6 +463,7 @@ Bayesian network inference. Query posterior probabilities with optional evidence
 | `includes` | object | no | Inline include content as namespace-to-YAML map |
 | `query_var` | string | no | Specific variable to query (omit for all nodes) |
 | `evidence` | array of strings | no | Evidence as `variable=state` pairs (e.g., `["economy=growth"]`) |
+| `scenario` | string | no | A scenario whose overrides apply before the network is worked out |
 
 *One of `file_path` or `content` is required.
 

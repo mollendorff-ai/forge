@@ -24,6 +24,9 @@ pub(super) enum Cell {
     /// A game: its payoffs worked out and its equilibria found, its results
     /// stored as scalars named under it (ADR-068)
     Game(String),
+    /// The Bayesian network: its probabilities worked out and its queries
+    /// answered, each posterior stored as a scalar named under it (ADR-074)
+    Network,
 }
 
 impl Cell {
@@ -33,6 +36,7 @@ impl Cell {
             Self::Scalar(name) => name.clone(),
             Self::Columns { table, columns } => format!("{table}.{}", columns.join(", ")),
             Self::Game(name) => format!("games.{name}"),
+            Self::Network => crate::bayesian::written::SECTION.to_string(),
         }
     }
 
@@ -141,8 +145,10 @@ impl ArrayCalculator {
                         });
                     } else if !word.contains('.') && own.columns.contains_key(&word) {
                         // An input column
-                    } else if let Some(game) = self.game_of(&word) {
-                        deps.push(game);
+                    } else if let Some(section) =
+                        self.game_of(&word).or_else(|| self.network_of(&word))
+                    {
+                        deps.push(section);
                     } else if let ScalarName::Found(full) = self.resolve_scalar_name(&word, None) {
                         deps.push(Cell::Scalar(full));
                     }
@@ -164,13 +170,17 @@ impl ArrayCalculator {
                     deps.push(Cell::Scalar(full));
                 }
                 for word in formula_words(formula) {
-                    if let Some(dep) = self.qualified_column(&word).or_else(|| self.game_of(&word))
+                    if let Some(dep) = self
+                        .qualified_column(&word)
+                        .or_else(|| self.game_of(&word))
+                        .or_else(|| self.network_of(&word))
                     {
                         deps.push(dep);
                     }
                 }
             },
             Cell::Game(name) => deps = self.game_dependencies(name),
+            Cell::Network => deps = self.network_dependencies(),
         }
         deps
     }

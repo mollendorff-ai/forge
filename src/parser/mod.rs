@@ -155,6 +155,53 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[test]
+    fn includes_of_a_model_on_disk_come_from_memory_inside_with_files_in_memory() {
+        let files = std::collections::HashMap::from([
+            (
+                "m.yaml".to_string(),
+                "_forge_version: \"5.0.0\"\n_includes:\n  - file: costs.yaml\n    as: costs\nt:\n  x: [1]\n"
+                    .to_string(),
+            ),
+            (
+                "costs.yaml".to_string(),
+                "_forge_version: \"5.0.0\"\nc:\n  y: [2]\n".to_string(),
+            ),
+        ]);
+        let model = with_files_in_memory(files, || parse_model(Path::new("m.yaml"))).unwrap();
+        assert_eq!(
+            model.resolved_includes.keys().collect::<Vec<_>>(),
+            ["costs"]
+        );
+        assert_eq!(
+            model.resolved_includes["costs"]
+                .model
+                .tables
+                .keys()
+                .collect::<Vec<_>>(),
+            ["c"]
+        );
+    }
+
+    #[test]
+    fn a_model_that_cannot_be_read_has_no_included_files_to_check() {
+        let calls = std::cell::Cell::new(0);
+        let check = |_: &Path| {
+            calls.set(calls.get() + 1);
+            Err("no file may be opened".to_string())
+        };
+        assert_eq!(
+            check(Path::new("a.yaml")),
+            Err("no file may be opened".to_string())
+        );
+        assert_eq!(
+            check_included_files(Path::new("/nonexistent/path/file.yaml"), &check),
+            Ok(())
+        );
+        // Only the call above: reading the model failed first
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
     fn test_parse_file_not_found() {
         let result = parse_model(Path::new("/nonexistent/path/file.yaml"));
         assert!(result.is_err());
@@ -394,8 +441,8 @@ data:
                 "_forge_version: \"5.1.0\"\nt:\n  y:\n    formula: \"=x * 2\"\n    unit: CAD\n  x: [1, 2]\n",
             )
             .unwrap();
-            assert!(m.tables.contains_key("t"), "{:?}", m.tables.keys());
-            assert!(m.scalars.is_empty(), "{:?}", m.scalars.keys());
+            assert_eq!(m.tables.keys().collect::<Vec<_>>(), ["t"]);
+            assert_eq!(m.scalars.keys().count(), 0);
         }
 
         #[test]

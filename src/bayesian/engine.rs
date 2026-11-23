@@ -42,6 +42,18 @@ pub struct BayesianResult {
     pub queries: BTreeMap<String, VariableResult>,
     /// Evidence used
     pub evidence: BTreeMap<String, String>,
+    /// Every node of the network, queried or not, by name
+    #[serde(default)]
+    pub nodes: BTreeMap<String, NodeOutline>,
+}
+
+/// A node of a network as its file states it
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeOutline {
+    /// Its states, in order
+    pub states: Vec<String>,
+    /// The nodes it depends on (none for a root)
+    pub parents: Vec<String>,
 }
 
 impl BayesianResult {
@@ -175,6 +187,7 @@ impl BayesianEngine {
             name: self.config.name.clone(),
             queries,
             evidence: BTreeMap::new(),
+            nodes: self.outline(),
         })
     }
 
@@ -209,7 +222,24 @@ impl BayesianEngine {
             name: self.config.name.clone(),
             queries,
             evidence: evidence_str,
+            nodes: self.outline(),
         })
+    }
+
+    /// Every node's states and parents, by name.
+    #[must_use]
+    pub fn outline(&self) -> BTreeMap<String, NodeOutline> {
+        self.config
+            .nodes
+            .iter()
+            .map(|(name, node)| {
+                let outline = NodeOutline {
+                    states: node.states.clone(),
+                    parents: node.parents.clone(),
+                };
+                (name.clone(), outline)
+            })
+            .collect()
     }
 
     /// Each variable's own most likely state, given no evidence. This is not the

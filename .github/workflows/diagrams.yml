@@ -1,0 +1,70 @@
+name: Diagrams
+
+# Every ```mermaid block of every Markdown file renders (roadmap
+# T1-MERMAID-CHECK). GitHub shows a diagram that does not parse as an error
+# box and says nothing else. A workflow of its own, because ci.yml runs only
+# when code changes, and a pull request that changes only the docs must be
+# checked too.
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.md'
+      - 'validation/mermaid/**'
+      - '.github/workflows/diagrams.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.md'
+      - 'validation/mermaid/**'
+      - '.github/workflows/diagrams.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  mermaid:
+    name: Every Mermaid diagram renders
+    timeout-minutes: 15
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: validation/mermaid
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # mermaid at the exact version of package.json, and the browser from
+      # Playwright's own server; its system packages from the runner's Ubuntu
+      # mirror, limited as in ci.yml (it did not answer on 2026-11-11)
+      - name: Install mermaid and Chromium
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install chromium
+          timeout 180 npx playwright install-deps chromium || echo "system packages not installed; continuing"
+
+      # The check itself is checked: a diagram that does not parse must fail
+      - name: A diagram that does not parse fails, with the file and the line named
+        run: |
+          printf '# Broken\n\n```mermaid\nflowchart LR\n    graph --> b\n```\n' > "$RUNNER_TEMP/broken.md"
+          if GITHUB_ACTIONS= node check.mjs "$RUNNER_TEMP/broken.md" > "$RUNNER_TEMP/broken.txt"; then
+            cat "$RUNNER_TEMP/broken.txt"
+            echo "::error::check.mjs passed a diagram that does not parse"
+            exit 1
+          fi
+          grep -F "broken.md:3 (block 1)" "$RUNNER_TEMP/broken.txt"
+
+      - name: Every diagram of every Markdown file renders
+        run: node check.mjs --out "$RUNNER_TEMP/diagrams"
+
+      - name: Upload the diagrams, for a reviewer to look at
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagrams
+          path: ${{ runner.temp }}/diagrams
+          if-no-files-found: ignore

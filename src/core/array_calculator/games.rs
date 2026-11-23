@@ -40,6 +40,7 @@ impl ArrayCalculator {
                 let dep = self
                     .qualified_column(&word)
                     .or_else(|| self.game_of(&word))
+                    .or_else(|| self.network_of(&word))
                     .or_else(|| match self.resolve_scalar_name(&word, None) {
                         ScalarName::Found(full) => Some(Cell::Scalar(full)),
                         _ => None,
@@ -98,7 +99,7 @@ impl ArrayCalculator {
     /// play the tournament), and store every result as a scalar.
     pub(super) fn calculate_game(&mut self, name: &str) -> ForgeResult<()> {
         let value = |calc: &mut Self, formula: &str, at: &str, others: &[(String, f64)]| {
-            calc.payoff_value(formula, others)
+            calc.formula_number(formula, others)
                 .map_err(|e| locate_error(e, &format!("game '{name}': {at}"), formula))
         };
         let report = match self.model.games[name].clone() {
@@ -133,10 +134,15 @@ impl ArrayCalculator {
         Ok(())
     }
 
-    /// The number a payoff formula gives, read as a top-level formula reads,
-    /// with `others` (the counts of the count form, ADR-073) readable by
-    /// name for this formula only.
-    fn payoff_value(&mut self, formula: &str, others: &[(String, f64)]) -> ForgeResult<f64> {
+    /// The number a formula of a section (a game's payoff, a network's
+    /// probability) gives, read as a top-level formula reads, with `others`
+    /// (the counts of the count form, ADR-073) readable by name for this
+    /// formula only.
+    pub(super) fn formula_number(
+        &mut self,
+        formula: &str,
+        others: &[(String, f64)],
+    ) -> ForgeResult<f64> {
         let ast = self.parsed_by_text(formula)?;
         let empty = Table::new("_scalar_context".to_string());
         self.check_ambiguous_names_by_text(formula, None, &empty)?;

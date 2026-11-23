@@ -110,7 +110,7 @@ pub fn export_core(
     let scalar_count = model.scalars.len();
 
     let exporter = ExcelExporter::new(model);
-    let mut warnings: Vec<String> = uncalculated.into_iter().collect();
+    let mut warnings: Vec<String> = uncalculated.iter().cloned().collect();
     warnings.extend(exporter.export_with_warnings(output)?);
     warnings.extend(crate::cli::commands::carried::yaml_only(input));
 
@@ -120,6 +120,7 @@ pub fn export_core(
         table_count,
         scalar_count,
         warnings,
+        not_checked: uncalculated,
     })
 }
 
@@ -198,30 +199,28 @@ pub fn export(c: &mut Console<'_>, input: &Path, output: &Path, verbose: bool) -
     if verbose {
         outln!(c, "{}", "📖 Parsing YAML file...".cyan());
     }
-    let (model, uncalculated) = load_for_export(input)?;
+    let result = export_core(input, output)?;
     if verbose {
-        let (t, s) = (model.tables.len(), model.scalars.len());
+        let (t, s) = (result.table_count, result.scalar_count);
         outln!(c, "   Found {t} tables, {s} scalars\n");
         outln!(c, "{}", "📊 Exporting to Excel...".cyan());
     }
 
-    let exporter = ExcelExporter::new(model);
-    let mut warnings = exporter.export_with_warnings(output)?;
-    warnings.extend(crate::cli::commands::carried::yaml_only(input));
-
-    if let Some(reason) = &uncalculated {
+    if let Some(reason) = &result.not_checked {
         outln!(c, "{}", "⚠️  Exported, but not checked:".yellow());
         outln!(c, "   - {reason}\n");
     }
     outln!(c, "{}", "✅ Export Complete!".bold().green());
     outln!(c, "   Excel file: {}\n", output.display());
+    // The reason it was not checked is said above
+    let warnings = &result.warnings[usize::from(result.not_checked.is_some())..];
     if !warnings.is_empty() {
         outln!(
             c,
             "{}",
             "⚠️  Not exported, or not as Excel formulas:".yellow()
         );
-        for warning in &warnings {
+        for warning in warnings {
             outln!(c, "   - {warning}");
         }
         outln!(c);

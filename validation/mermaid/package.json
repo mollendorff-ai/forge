@@ -1,0 +1,10 @@
+{
+  "name": "forge-mermaid-check",
+  "private": true,
+  "description": "Renders every Mermaid diagram of the repository's Markdown in Chromium, as GitHub draws them (check.mjs, roadmap T1-MERMAID-CHECK)",
+  "type": "module",
+  "devDependencies": {
+    "mermaid": "12.3.0",
+    "playwright": "1.63.0"
+  }
+}
