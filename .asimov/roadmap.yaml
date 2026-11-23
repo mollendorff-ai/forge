@@ -753,7 +753,8 @@ studio:
 # show how); the headings Studio's help.json links to stay (S-HELP); a lesson
 # ends with how to check the result yourself.
 # Order: A0 and A1 first, A2 before any lesson, then A3 to A9 in parallel, A10
-# last. Model and effort for each are in the item.
+# last; A11 to A18 at any time, each on its own. Model and effort for each
+# are in the item.
 
 adoption:
   - id: A0-DOC-ERRORS
@@ -811,6 +812,51 @@ adoption:
     how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
     acceptance: "readme_commands.rs passes; four trial reports name no step that failed, or each is a roadmap item"
     model: "Opus 5.5, high for the README; Sonnet 5.5, medium for the trials"
+  # Decided 2026-11-23 with the maintainer: the files and services agents
+  # and their tools look for, and the standards that make Forge's claims
+  # checkable. Each was named from Claude's training (mid-2026), not checked
+  # on the web; an item starts by reading the standard's current spec.
+  # OpenAPI for the REST API is T3-API.
+  - id: A11-AGENTS-MD
+    title: "AGENTS.md holds the rules every coding agent must follow; CLAUDE.md imports it"
+    why: "AGENTS.md is the convention most coding agents read (Codex, Cursor, Gemini CLI, Copilot's agent, Jules, Aider); today only Claude Code, through CLAUDE.md, sees that coverage is 100%, nothing is allowed and tests are inline"
+    acceptance: "AGENTS.md has the rules, CLAUDE.md imports it with @AGENTS.md and repeats none of them, and a validation/repo test fails if the import goes or a rule appears in both"
+    model: "Sonnet 5.5, medium"
+  - id: A12-FORGE-SKILL
+    title: "A Forge Agent Skill (SKILL.md) for people using Forge through an AI, with or without MCP"
+    why: "A chat with a code sandbox has no MCP; a skill carries the install line, the two YAML forms, validate before calculate, one result checked another way, and the YAML at the end. PROMPTS.md's 'Writing your own' is most of it"
+    acceptance: "skills/forge-modelling/SKILL.md follows the Agent Skills spec; a fresh agent given only the skill builds and checks a model with no step failing; its install line is checked by install_script.rs"
+    model: "Opus 5.5, high"
+  - id: A13-MCP-REGISTRY
+    title: "server.json for the official MCP Registry, and the other listings pointed at it"
+    why: "The LobeHub listing still shows the Elastic-2.0 licence and an old README; one authoritative entry, kept true by a test, is the fix at the source"
+    acceptance: "server.json validates against the registry's schema, a test checks its version against Cargo.toml and its description against the binary, and the entry is published (the maintainer's account)"
+    model: "Sonnet 5.5, medium"
+  - id: A14-LLMS-TXT
+    title: "llms.txt and llms-full.txt on Studio's site, kept only if an agent does better with them"
+    why: "A 2024 proposal for a Markdown index at a site's root; tools such as GitMCP read it, and there is little evidence the big assistants fetch it. Decides the question A5 leaves open"
+    acceptance: "Both built from docs/README.md by studio/build.mjs; a trial of the same task by fresh agents with and without them is recorded, and the files are kept or removed by its result"
+    model: "Sonnet 5.5, medium"
+  - id: A15-DOC-INDEXERS
+    title: "What Context7, DeepWiki and GitMCP tell an agent about Forge, corrected"
+    why: "Coding agents look up an unknown library through these; no model was trained on Forge, so they may be the only source an agent reads, and they may repeat stale docs"
+    acceptance: "Each service's answer about Forge read and recorded; a config file (context7.json, DeepWiki's) added where the service reads one and its answer is wrong or thin"
+    model: "Sonnet 5.5, low"
+  - id: A16-SBOM
+    title: "An SBOM (CycloneDX or SPDX) attached to each release"
+    why: "The release proves who built the binary (attestations, rc.28); an SBOM says what is inside it"
+    acceptance: "release.yml attaches it, made by a pinned tool; a release candidate carries it and a scanner reads it"
+    model: "Sonnet 5.5, medium"
+  - id: A17-SCORECARD
+    title: "OpenSSF Scorecard on the repository, with its badge"
+    why: "An outside rating of the practices T1-SUPPLY-CHAIN put in place, which a reader can check without trusting the README"
+    acceptance: "A pinned scorecard workflow runs weekly and on main; the README shows the badge; each check scored below 10 is fixed or a roadmap item says why not"
+    model: "Sonnet 5.5, low"
+  - id: A18-METADATA
+    title: "CITATION.cff, security.txt, the crate's keywords and categories, GitHub topics, and the site's robots.txt checked"
+    why: "Agents and people find a tool by searching crates.io, GitHub and docs.rs; GitHub shows 'Cite this repository' from CITATION.cff; Forge wants to be read, so no AI crawler should be blocked by accident"
+    acceptance: "CITATION.cff valid (cffconvert) and its version checked against Cargo.toml by a test; /.well-known/security.txt on the site; keywords and categories set; the topics set by the maintainer; robots.txt read and recorded"
+    model: "Haiku 5.5, low; the topics are the maintainer's"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done, and only when a use calls for one;
