@@ -1,0 +1,12 @@
+_forge_version: "5.1.0"
+# What the bagel shop pays its suppliers and its staff. When a price
+# changes, this is the file that changes.
+ingredients:
+  flour_per_dozen: 1.53
+  sesame_per_dozen: 0.68
+  honey_water_per_dozen: 0.35
+  per_dozen: {formula: "=flour_per_dozen + sesame_per_dozen + honey_water_per_dozen"}
+labour:
+  wage_per_hour: 18.50
+  payroll_load: 0.15
+  loaded_wage: {formula: "=wage_per_hour * (1 + payroll_load)"}
