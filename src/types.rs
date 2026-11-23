@@ -531,10 +531,13 @@ impl ParsedModel {
         self.scenarios.insert(name, scenario);
     }
 
-    /// Get available scenario names
+    /// The scenarios' names, sorted, so that what lists them (calculate
+    /// --verbose) says the same on every run: `scenarios` is a `HashMap`.
     #[must_use]
     pub fn scenario_names(&self) -> Vec<&String> {
-        self.scenarios.keys().collect()
+        let mut names: Vec<&String> = self.scenarios.keys().collect();
+        names.sort();
+        names
     }
 
     pub fn add_table(&mut self, table: Table) {
@@ -1051,10 +1054,13 @@ mod tests {
     #[test]
     fn test_parsed_model_scenario_names() {
         let mut model = ParsedModel::new();
-        model.add_scenario("base".to_string(), Scenario::new());
-        model.add_scenario("optimistic".to_string(), Scenario::new());
-        let names = model.scenario_names();
-        assert_eq!(names.len(), 2);
+        for name in ["optimistic", "base", "worst", "growth", "alpha"] {
+            model.add_scenario(name.to_string(), Scenario::new());
+        }
+        assert_eq!(
+            model.scenario_names(),
+            ["alpha", "base", "growth", "optimistic", "worst"]
+        );
     }
 
     #[test]

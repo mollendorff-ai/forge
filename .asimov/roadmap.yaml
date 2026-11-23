@@ -569,10 +569,11 @@ tier1:
   # with their flags and -o files): the console prints the same bytes on
   # every run that succeeds. A run that fails no longer prints what the old
   # printer printed before calculating (the maintainer's choice: one core
-  # call, nothing to drift). The --verbose scenario list of calculate is in
-  # HashMap order, random from run to run, before and after: sorting it is
-  # a small follow-up. REST's export and import still call the printing
-  # functions (T3-API's note).
+  # call, nothing to drift). The --verbose scenario list of calculate was in
+  # HashMap order, random from run to run, before and after; it is sorted
+  # since 2026-11-22 (ParsedModel::scenario_names). REST's export and
+  # import called the printing functions; they call the cores since
+  # 2026-11-22 (T3-API's note).
 
   # T1-LEFTOVERS-2026-11-22 is done (2026-11-22): neither Cargo.toml declares
   # cfg(coverage) any more, and clippy passes on 1.97 (stable here and the
@@ -581,12 +582,16 @@ tier1:
   # both are back, sections run 1 to 6, and the summary, STABILITY.md and the
   # section count six rounds of Excel. ADR-006's note says so.
 
-  - id: T1-MERMAID-CHECK
-    title: "CI renders every Mermaid diagram in the docs"
-    run_with: "Sonnet 5.5, medium effort: a Node script and a CI step, like Studio's tests"
-    why: "Found 2026-11-22 writing docs/architecture: GitHub shows a diagram that does not parse as an error box, silently, and two of the new diagrams did not parse at first ('graph' is a reserved word as a node id; a ';' ends a sequence diagram's message). The architecture pages have 40 diagrams, and README.md and docs/WORKFLOWS.md have more; nothing checks them"
-    how: "A script that renders each mermaid block of every Markdown file with mermaid (an exact version, as GitHub's renderer is close to the latest) in the Chromium the CI image has, failing on a parse error and naming the file and the block; a step in ci.yml's repo-checks or forge-wasm job. The script used for the rewrite rendered all 40 blocks and saved a PNG of each, which reviewers can be given as an artifact"
-    acceptance: "A pull request with a diagram that does not parse fails CI with the file and the block named; every diagram on main renders"
+  # T1-MERMAID-CHECK is done (2026-11-23): validation/mermaid/check.mjs
+  # renders every ```mermaid block of every Markdown file git tracks in
+  # Chromium, with mermaid 12.3.0 (exact, package.json), and fails naming
+  # the file, the line and the block; --out saves a PNG of each. It runs in
+  # a workflow of its own (.github/workflows/diagrams.yml), not in ci.yml,
+  # since ci.yml runs only when code changes and a docs-only pull request
+  # must be checked too; the workflow first checks that a diagram that does
+  # not parse fails, and uploads the PNGs as the run's artifact. All 47
+  # diagrams of 14 files on main render; both mistakes of the rewrite
+  # ('graph' as a node id, ';' in a sequence message) fail.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
@@ -742,7 +747,7 @@ tier3:
     title: "REST endpoints for the analytics tools (parity with the 20 MCP tools) + OpenAPI spec"
     why: "validate, calculate and audit already take inline content; the rest only exist over MCP"
     acceptance: "Each endpoint shares its core function with the MCP tool; an OpenAPI document is generated from the handlers, not written by hand"
-    note: "Found 2026-11-22 (docs/architecture/08-API-SERVER-ARCHITECTURE.md): of the five endpoints there are, export and import do not call a core yet; they run forge export's and forge import's printing functions on a Console and discard what they print. ApiResponse::err in src/api/handlers.rs is used only by its own tests, since a failed operation answers success: true with its flag false (T1-INTERFACE-PARITY). Both go with this item"
+    note: "Found 2026-11-22 (docs/architecture/08-API-SERVER-ARCHITECTURE.md): of the five endpoints there are, export and import did not call a core; they ran forge export's and forge import's printing functions on a Console and discarded what they printed. ApiResponse::err in src/api/handlers.rs was used only by its own tests, since a failed operation answers success: true with its flag false (T1-INTERFACE-PARITY). Both done 2026-11-22: export and import call export_core and import_core, their answers checked whole and unchanged (the same tests pass on the code before), and ApiResponse has only ok, its data no longer optional"
 
   - id: T3-TRANSPORT
     title: "MCP over HTTP/SSE via rmcp"

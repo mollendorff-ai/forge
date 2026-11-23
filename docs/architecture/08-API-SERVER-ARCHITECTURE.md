@@ -33,7 +33,7 @@ sequenceDiagram
         I-->>H: a path
         H->>Core: calculate_core(path, dry_run, scenario) or calculate_plan_core
         Core-->>H: CalculationResult, or an error
-        H-->>C: 200 {success, request_id, data or error}
+        H-->>C: 200 {success, request_id, data}
     end
 ```
 
@@ -47,14 +47,14 @@ sequenceDiagram
 | `POST /api/v1/validate` | a model source | `validate_core` | `valid`, `message`, `result` (`ValidationResult`) |
 | `POST /api/v1/calculate` | a model source, `dry_run`, `scenario`, `plan` | `calculate_core`, or `calculate_plan_core` when `plan` | `calculated`, `result` (`CalculationResult`), and `calculated_content` for inline content written back |
 | `POST /api/v1/audit` | a model source, `variable` | `audit_core` | `audited`, `result` (`AuditResult`) |
-| `POST /api/v1/export` | `yaml_path`, `excel_path` | `forge export`'s function, with its output discarded | `exported`, the paths |
-| `POST /api/v1/import` | `excel_path`, `yaml_path` | `forge import`'s function, with its output discarded | `imported`, the paths |
+| `POST /api/v1/export` | `yaml_path`, `excel_path` | `export_core` | `exported`, the paths, `message` |
+| `POST /api/v1/import` | `excel_path`, `yaml_path` | `import_core` | `imported`, the paths, `message` |
 
 A **model source** is flattened into the request: either `file_path` (a path on the server), or `content` (the YAML text) with `includes` (the text of each `_includes` entry, by its `as` name). Export and import take paths only.
 
-Every answer has the same envelope (`ApiResponse`): `success`, a `request_id` (a UUID), and `data` or `error`. Numbers in `data` are rounded to 15 significant digits, as everywhere Forge writes a number.
+Every answer has the same envelope (`ApiResponse`): `success`, a `request_id` (a UUID), and `data`. Numbers in `data` are rounded to 15 significant digits, as everywhere Forge writes a number.
 
-A model that fails to validate, calculate, export or import is not an HTTP error: the answer is `200` with `success: true`, and `data` says so (`valid: false`, `calculated: false`, `exported: false`, ...) with Forge's message in `message`. `401` and `403` come only from the guard; a body that is not the request's JSON is refused by axum before the handler (`400` or `422`). `ApiResponse::err` exists, but no handler uses it yet.
+A model that fails to validate, calculate, export or import is not an HTTP error: the answer is `200` with `success: true`, and `data` says so (`valid: false`, `calculated: false`, `exported: false`, ...) with Forge's message in `message`. `401` and `403` come only from the guard; a body that is not the request's JSON is refused by axum before the handler (`400` or `422`). So `ApiResponse` has only `ok`.
 
 ## Security
 

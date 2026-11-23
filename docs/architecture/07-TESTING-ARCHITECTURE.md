@@ -86,6 +86,7 @@ flowchart LR
 | `validation/sweep` | Generated arguments, drawn from a seed toward the edges | Gnumeric and LibreOffice | `validation.yml`: a few thousand cases per pull request, many more weekly (ADR-062) |
 | `validation/r` | Math, date and financial functions; the analytics (simulation, bootstrap, tornado, ...) | R | `validation.yml` |
 | `validation/games` | Equilibria, tournaments, dynamics, games of many players | Gambit, axelrod, egttools, R | `validation.yml` |
+| `validation/mermaid` | Every ` ```mermaid ` block of every Markdown file renders | mermaid 12.3.0 in Chromium, as GitHub draws it | `diagrams.yml`, on pull requests and pushes to main that change a Markdown file |
 
 An expected value is never changed silently: a pull request that changes or removes one must say so in its title and give each new value's source (`expected-values.yml`, ADR-057).
 

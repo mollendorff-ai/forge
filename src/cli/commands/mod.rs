@@ -1142,6 +1142,26 @@ mod command_output {
     }
 
     #[test]
+    fn verbose_lists_the_scenarios_sorted() {
+        // The scenarios are a HashMap: unsorted, the list changed from run to run
+        let dir = tempfile::tempdir().unwrap();
+        let file = model(
+            dir.path(),
+            "m.yaml",
+            "_forge_version: \"5.1.0\"\nrate: 2\nscenarios:\n  zeta:\n    scalars:\n      rate: 1\n  alpha:\n    scalars:\n      rate: 3\n  mid:\n    scalars:\n      rate: 4\n  beta:\n    scalars:\n      rate: 5\n",
+        );
+        let (result, captured) = capture(|c| calculate(c, &file, true, true, None, false));
+        result.unwrap();
+        assert!(
+            captured
+                .out
+                .contains(r#"Found 4 scenarios: ["alpha", "beta", "mid", "zeta"]"#),
+            "{}",
+            captured.out
+        );
+    }
+
+    #[test]
     fn calculating_under_a_scenario_writes_nothing() {
         // Before ADR-074, the scenario's result replaced the file's own
         // (`value: 1.2` became 0.8), and forge validate then failed
