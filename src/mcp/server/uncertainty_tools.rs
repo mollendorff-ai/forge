@@ -782,6 +782,10 @@ scalars:
             confidence_intervals: Vec::new(),
             distribution: Vec::new(),
             iterations: 0,
+            statistic: crate::bootstrap::BootstrapStatistic::Mean,
+            sample_size: 0,
+            confidence_levels: Vec::new(),
+            seed: None,
         };
         let compact = compact_bootstrap(&result);
         assert_eq!(compact.get("distribution"), None);

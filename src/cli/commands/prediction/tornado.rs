@@ -67,13 +67,17 @@ pub fn tornado(
     outln!(c, "   File: {}", file.display());
     outln!(c);
 
-    let (config, model) = load(file, output_var)?;
+    let result = tornado_core(file, output_var)?;
 
     // Display config
-    outln!(c, "   Output variable: {}", config.output.bright_blue());
-    outln!(c, "   Inputs to vary: {}", config.inputs.len());
+    outln!(
+        c,
+        "   Output variable: {}",
+        result.section.output.bright_blue()
+    );
+    outln!(c, "   Inputs to vary: {}", result.section.inputs.len());
     if verbose {
-        for input in &config.inputs {
+        for input in &result.section.inputs {
             outln!(
                 c,
                 "      {} [{:.2} - {:.2}]",
@@ -85,14 +89,9 @@ pub fn tornado(
     }
     outln!(c);
 
-    // Create engine and analyze
-    let engine = TornadoEngine::new(config, model).map_err(ForgeError::Validation)?;
-
     if verbose {
         outln!(c, "{}", "🔄 Calculating sensitivities...".cyan());
     }
-
-    let result = engine.analyze().map_err(ForgeError::Eval)?;
 
     // Display results
     outln!(c, "{}", "📊 Tornado Diagram:".bold().green());
@@ -687,5 +686,41 @@ plan:
             );
             assert!(!text.contains("Results written"), "{text}");
         }
+    }
+
+    /// The section as the file writes it is in the result: the names it
+    /// uses, before Forge resolves them (T1-CLI-FROM-CORES).
+    #[test]
+    fn the_result_has_the_section_as_written() {
+        let result =
+            super::tornado_core(std::path::Path::new("examples/tornado.yaml"), None).unwrap();
+        assert_eq!(result.section.output, "valuation.npv");
+        let names: Vec<&str> = result
+            .section
+            .inputs
+            .iter()
+            .map(|i| i.name.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "revenue_growth",
+                "operating_margin",
+                "discount_rate",
+                "tax_rate",
+                "initial_investment"
+            ]
+        );
+        assert_eq!(
+            (result.section.inputs[0].low, result.section.inputs[0].high),
+            (0.05, 0.2)
+        );
+        // The bars name each input in full
+        assert!(result
+            .bars
+            .iter()
+            .all(|b| b.input_name.starts_with("assumptions.")));
+        let json = serde_json::to_value(&result).unwrap();
+        assert!(json["section"]["inputs"][0].get("base").is_none(), "{json}");
     }
 }

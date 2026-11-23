@@ -12,6 +12,7 @@
 mod check;
 mod rename;
 pub mod text;
+mod uncertain;
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::ParsedModel;
@@ -41,6 +42,12 @@ pub enum Op {
     /// name that reads it renamed, in every file of the model: formulas,
     /// scenarios, expectations, a simulation's outputs, a tornado's inputs
     Rename,
+    /// An input becomes a distribution, its value kept as the plan
+    /// (`formula`, a distribution; a triangle around the value when none)
+    MakeUncertain,
+    /// A distribution becomes an input (`value`: the figure to keep; the
+    /// `value:` beside the formula, or else the distribution's plan figure)
+    MakeCertain,
 }
 
 impl Op {
@@ -53,6 +60,8 @@ impl Op {
             Self::Add => "add",
             Self::Delete => "delete",
             Self::Rename => "rename",
+            Self::MakeUncertain => "make_uncertain",
+            Self::MakeCertain => "make_certain",
         }
     }
 }
@@ -72,7 +81,8 @@ pub enum Value {
 #[cfg_attr(feature = "cli", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Change {
-    /// `set_value`, `set_formula`, `add`, `delete` or `rename`
+    /// `set_value`, `set_formula`, `add`, `delete`, `rename`, `make_uncertain`
+    /// or `make_certain`
     pub op: Op,
     /// The name as formulas read it: `price`, `year.price`, a table's column
     /// `months.sales`, or `@costs.rent` in the file included as `costs`
@@ -205,6 +215,9 @@ fn apply(files: &mut HashMap<String, String>, main: &str, change: &Change) -> Re
     if change.op == Op::Rename {
         return rename::apply(files, main, &before, &target, change);
     }
+    if matches!(change.op, Op::MakeUncertain | Op::MakeCertain) {
+        return uncertain::apply(files, main, &before, &target, change);
+    }
     let kind = target.kind();
     let text = write(&files[&target.file], &target, kind, change)
         .map_err(|why| format!("{why} ({})", target.file))?;
@@ -228,8 +241,8 @@ fn fields(change: &Change) -> Result<(), String> {
         ("new_name", change.new_name.is_some()),
     ];
     let takes: &[&str] = match change.op {
-        Op::SetValue => &["value"],
-        Op::SetFormula => &["formula"],
+        Op::SetValue | Op::MakeCertain => &["value"],
+        Op::SetFormula | Op::MakeUncertain => &["formula"],
         Op::Add => &["value", "formula", "unit", "after"],
         Op::Delete => &[],
         Op::Rename => &["new_name"],

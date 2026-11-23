@@ -15,7 +15,8 @@
 // order; a typed input dims the band ("running") and the new band is
 // simulate's for the new files, and of two changes in a row only the last
 // one's is kept; a parameter typed on a distribution card and another kind
-// chosen write the formula, which Forge reads back.
+// chosen write the formula, which Forge reads back; "fixed" and "Make
+// uncertain" are Forge's make_certain and make_uncertain (ADR-075).
 //
 //   node studio/tests/uncertain.mjs <built Studio dir> <expected.json>
 
@@ -181,6 +182,33 @@ async function bagel(page, r) {
   await banded(page);
   formula = await page.locator('[data-dist="assumptions.opening_dozens_per_day"] .formula').textContent();
   if (formula !== "=MC.Triangular(40, 55, 75)") fail(`bagel: Triangular gives ${formula}, not =MC.Triangular(40, 55, 75), its min, mode and max kept`);
+
+  // "fixed": Forge makes the distribution an input again, its value kept, and
+  // "Make uncertain": an input becomes a triangle around its value, which
+  // "fixed" takes back; each is written by Forge's edit, file and all
+  const files = () => page.evaluate(() => JSON.parse(localStorage.getItem("forge-studio-v3")).files["bagel_simulate.yaml"]);
+  const generation = async () => Number(await page.evaluate(() => document.body.dataset.generation));
+  const changed = async (click) => {
+    const g = await generation();
+    await click();
+    await page.waitForFunction((n) => Number(document.body.dataset.generation) > n, g, { timeout: 30000 });
+    await banded(page);
+  };
+  const demand = "assumptions.opening_dozens_per_day", price = "assumptions.price_per_dozen";
+  await changed(() => page.click(`[data-dist="${demand}"] [data-dfixed]`));
+  if ((await page.locator(`[data-dist="${demand}"]`).count()) !== 0) fail("bagel: the demand is still a distribution card after fixed");
+  if ((await page.locator(`[data-input="${demand}"]`).inputValue()) !== "55") fail("bagel: fixed does not keep the demand's value, 55");
+  let text2 = await files();
+  if (!text2.includes("\n  opening_dozens_per_day: 55\n") || text2.includes("MC.Triangular(40, 55, 75)")) fail("bagel: the file does not hold the demand as 55, written short");
+  await sameAs(await simulateNow(), "a fixed demand");
+  await changed(() => page.click(`[data-uncertain="${price}"]`));
+  const triangle = await page.locator(`[data-dist="${price}"] .formula`).textContent();
+  if (triangle !== "=MC.Triangular(15.2, 19, 22.8)") fail(`bagel: Make uncertain gives ${triangle}, not =MC.Triangular(15.2, 19, 22.8)`);
+  text2 = await files();
+  if (!text2.includes("  price_per_dozen:\n    value: 19\n    formula: \"=MC.Triangular(15.2, 19, 22.8)\"\n")) fail("bagel: the file does not hold the price as value and formula");
+  await sameAs(await simulateNow(), "an uncertain price");
+  await changed(() => page.click(`[data-dist="${price}"] [data-dfixed]`));
+  if (!(await files()).includes("\n  price_per_dozen: 19\n")) fail("bagel: fixed does not give the price back as written, 19");
 
   // Analyze: the outputs in the model's order
   await page.click('.tab[data-tab="analyze"]');

@@ -20,7 +20,17 @@
 
 state:
   version: >-
-    10.0.0-rc.33, released 2026-11-22: games of many players (a symmetric
+    10.0.0-rc.34, released 2026-11-22: a model states what it and each
+    scenario should give (expect:, model format 5.6.0), checked by forge
+    validate, the MCP server, the REST API and Forge Studio (ADR-074); a
+    Bayesian network that reads the model (formulas in its priors and
+    tables, --scenario, named queries whose posteriors are scalars) and a
+    worked example, examples/expected_loss.yaml; forge edit (ADR-075); an
+    uncertain model on Studio's cards (ADR-076). Wrong answer fixed:
+    forge calculate --scenario wrote the scenario's results into the file's
+    own stored values. The two weeks in docs/STABILITY.md start again from
+    rc.34: no earlier than 2026-12-06.
+    rc.33 (2026-11-22): games of many players (a symmetric
     game written as one payoff for each strategy over how many of the
     others play each), the mixed equilibria in which every player plays
     alike with their stability, strategies that spread (dynamics:), Forge
@@ -29,8 +39,7 @@ state:
     export of a range a:b, Black-Scholes prices of forge real-options, the
     normal distribution's last digits in correlated draws and BCa
     intervals, the optimal path of a decision tree with a chance node at
-    its root). Wrong answers fixed, so the two weeks in docs/STABILITY.md
-    start again from rc.33: no earlier than 2026-12-06.
+    its root).
     rc.32 (2026-11-21): wrong answers fixed (forge import read
     a range over part of a table's column as the whole column, SWITCH with
     two arguments, NaN and infinity in a model), a YAML merge key refused
@@ -544,19 +553,33 @@ tier1:
   # their links, anchors, paths, ADR index and module map current. What the
   # rewrite found in the code is below.
 
-  - id: T1-CLI-FROM-CORES
-    title: "Every command line command prints from its core's result"
-    run_with: "Opus 5.5, high effort: about a dozen commands whose output must stay byte for byte the same, under the 100% coverage gate"
-    why: "Found 2026-11-22 (docs/architecture/01-COMPONENT-ARCHITECTURE.md, The layers). MCP, REST and forge-wasm call each command's *_core function, so they agree. On the command line only audit, simulate, game and compare print from their core's result; calculate, validate, goal-seek, break-even, sensitivity, tornado, scenarios, variance, bootstrap, bayesian, real-options, decision-tree, export and import repeat the core's steps and print as they go. A fix made in a core does not reach the command line unless it is made twice, so the command line and the other three doors can drift apart without a test noticing"
-    how: "One command at a time: the printing function calls the core and formats its result on the Console; whatever it prints that the result lacks is added to the result (MCP, REST and forge-wasm then get it too). The command's existing output tests are the check: the output does not change. Start with the commands whose core and printer differ most (calculate, validate). 10-EXTENDING-FORGE.md already asks new commands to do this"
-    acceptance: "Each command's printing function calls its *_core and prints nothing it does not take from the result; every command's output tests pass unchanged; the paragraph in 01-COMPONENT-ARCHITECTURE.md that lists the exceptions is removed"
+  # T1-CLI-FROM-CORES is done (2026-11-22): every command line command
+  # prints from its core's result. calculate calls calculate_core (or
+  # calculate_plan_core); validate calls its core's steps (ModelToValidate:
+  # read, check_lengths, check), so a failing step still prints what was
+  # found before it; the others call their *_core once. What a printer showed
+  # that the result lacked was added to the result and serialized (the
+  # maintainer's choice), so MCP, REST, Studio and --output files have it:
+  # calculate's values_updated and the model's order (JSON keeps name order),
+  # bootstrap's statistic, sample_size, confidence_levels and seed, a network's
+  # nodes, real options' method and option_order, a tree's root_name and
+  # node_count, tornado's section as written, scenarios' formats, export's
+  # not_checked, import's tables, formulas_kept and files_written. Checked
+  # against the binary before the change on every example (about 1,500 runs
+  # with their flags and -o files): the console prints the same bytes on
+  # every run that succeeds. A run that fails no longer prints what the old
+  # printer printed before calculating (the maintainer's choice: one core
+  # call, nothing to drift). The --verbose scenario list of calculate is in
+  # HashMap order, random from run to run, before and after: sorting it is
+  # a small follow-up. REST's export and import still call the printing
+  # functions (T3-API's note).
 
-  - id: T1-LEFTOVERS-2026-11-22
-    title: "Remove the cfg(coverage) check-cfg and fix VALIDATION.md's missing section 5"
-    run_with: "Sonnet 5.5, low effort: mechanical, then clippy on both crates"
-    why: "Found 2026-11-22. No code uses cfg(coverage) any more (no_skipping.rs's budget for it is 0, ADR-006 retired), but Cargo.toml and forge-wasm/Cargo.toml still declare it in [lints.rust] check-cfg, under a comment citing ADR-006. VALIDATION.md jumps from section 4 to section 6 and refers to a section 5 (the Excel cases checked by hand) that is not there"
-    how: "Delete the check-cfg line and its comment in both Cargo.toml files; run cargo clippy --all-targets -D warnings and the MSRV job's clippy. Find what section 5 of VALIDATION.md held in git history (git log -p -- VALIDATION.md) and restore it, or renumber and fix the references"
-    acceptance: "Neither Cargo.toml mentions coverage; clippy passes on stable and on the oldest supported Rust; VALIDATION.md's sections run 1 to N and every 'section N' it names exists. Then update ADR-006's 2026-11-22 note, which names the leftover"
+  # T1-LEFTOVERS-2026-11-22 is done (2026-11-22): neither Cargo.toml declares
+  # cfg(coverage) any more, and clippy passes on 1.97 (stable here and the
+  # oldest supported). VALIDATION.md's section 5 (Real Excel, by hand) and its
+  # Known limits had been cut by the dynamics commit of 2026-11-21 (71970b99);
+  # both are back, sections run 1 to 6, and the summary, STABILITY.md and the
+  # section count six rounds of Excel. ADR-006's note says so.
 
   - id: T1-MERMAID-CHECK
     title: "CI renders every Mermaid diagram in the docs"
@@ -691,13 +714,13 @@ studio:
     why: "bagel_simulate.yaml opens on a Problem pill and 'Not calculated' on every result"
     how: "calculate takes plan: true; simulate with the model's own settings after each change; Analyze's output list in the model's order"
     acceptance: "Every plan figure on screen equals simulate's at_plan, every band equals forge simulate natively (mean, P5, P95, thresholds), for every uncertain example; the distribution card's fields come from Forge's function list"
-    built: "2026-11-22: forge calculate --plan (CLI, forge_calculate, REST, forge-wasm; src/cli/commands/plan.rs), simulate's output_order, studio/uncertain.js (the plan, the bands, the distribution card), Analyze's order and scenarios reason; studio/tests/uncertain.mjs against forge-wasm's expected.json. Left for ADR-076 step 4: 'fixed' on the distribution card (make_certain), after S-EDIT"
+    built: "2026-11-22: forge calculate --plan (CLI, forge_calculate, REST, forge-wasm; src/cli/commands/plan.rs), simulate's output_order, studio/uncertain.js (the plan, the bands, the distribution card), Analyze's order and scenarios reason; studio/tests/uncertain.mjs against forge-wasm's expected.json. 2026-11-22, ADR-076 step 4: 'fixed' on the distribution card (make_certain) and 'Make uncertain' on a number input's card (make_uncertain), both through forge-wasm's edit; studio/tests/uncertain.mjs"
   - id: S-EDIT
     title: "forge edit: Forge writes a model's text, comments kept (ADR-075)"
     how: "The yaml-edit spike first, its findings in ADR-075; then set_value, set_formula, add, delete held to text.js's bytes; then rename, make_uncertain, the game changes, insert; the forge-wasm edit tool, forge_edit over MCP, forge edit on the command line"
     acceptance: "Each change is kept only when Forge reads back exactly it; every example goes through each change and back byte for byte outside the change; Studio's one-line changes moved to it"
     spike: "2026-11-22, in ADR-075: yaml-edit 0.3.6 (no default features) keeps all 174 YAML files byte for byte, changes 771 formulas and 1,326 numbers in place, matches text.mjs's 39 cases byte for byte, Unicode names; +155,687 bytes gzipped; brings hashbrown 0.14 beside 0.17, which waits on the maintainer"
-    built: "2026-11-22, steps 1 and 2 of ADR-075: src/edit/ (set_value, set_formula, add, delete), forge edit, forge_edit (22 MCP tools), forge-wasm's edit; hashbrown allowed by the maintainer. Step 3, 2026-11-22: rename of a scalar, a group, a table and a column, with every name that reads it in every file (formulas by the calculator's reader, src/core/array_calculator/references.rs; scenarios, expect, monte_carlo, tornado), in forge edit --rename, forge_edit and forge-wasm's edit; every name of every example renamed and back byte for byte. Left: make_uncertain/make_certain, the game changes with rename of a game, a player and a strategy, insert, and Studio's cards moved to edit (ADR-075 steps 4 to 7)"
+    built: "2026-11-22, steps 1 and 2 of ADR-075: src/edit/ (set_value, set_formula, add, delete), forge edit, forge_edit (22 MCP tools), forge-wasm's edit; hashbrown allowed by the maintainer. Step 3, 2026-11-22: rename of a scalar, a group, a table and a column, with every name that reads it in every file (formulas by the calculator's reader, src/core/array_calculator/references.rs; scenarios, expect, monte_carlo, tornado), in forge edit --rename, forge_edit and forge-wasm's edit; every name of every example renamed and back byte for byte. Step 4, 2026-11-22: make_uncertain and make_certain (src/edit/uncertain.rs), in forge edit --uncertain/--certain, forge_edit and forge-wasm's edit; 479 inputs of the examples made uncertain and certain again byte for byte; 20 inputs two includes deep refused (the engine does not plan through nested includes). Left: Studio's 'fixed' button on the distribution card (ADR-076 step 4), the game changes with rename of a game, a player and a strategy, insert, and Studio's cards moved to edit (ADR-075 steps 5 to 7)"
   - id: S-GAMES-EDIT
     title: "A game edited on its card: cells, names, strategies, players, a tournament's habits, dynamics, and the inputs it reads (ADR-076, step 5)"
     acceptance: "Every change on a game card is written by edit and checked as S9's are; game answers each game's inputs; an included file's groups fold when it is not the open model"

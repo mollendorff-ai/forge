@@ -123,21 +123,23 @@ pub fn edit(
 /// The arguments of `forge edit`.
 #[derive(clap::Args)]
 #[command(
-    about = "Change a model's text: values, formulas, names added, deleted and renamed, comments kept",
+    about = "Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, comments kept",
     long_about = "Change a model's text: set an input's value or a formula, add or delete an
 input, a formula or a table's column, or rename a scalar, a group, a table or
 a column and every name that reads it (formulas, scenarios, expectations, a
-simulation's outputs, a tornado's inputs, in every file of the model), in the
-model or in a file it includes (@alias.name). Every byte outside the change
-stays as it was, comments and layout included. A change is made only when
-Forge reads the model back valid, with that change and nothing else; when one
-cannot be made, no file is written and the message says why. Each file that
-changes is kept as it was next to it (model.yaml.bak). Results are not
-written: forge calculate does.
+simulation's outputs, a tornado's inputs, in every file of the model), or make
+an input uncertain (a distribution, its value kept as the plan) and certain
+again, in the model or in a file it includes (@alias.name). Every byte outside
+the change stays as it was, comments and layout included. A change is made
+only when Forge reads the model back valid, with that change and nothing else;
+when one cannot be made, no file is written and the message says why. Each
+file that changes is kept as it was next to it (model.yaml.bak). Results are
+not written: forge calculate does.
 
 A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
-made in this order: --changes, --set, --formula, --add, --delete, --rename.
+made in this order: --changes, --set, --formula, --add, --delete, --rename,
+--uncertain, --certain.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -146,6 +148,9 @@ EXAMPLES:
   forge edit model.yaml --add fee=25 --after rate          # At the top level
   forge edit model.yaml --delete year.old_fee --dry-run
   forge edit model.yaml --rename year.price=unit_price   # And every name that reads it
+  forge edit model.yaml --uncertain year.price           # A triangle, 80% to 120%
+  forge edit model.yaml --uncertain 'year.price==MC.PERT(12, 16, 22)'
+  forge edit model.yaml --certain year.price             # Back to its value
   forge edit model.yaml --changes '[{\"op\": \"add\", \"path\": \"year.fee\", \"value\": 25, \"unit\": \"CAD\"}]'"
 )]
 pub struct EditArgs {
@@ -176,6 +181,14 @@ pub struct EditArgs {
     /// reads it: PATH=NAME, the new name one word (year.price=cost)
     #[arg(long = "rename", value_name = "PATH=NAME")]
     pub rename: Vec<String>,
+
+    /// Make an input uncertain: PATH, or PATH==DISTRIBUTION (=MC.PERT(1, 2, 3))
+    #[arg(long = "uncertain", value_name = "PATH")]
+    pub uncertain: Vec<String>,
+
+    /// Make a distribution an input again: PATH, or PATH=VALUE to keep
+    #[arg(long = "certain", value_name = "PATH")]
+    pub certain: Vec<String>,
 
     /// Changes as JSON, as Forge's MCP edit tool takes them
     #[arg(long, value_name = "JSON")]
@@ -254,9 +267,36 @@ impl EditArgs {
                 ..change(Op::Rename, path)
             });
         }
+        for (flag, args, op) in [
+            ("uncertain", &self.uncertain, Op::MakeUncertain),
+            ("certain", &self.certain, Op::MakeCertain),
+        ] {
+            for arg in args {
+                let (path, rest) = arg
+                    .split_once('=')
+                    .map_or((arg.as_str(), None), |(p, r)| (p, Some(r)));
+                if path.is_empty() {
+                    return Err(ForgeError::Validation(format!(
+                        "--{flag} {arg}: write it PATH or PATH=..."
+                    )));
+                }
+                let given = rest.map(str::to_string);
+                changes.push(if op == Op::MakeUncertain {
+                    Change {
+                        formula: given,
+                        ..change(op, path.to_string())
+                    }
+                } else {
+                    Change {
+                        value: given.map(Value::Text),
+                        ..change(op, path.to_string())
+                    }
+                });
+            }
+        }
         if changes.is_empty() {
             return Err(ForgeError::Validation(
-                "name a change: --set, --formula, --add, --delete, --rename or --changes".into(),
+                "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain or --changes".into(),
             ));
         }
         Ok(changes)
@@ -433,6 +473,50 @@ year:
     }
 
     #[test]
+    fn an_input_is_made_uncertain_and_certain_again() {
+        let dir = folder();
+        let model = dir.path().join("model.yaml");
+        let ran = forge(&[
+            "edit",
+            model.to_str().unwrap(),
+            "--uncertain",
+            "year.price",
+            "--uncertain",
+            "year.units==MC.PERT(80, 100, 130)",
+        ]);
+        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert!(
+            ran.out.contains("   make_uncertain year.price\n"),
+            "{}",
+            ran.out
+        );
+        let made = read(&dir, "model.yaml");
+        assert!(
+            made.contains("  price:\n    value: 16   # dollars\n    formula: \"=MC.Triangular(12.8, 16, 19.2)\"\n"),
+            "{made}"
+        );
+        assert!(
+            made.contains("formula: \"=MC.PERT(80, 100, 130)\"\n"),
+            "{made}"
+        );
+        assert!(made.ends_with("    - variable: year.revenue\n"), "{made}");
+        let ran = forge(&[
+            "edit",
+            model.to_str().unwrap(),
+            "--certain",
+            "year.price",
+            "--certain",
+            "year.units=90",
+        ]);
+        assert_eq!(ran.code, 0, "{}", ran.both());
+        let back = read(&dir, "model.yaml");
+        assert!(
+            back.contains("  price: 16   # dollars\n  units: 90\n"),
+            "{back}"
+        );
+    }
+
+    #[test]
     fn changes_can_be_given_as_json() {
         let dir = folder();
         let model = dir.path().join("model.yaml");
@@ -457,7 +541,11 @@ year:
         };
         refused(
             &[],
-            "name a change: --set, --formula, --add, --delete, --rename or --changes",
+            "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain or --changes",
+        );
+        refused(
+            &["--uncertain", "=x"],
+            "--uncertain =x: write it PATH or PATH=...",
         );
         refused(&["--rename", "rate"], "--rename rate: write it PATH=...");
         refused(&["--set", "price"], "--set price: write it PATH=...");

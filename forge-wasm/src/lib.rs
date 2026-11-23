@@ -1053,6 +1053,20 @@ mod tests {
             let text = renamed["files"]["bagel.yaml"].as_str().unwrap();
             assert!(text.contains("edit_renamed:"), "{text}");
             assert!(!text.contains(&format!("{last}:")), "{text}");
+            // An input made uncertain keeps its value as the plan, and the
+            // model asks for a simulation
+            let uncertain = run(
+                "edit",
+                &serde_json::json!({"files": files, "main": "bagel.yaml",
+                                    "changes": [{"op": "make_uncertain", "path": price}]}),
+            )
+            .unwrap();
+            let text = uncertain["files"]["bagel.yaml"].as_str().unwrap();
+            assert!(text.contains("formula: \"=MC.Triangular("), "{text}");
+            assert!(
+                text.contains("\nmonte_carlo:\n  iterations: 5000\n"),
+                "{text}"
+            );
 
             let message = |request: Value| run("edit", &request).unwrap_err();
             assert_eq!(

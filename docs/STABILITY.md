@@ -1,6 +1,6 @@
 # Stability
 
-What Forge promises once it leaves beta, and what it does not. Forge is at a release candidate (v10.0.0-rc.33); this page is the promise the stable release will make, so that "stable" means something specific. The release candidate is meant to behave as described here; where it does not, that is a bug to report.
+What Forge promises once it leaves beta, and what it does not. Forge is at a release candidate (v10.0.0-rc.34); this page is the promise the stable release will make, so that "stable" means something specific. The release candidate is meant to behave as described here; where it does not, that is a bug to report.
 
 ## What stable promises
 
@@ -13,7 +13,7 @@ What Forge promises once it leaves beta, and what it does not. Forge is at a rel
 
 ## What stable does not promise
 
-- **Excel itself.** Formulas are compared with Gnumeric, LibreOffice and R, and the Excel export is recalculated by Gnumeric or LibreOffice, not by Excel. Real Excel was checked by hand in five rounds (18 financial and date results on 2026-11-06, 40 edge formulas on 2026-11-14, 10 more on 2026-11-15, 13 comparisons and 69 sums near zero on 2026-11-18; see [VALIDATION.md](../VALIDATION.md)); it is not repeated automatically. A number typed in a formula keeps every digit in Forge, where Excel keeps 15.
+- **Excel itself.** Formulas are compared with Gnumeric, LibreOffice and R, and the Excel export is recalculated by Gnumeric or LibreOffice, not by Excel. Real Excel was checked by hand in six rounds (18 financial and date results on 2026-11-06, 40 edge formulas on 2026-11-14, 10 more on 2026-11-15, 13 comparisons and 69 sums near zero on 2026-11-18, `XNPV` and `XIRR` with a date before the first on 2026-11-19; see [VALIDATION.md](../VALIDATION.md)); it is not repeated automatically. A number typed in a formula keeps every digit in Forge, where Excel keeps 15.
 - **Everything in the analytics is checked.** 70 of 77 analytics specs are compared with R; the exponential distribution, the elasticity command, one-point ranges and an input with equal low and high are not covered. Real options are compared on price only.
 - **A tournament to the last digit of a sample, or every equilibrium of a degenerate game.** A tournament's exact values are compared with the axelrod library's average of seeded matches, within 4.5 standard errors. In a game with a tie, the mixed equilibria listed may not be all of them; the report says so, and the games suite checks that it does.
 - **Numbers to the last digit.** Floating-point results can differ from other engines in the last digits; the suites use tolerances (listed in VALIDATION.md).

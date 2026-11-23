@@ -110,7 +110,6 @@ A change to a command touches each door that exposes it. The table says what eac
 | Concern | Command line | MCP | REST | forge-wasm | Studio |
 | --- | --- | --- | --- | --- | --- |
 | Arguments | `src/cli/args.rs` | `src/mcp/types.rs` | `src/api/handlers.rs` | `run_on_files` in `forge-wasm/src/lib.rs` | `studio/tools.js` (Tools view) |
-| Calls | the printing function (see [01](01-COMPONENT-ARCHITECTURE.md#the-layers)) | the core | the core | the core | `call()` |
 | Model from text | no | `content`, `includes` | `content`, `includes` | `files` | the open set |
 | Writes the file | yes, unless `--dry-run` | yes, unless `dry_run` | yes, unless `dry_run` | never | never (edits text) |
 | Listed in | `forge --help` | the tool count test, [MCP.md](../MCP.md) | [08](08-API-SERVER-ARCHITECTURE.md) | `TOOLS` | [studio/README.md](../../studio/README.md) |

@@ -2,7 +2,7 @@
 //! plan figure, the rule `forge simulate` uses for each output's value at
 //! plan. Forge Studio shows an uncertain model this way on its cards.
 
-use super::{apply_scenario, calculated, results::CalculationResult};
+use super::{apply_scenario, calculated, model_read, results::CalculationResult};
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
@@ -26,11 +26,12 @@ use std::path::Path;
 /// exist, a distribution does not parse, or calculation fails.
 pub fn calculate_plan_core(file: &Path, scenario: Option<&str>) -> ForgeResult<CalculationResult> {
     let mut model = parser::parse_model(file)?;
+    let read = model_read(&model);
     if let Some(scenario_name) = scenario {
         apply_scenario(&mut model, scenario_name)?;
     }
     let at_plan = set_at_plan(&mut model)?;
-    calculated(file, model, true, scenario, at_plan)
+    calculated(file, model, true, scenario, read, at_plan)
 }
 
 /// Each uncertain input of `model` and of its included files
@@ -285,5 +286,16 @@ scenarios:
         );
         let (result, _) = capture(|c| super::super::calculate(c, &bad, false, false, None, true));
         assert!(result.unwrap_err().to_string().contains("inputs.price"));
+    }
+
+    /// A file that cannot be read is an error at plan too, from the core and
+    /// from the command.
+    #[test]
+    fn a_file_that_cannot_be_read_is_an_error_at_plan() {
+        let missing = Path::new("no-such-folder/m.yaml");
+        let core = calculate_plan_core(missing, None).unwrap_err().to_string();
+        let (result, _) =
+            capture(|c| super::super::calculate(c, missing, false, false, None, true));
+        assert_eq!(result.unwrap_err().to_string(), core);
     }
 }

@@ -188,28 +188,18 @@ fn solve(
             result.error
         );
     }
-    print_goal_seek_result(
-        c,
-        vary,
-        (target, value),
-        result.solution,
-        result.achieved,
-        tolerance,
-        result.iterations,
-    );
+    print_goal_seek_result(c, (vary, target), &result, tolerance);
     Ok(())
 }
 
-/// Print goal-seek result summary
+/// Print goal-seek result summary, with the names as they were asked for
 fn print_goal_seek_result(
     c: &mut Console<'_>,
-    vary: &str,
-    (target, value): (&str, f64),
-    mid: f64,
-    final_value: f64,
+    (vary, target): (&str, &str),
+    result: &crate::cli::commands::results::GoalSeekResult,
     tolerance: f64,
-    iteration: i32,
 ) {
+    let iteration = result.iterations;
     outln!(c, "{}", "─".repeat(50));
     outln!(
         c,
@@ -222,20 +212,19 @@ fn print_goal_seek_result(
         c,
         "   {} = {} → {} = {}",
         vary.bright_yellow().bold(),
-        display_number(mid).bold().green(),
+        display_number(result.solution).bold().green(),
         target.bright_blue(),
-        display_number(final_value).green()
+        display_number(result.achieved).green()
     );
 
-    let error = (final_value - value).abs();
-    if error <= tolerance {
+    if result.converged {
         outln!(c, "   {} Within tolerance", "✅".green());
     } else {
         outln!(
             c,
             "   {} Error: {} (tolerance: {})",
             "⚠️".yellow(),
-            error,
+            result.error,
             tolerance
         );
     }

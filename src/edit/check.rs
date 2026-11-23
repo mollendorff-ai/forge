@@ -2,6 +2,7 @@
 //! kept only when Forge reads the model valid, and reads in it that change
 //! and nothing else, as Forge Studio checked each change it made (S9).
 
+use super::uncertain::Expect;
 use super::{Change, Kind, Op, Target, Value};
 use crate::core::ArrayCalculator;
 use crate::parser::parse_model_text;
@@ -105,6 +106,57 @@ pub(super) fn only(
     }
 }
 
+/// Whether `after` is `before` with the scalar of `target` made uncertain or
+/// certain as `expect` says, and, when it says so, a `monte_carlo:` block,
+/// and nothing else
+pub(super) fn only_uncertainty(
+    before: &ParsedModel,
+    after: &ParsedModel,
+    target: &Target<'_>,
+    expect: &Expect,
+) -> Result<(), String> {
+    let mut at: Vec<&str> = Vec::new();
+    for alias in &target.aliases {
+        at.extend(["includes", alias.as_str()]);
+    }
+    at.push("model");
+    let name = target.name.as_str();
+    let mut paths: Vec<Vec<&str>> = ["formula", "value"]
+        .iter()
+        .map(|field| {
+            let mut path = at.clone();
+            path.extend(["scalars", name, field]);
+            path
+        })
+        .collect();
+    if expect.block {
+        paths.push(vec!["model", "analyses"]);
+    }
+    let mut was = snapshot(before);
+    copy(&mut was, &snapshot(after), &paths);
+    if was != snapshot(after) {
+        return Err("Forge reads the new text as more than this change, so it was not made".into());
+    }
+    let sub = target
+        .aliases
+        .iter()
+        .try_fold(after, |model, alias| {
+            model.resolved_includes.get(alias).map(|r| &r.model)
+        })
+        .expect("the model is the same, with the same includes");
+    let var = sub.scalars.get(name);
+    let as_asked = var.is_some_and(|v| {
+        v.formula == expect.formula && expect.value.is_none_or(|n| v.value == Some(n))
+    }) && (!expect.block || after.analyses.iter().any(|a| a == "monte_carlo"));
+    if as_asked {
+        Ok(())
+    } else {
+        Err(format!(
+            "Forge reads {name} in the new text differently from what was asked, so it was not made"
+        ))
+    }
+}
+
 /// Whether Forge reads at `name` what `change` asked for
 fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
     let var = model.scalars.get(name);
@@ -117,7 +169,7 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
         _ => v.value.is_some(),
     };
     match change.op {
-        Op::Delete | Op::Rename => true,
+        Op::Delete | Op::Rename | Op::MakeUncertain | Op::MakeCertain => true,
         Op::SetValue => var.is_some_and(reads),
         Op::SetFormula => {
             var.and_then(|v| v.formula.as_ref()).or_else(column) == change.formula.as_ref()

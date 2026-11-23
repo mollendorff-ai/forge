@@ -620,10 +620,10 @@ impl Rename {
             read = self.renamed(&read);
         }
         let mut json = serde_json::to_value(&read).expect("a model is written as JSON");
-        // A game's formulas and a network's probabilities read names too
+        // A game's payoffs and a network's probabilities read names too
         for section in ["games", "network"] {
-            if let Some(found) = json.get_mut(section) {
-                formulas_in(found, &|f| formula(f, Place::Elsewhere));
+            if let Some(section) = json.get_mut(section) {
+                formulas_in(section, &|f| formula(f, Place::Elsewhere));
             }
         }
         let includes: serde_json::Map<String, Json> = model
@@ -861,6 +861,30 @@ tornado:
         }
     }
 
+    /// A name a network's prior reads is renamed there too (ADR-074):
+    /// `examples/expected_loss.yaml`, whose economy reads `outlook.p_bad`
+    #[test]
+    fn a_scalar_a_networks_prior_reads_is_renamed_in_the_prior() {
+        let text = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/expected_loss.yaml"),
+        )
+        .unwrap();
+        let files = HashMap::from([("model.yaml".to_string(), text.clone())]);
+        let changed = run(&files, rename("outlook.p_bad", "p_crash")).unwrap();
+        let after = changed["model.yaml"].clone();
+        assert!(
+            after.contains(
+                "prior: [\"=1 - outlook.p_neutral - outlook.p_crash\", \"=outlook.p_neutral\", \"=outlook.p_crash\"]"
+            ),
+            "{after}"
+        );
+        assert!(!after.contains("p_bad"), "{after}");
+        // Renamed back, the file is as it was
+        let now: HashMap<String, String> = changed.into_iter().collect();
+        let back = run(&now, rename("outlook.p_crash", "p_bad")).unwrap();
+        assert_eq!(back["model.yaml"], text);
+    }
+
     #[test]
     fn a_scalar_is_renamed_where_formulas_scenarios_and_analyses_read_it() {
         let want = replaced(
@@ -1038,6 +1062,26 @@ tornado:
             .replace("{r: 5}", "{multiplier: 5}")
             .replace("{r: 6}", "{multiplier: 6}");
         assert_eq!(changed["m.yaml"], want);
+    }
+
+    /// A network's prior is a formula over the model's scalars (ADR-074):
+    /// a rename reaches it, and Forge reads the model back as it was.
+    #[test]
+    fn a_name_read_by_a_networks_prior_is_renamed_there_too() {
+        let text = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/expected_loss.yaml"),
+        )
+        .unwrap();
+        let one = HashMap::from([("m.yaml".to_string(), text.clone())]);
+        let changed = edit_files(&one, "m.yaml", &[rename("outlook.p_bad", "p_down")]).unwrap();
+        let prior = "\"=1 - outlook.p_neutral - outlook.p_bad\", \"=outlook.p_neutral\", \"=outlook.p_bad\"";
+        assert!(text.contains(prior));
+        assert!(
+            changed["m.yaml"]
+                .contains("\"=1 - outlook.p_neutral - outlook.p_down\", \"=outlook.p_neutral\", \"=outlook.p_down\""),
+            "{}",
+            changed["m.yaml"]
+        );
     }
 
     #[test]

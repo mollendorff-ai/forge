@@ -46,7 +46,7 @@ pub mod written;
 
 // Re-exports
 pub use config::{BayesianConfig, BayesianNode, NodeType as BayesianNodeType, Query};
-pub use engine::{BayesianEngine, BayesianResult, VariableResult};
+pub use engine::{BayesianEngine, BayesianResult, NodeOutline, VariableResult};
 pub use inference::BeliefPropagation;
 pub use written::{Probability, WrittenNetwork};
 

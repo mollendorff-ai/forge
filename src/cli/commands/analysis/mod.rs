@@ -11,6 +11,4 @@ pub use variance::{pct_is_meaningful, variance, variance_core};
 #[cfg(test)]
 pub use sensitivity::{calculate_with_override, parse_range};
 #[cfg(test)]
-pub use variance::{
-    export_variance_to_excel, export_variance_to_yaml, print_variance_table, VarianceResult,
-};
+pub use variance::{export_variance_to_excel, export_variance_to_yaml, print_variance_table};
