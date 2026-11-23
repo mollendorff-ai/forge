@@ -116,7 +116,7 @@ A decision that changes behaviour, adds a key, or chooses between real options g
 - **Name:** `ADR-NNN-WHAT-IT-DECIDES.md`, the next number after the highest. A number is never reused, including the ones missing today ([README](README.md#numbers-not-in-the-list)).
 - **Header:** `# ADR-NNN: Title`, then `**Status:**`, `**Date:**`, `**Decided by:**` and `**For:**` (the roadmap items). ADR-073 to ADR-077 are good models.
 - **Body:** `## Context`, the questions with the options and what was decided, `## What is built, in order`, `## Consequences`.
-- **Status:** `Proposed`, then `Accepted` (with the date), then what is built (`built`, or the steps built so far); later `Superseded by ADR-NNN` or `Partly superseded`. When the status changes, change it in the ADR and in the [index](README.md) in the same commit.
+- **Status:** `Proposed`, then `Accepted` (with the date), then what is built (`built`, or the steps built so far); later `Superseded by ADR-NNN` or `Partly superseded`. When the status changes, change it in the ADR and in the [index](README.md) in the same commit: `validation/repo`'s `architecture_docs` fails when the two start with different statuses, or when the index says something is not yet built and the ADR does not.
 - **History:** an ADR is a record of a decision at its date. When the code later moves, add a dated note at the top rather than rewriting the decision; update a path that moved if the note would otherwise mislead.
 - **The index:** add a row to [README.md](README.md); the `architecture_docs.rs` check in `validation/repo` fails when an ADR is missing from the index.
 
