@@ -1,6 +1,6 @@
 # ADR-076: Simulations and Games on Forge Studio's Cards
 
-**Status:** Accepted (2026-11-22). Steps 1 to 3 built (2026-11-22, roadmap S-UNCERTAIN); "fixed" on the distribution card comes with step 4
+**Status:** Accepted (2026-11-22). Steps 1 to 4 built (2026-11-22, roadmap S-UNCERTAIN)
 **Date:** 2026-11-22
 **Decided by:** the maintainer (2026-11-22), who found that a calculation is edited on its cards while a simulation or a game is changed only in the YAML view, and who left the choice of how an uncertain model behaves on the Model view to Claude (decision 1); the analysis is Claude's
 **For:** roadmap S-UNCERTAIN, S-GAMES-EDIT and S-TEMPLATES. It extends ADR-056 and ADR-068 and builds on ADR-075
@@ -128,6 +128,6 @@ Why not a wizard: on a phone, a wizard of several steps holds a second copy of w
 1. Analyze's fixes (decision 3).
 2. `calculate` with `plan: true`. The Model view of an uncertain model: the plan, the bands, "uncertain" in place of "Problem". Held against `forge simulate` in `studio/tests/screen.mjs`'s way.
 3. The distribution card (decision 2).
-4. Make uncertain and make certain, after ADR-075 step 4.
+4. Make uncertain and make certain, after ADR-075 step 4 (done, 2026-11-22: "Make uncertain" on a number input's card and "fixed" on a distribution's call forge-wasm's `edit`, which writes the file and keeps the change only when Forge reads the model back as asked; a refusal, such as an input of 0 or one two includes deep, is shown as Forge words it).
 5. Games on the card (decision 5): `game` with its inputs, and the folded included groups first; the edits after ADR-075 steps 3 and 5.
 6. Templates (decision 6), after ADR-075 step 6.

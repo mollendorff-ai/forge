@@ -714,7 +714,7 @@ studio:
     why: "bagel_simulate.yaml opens on a Problem pill and 'Not calculated' on every result"
     how: "calculate takes plan: true; simulate with the model's own settings after each change; Analyze's output list in the model's order"
     acceptance: "Every plan figure on screen equals simulate's at_plan, every band equals forge simulate natively (mean, P5, P95, thresholds), for every uncertain example; the distribution card's fields come from Forge's function list"
-    built: "2026-11-22: forge calculate --plan (CLI, forge_calculate, REST, forge-wasm; src/cli/commands/plan.rs), simulate's output_order, studio/uncertain.js (the plan, the bands, the distribution card), Analyze's order and scenarios reason; studio/tests/uncertain.mjs against forge-wasm's expected.json. Left for ADR-076 step 4: 'fixed' on the distribution card (make_certain), after S-EDIT"
+    built: "2026-11-22: forge calculate --plan (CLI, forge_calculate, REST, forge-wasm; src/cli/commands/plan.rs), simulate's output_order, studio/uncertain.js (the plan, the bands, the distribution card), Analyze's order and scenarios reason; studio/tests/uncertain.mjs against forge-wasm's expected.json. 2026-11-22, ADR-076 step 4: 'fixed' on the distribution card (make_certain) and 'Make uncertain' on a number input's card (make_uncertain), both through forge-wasm's edit; studio/tests/uncertain.mjs"
   - id: S-EDIT
     title: "forge edit: Forge writes a model's text, comments kept (ADR-075)"
     how: "The yaml-edit spike first, its findings in ADR-075; then set_value, set_formula, add, delete held to text.js's bytes; then rename, make_uncertain, the game changes, insert; the forge-wasm edit tool, forge_edit over MCP, forge edit on the command line"
