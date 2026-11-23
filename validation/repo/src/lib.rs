@@ -17,6 +17,7 @@ pub mod architecture_docs;
 pub mod conventions;
 pub mod doc_counts;
 pub mod doc_examples;
+pub mod guide;
 pub mod help_examples;
 pub mod install_script;
 pub mod no_skipping;
@@ -160,9 +161,19 @@ impl Ran {
 /// Panics if the binary is missing or does not start.
 #[must_use]
 pub fn forge<S: AsRef<std::ffi::OsStr>>(args: &[S]) -> Ran {
+    forge_in(root(), args)
+}
+
+/// `forge` with `args`, run from `dir`, without colour.
+///
+/// # Panics
+///
+/// Panics if the binary is missing or does not start.
+#[must_use]
+pub fn forge_in<S: AsRef<std::ffi::OsStr>>(dir: &Path, args: &[S]) -> Ran {
     let out = Command::new(forge_bin())
         .args(args)
-        .current_dir(root())
+        .current_dir(dir)
         .env("NO_COLOR", "1")
         .output()
         .expect("forge starts");
