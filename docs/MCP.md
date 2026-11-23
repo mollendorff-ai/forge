@@ -1,14 +1,14 @@
 # Forge MCP Integration Guide
 
-Forge implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) over stdin/stdout using JSON-RPC 2.0. This gives AI agents structured access to all 21 Forge tools.
+Forge implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) over stdin/stdout using JSON-RPC 2.0. This gives AI agents structured access to all 23 Forge tools.
 
-Forge uses [rmcp](https://github.com/anthropics/rust-mcp-sdk) (Anthropic's official Rust MCP SDK) for protocol handling. Tool definitions use typed request structs with automatic JSON schema generation. Additional transports (SSE, WebSocket) are planned for a future release.
+Forge uses [rmcp](https://github.com/modelcontextprotocol/rust-sdk) (the Model Context Protocol project's official Rust SDK) for protocol handling. Tool definitions use typed request structs with automatic JSON schema generation. Additional transports (SSE, WebSocket) are planned for a future release.
 
 ## Quick Start
 
 ### Claude Desktop
 
-Add to `~/.config/claude/claude_desktop_config.json`:
+Open Settings, Developer, Edit Config in Claude Desktop, or edit the file it names: `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows. Add:
 
 ```json
 {
