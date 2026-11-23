@@ -1,10 +1,10 @@
 //! Growth, loan and depreciation schedules: RRI, CUMIPMT, CUMPRINC, SYD and VDB
+//!
+//! CUMIPMT, CUMPRINC and VDB add up a run of periods. Each sum is a closed form,
+//! so a run of 10^17 periods costs what a run of one does, and no sum is a
+//! difference of large numbers: a balance is e^(j ln(1 - rate)), and what it
+//! loses between two periods is that times -expm1.
 
-// Periods, types and lives are whole numbers held in f64, so comparing and counting
-// them is exact.
-#![allow(clippy::while_float)]
-
-use super::financial::{annuity_ipmt, annuity_pmt};
 use super::{evaluate, number_or, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::precision::same;
@@ -21,54 +21,99 @@ fn num_error(name: &str, why: &str) -> EvalError {
     EvalError::new(format!("{name}: {why} (#NUM!)"))
 }
 
-/// The total of `part` (interest or principal) of a loan's payments from
-/// period `start` to `end`: `CUMIPMT` and `CUMPRINC`.
+/// (x - 1 + e^-x) / x for x > 0: how far the mean of e^-t over 0..x falls
+/// short of 1. Near 0 the two sides of the difference agree in most of their
+/// digits, so there it is its Taylor series, x/2! - x^2/3! + x^3/4! - ...,
+/// whose 18 terms at x < 0.5 leave less than 1E-25 out.
+fn shortfall(x: f64) -> f64 {
+    if x < 0.5 {
+        let mut sum = 0.0;
+        let mut term = x / 2.0;
+        for k in 1..=18_u8 {
+            sum += term;
+            term *= -x / f64::from(k + 2);
+        }
+        sum
+    } else {
+        (x + (-x).exp_m1()) / x
+    }
+}
+
+/// The level payment, paid at the end of each period, of a loan of `pv`
+/// over `nper` periods at `rate` (Excel's `PMT`), written so that a large
+/// `nper` neither overflows nor divides infinity by infinity
+fn level_payment(rate: f64, nper: f64, pv: f64) -> f64 {
+    pv * rate / (-nper * rate.ln_1p()).exp_m1()
+}
+
+/// How much of the payments `start..=end` of a loan over `nper` periods at
+/// `rate` (payments at the end of each period) is interest and how much is
+/// principal, each as a multiple of one payment.
+///
+/// After j periods the balance is pv * (1 - (1 + r)^(j - n)) / (1 - (1 + r)^-n),
+/// so the principal of period k is the payment times (1 + r)^(k - 1 - n), and
+/// its interest the payment times 1 - (1 + r)^(k - 1 - n). With h = 1 / (1 + r),
+/// c = n - end + 1 periods after the last and m = end - start + 1 of them, the
+/// principal is h^c (1 - h^m) / (1 - h), and the interest m (1 - h^c) plus h^c
+/// times the sum of 1 - h^i for i below m, which is m (s(mu) - s(u)) / (1 - s(u))
+/// with u = ln(1 + r) and s the shortfall: no term is a difference of large
+/// numbers.
+fn shares(rate: f64, nper: f64, start: f64, end: f64) -> (f64, f64) {
+    let u = rate.ln_1p();
+    let m = end - start + 1.0;
+    let after = nper - end + 1.0;
+    let kept = (-after * u).exp();
+    let principal = kept * (-m * u).exp_m1() / (-u).exp_m1();
+    let short = shortfall(u);
+    let below = m * (shortfall(m * u) - short) / (1.0 - short);
+    let interest = (-m).mul_add((-after * u).exp_m1(), kept * below);
+    (interest, principal)
+}
+
+/// `CUMIPMT` and `CUMPRINC`: the interest or the principal of the payments
+/// from period `start` to `end`. With payments at the start of each period
+/// (`kind` 1) every amount is one period earlier, so divided by 1 + rate,
+/// and the first payment is all principal.
 fn cumulative(
     name: &str,
     args: &[Expr],
     ctx: &EvalContext,
-    part: impl Fn(f64, f64, f64, f64, f64) -> f64,
+    interest: bool,
 ) -> Result<f64, EvalError> {
     let (rate, nper, pv, start, end, kind) = cumulative_args(name, args, ctx)?;
-    let mut total = 0.0;
-    let mut per = start;
-    while per <= end {
-        total += part(rate, per, nper, pv, kind);
-        per += 1.0;
-    }
-    Ok(total)
+    Ok(cumulative_sum(rate, nper, pv, start, end, kind, interest))
 }
 
-/// CUMPRINC in closed form. The principal of period k is the first full
-/// period's times (1 + r)^(k - 1), and that first one is -pv * r / ((1 + r)^n - 1),
-/// so the sum is a geometric series with no difference of large numbers (the
-/// sum of PMT - IPMT lost digits at a rate of 50%: 7E-6 relative). With
-/// payments at the start, period 1 is the whole payment and the series starts
-/// at period 2.
-fn cumulative_principal(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<f64, EvalError> {
-    let (rate, nper, pv, start, end, kind) = cumulative_args(name, args, ctx)?;
-    let ln = rate.ln_1p();
-    let grow = |k: f64| (k * ln).exp();
-    let grown = |k: f64| (k * ln).exp_m1();
-    let per_unit = -pv / grown(nper);
-    // Sum of (1 + r)^j for j from a to b, times r: (1 + r)^a * ((1 + r)^(b - a + 1) - 1)
-    let series = |a: f64, b: f64| {
-        if b < a {
-            0.0
-        } else {
-            grow(a) * grown(b - a + 1.0)
-        }
+/// The sum `cumulative` gives, the arguments checked
+fn cumulative_sum(
+    rate: f64,
+    nper: f64,
+    pv: f64,
+    start: f64,
+    end: f64,
+    kind: f64,
+    interest: bool,
+) -> f64 {
+    let payment = level_payment(rate, nper, pv);
+    let part = |from: f64| {
+        let (interest_share, principal_share) = shares(rate, nper, from, end);
+        payment
+            * if interest {
+                interest_share
+            } else {
+                principal_share
+            }
     };
-    Ok(if kind == 0.0 {
-        per_unit * series(start - 1.0, end - 1.0)
+    if kind == 0.0 {
+        return part(start);
+    }
+    let first = if interest || start > 1.0 {
+        0.0
     } else {
-        let first = if start <= 1.0 {
-            annuity_pmt(rate, nper, pv, 0.0, 1.0)
-        } else {
-            0.0
-        };
-        per_unit.mul_add(series(start.max(2.0) - 2.0, end - 2.0), first)
-    })
+        payment
+    };
+    let rest = if end < 2.0 { 0.0 } else { part(start.max(2.0)) };
+    (first + rest) / (1.0 + rate)
 }
 
 /// The checked arguments of CUMIPMT and CUMPRINC
@@ -124,10 +169,67 @@ pub(super) fn declining(cost: f64, salvage: f64, life: f64, period: f64, factor:
     depreciation.max(0.0)
 }
 
+/// An asset written down by a declining balance: each period it loses
+/// `rate` of what it is worth, down to its salvage value
+struct Declining {
+    cost: f64,
+    salvage: f64,
+    rate: f64,
+    /// ln(1 - rate), or `None` when the rate is 1 and all goes at once
+    ln_kept: Option<f64>,
+}
+
+impl Declining {
+    fn new(cost: f64, salvage: f64, life: f64, factor: f64) -> Self {
+        let rate = (factor / life).min(1.0);
+        let ln_kept = (rate < 1.0).then(|| (-rate).ln_1p());
+        Self {
+            cost,
+            salvage,
+            rate,
+            ln_kept,
+        }
+    }
+
+    /// The worth after `periods` periods, as if it could fall below the salvage
+    fn worth(&self, periods: f64) -> f64 {
+        if periods == 0.0 {
+            return self.cost;
+        }
+        self.ln_kept
+            .map_or(0.0, |ln_kept| self.cost * (periods * ln_kept).exp())
+    }
+
+    /// The depreciation from period `from` to period `to` (whole periods,
+    /// `from` <= `to`), which stops at the salvage, as `DDB` gives each period
+    fn lost(&self, from: f64, to: f64) -> f64 {
+        let before = self.worth(from);
+        if to <= from || before <= self.salvage {
+            0.0
+        } else if self.worth(to) >= self.salvage {
+            let share = self
+                .ln_kept
+                .map_or(1.0, |ln_kept| -((to - from) * ln_kept).exp_m1());
+            before * share
+        } else {
+            before - self.salvage
+        }
+    }
+}
+
 /// Depreciation over the first `periods` periods of an asset of this `cost`,
 /// by the declining balance until the straight line over what is left is
 /// larger, and then by the straight line. `remaining_life` is the life the
-/// straight line counts from the start.
+/// straight line counts from the start. The last period counts only as far
+/// as `periods` reaches into it.
+///
+/// Period p switches when what is left, w(p - 1) - salvage, spread over the
+/// k = `remaining_life` - p + 1 periods to go, is more than the period's fall,
+/// w(p - 1) * rate: when w(p - 1) * (1 - rate * k) > salvage (until the worth
+/// reaches the salvage, after which nothing falls). That side rises with p to
+/// a peak at `remaining_life` + 1 - 1/rate - 1/ln(1 - rate) and falls after
+/// it, so the first period that switches is found by halving the periods up
+/// to the peak.
 fn switching(
     cost: f64,
     salvage: f64,
@@ -137,30 +239,65 @@ fn switching(
     factor: f64,
 ) -> f64 {
     let whole = periods.ceil();
-    let mut total = 0.0;
-    let mut left = cost - salvage;
-    let mut straight_line = None;
-    let mut period = 1.0;
-    while period <= whole {
-        let mut term = straight_line.unwrap_or_else(|| {
-            let fall = declining(cost, salvage, life, period, factor);
-            let level = left / (remaining_life - (period - 1.0));
-            if level > fall {
-                straight_line = Some(level);
-                level
-            } else {
-                left -= fall;
-                fall
-            }
-        });
-        if same(period, whole) {
-            // The last period counts only as far as `periods` reaches into it
-            term *= periods + 1.0 - whole;
-        }
-        total += term;
-        period += 1.0;
+    if whole < 1.0 {
+        return 0.0;
     }
-    total
+    let part = periods + 1.0 - whole;
+    let asset = Declining::new(cost, salvage, life, factor);
+    let rate = asset.rate;
+    let room = |p: f64| asset.worth(p - 1.0) * rate.mul_add(-(remaining_life - p + 1.0), 1.0);
+    let within = |p: f64| p.clamp(1.0, whole);
+    // 1/rate + 1/ln(1 - rate) is -1/2 - rate/12 - rate^2/24 - ..., whose
+    // two terms agree in most of their digits when the rate is small
+    let peak = match asset.ln_kept {
+        None => remaining_life,
+        Some(_) if rate == 0.0 => 1.0,
+        Some(_) if rate < 1e-3 => remaining_life + 1.5 + rate / 12.0 + rate * rate / 24.0,
+        Some(ln_kept) => remaining_life + 1.0 - (1.0 / rate + 1.0 / ln_kept),
+    };
+    let near = within(peak.round());
+    let top = [within(near - 1.0), near, within(near + 1.0)]
+        .into_iter()
+        .fold(near, |best, p| if room(p) > room(best) { p } else { best });
+    let mut switch = None;
+    if room(top) > salvage {
+        // The first period that switches: `low` does not, `high` does
+        let (mut low, mut high) = (1.0, top);
+        if room(low) > salvage {
+            high = low;
+        }
+        // Beyond 2^53 halving can stop moving, so the steps are counted
+        for _ in 0..1100 {
+            if high - low <= 1.0 {
+                break;
+            }
+            let middle = (f64::midpoint(low, high)).floor();
+            if room(middle) > salvage {
+                high = middle;
+            } else {
+                low = middle;
+            }
+        }
+        if asset.worth(high) >= salvage {
+            switch = Some(high);
+        }
+    }
+    if let Some(first) = switch {
+        let level = (asset.worth(first - 1.0) - salvage) / (remaining_life - first + 1.0);
+        return level.mul_add(whole - first + part, asset.lost(0.0, first - 1.0));
+    }
+    let spent = asset.lost(0.0, whole - 1.0);
+    let fall = asset.lost(whole - 1.0, whole);
+    // Within the last period of the life only part of a period is left to
+    // spread over, which can make the straight line the larger even there
+    let to_go = remaining_life - whole + 1.0;
+    let left = cost - salvage - spent;
+    let last = if to_go < 1.0 && left / to_go > fall {
+        left / to_go
+    } else {
+        fall
+    };
+    last.mul_add(part, spent)
 }
 
 /// `VDB`: depreciation
@@ -170,8 +307,8 @@ fn vdb(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<f64, EvalError> {
     let cost = number(name, args, 0, ctx)?;
     let salvage = number(name, args, 1, ctx)?;
     let life = number(name, args, 2, ctx)?;
-    let mut start = number(name, args, 3, ctx)?;
-    let mut end = number(name, args, 4, ctx)?;
+    let start = number(name, args, 3, ctx)?;
+    let end = number(name, args, 4, ctx)?;
     let factor = if args.len() > 5 {
         number_or(&args[5], ctx, 2.0)?
     } else {
@@ -197,25 +334,39 @@ fn vdb(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<f64, EvalError> {
     {
         return Err(num_error(name, "an argument is out of range"));
     }
+    Ok(depreciation(
+        cost, salvage, life, start, end, factor, no_switch,
+    ))
+}
+
+/// VDB's depreciation of an asset from `start` to `end`, the arguments checked
+fn depreciation(
+    cost: f64,
+    salvage: f64,
+    life: f64,
+    start: f64,
+    end: f64,
+    factor: f64,
+    no_switch: bool,
+) -> f64 {
     if no_switch {
+        // The declining balance alone; the first and the last period count
+        // only the part inside start..end
         let first = start.floor();
         let last = end.ceil();
-        let mut total = 0.0;
-        let mut period = first + 1.0;
-        while period <= last {
-            let mut term = declining(cost, salvage, life, period, factor);
-            // The first and the last period count only the part inside start..end
-            if same(period, first + 1.0) {
-                term *= end.min(first + 1.0) - start;
-            } else if same(period, last) {
-                term *= end + 1.0 - last;
-            }
-            total += term;
-            period += 1.0;
+        if last < first + 1.0 {
+            return 0.0;
         }
-        return Ok(total);
+        let asset = Declining::new(cost, salvage, life, factor);
+        let mut total = asset.lost(first, first + 1.0) * (end.min(first + 1.0) - start);
+        if last > first + 1.0 {
+            total += asset
+                .lost(last - 1.0, last)
+                .mul_add(end + 1.0 - last, asset.lost(first + 1.0, last - 1.0));
+        }
+        return total;
     }
-    let mut remaining_life = life;
+    let (mut start, mut end, mut remaining_life) = (start, end, life);
     if start.fract() != 0.0 && factor > 1.0 && start >= life / 2.0 {
         let part = start - life / 2.0;
         start = life / 2.0;
@@ -223,14 +374,14 @@ fn vdb(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<f64, EvalError> {
         remaining_life += 1.0;
     }
     let spent = switching(cost, salvage, life, remaining_life, start, factor);
-    Ok(switching(
+    switching(
         cost - spent,
         salvage,
         life,
         life - start,
         end - start,
         factor,
-    ))
+    )
 }
 
 /// Try to evaluate a schedule function. Returns None if not recognized.
@@ -276,11 +427,8 @@ pub fn try_evaluate(
             Value::Number((cost - salvage) * (life - per + 1.0) * 2.0 / (life * (life + 1.0)))
         },
 
-        "CUMIPMT" => Value::Number(cumulative(name, args, ctx, |rate, per, nper, pv, kind| {
-            annuity_ipmt(rate, per, nper, pv, 0.0, kind)
-        })?),
-
-        "CUMPRINC" => Value::Number(cumulative_principal(name, args, ctx)?),
+        "CUMIPMT" => Value::Number(cumulative(name, args, ctx, true)?),
+        "CUMPRINC" => Value::Number(cumulative(name, args, ctx, false)?),
         "VDB" => Value::Number(vdb(name, args, ctx)?),
 
         _ => return Ok(None),
@@ -290,6 +438,8 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     /// Tests of the functions added in 10.1: schedules, conveniences, percentiles.
     /// Their expected values were computed outside Forge (R, Python, by hand); the
     /// Gnumeric suite (`statistics_finance_batch.yaml`) checks the same functions
@@ -432,14 +582,14 @@ mod tests {
     }
 
     /// The principal of the first payment, made at the start, is the whole
-    /// payment (`LibreOffice`: -123.337690443292 for both)
+    /// payment (`LibreOffice`: -123.337690443292 for both). PMT and CUMPRINC
+    /// compute it in different ways, which agree to the last bit but one.
     #[test]
     fn principal_of_the_first_payment_at_the_start() {
         use crate::core::array_calculator::evaluator::tests as h;
-        assert_eq!(
-            h::number("CUMPRINC(0.05, 10, 1000, 1, 1, 1)").to_bits(),
-            h::number("PMT(0.05, 10, 1000, 0, 1)").to_bits()
-        );
+        let principal = h::number("CUMPRINC(0.05, 10, 1000, 1, 1, 1)");
+        let payment = h::number("PMT(0.05, 10, 1000, 0, 1)");
+        assert!((principal - payment).abs() <= f64::EPSILON * payment.abs());
         assert!(h::near(
             h::number("CUMPRINC(0.05, 10, 1000, 1, 1, 1)"),
             -123.337_690_443_292
@@ -458,5 +608,229 @@ mod tests {
         use crate::core::array_calculator::evaluator::tests::{near, number};
         let got = number("VDB(2400, 300, 10, 6.5, 10, 2)");
         assert!(near(got, 424.044_134_4), "{got}");
+    }
+
+    /// `got` is `want` to within `relative` of it
+    fn close(got: f64, want: f64, relative: f64) -> bool {
+        (got - want).abs() <= relative * want.abs()
+    }
+
+    /// Runs of 10^17 periods are summed at once. Each of these ran for
+    /// hours, counting one period at a time; Gnumeric 1.12.56 gives #NUM!,
+    /// 0 (for a whole life with no salvage, which loses the whole cost) or
+    /// #VALUE!, and `LibreOffice` 24.8 does not finish. The exact values:
+    /// far from the end of a loan the balance is the loan, so the interest is
+    /// rate * pv; a rate of 2E-17 over 5E+16 periods keeps e^-1 of the cost.
+    #[test]
+    fn a_run_of_10_to_the_17_periods_is_summed_at_once() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("CUMIPMT(0.01, 1E+20, 1000, 1E+17, 1E+17, 0)", -10.0);
+        h::is_exactly("CUMIPMT(0.01, 1E+20, 1000, 1E+17 - 64, 1E+17, 0)", -650.0);
+        let principal = h::number("CUMPRINC(0.01, 1E+20, 1000, 1E+17, 1E+17, 0)");
+        assert_eq!(principal.abs().to_bits(), 0.0_f64.to_bits());
+        h::is_exactly("VDB(1000, 0, 1E+17, 0, 1E+17)", 1000.0);
+        let kept_e = h::number("VDB(1000, 100, 1E+17, 0, 5E+16, 2, TRUE)");
+        assert!(close(kept_e, 632.120_558_828_557_7, 1e-14), "{kept_e}");
+        let first = h::number("VDB(2400, 300, 1E+17, 0, 1)");
+        assert!(close(first, 4.8e-14, 1e-14), "{first}");
+    }
+
+    /// Late in a long loan the balance is a small difference of large
+    /// numbers, which the sum of IPMT lost entirely: the last interest
+    /// payment of 1,000 at 5% was out by a factor of millions. Gnumeric gives
+    /// 0 and `LibreOffice` 858,993,459.2; the exact values (60 digits, mpmath)
+    /// are below. A tiny rate is exact too, as `LibreOffice` gives it.
+    #[test]
+    fn late_periods_of_a_long_loan_and_tiny_rates_are_exact() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        for (formula, exact) in [
+            (
+                "CUMIPMT(0.05, 1000, 100000, 1000, 1000, 0)",
+                -238.095_238_095_238_1,
+            ),
+            (
+                "CUMPRINC(0.05, 1000, 100000, 1000, 1000, 0)",
+                -4_761.904_761_904_762,
+            ),
+            (
+                "CUMIPMT(0.05, 1000, 100000, 990, 1000, 1)",
+                -12_826.598_960_613_1,
+            ),
+            (
+                "CUMIPMT(1E-9, 12, 100000, 2, 2, 1)",
+                -9.166_666_662_083_333e-5,
+            ),
+            (
+                "CUMIPMT(0.09/12, 360, 125000, 13, 24, 0)",
+                -11_135.232_130_750_84,
+            ),
+        ] {
+            let got = h::number(formula);
+            assert!(close(got, exact, 1e-14), "{formula}: {got}, not {exact}");
+        }
+    }
+
+    /// The closed forms of CUMIPMT and CUMPRINC are the sums of each
+    /// period's interest and principal, payment * (1 - h^(n - k + 1)) and
+    /// payment * h^(n - k + 1) with h = 1 / (1 + rate), added one by one
+    #[test]
+    fn cumulative_sums_are_the_periods_added_one_by_one() {
+        let mut checked = 0;
+        for rate in [1e-12, 1e-6, 1e-3, 0.0075, 0.05, 0.3, 2.0] {
+            for nper in [1_u32, 2, 3, 12, 360] {
+                let n = f64::from(nper);
+                let payment = level_payment(rate, n, 1000.0);
+                let after = |k: u32| -f64::from(nper - k + 1) * rate.ln_1p();
+                for (start, end) in [(1, 1), (1, nper), (nper, nper), (nper.div_ceil(2), nper)] {
+                    for due in [false, true] {
+                        let kind = f64::from(u8::from(due));
+                        let (mut interest, mut principal) = (0.0, 0.0);
+                        for k in start..=end {
+                            if due && k == 1 {
+                                principal += payment / (1.0 + rate);
+                                continue;
+                            }
+                            let shift = kind.mul_add(rate, 1.0);
+                            interest += payment * -after(k).exp_m1() / shift;
+                            principal += payment * after(k).exp() / shift;
+                        }
+                        let (from, to) = (f64::from(start), f64::from(end));
+                        let sum = |part| cumulative_sum(rate, n, 1000.0, from, to, kind, part);
+                        for (got, want) in [(sum(true), interest), (sum(false), principal)] {
+                            assert!(
+                                (got - want).abs() <= 1e-12 * want.abs().max(1e-300),
+                                "{rate} {nper} {start}..{end} {kind}: {got}, not {want}"
+                            );
+                            checked += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(checked, 7 * 5 * 4 * 2 * 2);
+    }
+
+    /// VDB as it was computed before the closed form, one period at a time
+    /// (`LibreOffice`'s `ScVDB`), for lives short enough to walk
+    fn walked(
+        cost: f64,
+        salvage: f64,
+        life: f64,
+        start: f64,
+        end: f64,
+        factor: f64,
+        no_switch: bool,
+    ) -> f64 {
+        use num_traits::ToPrimitive;
+        let steps = |to: f64| 1..=to.to_u32().expect("a short life");
+        if no_switch {
+            let first = start.floor();
+            let last = end.ceil();
+            let mut total = 0.0;
+            for step in steps(last) {
+                let period = f64::from(step);
+                if period < first + 1.0 {
+                    continue;
+                }
+                let mut term = declining(cost, salvage, life, period, factor);
+                if same(period, first + 1.0) {
+                    term *= end.min(first + 1.0) - start;
+                } else if same(period, last) {
+                    term *= end + 1.0 - last;
+                }
+                total += term;
+            }
+            return total;
+        }
+        let switching = |cost: f64, remaining_life: f64, periods: f64| {
+            let whole = periods.ceil();
+            let mut total = 0.0;
+            let mut left = cost - salvage;
+            let mut straight_line = None;
+            for step in steps(whole) {
+                let period = f64::from(step);
+                let mut term = straight_line.unwrap_or_else(|| {
+                    let fall = declining(cost, salvage, life, period, factor);
+                    let level = left / (remaining_life - (period - 1.0));
+                    if level > fall {
+                        straight_line = Some(level);
+                        level
+                    } else {
+                        left -= fall;
+                        fall
+                    }
+                });
+                if same(period, whole) {
+                    term *= periods + 1.0 - whole;
+                }
+                total += term;
+            }
+            total
+        };
+        let (mut start, mut end, mut remaining_life) = (start, end, life);
+        if start.fract() != 0.0 && factor > 1.0 && start >= life / 2.0 {
+            let part = start - life / 2.0;
+            start = life / 2.0;
+            end -= part;
+            remaining_life += 1.0;
+        }
+        let spent = switching(cost, remaining_life, start);
+        switching(cost - spent, life - start, end - start)
+    }
+
+    /// The closed form of VDB gives what walking the periods gives, on
+    /// 20,000 assets: lives of 1 to 10,000 periods and part periods, every
+    /// kind of factor (none, below 1, the life and more), salvages from
+    /// nothing to the cost, with and without the switch. Where walking
+    /// leaves a millionth of the cost or less, both are as good as nothing.
+    #[test]
+    fn vdb_in_closed_form_is_vdb_walked_period_by_period() {
+        use rand::rngs::StdRng;
+        use rand::{RngExt, SeedableRng};
+        let mut rng = StdRng::seed_from_u64(20_261_123);
+        let lives = [
+            1.0, 2.0, 3.0, 5.0, 10.0, 12.0, 30.0, 120.0, 365.0, 2500.0, 10_000.0, 1.5, 7.5, 10.25,
+        ];
+        let (mut compared, mut nothing) = (0, 0);
+        for _ in 0..20_000 {
+            let life = lives[rng.random_range(0..lives.len())];
+            let base = [1.0, 1000.0, 2400.0, 50_000.0][rng.random_range(0..4)];
+            let cost = rng.random::<f64>().mul_add(100.0, base);
+            let salvage = cost * [0.0, 0.1, 0.3, 0.5, 0.9, 1.0][rng.random_range(0..6)];
+            let factor = [
+                0.0,
+                0.5,
+                1.0,
+                1.5,
+                2.0,
+                3.0,
+                life,
+                life * 2.0,
+                rng.random::<f64>() * 4.0,
+            ][rng.random_range(0..9)];
+            let mut a = rng.random::<f64>() * life;
+            let mut b = rng.random::<f64>() * life;
+            if rng.random_bool(0.4) {
+                a = a.floor();
+            }
+            if rng.random_bool(0.4) {
+                b = b.ceil().min(life);
+            }
+            let (start, end) = (a.min(b), a.max(b));
+            let no_switch = rng.random_bool(0.3);
+            let want = walked(cost, salvage, life, start, end, factor, no_switch);
+            let got = depreciation(cost, salvage, life, start, end, factor, no_switch);
+            let case =
+                format!("VDB({cost}, {salvage}, {life}, {start}, {end}, {factor}, {no_switch})");
+            if want.abs() > cost * 1e-6 {
+                assert!(close(got, want, 1e-10), "{case}: {got}, not {want}");
+                compared += 1;
+            } else {
+                assert!(got.abs() <= cost * 1e-6, "{case}: {got}, not {want}");
+                nothing += 1;
+            }
+        }
+        assert_eq!(compared + nothing, 20_000);
+        assert!(compared > 10_000, "{compared}");
     }
 }
