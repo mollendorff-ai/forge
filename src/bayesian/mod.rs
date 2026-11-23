@@ -158,8 +158,6 @@ mod tests {
 
         /// Test conditional independence (A _||_ C | B)
         #[test]
-        // Standard Bayesian notation: evidence_b/evidence_ab distinguish conditioning sets
-        #[allow(clippy::similar_names)]
         fn test_conditional_independence() {
             let config = BayesianConfig::new("CI Test")
                 .with_node(
@@ -184,23 +182,26 @@ mod tests {
             let engine = BayesianEngine::new(config).unwrap();
 
             // Given B=b1, C should be independent of A
-            let mut evidence_b = HashMap::new();
-            evidence_b.insert("B".to_string(), "b1");
+            let mut evidence_of_b = HashMap::new();
+            evidence_of_b.insert("B".to_string(), "b1");
 
-            let c_given_b = engine.query_with_evidence("C", &evidence_b).unwrap();
+            let c_after_b = engine.query_with_evidence("C", &evidence_of_b).unwrap();
 
             // Also query with A evidence
-            let mut evidence_ab = HashMap::new();
-            evidence_ab.insert("A".to_string(), "a0");
-            evidence_ab.insert("B".to_string(), "b1");
+            let mut evidence_of_a_and_b = HashMap::new();
+            evidence_of_a_and_b.insert("A".to_string(), "a0");
+            evidence_of_a_and_b.insert("B".to_string(), "b1");
 
-            let c_given_ab = engine.query_with_evidence("C", &evidence_ab).unwrap();
+            let c_after_a_and_b = engine
+                .query_with_evidence("C", &evidence_of_a_and_b)
+                .unwrap();
 
             // P(C|B) should equal P(C|A,B) due to conditional independence
-            let (given_b, given_ab) = (c_given_b.probabilities[0], c_given_ab.probabilities[0]);
+            let (given_b, given_a_and_b) =
+                (c_after_b.probabilities[0], c_after_a_and_b.probabilities[0]);
             assert!(
-                (given_b - given_ab).abs() < 0.05,
-                "Conditional independence should hold: P(C|B)={given_b:.3} vs P(C|A,B)={given_ab:.3}"
+                (given_b - given_a_and_b).abs() < 0.05,
+                "Conditional independence should hold: P(C|B)={given_b:.3} vs P(C|A,B)={given_a_and_b:.3}"
             );
         }
 

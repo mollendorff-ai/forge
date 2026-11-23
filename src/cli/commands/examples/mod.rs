@@ -388,6 +388,30 @@ mod tests {
             (a - b).abs() <= tol
         }
 
+        /// A month's profit of `bagel_simulate.yaml`, the model typed again as
+        /// the Python check has it, line by line with the model's names: month
+        /// `index` (from 0) with this season factor, from the run's opening
+        /// dozens per day, staff hours per day, flour price per kg and wage per hour.
+        fn month_profit(
+            index: u32,
+            season: f64,
+            opening: f64,
+            staff: f64,
+            flour_kg: f64,
+            wage: f64,
+        ) -> f64 {
+            let dozens = opening * 1.03_f64.powi(i32::try_from(index).unwrap()) * season * 30.0;
+            let revenue = dozens * 16.0;
+            let flour = dozens * 12.0 / 9.0 * flour_kg;
+            let sesame = dozens * 12.0 * 6.0 / 1000.0 * 9.40;
+            let other_ingredients = dozens * 0.35;
+            let labour = staff * 30.0 * wage * 1.15;
+            let fixed = 4800.0 + 950.0;
+            let card_fees = revenue * 0.026;
+            let costs = flour + sesame + other_ingredients + labour + fixed + card_fees;
+            revenue - costs
+        }
+
         #[test]
         fn year_profit_matches_the_independent_calculation() {
             let result = calculate_core(Path::new(MODEL), true, None).unwrap();
@@ -643,8 +667,6 @@ mod tests {
         /// `scipy.stats.spearmanr` the rank correlations asserted here (1,000
         /// iterations, seed 7).
         #[test]
-        // The model is typed as in the Python check, row by row, so it reads the same
-        #[allow(clippy::needless_range_loop, clippy::suboptimal_flops)]
         fn simulation_drivers_and_thresholds_match_scipy() {
             use crate::cli::{simulate_core, SimulateOptions};
             let options = SimulateOptions {
@@ -660,25 +682,23 @@ mod tests {
             let season = [
                 0.85, 1.25, 0.80, 0.80, 0.90, 0.95, 1.05, 1.15, 1.25, 1.25, 1.05, 1.00,
             ];
-            for i in 0..1000 {
-                let flour = inputs["@costs.ingredients.flour_per_kg"][i];
-                let wage = inputs["@costs.labour.wage_per_hour"][i];
-                let opening = inputs["assumptions.opening_dozens_per_day"][i];
-                let staff = inputs["assumptions.staff_hours_per_day"][i];
-                let mut total = 0.0;
-                for (m, se) in season.iter().enumerate() {
-                    let dz = opening * 1.03_f64.powi(i32::try_from(m).unwrap()) * se * 30.0;
-                    let r = dz * 16.0;
-                    let c = dz * 12.0 / 9.0 * flour
-                        + dz * 12.0 * 6.0 / 1000.0 * 9.40
-                        + dz * 0.35
-                        + staff * 30.0 * wage * 1.15
-                        + 4800.0
-                        + 950.0
-                        + r * 0.026;
-                    total += r - c;
-                }
-                assert!(close(total, profit.samples[i], 1e-6), "iteration {i}");
+            assert_eq!(profit.samples.len(), 1000);
+            for (i, year) in profit.samples.iter().enumerate() {
+                let total: f64 = season
+                    .iter()
+                    .zip(0..)
+                    .map(|(factor, month)| {
+                        month_profit(
+                            month,
+                            *factor,
+                            inputs["assumptions.opening_dozens_per_day"][i],
+                            inputs["assumptions.staff_hours_per_day"][i],
+                            inputs["@costs.ingredients.flour_per_kg"][i],
+                            inputs["@costs.labour.wage_per_hour"][i],
+                        )
+                    })
+                    .sum();
+                assert!(close(total, *year, 1e-6), "iteration {i}");
             }
 
             let thresholds: Vec<(&str, f64)> = profit
@@ -769,7 +789,6 @@ mod tests {
 
         /// Each month as a simulation output, and the expected shortfall of the year.
         #[test]
-        #[allow(clippy::suboptimal_flops)] // the model typed as in the Python check
         fn simulation_months_and_expected_shortfall() {
             use crate::cli::{simulate_core, SimulateOptions};
             let result = simulate_core(
@@ -788,22 +807,18 @@ mod tests {
             assert_eq!(result.outputs.len(), 2 + 12, "one output per month");
 
             // Each month's profit is the model's month, run by run
-            for (m, se) in season.iter().enumerate() {
+            for (m, factor) in (0..).zip(season) {
                 let month = &result.outputs[&format!("months.profit (row {})", m + 1)];
                 for i in [0, 499, 999] {
-                    let opening = inputs["assumptions.opening_dozens_per_day"][i];
-                    let dz = opening * 1.03_f64.powi(i32::try_from(m).unwrap()) * se * 30.0;
-                    let r = dz * 16.0;
-                    let c = dz * 12.0 / 9.0 * inputs["@costs.ingredients.flour_per_kg"][i]
-                        + dz * 12.0 * 6.0 / 1000.0 * 9.40
-                        + dz * 0.35
-                        + inputs["assumptions.staff_hours_per_day"][i]
-                            * 30.0
-                            * inputs["@costs.labour.wage_per_hour"][i]
-                            * 1.15
-                        + 5750.0
-                        + r * 0.026;
-                    assert!(close(r - c, month.samples[i], 1e-6), "month {m} run {i}");
+                    let expected = month_profit(
+                        m,
+                        factor,
+                        inputs["assumptions.opening_dozens_per_day"][i],
+                        inputs["assumptions.staff_hours_per_day"][i],
+                        inputs["@costs.ingredients.flour_per_kg"][i],
+                        inputs["@costs.labour.wage_per_hour"][i],
+                    );
+                    assert!(close(expected, month.samples[i], 1e-6), "month {m} run {i}");
                 }
             }
             // The mean of the worst 5% and 10% of years (numpy: sort, average the
