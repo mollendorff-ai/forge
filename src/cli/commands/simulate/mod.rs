@@ -113,7 +113,7 @@ pub(super) fn run_model(
         .collect();
 
     engine
-        .run_with_evaluator(|inputs: &HashMap<String, f64>| {
+        .run_with_evaluator(&mut |inputs: &HashMap<String, f64>| {
             evaluate_iteration(model, plan, &output_vars, inputs, only_outputs)
         })
         .map_err(ForgeError::Eval)
@@ -309,7 +309,7 @@ scalars:
 
         // Run with formula evaluation (the fix)
         let result = engine
-            .run_with_evaluator(|inputs: &HashMap<String, f64>| {
+            .run_with_evaluator(&mut |inputs: &HashMap<String, f64>| {
                 evaluate_iteration(&model, &plan, &output_vars, inputs, false)
             })
             .unwrap();

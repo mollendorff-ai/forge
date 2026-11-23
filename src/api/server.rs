@@ -235,7 +235,7 @@ pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
 /// that part, and one serves on a free port until told to stop. It runs
 /// until the process gets Ctrl+C or SIGTERM.
 pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
-    serve_until(config, shutdown_signal()).await
+    serve_until(config, Box::pin(shutdown_signal())).await
 }
 
 /// What is logged when `RUST_LOG` says nothing: this crate's messages (its log
@@ -245,7 +245,7 @@ const DEFAULT_LOG_FILTER: &str = "mollendorff_forge=info,tower_http=info";
 /// Serve until `shutdown` is ready
 async fn serve_until(
     config: ApiConfig,
-    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+    shutdown: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>,
 ) -> anyhow::Result<()> {
     let app = build_router(&config)
         .map_err(anyhow::Error::msg)?
@@ -834,9 +834,12 @@ mod tests {
             root: Some(dir.path().to_path_buf()),
             ..ApiConfig::default()
         };
-        let server = tokio::spawn(serve_until(config, async {
-            let _ = stopped.await;
-        }));
+        let server = tokio::spawn(serve_until(
+            config,
+            Box::pin(async {
+                let _ = stopped.await;
+            }),
+        ));
 
         let mut reply = String::new();
         for _ in 0..100 {
@@ -867,7 +870,9 @@ mod tests {
             port: free_port(),
             ..ApiConfig::default()
         };
-        serve_until(config, std::future::ready(())).await.unwrap();
+        serve_until(config, Box::pin(std::future::ready(())))
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -877,7 +882,7 @@ mod tests {
             token: Some("secret".to_string()),
             ..ApiConfig::default()
         };
-        let err = serve_until(bad_host, std::future::ready(()))
+        let err = serve_until(bad_host, Box::pin(std::future::ready(())))
             .await
             .unwrap_err();
         assert!(err.to_string().contains("invalid socket address"), "{err}");
@@ -887,7 +892,9 @@ mod tests {
             port: taken.local_addr().unwrap().port(),
             ..ApiConfig::default()
         };
-        let err = serve_until(busy, std::future::ready(())).await.unwrap_err();
+        let err = serve_until(busy, Box::pin(std::future::ready(())))
+            .await
+            .unwrap_err();
         assert!(err.to_string().contains("in use"), "{err}");
     }
 
@@ -944,9 +951,12 @@ mod tests {
         let _installed = tracing::subscriber::set_default(subscriber);
         let port = config.port;
         let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
-        let server = tokio::spawn(serve_until(config, async {
-            let _ = stopped.await;
-        }));
+        let server = tokio::spawn(serve_until(
+            config,
+            Box::pin(async {
+                let _ = stopped.await;
+            }),
+        ));
         for _ in 0..200 {
             if tokio::net::TcpStream::connect(("127.0.0.1", port))
                 .await

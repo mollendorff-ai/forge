@@ -36,12 +36,26 @@ pub(super) fn serialize_for_file<T: serde::Serialize>(
     value: &T,
     path: &Path,
 ) -> ForgeResult<String> {
+    // Both are written, and one is chosen, so that this generic function has
+    // no path that depends on the file's name: every type goes down all of it.
+    text_for_file(
+        path,
+        serde_json::to_string_pretty(&Rounded(value)),
+        yaml_serde::to_string(&Rounded(value)),
+    )
+}
+
+/// The JSON for a `.json` path and the YAML for any other, or what went wrong
+/// in writing that one.
+fn text_for_file(
+    path: &Path,
+    json: Result<String, impl std::fmt::Display>,
+    yaml: Result<String, impl std::fmt::Display>,
+) -> ForgeResult<String> {
     if path.extension().and_then(|e| e.to_str()) == Some("json") {
-        serde_json::to_string_pretty(&Rounded(value))
-            .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))
+        json.map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))
     } else {
-        yaml_serde::to_string(&Rounded(value))
-            .map_err(|e| ForgeError::Validation(format!("YAML error: {e}")))
+        yaml.map_err(|e| ForgeError::Validation(format!("YAML error: {e}")))
     }
 }
 
@@ -56,8 +70,13 @@ pub(super) fn write_result<T: serde::Serialize>(
     value: &T,
     path: &Path,
 ) -> ForgeResult<()> {
-    let text = serialize_for_file(value, path)?;
-    std::fs::write(path, text).map_err(ForgeError::Io)?;
+    write_text(c, serialize_for_file(value, path), path)
+}
+
+/// [`write_result`] for the text of the analysis, so that there is one of it
+/// whatever the analysis is.
+fn write_text(c: &mut Console<'_>, text: ForgeResult<String>, path: &Path) -> ForgeResult<()> {
+    std::fs::write(path, text?).map_err(ForgeError::Io)?;
     outln!(
         c,
         "{}",

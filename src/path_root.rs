@@ -93,9 +93,8 @@ impl Root {
             // A name ending in `..` under a missing folder cannot be resolved
             let name = existing.file_name().ok_or_else(|| self.outside(path))?;
             missing.push(name.to_owned());
-            if !existing.pop() {
-                return Err(self.outside(path));
-            }
+            // A path with a file name has a parent, so this always pops
+            existing.pop();
         };
         let resolved = missing
             .into_iter()

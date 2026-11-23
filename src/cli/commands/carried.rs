@@ -139,6 +139,19 @@ mod tests {
         assert_eq!(printed.out, "");
     }
 
+    /// Formulas kept, none changed: one line says so; changes are listed.
+    #[test]
+    fn the_import_says_what_was_kept_and_what_changed() {
+        let ((), kept) = capture(|c| print_import_formulas(c, 3, &[]));
+        assert_eq!(kept.out, "✅ All 3 formula(s) kept as formulas\n\n");
+        let warnings = vec!["a".to_string(), "b".to_string()];
+        let ((), changed) = capture(|c| print_import_formulas(c, 3, &warnings));
+        assert_eq!(
+            changed.out,
+            "⚠️  What the import changed or could not keep:\n   - a\n   - b\n\n"
+        );
+    }
+
     #[test]
     fn a_hash_in_quotes_or_a_word_is_not_a_comment() {
         assert!(has_comment("# a note"));

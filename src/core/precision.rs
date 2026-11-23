@@ -775,9 +775,9 @@ mod tests {
         impl Serialize for Entries {
             fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
                 use serde::ser::SerializeMap;
-                let mut map = serializer.serialize_map(Some(1))?;
-                map.serialize_key("k")?;
-                map.serialize_value(&(0.1 + 0.2))?;
+                let mut map = serializer.serialize_map(Some(1)).unwrap();
+                map.serialize_key("k").unwrap();
+                map.serialize_value(&(0.1 + 0.2)).unwrap();
                 map.end()
             }
         }
