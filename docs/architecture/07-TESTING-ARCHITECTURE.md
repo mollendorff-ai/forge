@@ -104,7 +104,7 @@ An expected value is never changed silently: a pull request that changes or remo
 | `workflows_doc.rs` | `docs/WORKFLOWS.md` names only commands the binary has, and links only to pages that exist |
 | `install_script.rs` | `install.sh` downloads what the release workflow publishes |
 | `conventions.rs` | The conventions in `.asimov/project.yaml` that a test can check |
-| `architecture_docs.rs` | These architecture pages: every link resolves, every path they name exists, every ADR is in the index |
+| `architecture_docs.rs` | These architecture pages: every link resolves, every path they name exists, every ADR is in the index, with the status the ADR states |
 | `no_skipping.rs` | The budgets above |
 
 ## WebAssembly and Studio

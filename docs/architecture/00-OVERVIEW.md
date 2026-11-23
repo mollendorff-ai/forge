@@ -95,9 +95,9 @@ flowchart LR
         editors["editors/vscode/<br/>syntax and schema for VS Code"]
     end
     subgraph checks["Checks"]
-        validation["validation/<br/>gnumeric, r, games, sweep, repo"]
+        validation["validation/<br/>gnumeric, r, games, sweep,<br/>repo, mermaid"]
         testdata["test-data/<br/>models the tests read"]
-        workflows[".github/workflows/<br/>CI, validation, weekly, release, pages"]
+        workflows[".github/workflows/<br/>CI, validation, weekly, release,<br/>pages, diagrams, install, expected values"]
     end
     docs["docs/<br/>this documentation"]
     src --> wasm --> studio
@@ -112,11 +112,11 @@ flowchart LR
 | Folder | What it holds |
 | --- | --- |
 | `src/` | The engine crate and the `forge` binary. [01](01-COMPONENT-ARCHITECTURE.md) maps every module. |
-| `forge-wasm/` | The browser build: one function, `call(tool, request)`, over the engine's `*_core` functions. Its `tests/` holds the cases that compare its answers with the native ones (JSON and Node, no Rust tests). |
+| `forge-wasm/` | The browser build: one function, `call(tool, request)`, over the engine's `*_core` functions (and `version()`). Its `tests/` holds the cases that compare its answers with the native ones (JSON and Node, no Rust tests). |
 | `studio/` | Forge Studio: a static page, a worker that runs forge-wasm, and Node tests that compare the page with Forge. |
 | `schema/` | One JSON Schema per model format (`forge-v5.6.0.schema.json`, ...), embedded in the binary and copied to the VS Code extension. [schema/README.md](../../schema/README.md) says what each version adds. |
 | `examples/` | Example models. Some are built into the binary (`forge examples`) and into Studio's sets; tests run every one. |
-| `validation/` | Suites that check Forge against other engines (Gnumeric, LibreOffice, R, Gambit, axelrod, egttools) and checks of the repository itself. [07](07-TESTING-ARCHITECTURE.md). |
+| `validation/` | Suites that check Forge against other engines (Gnumeric, LibreOffice, R, Gambit, axelrod, egttools), checks of the repository itself (`repo`), and the check that every Mermaid diagram renders (`mermaid`). [07](07-TESTING-ARCHITECTURE.md). |
 | `editors/vscode/` | A VS Code extension: syntax colours (also used by Studio's editor) and the schemas. |
 | `test-data/` | Models and workbooks the unit tests read. |
 | `docs/` | User documentation, the architecture (this folder) and posts. |

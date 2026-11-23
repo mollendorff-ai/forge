@@ -35,6 +35,48 @@ pub fn registry() -> (u64, BTreeMap<String, usize>) {
     (total, by_category)
 }
 
+/// The tools `forge mcp` lists to a client that asks, as an agent asks: how
+/// many.
+///
+/// # Panics
+///
+/// Panics if the server does not start or its answer is not a tool list.
+#[must_use]
+pub fn mcp_tool_count() -> usize {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let mut server = Command::new(crate::forge_bin())
+        .arg("mcp")
+        .current_dir(crate::root())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("forge mcp starts");
+    let requests = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"doc_counts","version":"0"}}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+    ];
+    let mut stdin = server.stdin.take().expect("a pipe in");
+    for request in requests {
+        writeln!(stdin, "{request}").expect("the server reads");
+    }
+    drop(stdin);
+    let out = server
+        .wait_with_output()
+        .expect("the server ends at the end of its input");
+    let listed = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .find(|message| message["id"] == 2)
+        .expect("an answer to tools/list");
+    listed["result"]["tools"]
+        .as_array()
+        .expect("a list of tools")
+        .len()
+}
+
 /// The numbers written just before `word` (case ignored) in `text`:
 /// `203 functions` gives 203, `1,865 tests` gives 1865.
 #[must_use]
@@ -115,6 +157,28 @@ mod tests {
         assert!(
             wrong.is_empty(),
             "the registry has {actual} functions; fix: {wrong:#?}"
+        );
+    }
+
+    #[test]
+    fn every_tool_count_written_in_the_docs_is_what_the_server_lists() {
+        let actual = mcp_tool_count() as u64;
+        let mut wrong = Vec::new();
+        for path in ["README.md", "docs/MCP.md", "docs/WORKFLOWS.md"] {
+            let text = read(path);
+            for word in [" tools", " forge tools", " mcp tools"] {
+                for n in numbers_before(&text, word) {
+                    if n != actual {
+                        wrong.push(format!("{path}: says {n}"));
+                    }
+                }
+            }
+        }
+        wrong.sort();
+        wrong.dedup();
+        assert!(
+            wrong.is_empty(),
+            "forge mcp lists {actual} tools; fix: {wrong:#?}"
         );
     }
 

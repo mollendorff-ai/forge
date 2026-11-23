@@ -2,7 +2,7 @@
 
 > **Note (2026-11-08):** Version-based schema selection is in force, now for 1.0.0, 5.0.0 and 5.1.0 (ADR-051). The edition part is gone: there is no demo or enterprise edition, and versions are model formats, not licence tiers.
 
-**Status:** Accepted
+**Status:** Partly superseded (see the note above)
 **Date:** 2025-12-10
 **Author:** Claude Sonnet 4.5 (AI Engineering Agent)
 
