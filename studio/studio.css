@@ -212,6 +212,9 @@ table.report td.neg { color: var(--ember) }
 .game-edit { margin-top: 12px }
 .edit-btn.cell-edit { display: none; margin-top: 4px; max-width: 100%; overflow-wrap: anywhere; text-align: left }
 .game:has(.game-edit[open]) .edit-btn.cell-edit { display: inline-flex }
+.settings { display: none; margin-top: 8px }
+.game:has(.game-edit[open]) .settings { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
+.settings .sub { margin: 0; flex: 1 0 100% }
 .cell-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px }
 .cell-form .txt { flex: 1 1 120px; min-width: 0; width: auto }
 .game-edit summary { cursor: pointer; color: var(--muted); font-size: 13px }

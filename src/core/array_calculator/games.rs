@@ -103,7 +103,8 @@ impl ArrayCalculator {
             calc.formula_number(formula, others)
                 .map_err(|e| locate_error(e, &format!("game '{name}': {at}"), formula))
         };
-        let report = match self.model.games[name].clone() {
+        let settings = self.model.games[name].settings();
+        let mut report = match self.model.games[name].clone() {
             Game::Table(game) => {
                 let table = game.table(|formula, at, others| value(self, formula, at, others))?;
                 let mut report = analyse(name, &table, game.symmetric);
@@ -114,6 +115,7 @@ impl ArrayCalculator {
                         .map(|(path, formula)| Written {
                             path,
                             formula: formula.map(str::to_string),
+                            number: None,
                         })
                         .collect();
                 }
@@ -132,6 +134,10 @@ impl ArrayCalculator {
                 GameReport::Tournament(standings(&tournament, round, &worked))
             },
         };
+        match &mut report {
+            GameReport::Table(r) => r.settings = settings,
+            GameReport::Tournament(r) => r.settings = settings,
+        }
         for (result, value) in report.scalars() {
             if let Some(ctx) = self.ctx.as_mut() {
                 ctx.scalars
@@ -801,6 +807,21 @@ flags:
         assert_eq!(json[0]["kind"], "tournament");
         assert_eq!(json[0]["ranking"][0]["plays"], "grim_trigger");
         assert_eq!(json[1]["kind"], "table");
+        // The tournament says which numbers it writes, and where `edit` finds them
+        let settings = json[0]["settings"].as_array().unwrap();
+        let paths: Vec<&str> = settings
+            .iter()
+            .map(|w| w["path"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            paths,
+            [
+                "axelrod.tournament.rounds",
+                "axelrod.tournament.noise",
+                "axelrod.tournament.players.rand.cooperate"
+            ]
+        );
+        assert_eq!(settings[0]["number"], 200.0);
         // Each payoff of a table says where `edit` finds it, and its formula
         // when it is one (the dilemma is symmetric: a cell is the row's)
         let cells = json[1]["cells"].as_array().unwrap();

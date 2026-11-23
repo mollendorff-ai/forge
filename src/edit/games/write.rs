@@ -110,7 +110,7 @@ fn remove_item(text: &str, list: &Sequence, index: usize) -> Option<Edit> {
 
 /// An entry added at the end of a mapping: `key: value` in a flow mapping,
 /// or `line`, the entry's lines in a block, without the last line break
-fn push_entry(text: &str, map: &Mapping, flow: &str, block: &str) -> Option<Edit> {
+pub(super) fn push_entry(text: &str, map: &Mapping, flow: &str, block: &str) -> Option<Edit> {
     let last = map.entries().last()?;
     Some(if map.is_flow_style() {
         let end = flow_end(text, &last);
@@ -137,7 +137,7 @@ fn remove_entry(text: &str, map: &Mapping, key: &str) -> Option<Edit> {
 }
 
 /// The indentation of a block mapping's keys
-fn key_indent<'t>(text: &'t str, map: &Mapping) -> &'t str {
+pub(super) fn key_indent<'t>(text: &'t str, map: &Mapping) -> &'t str {
     let first = map
         .entries()
         .next()

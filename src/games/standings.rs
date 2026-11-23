@@ -4,6 +4,7 @@
 //! collectively stable, and the same numbers as scalars named under it.
 
 use super::repeated::{play, Length};
+use super::report::Written;
 use super::strategy::Plays;
 use super::table::Table;
 use super::tournament::{Tournament, Worked};
@@ -42,6 +43,11 @@ pub struct TournamentReport {
     /// The collectively stable players, in the order of the model: no
     /// player does better against one than it does against itself
     pub stable: Vec<String>,
+    /// The numbers the tournament writes (its length, noise and players'
+    /// chances), and where `edit` finds each; empty where the report is not
+    /// worked out from a model
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub settings: Vec<Written>,
 }
 
 /// Play every match of `tournament`, with its numbers worked out and its
@@ -120,6 +126,7 @@ pub fn standings(tournament: &Tournament, round: &Table, worked: &Worked) -> Tou
             })
             .collect(),
         stable,
+        settings: Vec::new(),
     }
 }
 
