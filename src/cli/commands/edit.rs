@@ -23,6 +23,12 @@ pub struct EditResult {
     pub written: bool,
 }
 
+/// The folder `path` is in: empty for a bare name, and for a path with no
+/// parent (the root, or nothing).
+fn folder_of(path: &Path) -> &Path {
+    path.parent().unwrap_or_else(|| Path::new(""))
+}
+
 /// Make `changes` to the model at `file` and the files it includes, and,
 /// unless `dry_run`, write each file that changed, keeping the file as it was
 /// next to it (`model.yaml.bak`).
@@ -32,14 +38,14 @@ pub struct EditResult {
 /// Returns why when the model cannot be read, a change cannot be made (then
 /// no file is written), or a file cannot be written.
 pub fn edit_core(file: &Path, changes: &[Change], dry_run: bool) -> ForgeResult<EditResult> {
-    let dir = file.parent().unwrap_or_else(|| Path::new(""));
+    let dir = folder_of(file);
     let main = file
         .file_name()
         .unwrap_or_default()
         .to_string_lossy()
         .into_owned();
-    let model = parser::parse_model(file)?;
-    let mut files = HashMap::from([(main.clone(), parser::read_model_text(file)?)]);
+    let (model, text) = parser::parse_model_and_text(file)?;
+    let mut files = HashMap::from([(main.clone(), text)]);
     included_files(&model, &main, dir, &mut files);
     let new_texts = edit_files(&files, &main, changes)?;
     if !dry_run {
@@ -65,14 +71,16 @@ fn included_files(
     dir: &Path,
     files: &mut HashMap<String, String>,
 ) {
-    let from = Path::new(name).parent().unwrap_or_else(|| Path::new(""));
+    let from = folder_of(Path::new(name));
     for include in &model.includes {
         let path = parser::normalize(&from.join(&include.file));
         let text = std::fs::read_to_string(dir.join(&path)).unwrap_or_default();
         files.insert(path.clone(), text);
-        if let Some(included) = model.resolved_includes.get(&include.namespace) {
-            included_files(&included.model, &path, dir, files);
-        }
+        let included = model
+            .resolved_includes
+            .get(&include.namespace)
+            .expect("the parser resolves every include or fails");
+        included_files(&included.model, &path, dir, files);
     }
 }
 
@@ -102,7 +110,7 @@ pub fn edit(
             "✅ Nothing to change: the files already say this".green()
         );
     }
-    let dir = file.parent().unwrap_or_else(|| Path::new(""));
+    let dir = folder_of(file);
     for (name, text) in &result.files {
         if dry_run {
             outln!(c, "{}", format!("📋 Dry run: {name} would read").yellow());
@@ -406,6 +414,16 @@ year:
         dir
     }
 
+    #[test]
+    fn the_folder_of_a_path_is_empty_when_it_has_no_parent() {
+        use super::folder_of;
+        use std::path::Path;
+        assert_eq!(folder_of(Path::new("a/model.yaml")), Path::new("a"));
+        assert_eq!(folder_of(Path::new("model.yaml")), Path::new(""));
+        assert_eq!(folder_of(Path::new("/")), Path::new(""));
+        assert_eq!(folder_of(Path::new("")), Path::new(""));
+    }
+
     fn read(dir: &tempfile::TempDir, name: &str) -> String {
         std::fs::read_to_string(dir.path().join(name)).unwrap()
     }
@@ -430,7 +448,7 @@ year:
             "--delete",
             "@costs.@more.nothing",
         ]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1);
         assert!(
             ran.err
                 .contains("delete @costs.@more.nothing: it is not in the model (more.yaml)"),
@@ -455,7 +473,7 @@ year:
             "--set",
             "@costs.rent=950",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert!(ran.out.contains("   set_value year.price\n"), "{}", ran.out);
         assert!(
             ran.out.contains("✅ Wrote data/costs.yaml (as it was: "),
@@ -486,7 +504,7 @@ year:
             "--after",
             "rate",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert!(
             ran.out.contains("📋 Dry run: model.yaml would read\n"),
             "{}",
@@ -521,7 +539,7 @@ year:
             "--rename",
             "@costs.rent=lease",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert!(ran.out.contains("   rename year.price\n"), "{}", ran.out);
         assert_eq!(
             read(&dir, "model.yaml"),
@@ -548,7 +566,7 @@ year:
             "--uncertain",
             "year.units==MC.PERT(80, 100, 130)",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert!(
             ran.out.contains("   make_uncertain year.price\n"),
             "{}",
@@ -572,7 +590,7 @@ year:
             "--certain",
             "year.units=90",
         ]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         let back = read(&dir, "model.yaml");
         assert!(
             back.contains("  price: 16   # dollars\n  units: 90\n"),
@@ -659,7 +677,7 @@ games:
         let model = dir.path().join("model.yaml");
         let json = r#"[{"op": "add", "path": "year.fee", "value": 25, "unit": "CAD"}]"#;
         let ran = forge(&["edit", model.to_str().unwrap(), "--changes", json]);
-        assert_eq!(ran.code, 0, "{}", ran.both());
+        assert_eq!(ran.code, 0);
         assert_eq!(
             read(&dir, "model.yaml"),
             format!("{MODEL}  fee:\n    value: 25\n    unit: CAD\n")
@@ -705,11 +723,11 @@ games:
         // The backup's place is taken by a folder
         std::fs::create_dir(dir.path().join("model.yaml.bak")).unwrap();
         let ran = forge(&["edit", model.to_str().unwrap(), "--set", "rate=0.06"]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1);
         assert!(ran.err.starts_with("Error: IO error: "), "{}", ran.err);
         let missing = dir.path().join("none.yaml");
         let ran = forge(&["edit", missing.to_str().unwrap(), "--set", "rate=0.06"]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1);
     }
 
     #[test]

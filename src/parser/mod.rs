@@ -75,6 +75,15 @@ use crate::types::ParsedModel;
 /// # Ok::<(), mollendorff_forge::error::ForgeError>(())
 /// ```
 pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
+    parse_model_and_text(path).map(|(model, _)| model)
+}
+
+/// [`parse_model`], with the text of the file it parsed.
+///
+/// # Errors
+///
+/// Returns the errors [`parse_model`] returns.
+pub fn parse_model_and_text(path: &std::path::Path) -> ForgeResult<(ParsedModel, String)> {
     let content = read_model_text(path)?;
     // Inside `with_files_in_memory` the includes come from memory too
     let mut model = memory::with_current(|files| {
@@ -84,7 +93,7 @@ pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
         )
     })?;
     model.source = Some(path.to_path_buf());
-    Ok(model)
+    Ok((model, content))
 }
 
 /// Parse a model held in memory, reading nothing from the file system (ADR-055).
