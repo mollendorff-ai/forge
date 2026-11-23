@@ -56,7 +56,7 @@ Usage: forge <COMMAND>
 
 Commands:
   calculate      Calculate all formulas in a YAML file
-  edit           Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, comments kept
+  edit           Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, a game's strategies and players, comments kept
   audit          Show audit trail for a specific variable
   validate       Validate formulas without calculating
   export         Export a model to an Excel .xlsx workbook
@@ -156,7 +156,9 @@ column, a game, a player or a strategy and every name that reads it (formulas,
 scenarios, expectations, a simulation's outputs, a tornado's inputs, a game's
 results, in every file of the model), or make
 an input uncertain (a distribution, its value kept as the plan) and certain
-again, in the model or in a file it includes (@alias.name). Every byte outside
+again, or add or delete a game's strategy or player (a new cell is 0; a new
+player comes last, with the last player's strategies), in the model or in a
+file it includes (@alias.name). Every byte outside
 the change stays as it was, comments and layout included. A change is made
 only when Forge reads the model back valid, with that change and nothing else;
 when one cannot be made, no file is written and the message says why. Each
@@ -166,7 +168,8 @@ not written: forge calculate does.
 A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
 made in this order: --changes, --set, --formula, --add, --delete, --rename,
---uncertain, --certain.
+--uncertain, --certain, --add-strategy, --delete-strategy, --add-player,
+--delete-player.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -179,6 +182,10 @@ EXAMPLES:
   forge edit model.yaml --uncertain year.price           # A triangle, 80% to 120%
   forge edit model.yaml --uncertain 'year.price==MC.PERT(12, 16, 22)'
   forge edit model.yaml --certain year.price             # Back to its value
+  forge edit deal_game.yaml --add-strategy sealed_bids.strategies.bid_50   # Its cells 0
+  forge edit inspection.yaml --add-strategy inspection.strategies.human.ignore
+  forge edit price_war.yaml --add-player rivalry.players.copycat=tit_for_tat
+  forge edit public-goods.yaml --delete-player pg.players.a5
   forge edit model.yaml --changes '[{"op": "add", "path": "year.fee", "value": 25, "unit": "CAD"}]'
 
 Usage: forge edit [OPTIONS] <FILE>
@@ -211,6 +218,18 @@ Options:
 
       --certain <PATH>
           Make a distribution an input again: PATH, or PATH=VALUE to keep
+
+      --add-strategy <PATH>
+          Add a strategy to a game, its cells 0: PATH, every player's (inspection.strategies.wait) or one player's (inspection.strategies.human.ignore)
+
+      --delete-strategy <PATH>
+          Delete a game's strategy, every player's of that name or one player's, with its cells
+
+      --add-player <PATH>
+          Add a player to a game, last, with the last player's strategies and payoffs of 0 (inspection.players.board); a tournament's player with its habit, PATH=HABIT (rivalry.players.copycat=random)
+
+      --delete-player <PATH>
+          Delete a game's player, the payoffs of its first strategy kept
 
       --changes <JSON>
           Changes as JSON, as Forge's MCP edit tool takes them
