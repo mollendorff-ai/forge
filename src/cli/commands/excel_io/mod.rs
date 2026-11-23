@@ -675,6 +675,7 @@ g:
                 "acquisition/deal_risk.yaml",
                 "bagel/bagel_simulate.yaml",
                 "bagel/costs_risk.yaml",
+                "guide/05-bagel-uncertain.yaml",
                 "microgrid/microgrid_risk.yaml",
                 "monte-carlo.yaml",
                 "realestate/realestate_flex.yaml",

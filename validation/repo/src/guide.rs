@@ -19,8 +19,8 @@
 //!   the commands run in before the commands after it, and must also be the
 //!   file of `examples/` its header names, if it names one
 //!   (`# bagel.yaml, as examples/guide/02-bagel.yaml has it`). A block headed
-//!   `# bagel.yaml, after forge calculate` is lines of the file as the commands
-//!   above it left it.
+//!   `# bagel.yaml, after forge calculate`, or `# examples/….yaml, part of it`,
+//!   is lines of the file, one after another, as the commands above it left it.
 //! - **Links.** Every relative link and anchor resolves.
 //! - **Answers.** Every number in a code span inside `<details>` (the answer
 //!   to a lesson's challenge) is a number one of the page's commands printed.
@@ -141,8 +141,8 @@ pub enum Shown {
     /// `# bagel.yaml`: a file the reader writes, and the file of `examples/`
     /// it must equal when the header names one
     Written(String, Option<String>),
-    /// `# bagel.yaml, after forge calculate`: lines of the file as the
-    /// commands above left it
+    /// `# bagel.yaml, after forge calculate`, or `# examples/….yaml, part of
+    /// it`: lines of the file, one after another, as the commands above left it
     After(String),
 }
 
@@ -164,11 +164,11 @@ pub fn shown(header: &str) -> Option<Shown> {
     if !has_extension(&path, "yaml") {
         return None;
     }
+    if words.contains(&"after") || words.contains(&"part") {
+        return Some(Shown::After(path));
+    }
     if is_example(&path) {
         return Some(Shown::Example(path));
-    }
-    if words.contains(&"after") {
-        return Some(Shown::After(path));
     }
     let example = words[1..]
         .iter()
@@ -762,6 +762,10 @@ mod tests {
         assert_eq!(
             shown("# bagel.yaml, after forge calculate"),
             Some(Shown::After("bagel.yaml".to_string()))
+        );
+        assert_eq!(
+            shown("# examples/bagel/bagel.yaml, part of it"),
+            Some(Shown::After("examples/bagel/bagel.yaml".to_string()))
         );
         assert_eq!(shown("# A comment"), None);
         assert_eq!(shown("plan: 1"), None);

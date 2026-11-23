@@ -261,3 +261,5 @@ The year's profit falls by `15318.000000`: two hours a day, 30 days a month, 12 
 </details>
 
 That is a model kept: changed with `forge edit`, calculated, checked by `forge validate`, and kept in git, one commit for each change.
+
+Next: [4. What if](04-what-if.md).
