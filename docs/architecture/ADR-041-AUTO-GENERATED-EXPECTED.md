@@ -1,8 +1,8 @@
 # ADR-041: Auto-Generated Expected Values
 
-> **Note (2026-11-08):** Not implemented: there are no generate_expected scripts. Expected values are written by hand and checked by the Gnumeric and R suites.
+> **Note (2026-11-23):** Superseded, and not built. The scripts were never written, and the design would be wrong here. Expected values are written by hand, with their source, and each case must then agree with three results: Forge's, Gnumeric's or LibreOffice's recalculation of the exported workbook, and Forge's after export and import ([ADR-057](ADR-057-VALIDATION-IN-THIS-REPOSITORY.md)); a change to an expected value says where the new one comes from (`expected-values.yml`); and cases drawn at random compare Forge with both engines without any expected value ([ADR-062](ADR-062-GENERATED-CASES.md)). Values taken from Gnumeric would make the check circular (Gnumeric compared with Gnumeric) and would put Gnumeric's answer where a case records that Excel's differs from it.
 
-**Status:** Not implemented
+**Status:** Superseded by ADR-057 and ADR-062 (2026-11-23); its design was not built
 **Date:** 2025-12-17
 **Author:** Claude Opus 4.5
 

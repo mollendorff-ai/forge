@@ -468,3 +468,22 @@ assumptions:
     value: null
     formula: "=LEN(TEXT(0, \"0.00\"))"
     expected: 4
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # TEXTJOIN - Join text with a delimiter (the length of the joined text, by hand:
+  # "a-b-c" is 5, "a, b" is 4, and "a, , b", where the empty text is kept, is 6)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_textjoin_basic:
+    value: null
+    formula: "=LEN(TEXTJOIN(\"-\", TRUE, \"a\", \"b\", \"c\"))"
+    expected: 5
+
+  test_textjoin_ignores_empty_text:
+    value: null
+    formula: "=LEN(TEXTJOIN(\", \", TRUE, \"a\", \"\", \"b\"))"
+    expected: 4
+
+  test_textjoin_keeps_empty_text:
+    value: null
+    formula: "=LEN(TEXTJOIN(\", \", FALSE, \"a\", \"\", \"b\"))"
+    expected: 6

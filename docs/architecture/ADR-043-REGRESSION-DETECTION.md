@@ -1,8 +1,8 @@
 # ADR-043: Regression Detection Strategy
 
-> **Note (2026-11-08):** Not implemented: regressions are caught by the Validation workflow failing (on PRs and weekly), not by saved baselines.
+> **Note (2026-11-23):** Superseded, and not built. Every case must pass, on every pull request and each week (the Validation workflow, [ADR-057](ADR-057-VALIDATION-IN-THIS-REPOSITORY.md)), so there is no list of failures that were already there to tell a regression from. A baseline exists to tolerate known failures, which the rules in CLAUDE.md (no ignored test, budgets that only fall) do not allow.
 
-**Status:** Not implemented
+**Status:** Superseded by ADR-057 (2026-11-23); its design was not built
 **Date:** 2025-12-17
 **Author:** Claude Sonnet 4.5
 
