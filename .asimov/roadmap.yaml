@@ -773,6 +773,7 @@ adoption:
     title: "The guide's commands and numbers run by validation/repo before any lesson is written"
     acceptance: "A page in docs/guide/ whose command prints other than the page shows, or whose number differs, fails the Repository checks job; at 100% coverage and pedantic clippy"
     model: "Sonnet 5.5, high"
+    built: "2026-11-23: validation/repo/src/guide.rs: the commands of a page run in a copy of examples/ (a lesson can calculate and edit without changing the repository), yaml blocks headed by # examples/....yaml equal their files, links and anchors resolve, and the numbers in a <details> answer are numbers a command printed; docs/cli/README.md checked against forge --help (all 28 sections equal); no page yet, so the checks on real pages pass with nothing to read, and the unit tests exercise every failure"
   - id: A3-GUIDE-CORE
     title: "Lessons: the first ten minutes, a first model written by hand, keeping a model"
     how: "Build the bagel shop from an empty file: scalars, a table, PREV, _includes, scenarios; then calculate rewrites the file (use --dry-run), the .bak, validate as the gate for stale values, edit, upgrade, git diff. Each lesson ends with a challenge and a way to check the answer"
