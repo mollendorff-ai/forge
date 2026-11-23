@@ -225,7 +225,7 @@ mod tests {
             // Calling with no arguments is usually an error; only "unknown"
             // matters (and none may panic, which fails the test)
             let unknown: Vec<&str> = all_functions()
-                .filter(|f| {
+                .filter_map(|f| {
                     let path = dir
                         .path()
                         .join(format!("{}.yaml", f.name.replace('.', "_")));
@@ -237,11 +237,11 @@ mod tests {
                         ),
                     )
                     .unwrap();
-                    calculate_core(&path, true, None)
+                    let unknown = calculate_core(&path, true, None)
                         .err()
-                        .is_some_and(|e| e.to_string().contains("Unknown function"))
+                        .is_some_and(|e| e.to_string().contains("Unknown function"));
+                    unknown.then_some(f.name)
                 })
-                .map(|f| f.name)
                 .collect();
             assert_eq!(unknown, Vec::<&str>::new(), "listed but not callable");
         }

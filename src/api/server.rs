@@ -866,6 +866,9 @@ mod tests {
 
     #[tokio::test]
     async fn the_server_without_a_token_or_a_root_stops_when_told_to() {
+        // With its log off: each line of it is then not written, whatever the
+        // other tests have set up for the process
+        let _off = tracing::subscriber::set_default(tracing::subscriber::NoSubscriber::default());
         let config = ApiConfig {
             port: free_port(),
             ..ApiConfig::default()
@@ -921,7 +924,16 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn ctrl_c_and_sigterm_stop_the_server() {
-        signal_the_shutdown("-INT").await;
+        // One signal with the log on and one with it off: the line it logs
+        // is written, or is not, whatever the other tests have set up
+        let on = tracing_subscriber::fmt()
+            .with_writer(std::io::sink)
+            .finish();
+        {
+            let _on = tracing::subscriber::set_default(on);
+            signal_the_shutdown("-INT").await;
+        }
+        let _off = tracing::subscriber::set_default(tracing::subscriber::NoSubscriber::default());
         signal_the_shutdown("-TERM").await;
     }
 

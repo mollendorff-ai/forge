@@ -32,17 +32,13 @@ pub fn terminal_width() -> Option<usize> {
     width_of(
         std::env::var("COLUMNS").ok().as_deref(),
         std::io::stdout().is_terminal(),
-        &window_columns,
+        window_columns(),
     )
 }
 
 /// The width for the value of `COLUMNS` (if set), whether the output is a
 /// terminal, and what asking the terminal gives.
-fn width_of(
-    columns: Option<&str>,
-    is_terminal: bool,
-    window: &dyn Fn() -> Option<usize>,
-) -> Option<usize> {
+fn width_of(columns: Option<&str>, is_terminal: bool, window: Option<usize>) -> Option<usize> {
     if let Some(columns) = columns
         .and_then(|c| c.trim().parse::<usize>().ok())
         .filter(|&c| c > 0)
@@ -52,7 +48,7 @@ fn width_of(
     if !is_terminal {
         return None;
     }
-    Some(window().unwrap_or(80))
+    Some(window.unwrap_or(80))
 }
 
 #[cfg(unix)]
@@ -880,16 +876,16 @@ scenarios:
         #[test]
         fn columns_wins_then_the_terminal_then_no_limit() {
             // `COLUMNS` is the width, whatever the terminal says
-            assert_eq!(width_of(Some("120"), false, &|| Some(1)), Some(120));
-            assert_eq!(width_of(Some(" 90 "), true, &|| Some(1)), Some(90));
+            assert_eq!(width_of(Some("120"), false, Some(1)), Some(120));
+            assert_eq!(width_of(Some(" 90 "), true, Some(1)), Some(90));
             // A value that is not a width is as if it were not set
-            assert_eq!(width_of(Some("wide"), false, &|| Some(1)), None);
-            assert_eq!(width_of(Some("0"), false, &|| Some(1)), None);
-            assert_eq!(width_of(None, false, &|| Some(1)), None);
-            assert_eq!(width_of(Some("0"), true, &|| Some(132)), Some(132));
-            assert_eq!(width_of(None, true, &|| Some(100)), Some(100));
+            assert_eq!(width_of(Some("wide"), false, Some(1)), None);
+            assert_eq!(width_of(Some("0"), false, Some(1)), None);
+            assert_eq!(width_of(None, false, Some(1)), None);
+            assert_eq!(width_of(Some("0"), true, Some(132)), Some(132));
+            assert_eq!(width_of(None, true, Some(100)), Some(100));
             // A terminal that does not say is 80 wide
-            assert_eq!(width_of(None, true, &|| None), Some(80));
+            assert_eq!(width_of(None, true, None), Some(80));
         }
 
         #[test]
@@ -900,7 +896,7 @@ scenarios:
                 width_of(
                     std::env::var("COLUMNS").ok().as_deref(),
                     std::io::stdout().is_terminal(),
-                    &window_columns
+                    window_columns()
                 )
             );
         }
