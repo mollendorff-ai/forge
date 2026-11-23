@@ -13,6 +13,12 @@ Lessons, read in order, on one model: Bagel Lune, a made-up bagel shop in its fi
 
 Lesson 1 calculates [`examples/bagel/`](../../examples/bagel/), the model the README is about. The model lesson 2 writes, and lesson 5's uncertain version of it, are in [`examples/guide/`](../../examples/guide/), so they run in the tests like the others; lesson 3 keeps lesson 2's, and lessons 4 and 6 use the bagel shop's own files.
 
+And for the other ways in:
+
+| Page | What it is for |
+| --- | --- |
+| [Forge with an AI](ai.md) | A chat that runs commands, the MCP server in an AI client, and rules to put in `AGENTS.md` or `CLAUDE.md` for an agent that works on your models |
+
 ## Every page is checked
 
 The tests run every `forge` command these pages show, in a copy of `examples/`, and fail if a command prints other than what the page shows, if a file the page shows differs from the one in `examples/`, if a link goes nowhere, or if an answer is a number no command printed (`validation/repo`'s `guide` module, [ADR-078](../architecture/ADR-078-A-WAY-IN-FOR-EACH-READER.md)). The output shown is the lines that matter; Forge prints a few more around them.

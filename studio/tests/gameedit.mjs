@@ -7,6 +7,8 @@
 // - a strategy added, a player renamed, the strategy deleted again, and a
 //   player added to a tournament each change the card to what `game` answers
 //   for the files `edit` wrote, cell by cell and standing by standing;
+// - a payoff's formula under its value while the card is open for changes,
+//   changed to a formula and to a number, a refused one shown as Forge words it;
 // - a change Forge refuses (a strategy of the game a tournament plays) is
 //   shown in the card with Forge's own message, and nothing changes.
 //
@@ -142,10 +144,54 @@ else if (message !== refusal.why) fail(`the card says "${message}", Forge says "
 if (JSON.stringify(await shown()) !== before) fail("a refused change moved the cards");
 if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) fail("the cards are wider than the screen");
 
+// A payoff cell: its formula is under its value while the card can be
+// changed, and a change to it is Forge's `edit` (a formula, or a number)
+await visit("bagel", "price_war.yaml", "price_war");
+const cellOf = (path) => `[data-game="price_war"] [data-cellpath="${path}"]`;
+const T = "price_war.payoffs.cut.hold";
+if (await page.isVisible(cellOf(T))) fail("a payoff's button is shown although the card is not open for changes");
+await open("price_war");
+if (!(await page.isVisible(cellOf(T)))) fail("a payoff's button is not shown on a card open for changes");
+if ((await page.textContent(cellOf(T))) !== "=market.T") fail(`the button for ${T} says ${await page.textContent(cellOf(T))}, the file says =market.T`);
+const cellChanges = [];
+async function changeCell(path, text) {
+  await page.click(cellOf(path));
+  await page.fill(`[data-cellform="${path}"] input`, text);
+  await page.click(`[data-cellform="${path}"] [data-cellsave]`);
+}
+await changeCell(T, "=market.T + 1");
+cellChanges.push({ op: "set_formula", path: T, formula: "=market.T + 1" });
+await page.waitForSelector(`[data-cellform="${T}"]`, { state: "detached", timeout: 60000 });
+await settled();
+await matches("payoff formula", cellChanges);
+if ((await page.textContent(cellOf(T))) !== "=market.T + 1") fail("the card does not show the new formula");
+
+// A number on a payoff that is a formula, and what is not accepted
+const P = "price_war.payoffs.cut.cut";
+await changeCell(P, "7");
+cellChanges.push({ op: "set_value", path: P, value: 7 });
+await page.waitForSelector(`[data-cellform="${P}"]`, { state: "detached", timeout: 60000 });
+await settled();
+await matches("payoff number", cellChanges);
+
+const beforeCells = JSON.stringify(await shown());
+await changeCell(T, "=nothing_here + 1");
+await page.waitForSelector(`[data-cellform="${T}"] [data-cellmsg]:not([hidden])`, { timeout: 60000 });
+const bad = await forge([...cellChanges, { op: "set_formula", path: T, formula: "=nothing_here + 1" }]);
+const cellMessage = await page.textContent(`[data-cellform="${T}"] [data-cellmsg]`);
+if (!bad.why) fail("Forge accepts a payoff that reads a name the model does not have");
+else if (cellMessage !== bad.why) fail(`the card says "${cellMessage}", Forge says "${bad.why}"`);
+await page.fill(`[data-cellform="${T}"] input`, "abc");
+await page.click(`[data-cellform="${T}"] [data-cellsave]`);
+if ((await page.textContent(`[data-cellform="${T}"] [data-cellmsg]`)) !== "A payoff is a number or a formula starting with =.") fail("a payoff that is neither is not said so");
+if (JSON.stringify(await shown()) !== beforeCells) fail("a refused payoff moved the cards");
+await page.click(`[data-cellform="${T}"] [data-cellcancel]`);
+if (!(await page.isVisible(cellOf(T)))) fail("Cancel does not bring the payoff's button back");
+
 await browser.close();
 if (!remote) server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");
+console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");

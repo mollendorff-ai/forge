@@ -8,6 +8,7 @@ use super::order::{formula_words, Cell};
 use super::{evaluator, ArrayCalculator};
 use crate::error::{ForgeError, ForgeResult};
 use crate::games::dynamics::run;
+use crate::games::report::Written;
 use crate::games::{analyse, standings, Game, GameReport};
 use crate::types::{Table, Variable};
 
@@ -106,6 +107,16 @@ impl ArrayCalculator {
             Game::Table(game) => {
                 let table = game.table(|formula, at, others| value(self, formula, at, others))?;
                 let mut report = analyse(name, &table, game.symmetric);
+                for (cell, profile) in report.cells.iter_mut().zip(table.profiles()) {
+                    cell.written = game
+                        .written(table.index(&profile))
+                        .into_iter()
+                        .map(|(path, formula)| Written {
+                            path,
+                            formula: formula.map(str::to_string),
+                        })
+                        .collect();
+                }
                 if let Some(dynamics) = &game.dynamics {
                     let settings =
                         dynamics.work_out(name, |formula, at| value(self, formula, at, &[]))?;
@@ -790,6 +801,20 @@ flags:
         assert_eq!(json[0]["kind"], "tournament");
         assert_eq!(json[0]["ranking"][0]["plays"], "grim_trigger");
         assert_eq!(json[1]["kind"], "table");
+        // Each payoff of a table says where `edit` finds it, and its formula
+        // when it is one (the dilemma is symmetric: a cell is the row's)
+        let cells = json[1]["cells"].as_array().unwrap();
+        for cell in cells {
+            let written = cell["written"].as_array().unwrap();
+            assert_eq!(written.len(), 2);
+            for payoff in written {
+                assert!(payoff["path"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("dilemma.payoffs."));
+            }
+        }
+        assert!(cells.iter().any(|c| c["written"][0]["formula"].is_string()));
     }
 
     #[test]
