@@ -284,18 +284,15 @@ mod tests {
 
         // High impact should be first (perfect positive correlation)
         assert_eq!(top[0].variable, "high_impact");
-        assert!(
-            top[0].correlation > 0.99,
-            "Expected ~1.0, got {}",
-            top[0].correlation
-        );
+        let strongest = top[0].correlation;
+        assert!(strongest > 0.99, "Expected ~1.0, got {strongest}");
 
         // Medium impact should be second (high but not perfect correlation)
         assert_eq!(top[1].variable, "medium_impact");
+        let next = top[1].correlation;
         assert!(
-            top[1].correlation > 0.8 && top[1].correlation < 1.0,
-            "Expected high but imperfect correlation, got {}",
-            top[1].correlation
+            next > 0.8 && next < 1.0,
+            "Expected high but imperfect correlation, got {next}"
         );
     }
 
@@ -314,5 +311,21 @@ mod tests {
         assert!(json.contains("\"output\":\"out\""));
         assert!(json.contains("\"sensitivity\":"));
         assert!(json.contains("\"variable\":"));
+    }
+
+    /// What the analysis has no data for has no answer: an unknown input or
+    /// output, series of different lengths or none, and a series that never
+    /// varies (its rank correlation is 0, not NaN).
+    #[test]
+    fn what_has_no_data_has_no_correlation() {
+        let inputs = HashMap::from([("a".to_string(), vec![1.0, 2.0, 3.0])]);
+        let outputs = HashMap::from([("out".to_string(), vec![1.0, 2.0, 3.0])]);
+        let analysis = SensitivityAnalysis::compute(&inputs, &outputs);
+        assert_eq!(analysis.get_correlation("zz", "out"), None);
+        assert_eq!(analysis.get_correlation("a", "zz"), None);
+        assert!(analysis.to_tornado_json("zz").is_none());
+        assert!(spearman_correlation(&[1.0, 2.0], &[1.0]).abs() < 1e-15);
+        assert!(spearman_correlation(&[], &[]).abs() < 1e-15);
+        assert!(spearman_correlation(&[4.0, 4.0, 4.0], &[1.0, 2.0, 3.0]).abs() < 1e-15);
     }
 }

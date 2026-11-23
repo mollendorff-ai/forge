@@ -144,7 +144,11 @@ pub(super) const CRITERIA: [(&str, usize); 8] = [
 ];
 
 pub(super) fn join(kinds: impl IntoIterator<Item = Kind>) -> Kind {
-    let kinds: Vec<Kind> = kinds.into_iter().collect();
+    join_all(&kinds.into_iter().collect::<Vec<_>>())
+}
+
+/// What a value is when it may be any of `kinds`.
+fn join_all(kinds: &[Kind]) -> Kind {
     if kinds.is_empty() {
         Kind::Unknown
     } else if kinds.iter().all(|k| k.is_date()) {
@@ -177,11 +181,8 @@ pub(super) fn switch_results(count: usize) -> Vec<usize> {
 /// The value arguments of an `IF`-like call.
 pub(super) fn passed_on(name: &str, count: usize) -> Option<Vec<usize>> {
     let (_, first, step) = PASS_ON.iter().find(|(n, ..)| *n == name)?;
-    let mut values: Vec<usize> = (*first..count).step_by(*step).collect();
-    // IFS(condition, value, ...) has no default; IF(c, a, b) and the others
-    // take every argument from the first value on.
-    if name == "IFS" {
-        values.retain(|i| i % 2 == 1);
-    }
-    Some(values)
+    // IFS(condition, value, ...) has no default, so its values are every
+    // second argument; IF(c, a, b) and the others take every argument from
+    // the first value on.
+    Some((*first..count).step_by(*step).collect())
 }

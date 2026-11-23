@@ -12,6 +12,6 @@ forge sensitivity examples/periods/dcf.yaml --vary assumptions.wacc -r 0.08,0.11
 forge export examples/periods/monthly_plan.yaml plan.xlsx
 ```
 
-`src/cli/commands/examples.rs` (its `demo_examples` tests) checks these numbers against the same calculations written in Python. In the exported workbooks each `PREV` cell reads the cell above it; Gnumeric and LibreOffice recalculate both to the same numbers.
+`src/cli/commands/examples/mod.rs` (its `demo_examples` tests) checks these numbers against the same calculations written in Python. In the exported workbooks each `PREV` cell reads the cell above it; Gnumeric and LibreOffice recalculate both to the same numbers.
 
 The loan schedule, the third example of the ADR, is in [`examples/mortgage`](../mortgage/README.md).

@@ -22,7 +22,7 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 | Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Paste one prompt into your AI and it installs Forge and runs the bagel example; or install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
 | [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Prompt for your AI →](#try-it-with-your-ai) · [Quick start](#quick-start) · [For AI agents](#for-ai-agents) |
 
-**Checked, not trusted.** 2,162 formula tests compare Forge with Gnumeric, the analytics are compared with R, the games' equilibria with Gambit and their tournaments with the axelrod library, and the suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+**Checked, not trusted.** 2,162 formula tests compare Forge with Gnumeric, the analytics are compared with R, the games' equilibria with Gambit, their tournaments with the axelrod library and their dynamics with egttools (games of many players and the dynamics again in R, from the payoffs alone), and the suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
 ## Four ways to use Forge
 
@@ -95,11 +95,11 @@ It names the project exactly, since "Forge" is a crowded name; it installs the r
 
 It needs an AI that can run commands. Tried by the maintainer on 2026-11-15: it worked on Claude and on Grok, free tiers included; the free tiers of ChatGPT and Gemini had no sandbox to run it in. For those, the prompt's last lines ask the AI to say so rather than make numbers up, and to send you to [Forge Studio](https://forge.mollendorff.ai/), which needs nothing but a browser.
 
-**Six more prompts** in [docs/PROMPTS.md](docs/PROMPTS.md), each run by a fresh agent before it went in: build a model from a description, bring a workbook in from Excel and back, budget against actual, what-if (scenarios, break-even, goal seek, sensitivity), risk and decisions (simulation, tornado, decision tree, real options), and games (what will the other side do?). Each ends with the model's YAML, to open in Studio, and the page ends with what to keep in a prompt of your own.
+**Seven more prompts** in [docs/PROMPTS.md](docs/PROMPTS.md), each run by a fresh agent before it went in: build a model from a description, bring a workbook in from Excel and back, budget against actual, what-if (scenarios, break-even, goal seek, sensitivity), risk and decisions (simulation, tornado, decision tree, real options), games (what will the other side do?), and a price war built from the bagel shop's own numbers. Each ends with the model's YAML, to open in Studio, and the page ends with what to keep in a prompt of your own.
 
 ## Status and known limitations
 
-Forge is a release candidate (v10.0.0-rc.32) and an R&D prototype: read its claims as hypotheses to check, not facts to trust. It was built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
+Forge is a release candidate (v10.0.0-rc.34) and an R&D prototype: read its claims as hypotheses to check, not facts to trust. It was built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
 
 Forge began in 2025 as the core of a trading-engine idea, built closed-source for a few months. Making the YAML calculator showed it was worth more as a financial-modelling tool, and it was opened under MIT OR Apache-2.0 in February 2026; it is not a trading engine and does not plan to become one ([ADR-063](docs/architecture/ADR-063-ORIGIN-OF-FORGE.md)).
 
@@ -108,7 +108,7 @@ Known problems as of 2026-11-12 (what is planned, and in what order, is in the [
 - `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value, an uncertain input (`MC.*`) as its plan value, and lists it. `forge import` brings such a cell back as that value: the distribution stays in the YAML file.
 - `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
 - A two-dimensional array constant such as `{1,2;3,4}` is refused (Forge has no two-dimensional values), and `forge import` brings a formula with one in as its values.
-- `forge calculate` cannot evaluate `MC.*` distributions (for example `examples/monte-carlo.yaml`); it says so and points to `forge simulate`.
+- `forge calculate` does not draw `MC.*` distributions (for example `examples/monte-carlo.yaml`): it says so and points to `forge simulate`, or calculates the model at plan with `--plan`, each uncertain input at its `value:`.
 - Each analytics command has been checked once end to end, on the `examples/bagel` models, against calculations written outside Forge. That is one model each, not broad coverage.
 
 ## Four questions, answered
@@ -194,17 +194,19 @@ A spreadsheet calculates cells. The questions above need more than that, and For
 | What if things go well, or badly? | `forge scenarios`: probability-weighted, with the expected value |
 | Invest now, wait, or walk away? | `forge decision-tree` (backward induction), `forge real-options` (Black-Scholes and binomial: defer, expand, contract, abandon, switch) |
 | How sure is that average? | `forge bootstrap`: percentile, basic and BCa intervals |
-| How does one risk lead to another? | `forge bayesian`: Bayesian networks, with evidence |
-| What will a rival do, and what then? | `forge game`: the equilibria of a game in the model's `games:` section (dominated strategies, pure and mixed), and tournaments of repeated play between built-in strategies |
+| How does one risk lead to another? | `forge bayesian`: Bayesian networks, with evidence and under a scenario; a probability may be a formula over the model, and a named query's posterior is a scalar later formulas read |
+| What will a rival do, and what then? | `forge game`: the equilibria of a game in the model's `games:` section (dominated strategies, pure and mixed; a symmetric game of any number of players is written as one payoff for each strategy over how many of the others play each; with two strategies, its symmetric mixes and whether a population returns to each), the shares of a population generation by generation (`dynamics:`), and tournaments of repeated play between built-in strategies |
 | Where did the budget go? | `forge variance`, `forge report` |
 | What price breaks even? Hits a target? | `forge break-even`, `forge goal-seek` |
 | Can my colleague open it in Excel? | `forge export` writes a workbook with live formulas; `forge import` reads one back |
+| Does the model still give the figures it states? | `forge validate`: each stored result against its formula, and the `expect:` of the file and of each scenario |
+| Can an agent change the model without breaking it? | `forge edit`: set a value or a formula, add or delete, rename a name and every name that reads it, make an input uncertain or certain again; a change is kept only when the model reads back valid, comments and layout untouched |
 
 How each one is set up in YAML, with examples: [docs/FEATURES.md](docs/FEATURES.md). Every command is listed there too, and `forge examples` prints a runnable model for most of them.
 
 ### 203 functions
 
-Most are Excel's, under Excel's names, so a formula reads as it would in a cell. Seven are not in Excel: `VARIANCE`, `VARIANCE_PCT` and `VARIANCE_STATUS` (which knows that a cost under budget is good news), `BREAKEVEN_UNITS`, `BREAKEVEN_REVENUE`, `SCENARIO`, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is, and [docs/FUNCTIONS.md](docs/FUNCTIONS.md) has them all. A formula can hold a list in braces as in Excel, a row `{1,2,3}` or a column `{1;2;3}`: `=LARGE(x, {1,2,3})` ([ADR-064](docs/architecture/ADR-064-ARRAY-CONSTANTS.md)).
+Most are Excel's, under Excel's names, so a formula reads as it would in a cell. Some are not in Excel: `VARIANCE`, `VARIANCE_PCT` and `VARIANCE_STATUS` (which knows that a cost under budget is good news), `BREAKEVEN_UNITS`, `BREAKEVEN_REVENUE`, `SCENARIO`, `PREV` for the row above, `COUNTUNIQUE`, and the six `MC.*` distributions `forge simulate` draws. Not every Excel function is covered; `forge functions` lists what is, and [docs/FUNCTIONS.md](docs/FUNCTIONS.md) has them all. A formula can hold a list in braces as in Excel, a row `{1,2,3}` or a column `{1;2;3}`: `=LARGE(x, {1,2,3})` ([ADR-064](docs/architecture/ADR-064-ARRAY-CONSTANTS.md)).
 
 | Category | Examples |
 |----------|----------|
@@ -226,7 +228,7 @@ Any agent that can write a file and run a command can use Forge: Claude Code, Co
 
 Why not let the agent edit a spreadsheet? A `.xlsx` file is zipped XML, and its formulas say `B7:G42` where a YAML model says `months.revenue`. For one five-year DCF, the workbook was about 7 times the size of the YAML (19 times counting the XML inside). Token counts were not measured, and an agent that reads only the cells it needs avoids much of that; the names are the bigger difference. A YAML model also diffs, reviews and merges like code.
 
-For tighter integration, `forge mcp` is an MCP server with 21 tools (validate, calculate, audit, export and import; sensitivity, goal seek, break-even, variance, compare; simulate, scenarios, decision trees, real options, tornado, bootstrap, Bayesian networks, games; and schema, functions and examples for discovery). Every tool takes the YAML inline, so it works in sandboxed clients with no file system:
+For tighter integration, `forge mcp` is an MCP server with 22 tools (validate, calculate, edit, audit, export and import; sensitivity, goal seek, break-even, variance, compare; simulate, scenarios, decision trees, real options, tornado, bootstrap, Bayesian networks, games; and schema, functions and examples for discovery). Every tool takes the YAML inline, so it works in sandboxed clients with no file system:
 
 ```json
 {
@@ -313,10 +315,10 @@ Forge's results are checked against engines it does not control, and none of the
 
 | Check | What it covers | Latest result |
 | --- | --- | --- |
-| Unit tests (this repo) | over 2,850 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
+| Unit tests (this repo) | over 3,150 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
 | [forge-e2e-gnumeric](validation/gnumeric) | 2,162 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 175 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,137 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); CI runs them on every pull request |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
-| [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R | 0 disagreements in 3,000 generated games, 372 tournament values and the named games (2026-11-20) |
+| [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R; games of many players and their dynamics with egttools, and again in R from the payoffs alone | 0 disagreements in 3,000 generated games, 372 tournament values and the named games (2026-11-20); games of many players and dynamics: 3,000 more games and every generation, 0 disagreements ([VALIDATION.md](VALIDATION.md), 2026-11-22) |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
 
@@ -340,7 +342,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | --- | --- |
 | [Features](docs/FEATURES.md) | The model file, every command, every analysis |
 | [Functions](docs/FUNCTIONS.md) | The 203 functions |
-| [MCP](docs/MCP.md) | The MCP server and its 21 tools |
+| [MCP](docs/MCP.md) | The MCP server and its 22 tools |
 | [Examples](examples/) | Runnable models, each with a README |
 | [Posts](docs/posts/) | One question each, answered with the examples |
 | [Validation](VALIDATION.md) | What is checked against what, and the latest results |
@@ -354,7 +356,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 ```bash
 cargo test                              # Run all tests
 cargo clippy -- -D warnings             # Lint (pedantic)
-make check                              # Full CI check
+make check                              # Quick check: format, lint, unit tests, Markdown
 cargo build --release && (cd validation/gnumeric && cargo run --release)   # Against Gnumeric and LibreOffice (VALIDATION.md)
 cargo build --lib --no-default-features # The engine alone: no command line, servers or Excel (ADR-055)
 ```

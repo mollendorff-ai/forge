@@ -18,5 +18,13 @@ msrv = "1.97.0"
 # features, which rmcp turns on), zeroize_derive (zip, under calamine and
 # rust_xlsxwriter) and windows-implement and windows-interface (chrono's
 # clock, through iana-time-zone) have no release on syn 3 (2026-11-20).
-# Remove syn here when they do. Any other crate in two versions fails clippy.
-allowed-duplicate-crates = ["syn", "getrandom", "r-efi"]
+# Remove syn here when they do.
+#
+# hashbrown 0.14 and 0.17, since 2026-11-22 (ADR-075): yaml-edit, the
+# lossless YAML tree Forge writes models through, is built on rowan, whose
+# every release (0.16.1, and 0.18.0-alpha.2) takes hashbrown 0.14; indexmap
+# takes 0.17. The maintainer allowed it, as for jsonschema: a core, stable
+# library with no fix on our side. Remove it here when rowan moves on.
+#
+# Any other crate in two versions fails clippy.
+allowed-duplicate-crates = ["syn", "getrandom", "r-efi", "hashbrown"]

@@ -36,6 +36,25 @@ pub struct CalculateRequest {
     pub dry_run: bool,
     /// Scenario name to apply (uses variable overrides from 'scenarios' section)
     pub scenario: Option<String>,
+    /// Calculate an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge_simulate` does for `at_plan`; the answer's `at_plan` lists them. Never writes the file
+    #[serde(default)]
+    pub plan: bool,
+}
+
+/// Parameters for the `forge_edit` tool.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct EditRequest {
+    /// Path to the YAML model file (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    pub includes: Option<HashMap<String, String>>,
+    /// The changes, made in turn; none is made unless all can be
+    pub changes: Vec<crate::edit::Change>,
+    /// Answer the new text without writing the files (always so with `content`)
+    #[serde(default)]
+    pub dry_run: bool,
 }
 
 /// Parameters for the `forge_audit` tool.
@@ -296,6 +315,9 @@ pub struct BayesianRequest {
     pub query_var: Option<String>,
     /// Evidence as variable=state pairs (e.g., "economy=growth", "market=bull")
     pub evidence: Option<Vec<String>>,
+    /// Optional: a scenario whose overrides apply first; a prior or table
+    /// entry may be a formula over the model's scalars
+    pub scenario: Option<String>,
 }
 
 /// Parameters for the `forge_schema` tool.

@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
-# Bootstrap Validator for forge-e2e
-# Validates forge's PERCENTILE.BOOT against R's boot package
+# Bootstrap Validator
+# R's boot package: bootstrap statistics and intervals (does not call Forge)
 #
 # Usage:
 #   Human-readable mode: Rscript bootstrap_validator.R

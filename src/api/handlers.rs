@@ -11,27 +11,25 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::cli::commands::results::{AuditResult, CalculationResult, ValidationResult};
-use crate::cli::{audit_core, calculate_core, validate_core};
-use crate::cli::{export as cli_export, import as cli_import, Console};
+use crate::cli::{
+    audit_core, calculate_core, calculate_plan_core, export_core, import_core, validate_core,
+};
 use crate::error::ForgeError;
 use crate::inline_model::resolve_model_input;
 
 use super::server::AppState;
 
-/// Standard API response wrapper
+/// Standard API response wrapper. Every answer is `ok`: a model that fails
+/// says so in `data` (`valid: false`, `exported: false`, ...), as MCP's tools
+/// do (T1-INTERFACE-PARITY).
 #[derive(Serialize)]
 #[serde(bound = "T: Serialize")]
 pub struct ApiResponse<T> {
     pub success: bool,
     pub request_id: String,
     /// Numbers to 15 significant digits (`core::precision`).
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "crate::core::precision::serialize_rounded"
-    )]
-    pub data: Option<T>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+    #[serde(serialize_with = "crate::core::precision::serialize_rounded")]
+    pub data: T,
 }
 
 impl<T: Serialize> ApiResponse<T> {
@@ -39,20 +37,7 @@ impl<T: Serialize> ApiResponse<T> {
         Self {
             success: true,
             request_id: Uuid::new_v4().to_string(),
-            data: Some(data),
-            error: None,
-        }
-    }
-
-    pub fn err(message: impl Into<String>) -> Self
-    where
-        T: Default,
-    {
-        Self {
-            success: false,
-            request_id: Uuid::new_v4().to_string(),
-            data: None,
-            error: Some(message.into()),
+            data,
         }
     }
 }
@@ -213,16 +198,34 @@ pub async fn validate(
         .resolve(&state)
         .and_then(|(path, _tmp)| validate_core(&path).map_err(|e| e.to_string()));
 
-    Json(ApiResponse::ok(match outcome {
-        Ok(result) => ValidateResponse {
-            valid: result.tables_valid && result.scalars_valid,
-            file_path,
-            message: if result.tables_valid && result.scalars_valid {
+    Json(ApiResponse::ok(validate_response(file_path, outcome)))
+}
+
+/// What `POST /api/v1/validate` answers: valid when every stored value
+/// matches its formula and every expectation is met (ADR-074).
+fn validate_response(
+    file_path: String,
+    outcome: Result<ValidationResult, String>,
+) -> ValidateResponse {
+    match outcome {
+        Ok(result) => {
+            let message = if !result.scalars_valid {
+                "Some values differ from their formulas".to_string()
+            } else if result.expectations_met {
                 "Validation successful".to_string()
             } else {
-                "Some values differ from their formulas".to_string()
-            },
-            result: Some(result),
+                format!(
+                    "{} of {} expected results differ",
+                    result.expectation_differences.len(),
+                    result.expectations_checked
+                )
+            };
+            ValidateResponse {
+                valid: result.tables_valid && result.scalars_valid && result.expectations_met,
+                file_path,
+                message,
+                result: Some(result),
+            }
         },
         Err(e) => ValidateResponse {
             valid: false,
@@ -230,7 +233,7 @@ pub async fn validate(
             message: e,
             result: None,
         },
-    }))
+    }
 }
 
 /// Calculate request
@@ -242,6 +245,9 @@ pub struct CalculateRequest {
     pub dry_run: bool,
     /// Scenario to apply
     pub scenario: Option<String>,
+    /// Each uncertain input at its plan figure (ADR-076); never writes
+    #[serde(default)]
+    pub plan: bool,
 }
 
 /// Calculate response
@@ -265,11 +271,15 @@ pub async fn calculate(
     Json(req): Json<CalculateRequest>,
 ) -> impl IntoResponse {
     let file_path = req.source.label();
-    let dry_run = req.dry_run;
+    let dry_run = req.dry_run || req.plan;
     let is_inline = req.source.content.is_some();
     let outcome = req.source.resolve(&state).and_then(|(path, _tmp)| {
-        let result = calculate_core(&path, dry_run, req.scenario.as_deref())
-            .map_err(|e| format!("Error: {e}"))?;
+        let result = if req.plan {
+            calculate_plan_core(&path, req.scenario.as_deref())
+        } else {
+            calculate_core(&path, dry_run, req.scenario.as_deref())
+        }
+        .map_err(|e| format!("Error: {e}"))?;
         let content = if is_inline && !dry_run {
             std::fs::read_to_string(&path).ok()
         } else {
@@ -386,9 +396,7 @@ pub async fn export(
     );
     let outcome = outcome
         .map_err(ForgeError::Validation)
-        .and_then(|(yaml_path, excel_path)| {
-            quietly(|c| cli_export(c, &yaml_path, &excel_path, false))
-        });
+        .and_then(|(yaml_path, excel_path)| export_core(&yaml_path, &excel_path).map(drop));
     match outcome {
         Ok(()) => Json(ApiResponse::ok(ExportResponse {
             exported: true,
@@ -403,13 +411,6 @@ pub async fn export(
             message: format!("Error: {e}"),
         })),
     }
-}
-
-/// Run a command whose output has nowhere to go: a request gets its answer in
-/// the response, and the server's own output is its log.
-fn quietly<T>(command: impl FnOnce(&mut Console<'_>) -> T) -> T {
-    let (mut out, mut err, mut input) = (std::io::sink(), std::io::sink(), std::io::empty());
-    command(&mut Console::new(&mut out, &mut err, &mut input))
 }
 
 /// Import request
@@ -445,7 +446,7 @@ pub async fn import_excel(
     let outcome = outcome
         .map_err(ForgeError::Validation)
         .and_then(|(excel_path, yaml_path)| {
-            quietly(|c| cli_import(c, &excel_path, &yaml_path, false, false, false))
+            import_core(&excel_path, &yaml_path, false, false).map(drop)
         });
     match outcome {
         Ok(()) => Json(ApiResponse::ok(ImportResponse {
@@ -474,8 +475,7 @@ mod tests {
         let response: ApiResponse<String> = ApiResponse::ok("test data".to_string());
 
         assert!(response.success);
-        assert_eq!(response.data, Some("test data".to_string()));
-        assert!(response.error.is_none());
+        assert_eq!(response.data, "test data");
         assert_ne!(response.request_id, "");
         // Verify UUID format (8-4-4-4-12)
         assert_eq!(response.request_id.len(), 36);
@@ -490,20 +490,9 @@ mod tests {
         let response = ApiResponse::ok(health);
 
         assert!(response.success);
-        assert!(response.data.is_some());
-        let data = response.data.unwrap();
+        let data = response.data;
         assert_eq!(data.status, "healthy");
         assert_eq!(data.uptime_message, "running");
-    }
-
-    #[test]
-    fn test_api_response_err_creates_error_response() {
-        let response: ApiResponse<String> = ApiResponse::err("Something went wrong");
-
-        assert!(!response.success);
-        assert!(response.data.is_none());
-        assert_eq!(response.error, Some("Something went wrong".to_string()));
-        assert_ne!(response.request_id, "");
     }
 
     #[test]
@@ -678,25 +667,19 @@ mod tests {
     }
 
     #[test]
-    fn test_api_response_serializes_without_none_fields() {
-        let response: ApiResponse<String> = ApiResponse::ok("data".to_string());
-        let json = serde_json::to_string(&response).unwrap();
-
-        // error field should be skipped when None
-        assert!(!json.contains("\"error\""));
-        assert!(json.contains("\"success\":true"));
-        assert!(json.contains("\"data\":\"data\""));
-    }
-
-    #[test]
-    fn test_api_response_error_serializes_without_data() {
-        let response: ApiResponse<String> = ApiResponse::err("error message");
-        let json = serde_json::to_string(&response).unwrap();
-
-        // data field should be skipped when None
-        assert!(!json.contains("\"data\""));
-        assert!(json.contains("\"success\":false"));
-        assert!(json.contains("\"error\":\"error message\""));
+    fn an_answer_is_success_a_request_id_and_data_only() {
+        let response = ApiResponse::ok(0.1_f64 + 0.2);
+        let json: serde_json::Value = serde_json::to_value(&response).unwrap();
+        let keys: Vec<&str> = json
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(keys, ["data", "request_id", "success"]);
+        assert_eq!(json["success"], true);
+        // Rounded to 15 significant digits
+        assert_eq!(json["data"], 0.3);
     }
 
     // ==================== EndpointInfo Tests ====================
@@ -814,6 +797,29 @@ mod tests {
         assert_eq!(response.status(), axum::http::StatusCode::OK);
     }
 
+    #[test]
+    fn a_validate_response_counts_the_expectations() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("m.yaml");
+        let text = "_forge_version: \"5.6.0\"\nw: 0.6\nout:\n  twice: {formula: \"=w * 2\"}\n\
+                    scenarios:\n  short:\n    scalars: {w: 0.4}\n    expect: {out.twice: 0.8}\n";
+        let answer = |text: &str| {
+            std::fs::write(&path, text).unwrap();
+            validate_response(String::new(), Ok(validate_core(&path).unwrap()))
+        };
+        let met = answer(text);
+        assert!(met.valid);
+        assert_eq!(met.message, "Validation successful");
+        let differ = answer(&text.replace("0.8}", "0.9}"));
+        assert!(!differ.valid);
+        assert_eq!(differ.message, "1 of 1 expected results differ");
+        let d = &differ.result.unwrap().expectation_differences[0];
+        assert_eq!((d.scenario.as_deref(), d.got), (Some("short"), Some(0.8)));
+        let stale = answer(&text.replace("=w * 2\"}", "=w * 2\", value: 3}"));
+        assert!(!stale.valid);
+        assert_eq!(stale.message, "Some values differ from their formulas");
+    }
+
     #[tokio::test]
     async fn test_validate_handler_valid_file() {
         use axum::response::IntoResponse;
@@ -842,12 +848,52 @@ mod tests {
             },
             dry_run: true,
             scenario: None,
+            plan: false,
         };
 
         let response = calculate(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    /// `plan`: the simulation's model at its plan figures, written nowhere
+    #[tokio::test]
+    async fn the_calculate_handler_calculates_an_uncertain_model_at_plan() {
+        use axum::response::IntoResponse;
+        let request = |plan: bool| CalculateRequest {
+            source: ModelSource {
+                file_path: Some("examples/bagel/bagel_simulate.yaml".to_string()),
+                ..Default::default()
+            },
+            dry_run: false,
+            scenario: None,
+            plan,
+        };
+        let body = |response: axum::response::Response| async move {
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()
+        };
+        let at_plan = body(
+            calculate(no_root(), Json(request(true)))
+                .await
+                .into_response(),
+        )
+        .await;
+        let profit = at_plan["data"]["result"]["scalars"]["year.profit"]
+            .as_f64()
+            .unwrap();
+        assert!((profit - 786.320_361_7).abs() < 1e-6, "{at_plan}");
+        assert_eq!(at_plan["data"]["dry_run"], true, "{at_plan}");
+        let refused = body(
+            calculate(no_root(), Json(request(false)))
+                .await
+                .into_response(),
+        )
+        .await;
+        assert!(refused.to_string().contains("--plan"), "{refused}");
     }
 
     #[tokio::test]
@@ -861,6 +907,7 @@ mod tests {
             },
             dry_run: true,
             scenario: None,
+            plan: false,
         };
 
         let response = calculate(no_root(), Json(req)).await;
@@ -905,52 +952,252 @@ mod tests {
         assert_eq!(response.status(), axum::http::StatusCode::OK);
     }
 
-    #[tokio::test]
-    async fn test_export_handler() {
-        use axum::response::IntoResponse;
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let output_path = temp_dir.path().join("test_export.xlsx");
-
-        let req = ExportRequest {
-            yaml_path: "test-data/budget.yaml".to_string(),
-            excel_path: output_path.to_string_lossy().to_string(),
-        };
-
-        let response = export(no_root(), Json(req)).await;
-        let response = response.into_response();
-
-        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    /// An answer's JSON with its `request_id`, a fresh UUID, left out
+    async fn answer(response: impl IntoResponse) -> serde_json::Value {
+        let bytes = axum::body::to_bytes(response.into_response().into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let mut json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let id = json.as_object_mut().unwrap().remove("request_id").unwrap();
+        assert_eq!(id.as_str().unwrap().len(), 36);
+        json
     }
 
+    /// Export and import call their cores (T3-API): the answers are the ones
+    /// they gave when they ran the commands' printing functions
     #[tokio::test]
-    async fn test_export_handler_nonexistent() {
-        use axum::response::IntoResponse;
+    async fn the_export_and_import_handlers_write_the_files_and_say_so() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let excel = dir.path().join("budget.xlsx").to_string_lossy().to_string();
+        let yaml = dir.path().join("budget.yaml").to_string_lossy().to_string();
 
-        let req = ExportRequest {
-            yaml_path: "/nonexistent/file.yaml".to_string(),
-            excel_path: "/tmp/test.xlsx".to_string(),
-        };
+        let exported = answer(
+            export(
+                no_root(),
+                Json(ExportRequest {
+                    yaml_path: "test-data/budget.yaml".to_string(),
+                    excel_path: excel.clone(),
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(
+            exported,
+            serde_json::json!({"success": true, "data": {
+                "exported": true,
+                "yaml_path": "test-data/budget.yaml",
+                "excel_path": excel,
+                "message": "Export completed",
+            }})
+        );
 
-        let response = export(no_root(), Json(req)).await;
-        let response = response.into_response();
-
-        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        let imported = answer(
+            import_excel(
+                no_root(),
+                Json(ImportRequest {
+                    excel_path: excel.clone(),
+                    yaml_path: yaml.clone(),
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(
+            imported,
+            serde_json::json!({"success": true, "data": {
+                "imported": true,
+                "excel_path": excel,
+                "yaml_path": yaml,
+                "message": "Import completed",
+            }})
+        );
+        let model = crate::parser::parse_model(std::path::Path::new(&yaml)).unwrap();
+        assert_eq!(
+            model.scalars["assumptions.profit"].formula.as_deref(),
+            Some("=assumptions.revenue - assumptions.expenses - assumptions.cost_of_goods")
+        );
     }
 
+    /// A failure is not an HTTP error: `success` is true and the flag false,
+    /// with Forge's message (T1-INTERFACE-PARITY)
     #[tokio::test]
-    async fn test_import_handler_nonexistent() {
-        use axum::response::IntoResponse;
+    async fn the_export_and_import_handlers_say_why_they_failed() {
+        let exported = answer(
+            export(
+                no_root(),
+                Json(ExportRequest {
+                    yaml_path: "/nonexistent/file.yaml".to_string(),
+                    excel_path: "/nonexistent/test.xlsx".to_string(),
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(exported["success"], true);
+        assert_eq!(exported["data"]["exported"], false);
+        let message = exported["data"]["message"].as_str().unwrap();
+        assert!(message.starts_with("Error: "), "{message}");
 
-        let req = ImportRequest {
-            excel_path: "/nonexistent/file.xlsx".to_string(),
-            yaml_path: "/tmp/test.yaml".to_string(),
+        let imported = answer(
+            import_excel(
+                no_root(),
+                Json(ImportRequest {
+                    excel_path: "/nonexistent/file.xlsx".to_string(),
+                    yaml_path: "/nonexistent/test.yaml".to_string(),
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(imported["success"], true);
+        assert_eq!(imported["data"]["imported"], false);
+        let message = imported["data"]["message"].as_str().unwrap();
+        assert!(message.starts_with("Error: "), "{message}");
+    }
+
+    /// The state of a server with `--root`
+    fn rooted(dir: &std::path::Path) -> State<Arc<AppState>> {
+        State(Arc::new(AppState {
+            version: "5.0.0".to_string(),
+            token: None,
+            loopback_only: true,
+            root: Some(crate::path_root::Root::new(dir).unwrap()),
+        }))
+    }
+
+    /// With `--root`, export and import refuse a file outside it, each of the
+    /// two paths on its own, and say so in `message`; inside it, they work
+    #[tokio::test]
+    async fn export_and_import_stay_inside_the_root() {
+        let root = tempfile::TempDir::new().unwrap();
+        let outside = tempfile::TempDir::new().unwrap();
+        std::fs::copy("test-data/budget.yaml", root.path().join("budget.yaml")).unwrap();
+        std::fs::copy("test-data/budget.yaml", outside.path().join("budget.yaml")).unwrap();
+        let outside_yaml = outside
+            .path()
+            .join("budget.yaml")
+            .to_string_lossy()
+            .to_string();
+        let outside_xlsx = outside
+            .path()
+            .join("out.xlsx")
+            .to_string_lossy()
+            .to_string();
+
+        let export_of = |yaml_path: String, excel_path: String| async {
+            answer(
+                export(
+                    rooted(root.path()),
+                    Json(ExportRequest {
+                        yaml_path,
+                        excel_path,
+                    }),
+                )
+                .await,
+            )
+            .await
+        };
+        let import_of = |excel_path: String, yaml_path: String| async {
+            answer(
+                import_excel(
+                    rooted(root.path()),
+                    Json(ImportRequest {
+                        excel_path,
+                        yaml_path,
+                    }),
+                )
+                .await,
+            )
+            .await
         };
 
-        let response = import_excel(no_root(), Json(req)).await;
-        let response = response.into_response();
+        for (yaml, excel) in [
+            (outside_yaml.clone(), "out.xlsx".to_string()),
+            ("budget.yaml".to_string(), outside_xlsx.clone()),
+        ] {
+            let refused = export_of(yaml, excel).await;
+            assert_eq!(refused["data"]["exported"], false, "{refused}");
+            assert!(refused["data"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with("Error: "));
+        }
+        assert!(!outside.path().join("out.xlsx").exists());
 
-        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        let exported = export_of("budget.yaml".to_string(), "out.xlsx".to_string()).await;
+        assert_eq!(exported["data"]["exported"], true, "{exported}");
+        assert!(root.path().join("out.xlsx").exists());
+
+        for (excel, yaml) in [
+            (outside_xlsx, "back.yaml".to_string()),
+            ("out.xlsx".to_string(), outside_yaml),
+        ] {
+            let refused = import_of(excel, yaml).await;
+            assert_eq!(refused["data"]["imported"], false, "{refused}");
+            assert!(refused["data"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with("Error: "));
+        }
+
+        let imported = import_of("out.xlsx".to_string(), "back.yaml".to_string()).await;
+        assert_eq!(imported["data"]["imported"], true, "{imported}");
+        assert!(root.path().join("back.yaml").exists());
+    }
+
+    /// A model named by `file_path` is calculated and written back, and the
+    /// answer says so; inline content is not (its text comes back instead)
+    #[tokio::test]
+    async fn calculating_a_file_says_the_file_was_updated() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let file = dir.path().join("budget.yaml");
+        std::fs::copy("test-data/budget.yaml", &file).unwrap();
+        let response = answer(
+            calculate(
+                no_root(),
+                Json(CalculateRequest {
+                    source: ModelSource {
+                        file_path: Some(file.to_string_lossy().to_string()),
+                        ..Default::default()
+                    },
+                    dry_run: false,
+                    scenario: None,
+                    plan: false,
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(response["data"]["calculated"], true, "{response}");
+        assert_eq!(
+            response["data"]["message"],
+            "Calculation completed and file updated"
+        );
+    }
+
+    /// A file that is not a model is `valid: false` with Forge's reason, not
+    /// an HTTP error
+    #[tokio::test]
+    async fn validating_a_file_that_is_not_a_model_says_why() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let file = dir.path().join("broken.yaml");
+        std::fs::write(&file, "scalars: [unclosed").unwrap();
+        let response = answer(
+            validate(
+                no_root(),
+                Json(ValidateRequest {
+                    source: ModelSource {
+                        file_path: Some(file.to_string_lossy().to_string()),
+                        ..Default::default()
+                    },
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(response["success"], true, "{response}");
+        assert_eq!(response["data"]["valid"], false, "{response}");
+        assert_ne!(response["data"]["message"], "", "{response}");
     }
 }

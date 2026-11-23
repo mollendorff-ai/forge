@@ -21,8 +21,12 @@
 # the stag within 100 generations; the scenario few_stags starts at 0.7, and
 # every hunter ends up hunting hare (by hand, and by egttools, every
 # generation). With c = 1.5 (c3), stag spreads from any start above 3/8.
+#
+# Each of these is written under expect:, for the file as written and for
+# each scenario, and forge validate games/stag-hunt.yaml checks that Forge
+# still gives them (ADR-074).
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 c: 0      # the cost of a defection (hunting hare)
 start_stag: 0.8   # the share of stag hunters in the first generation
@@ -54,16 +58,26 @@ kinship:
     formula: "=stag_hunt.dynamics.share.stag"
     notes: The share of stag hunters after 100 generations
 
+expect:                       # by hand, at c = 0
+  kinship.stag_share: =3/4    # (3 - c) / 4
+  kinship.crossover_c: 1      # stag pays 2 against an even mix, hare 3 - c
+  kinship.coop_wins: 0
+  kinship.stags_at_the_end: 1 # from 0.8, above 3/4
+
 scenarios:
   c1:
     description: kinship's second cost
     scalars: {c: 0.5}
+    expect: {kinship.stag_share: =5/8, kinship.coop_wins: 0}
   c2:
     description: The crossover, where stag and hare tie
     scalars: {c: 1}
+    expect: {kinship.stag_share: =1/2, kinship.coop_wins: 0}
   c3:
     description: A cost at which cooperation wins
     scalars: {c: 1.5}
+    expect: {kinship.stag_share: =3/8, kinship.coop_wins: 1}
   few_stags:
     description: A population that starts below 3/4 stag hunters
     scalars: {start_stag: 0.7}
+    expect: {kinship.stags_at_the_end: 0}

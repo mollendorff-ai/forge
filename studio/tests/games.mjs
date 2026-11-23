@@ -8,7 +8,8 @@
 //   scores, the stable players are Forge's, and every match is Forge's;
 // - an input typed on a card moves the games: 0.55 for the share a cheaper
 //   shop takes is the loyal_regulars scenario, and gives its equilibrium;
-// - the Tools tab runs forge_game on the open model;
+// - the Tools tab runs forge_game on the open model and shows the whole
+//   answer, the tool's JSON, with Copy and Download;
 // - in the Games set (examples/games), every game of each of its ten files,
 //   opened from the Files tab, is Forge's: each cell, each equilibrium with
 //   its chances and its stability, each ranking, stable list and match; the
@@ -25,8 +26,15 @@
 //   generation are Forge's; hawks end at 2/3 in hawk-dove, the stag hunt ends
 //   all stag from 0.8 and all hare in its scenario few_stags; pointing at the
 //   chart shows a generation's shares from Forge's path;
+// - the bagel's price war spreads through the city as Forge's path says (99.1%
+//   of the shops at $14 after 24 months), and its street's festival of five
+//   shops is drawn by count, all keeping, and all paying when the borough
+//   matches;
 // - the acquisition's sealed bids (deal_game.yaml) are Forge's, with both
-//   bidding 30% and both 40% marked, and only 30% in its scenario.
+//   bidding 30% and both 40% marked, and only 30% in its scenario;
+// - a link names one model of a set (`?example=bagel&model=price_war.yaml`)
+//   and opens on its games, and a model the set does not have opens the
+//   set's own.
 //
 //   node studio/tests/games.mjs <built Studio dir or address>
 
@@ -221,6 +229,16 @@ async function check(label, scenario, pure) {
 const plan = await check("plan", null, "cut,cut");
 if (plan.stable.join(",") !== "matcher,grudge,discounter") fail(`plan: Forge's stable players are ${plan.stable}`);
 
+// The price war across the city: Forge's path, compared by checkAll above;
+// from a tenth of the shops at $14, 99.1% cut after 24 months
+{
+  const war = (await forge("bagel", "price_war.yaml", null)).find((g) => g.game === "price_war");
+  const end = war && war.dynamics.path[war.dynamics.path.length - 1].shares.cut;
+  if (!(Math.abs(end - 0.9913363782163622) < 1e-12)) fail(`price war: Forge's cut share after 24 months is ${end}`);
+  const shownEnd = (await shown("price_war")).dynamics;
+  if (!shownEnd || shownEnd.shares.cut !== String(end)) fail(`price war: the screen ends with ${JSON.stringify(shownEnd)}`);
+}
+
 // Each scenario: tap its chip and read the games again
 let before = await generation(page);
 await page.click('[data-scn="loyal_regulars"]');
@@ -247,10 +265,51 @@ if (marked.join(";") !== "hold,hold") fail(`typing 0.55 on market.undercut_share
 await page.click('.tab[data-tab="mcp"]');
 await page.click('[data-tool="game"]');
 await page.click('[data-run="game"]');
-await page.waitForFunction(() => /"kind": "tournament"|msg bad/.test(document.querySelector('[data-out="game"]').innerHTML), null, { timeout: 60000 });
-const answer = await page.textContent('[data-out="game"]');
-if (!answer.includes('"game": "price_war"') || !answer.includes('"cells"')) fail(`the Tools tab's forge_game answered: ${answer.slice(0, 200)}`);
+await page.waitForFunction(() => /<pre|msg bad/.test(document.querySelector('[data-out="game"]').innerHTML), null, { timeout: 60000 });
+const answer = await page.textContent('[data-out="game"] pre');
+if (!answer.includes('"game": "price_war"') || !answer.includes('"cells"') || !answer.includes('"dynamics"')) fail(`the Tools tab's forge_game answered: ${answer.slice(0, 200)}`);
+// The whole answer, never cut (ADR-077): what is on screen is the tool's JSON
+// for the files as they are now (0.55 typed, in the plan)
+{
+  const direct = await page.evaluate(async () => {
+    const { call } = await import("./forge.js");
+    const saved = JSON.parse(localStorage.getItem("forge-studio-v3"));
+    return call("game", { files: saved.files, main: saved.main, scenario: null });
+  });
+  let shown = null;
+  try { shown = JSON.parse(answer); } catch (e) { fail(`the Tools tab's forge_game answer is not whole JSON (${answer.length} characters, ends ${JSON.stringify(answer.slice(-20))})`); }
+  if (shown && JSON.stringify(shown) !== JSON.stringify(direct)) fail("the Tools tab's forge_game answer is not the tool's answer");
+  const copy = await page.$('[data-out="game"] [data-copy]'), dl = await page.$('[data-out="game"] [data-dl-answer]');
+  if (!copy || !dl) fail("the Tools tab's answer has no Copy or no Download button");
+}
 await page.close();
+
+// The street's festival (bagel/street_fund.yaml): five shops, drawn by count,
+// all keep; the borough's match makes all pay
+{
+  const p = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  p.on("pageerror", (e) => fail(`street_fund.yaml: ${e.message}`));
+  page = p;
+  await p.goto(`${base}/?example=bagel`);
+  await ready(p);
+  await p.click('.tab[data-tab="files"]');
+  await p.click('[data-main="street_fund.yaml"]');
+  await ready(p);
+  await p.click('.tab[data-tab="model"]');
+  await p.waitForSelector('[data-game="street"] table');
+  await p.waitForFunction(() => !/Forge is working out/.test(document.querySelector('[data-game="street"]').textContent), null, { timeout: 60000 });
+  await checkAll("street_fund.yaml", "bagel", "street_fund.yaml", null);
+  const street = await shown("street");
+  if (street.counts.length !== 10 || street.cells.length) fail(`street_fund.yaml: ${street.counts.length} numbers by count and ${street.cells.length} profiles`);
+  if (street.splits.map((x) => x.split).join(";") !== "0,5") fail(`street_fund.yaml: the splits listed are ${street.splits.map((x) => x.split)}, not all five keeping`);
+  const before = await generation(p);
+  await p.click('[data-scn="borough_matches"]');
+  await settle(p, before);
+  await checkAll("street_fund.yaml (borough_matches)", "bagel", "street_fund.yaml", "borough_matches");
+  const matched = await shown("street");
+  if (matched.splits.map((x) => x.split).join(";") !== "5,0") fail(`street_fund.yaml (borough_matches): the splits listed are ${matched.splits.map((x) => x.split)}, not all five paying`);
+  await p.close();
+}
 
 // The Games set: every file, every game
 const drawn = (p) => p.waitForFunction(() => [...document.querySelectorAll("#view-model [data-game]")]
@@ -397,10 +456,31 @@ if (gamesSeen < files.length) fail(`only ${gamesSeen} games in the ${files.lengt
   await p.close();
 }
 
+// A link opens one model of a set (`?example=bagel&model=price_war.yaml`), so
+// a post can link to the price war itself: the game is on the Model view with
+// no tap on Files. A model the set does not have opens the set's own.
+{
+  const p = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  p.on("pageerror", (e) => fail(`link to price_war.yaml: ${e.message}`));
+  page = p;
+  await p.goto(`${base}/?example=bagel&model=price_war.yaml`);
+  await ready(p);
+  const title = await p.textContent("#model-title");
+  if (title !== "price_war.yaml") fail(`a link to price_war.yaml opened ${title}`);
+  await p.waitForSelector('[data-game="price_war"] table');
+  await p.waitForFunction(() => !/Forge is working out/.test(document.querySelector('[data-game="price_war"]').textContent), null, { timeout: 60000 });
+  await checkAll("link to price_war.yaml", "bagel", "price_war.yaml", null);
+  await p.goto(`${base}/?example=bagel&model=no_such_file.yaml`);
+  await ready(p);
+  const fallback = await p.evaluate(() => [document.querySelector("#model-title").textContent, document.querySelectorAll("[data-game]").length]);
+  if (fallback[0] !== "Bagel Lune" || fallback[1] !== 0) fail(`a link to a model the set does not have opened ${fallback[0]} with ${fallback[1]} games`);
+  await p.close();
+}
+
 await browser.close();
 if (!remote) server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log(`Games: the bagel's price war shows Forge's payoffs, equilibria, ranking, stable players and matches in the plan and both scenarios, an input typed on a card moves them, and the Tools tab runs forge_game; the ${gamesSeen} games of the Games set's ${files.length} files are Forge's, the games of five players are drawn by count, the dynamics end where Forge's do (hawks at 2/3, the stag hunt all stag or all hare), and the stag hunt's scenario and a typed cost move its mixed equilibrium.`);
+console.log(`Games: a link opens the bagel's price war directly; the price war shows Forge's payoffs, equilibria, ranking, stable players and matches in the plan and both scenarios, an input typed on a card moves them, and the Tools tab runs forge_game and shows its whole answer; the ${gamesSeen} games of the Games set's ${files.length} files are Forge's, the games of five players are drawn by count, the dynamics end where Forge's do (hawks at 2/3, the stag hunt all stag or all hare), and the stag hunt's scenario and a typed cost move its mixed equilibrium.`);

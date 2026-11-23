@@ -469,6 +469,9 @@ fn any_of(
         }
         return;
     }
+    if form_meant(instance, context, schema, out) {
+        return;
+    }
     out.push(Problem {
         path: path.to_string(),
         text: format!(
@@ -477,6 +480,30 @@ fn any_of(
         ),
         unknown_key: false,
     });
+}
+
+/// A mapping that fails every form at the mapping itself (a game with a key
+/// of neither form): the form that fails least is the one meant, if one does.
+/// Says what is wrong with it, and whether it did.
+fn form_meant(
+    instance: &Value,
+    context: &[Vec<SchemaError<'_>>],
+    schema: &Value,
+    out: &mut Vec<Problem>,
+) -> bool {
+    if !instance.is_object() {
+        return false;
+    }
+    let fewest = context.iter().map(Vec::len).min();
+    let least: Vec<&Vec<SchemaError<'_>>> =
+        context.iter().filter(|b| Some(b.len()) == fewest).collect();
+    let [meant] = least.as_slice() else {
+        return false;
+    };
+    for e in *meant {
+        collect(e, schema, out);
+    }
+    true
 }
 
 /// How many entries of a mapping an alternative's errors fall in. One bad
@@ -880,6 +907,42 @@ monte_carlo:
         problem_lines(&schema.errors(model), model, &schema.doc)
     }
 
+    /// A game is a table game or a tournament, and an unknown key fails both
+    /// at the game itself, so no alternative reaches deeper than the other:
+    /// the message was "is not any of the forms allowed here (a mapping)".
+    /// The one that fails least is the form meant, and it names the key.
+    #[test]
+    fn an_unknown_key_in_a_game_is_named() {
+        let game = |extra: &str| {
+            lines(&format!(
+                "_forge_version: \"5.5.0\"\ngames:\n  hd:\n    players: [me, you]\n    strategies: [hawk, dove]\n    symmetric: true\n    payoffs:\n      hawk: {{hawk: -1, dove: 4}}\n      dove: {{hawk: 0, dove: 2}}\n{extra}"
+            ))
+        };
+        let keys =
+            "The keys here are description, dynamics, payoffs, players, strategies, symmetric.";
+        assert_eq!(
+            game("    spread:\n      start: {hawk: 0.1, dove: 0.9}\n"),
+            [format!(
+                "'games.hd.spread': there is no key 'spread' here. {keys}"
+            )]
+        );
+        // A near miss is offered the key it is one letter from
+        assert_eq!(
+            game("    dynamcs: {start: {hawk: 0.1, dove: 0.9}, generations: 5}\n"),
+            [format!(
+                "'games.hd.dynamcs': there is no key 'dynamcs' here. Did you mean 'dynamics'? {keys}"
+            )]
+        );
+        // A tournament's own key, misspelt: the tournament is the form meant,
+        // and the missing key is not said again
+        assert_eq!(
+            lines(
+                "_forge_version: \"5.5.0\"\ngames:\n  cup:\n    tournment:\n      round: hd\n"
+            ),
+            ["'games.cup.tournment': there is no key 'tournment' here. Did you mean 'tournament'? The keys here are description, tournament."]
+        );
+    }
+
     /// The kinds the six schemas give only inside alternatives that are not
     /// reported still have words.
     #[test]
@@ -913,6 +976,22 @@ monte_carlo:
                 json!("c")
             ),
             ["'x' is not any of the forms allowed here (the text \"c\")"]
+        );
+        // A mapping that two alternatives fail alike: no form is the one meant
+        assert_eq!(
+            one(
+                json!({"anyOf": [{"required": ["a"]}, {"required": ["b"]}]}),
+                json!({})
+            ),
+            ["'x' is not any of the forms allowed here (a mapping)"]
+        );
+        // One that fails once where the other fails twice is the one meant
+        assert_eq!(
+            one(
+                json!({"anyOf": [{"required": ["a"]}, {"required": ["b", "c"]}]}),
+                json!({})
+            ),
+            ["'x' needs 'a'"]
         );
         // The same line twice is said once
         assert_eq!(

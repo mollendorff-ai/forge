@@ -25,10 +25,8 @@ impl ForgeMcpServer {
         name = "forge_functions",
         description = "List all 203 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
     )]
-    fn functions(&self, Parameters(_req): Parameters<FunctionsRequest>) -> Result<String, String> {
-        functions_core()
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Functions list failed: {e}"))
+    fn functions(&self, Parameters(_req): Parameters<FunctionsRequest>) -> String {
+        to_json(&functions_core())
     }
 
     #[tool(
@@ -88,7 +86,7 @@ mod tests {
     #[test]
     fn test_call_functions() {
         let server = ForgeMcpServer::new();
-        let text = ok_text(server.functions(Parameters(FunctionsRequest {})));
+        let text = server.functions(Parameters(FunctionsRequest {}));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(
             parsed.get("edition").is_none(),
@@ -172,7 +170,7 @@ mod tests {
     #[test]
     fn the_function_list_has_the_functions_the_bagel_plan_calls() {
         let server = ForgeMcpServer::new();
-        let listing = json(&ok_text(server.functions(Parameters(FunctionsRequest {}))));
+        let listing = json(&server.functions(Parameters(FunctionsRequest {})));
         let names: Vec<&str> = listing["categories"]
             .as_array()
             .unwrap()
@@ -204,6 +202,7 @@ mod tests {
             includes: None,
             dry_run: true,
             scenario: None,
+            plan: false,
         }))));
         let scalar = |name: &str| result["scalars"][name].as_f64().unwrap();
         assert!(close(scalar("plan.profit"), 1800.0, 1e-9));

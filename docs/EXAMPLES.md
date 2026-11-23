@@ -106,6 +106,20 @@ The results are printed. A table formula stays a formula in the file (`final_pri
 
 Four complete models, each with a README and tests against an outside calculation: [`examples/household`](../examples/household/README.md) (budget against actual), [`examples/mortgage`](../examples/mortgage/README.md) (a loan with extra payments), [`examples/bagel`](../examples/bagel/README.md) (a small business's first year, with an included costs file) and [`examples/acquisition`](../examples/acquisition/README.md) (a takeover: value created against the premium, accretion and dilution, an earn-out, a rival bidder and the deal a year after closing, with every analytics command).
 
+## Games
+
+`forge game` reads a model's `games:` section. Ten models in [`examples/games`](../examples/games), with the numbers they should give worked out in their comments (the tests assert them), and checked against Gambit, the axelrod library, egttools and R (`validation/games`):
+
+| Model | What it shows |
+| --- | --- |
+| `stag-hunt.yaml`, `chicken.yaml`, `battle-of-the-sexes.yaml`, `inspection.yaml` | Two players: pure and mixed equilibria (the stag hunt's mix is stag with 3/4), with scenarios. The stag hunt also has `dynamics:`: from 80% stag hunters every hunter goes for the stag, from 70% every hunter hunts hare |
+| `public-goods.yaml` | Five players, written as one payoff for each strategy over how many of the other four contribute (`pg.others.contribute`), not as 32 cells. With a multiplier under 5 everyone keeps, at 5 all 32 profiles are equilibria, above it everyone contributes |
+| `volunteers-dilemma.yaml` | Five players of whom one must do a chore: five pure equilibria and a symmetric mix in which each volunteers with 1 − (c / b)^(1/4) = 0.2047, with whether a population returns to it |
+| `hawk-dove.yaml` | `dynamics:`: from 10% hawks the share rises to V / C = 2/3 over 200 generations |
+| `axelrod.yaml`, `noisy-tournament.yaml`, `continuation.yaml` | Tournaments of repeated play between built-in strategies, with and without mistakes and with a chance of another round |
+
+[`examples/bagel`](../examples/bagel/README.md) has two games on the shop's own margins: `price_war.yaml` (the shop across the street, played once, again and again, and across the city with `dynamics:`) and `street_fund.yaml` (five shops asked to pay for a winter festival). In Forge Studio, the Games set opens the ten models; a game of five players alike is drawn by count, and a game with `dynamics:` has a chart of the shares by generation.
+
 ## Financial Models
 
 ### SaaS Metrics
@@ -312,7 +326,7 @@ Check by hand: 600,000 × (1 + 0.1167, the triangular mean) × 1.05 (the uniform
 
 ### Correlated Variables
 
-Real-world variables often move together. Use `MC.Correlated` to model relationships like revenue and margin correlation:
+Real-world variables often move together. List the pairs under `correlations:` in the `monte_carlo:` section, each with a coefficient between -1 and 1, to model relationships like revenue and margin moving together:
 
 ```yaml
 _forge_version: "5.1.0"
@@ -1154,4 +1168,4 @@ With rain at 20% and the sprinkler on 40% of the time, `forge bayesian model.yam
 
 ---
 
-For more examples, see test-data/v1.0/ in the repository.
+For more examples, see [examples/](../examples/README.md) in the repository, or run `forge examples`.

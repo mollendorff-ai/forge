@@ -15,6 +15,7 @@ pub struct InputRange {
     /// High value for sensitivity
     pub high: f64,
     /// Base value (optional, uses model default if not specified)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base: Option<f64>,
 }
 
@@ -178,5 +179,32 @@ mod config_tests {
 
         let input_with_base = InputRange::new("x", 0.0, 10.0).with_base(3.0);
         assert_exact!(input_with_base.base_value(), 3.0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A base outside the range, and too few steps, are refused with the
+    /// numbers given; `with_steps` sets them.
+    #[test]
+    fn a_base_outside_its_range_and_too_few_steps_are_refused() {
+        let mut input = InputRange::new("x", 1.0, 3.0);
+        input.base = Some(5.0);
+        assert_eq!(
+            input.validate().unwrap_err(),
+            "Input 'x': base (5) must be between low (1) and high (3)"
+        );
+        input.base = Some(0.5);
+        assert_eq!(
+            input.validate().unwrap_err(),
+            "Input 'x': base (0.5) must be between low (1) and high (3)"
+        );
+        let config = TornadoConfig::new("y")
+            .with_input(InputRange::new("x", 1.0, 3.0))
+            .with_steps(1);
+        assert_eq!(config.steps, 1);
+        assert_eq!(config.validate().unwrap_err(), "Steps must be at least 2");
     }
 }

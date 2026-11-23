@@ -258,4 +258,13 @@ mod tests {
         h::is_exactly("SEARCH(\"B\", \"abcb\", 4.9)", 4.0);
         h::fails_with("FIND(\"b\", \"abcb\", 0.5)", "start_num 0");
     }
+
+    #[test]
+    fn an_error_in_any_argument_is_the_error() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        for name in ["FIND", "SEARCH"] {
+            each_argument(name, &[("\"b\"", None), ("\"abc\"", None), ("1", None)]);
+        }
+        each_argument("CONCATENATE", &[("\"a\"", None), ("\"b\"", None)]);
+    }
 }

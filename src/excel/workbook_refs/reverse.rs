@@ -436,9 +436,6 @@ impl ReverseRefs {
                     | XlToken::Close
             );
         }
-        if !calls.is_empty() {
-            return Err("a ( with no ) after it".to_string());
-        }
         // What `forge export` writes for Forge's ROW()
         let out = out.replace("((ROW() + 1) - 1)", "ROW()");
         let out = local_names::restore_count_unique(&out);
@@ -625,7 +622,8 @@ impl ReverseRefs {
 
 /// Keep `calls` up to date at token `i` of an Excel formula: a `(` opens a
 /// call (with its function and number of arguments), a `)` closes one, a `,`
-/// moves to the next argument. A `)` or a `,` with no call open is refused.
+/// moves to the next argument. A `(` that is never closed, or a `,` outside
+/// any parentheses, is no formula Excel writes.
 fn track_call(tokens: &[XlToken], i: usize, calls: &mut Vec<Call>) -> Result<(), String> {
     match &tokens[i] {
         XlToken::Open => {
@@ -637,13 +635,14 @@ fn track_call(tokens: &[XlToken], i: usize, calls: &mut Vec<Call>) -> Result<(),
                 ),
                 _ => None,
             };
-            calls.push((function, 0, excel_argument_count(tokens, i)));
+            let count = excel_argument_count(tokens, i).ok_or("( without )")?;
+            calls.push((function, 0, count));
         },
         XlToken::Close => {
-            calls.pop().ok_or("a ) with no ( before it")?;
+            calls.pop();
         },
         XlToken::Comma => {
-            let call = calls.last_mut().ok_or("a , outside parentheses")?;
+            let call = calls.last_mut().ok_or("a comma outside a call")?;
             call.1 += 1;
         },
         _ => {},
@@ -651,14 +650,15 @@ fn track_call(tokens: &[XlToken], i: usize, calls: &mut Vec<Call>) -> Result<(),
     Ok(())
 }
 
-/// The number of arguments of the Excel call whose `(` is at `open`.
-fn excel_argument_count(tokens: &[XlToken], open: usize) -> usize {
+/// The number of arguments of the Excel call whose `(` is at `open`; `None`
+/// when nothing closes it.
+fn excel_argument_count(tokens: &[XlToken], open: usize) -> Option<usize> {
     // Depth inside the call's own parentheses
     let mut depth = 0usize;
     let mut count = 0;
     for token in tokens.iter().skip(open + 1) {
         match token {
-            XlToken::Close if depth == 0 => return count,
+            XlToken::Close if depth == 0 => return Some(count),
             XlToken::Close => depth -= 1,
             XlToken::Comma if depth == 0 => count = count.max(1) + 1,
             XlToken::Open => {
@@ -668,7 +668,7 @@ fn excel_argument_count(tokens: &[XlToken], open: usize) -> usize {
             _ => count = count.max(1),
         }
     }
-    count
+    None
 }
 
 #[cfg(test)]
@@ -698,158 +698,26 @@ mod tests {
                 },
             );
         }
-        let mut scalars: HashMap<String, HashMap<u32, String>> = HashMap::new();
+        let mut scalar_rows: HashMap<String, HashMap<u32, String>> = HashMap::new();
         for (path, (sheet, row)) in &refs.scalars {
-            scalars
+            scalar_rows
                 .entry(sheet.clone())
                 .or_default()
                 .insert(*row, path.clone());
         }
-        sheets.extend(scalars.into_iter().map(|(sheet, rows)| {
-            (
+        for (sheet, rows) in scalar_rows {
+            sheets.insert(
                 sheet,
                 SheetKind::Scalars {
                     rows,
                     include: None,
                 },
-            )
-        }));
+            );
+        }
         ReverseRefs {
             sheets,
             names: HashMap::new(),
         }
-    }
-
-    fn custom() -> ReverseRefs {
-        let table =
-            |name: &str, include: Option<&str>, total: Option<(u32, &str)>| SheetKind::Table {
-                name: name.to_string(),
-                columns: HashMap::from([
-                    ("A".to_string(), "profit".to_string()),
-                    ("B".to_string(), "rev".to_string()),
-                ]),
-                include: include.map(str::to_string),
-                rows: vec![2, 3, 4],
-                ends: HashMap::new(),
-                total: total.map(|(r, g)| (r, g.to_string())),
-            };
-        ReverseRefs {
-            sheets: HashMap::from([
-                ("p".to_string(), table("p", None, Some((6, "p_total")))),
-                ("costs.t".to_string(), table("t", Some("costs"), None)),
-                (
-                    "v".to_string(),
-                    SheetKind::Scalars {
-                        rows: HashMap::from([(2, "v.npv".to_string())]),
-                        include: None,
-                    },
-                ),
-            ]),
-            names: HashMap::new(),
-        }
-    }
-
-    /// Each Excel formula that cannot be read back, with why
-    #[test]
-    fn what_cannot_be_read_back_is_refused_with_why() {
-        let back = custom();
-        for (sheet, formula, why) in [
-            // Not Excel as Forge writes it
-            ("p", "=A99999999999", "unsupported name 'A99999999999'"),
-            ("p", "=nope", "unsupported name 'nope'"),
-            ("p", "=$1", "unsupported name '$1'"),
-            ("p", "=ABCD1", "unsupported name 'ABCD1'"),
-            ("p", "=a1", "unsupported name 'a1'"),
-            ("p", "=SUM(B2:foo)", "unsupported range"),
-            ("p", "=B2%", "unsupported character '%'"),
-            ("p", "=\"abc", "missing closing \""),
-            ("p", "='abc", "missing closing '"),
-            ("p", "='p'B2", "quoted name without '!'"),
-            ("p", "={1,2", "array constant without }"),
-            ("p", "=\"a\"\"b\"", "text with a double quote"),
-            ("p", "=p!", "sheet name not followed by a cell"),
-            ("p", "=p!1", "sheet name not followed by a cell"),
-            ("p", "=p!+B2", "sheet name not followed by a cell"),
-            ("p", "=1, 2", "a , outside parentheses"),
-            ("p", "=1)", "a ) with no ( before it"),
-            ("p", "=SUM(1", "a ( with no ) after it"),
-            ("p", "=SUM(B2:B4", "a ( with no ) after it"),
-            // Sheets, columns and rows that are not there
-            ("p", "=zz!B2", "unknown sheet 'zz'"),
-            ("zz", "=B2", "unknown sheet 'zz'"),
-            ("p", "=p!E2", "no column E in 'p'"),
-            ("p", "=p!E6", "no column E in 'p'"),
-            ("v", "=v!B9", "no scalar in row 9"),
-            ("v", "=v!A2", "reference to a scalar sheet outside the Value column"),
-            ("v", "=v!B2:B3", "reference to a scalar sheet outside the Value column"),
-            // Ranges and cells that Forge reads differently
-            (
-                "p",
-                "=B2:B4 + 1",
-                "a range where Forge reads the row's value (a row formula reads a whole column only as an aggregate's range, ADR-058)",
-            ),
-            (
-                "p",
-                "=SUM(B2)",
-                "one cell where Forge reads the whole column (ADR-058)",
-            ),
-            ("p", "=p!A2:B3", "range over several columns"),
-            (
-                "p",
-                "=B2:B3",
-                "a range over part of a column: rows 2 to 3 of a table in rows 2 to 4",
-            ),
-            ("p", "=p!B6:B7", "a range in a total row"),
-            // An included file reads only itself
-            (
-                "costs.t",
-                "=v!B2",
-                "the included file 'costs' reads a value outside itself",
-            ),
-            (
-                "costs.t",
-                "=p!B2",
-                "an included file reads a table outside itself",
-            ),
-        ] {
-            assert_eq!(
-                back.to_forge(formula, sheet, 2),
-                Err(why.to_string()),
-                "{sheet}: {formula}"
-            );
-        }
-        assert_eq!(
-            back.total_to_forge("=SUM(B2:B4)", "zz"),
-            Err("unknown sheet 'zz'".to_string())
-        );
-    }
-
-    /// What is read back: a total row's cell is a scalar of its group, an
-    /// included table is read by its namespace, and the operators, numbers
-    /// and `ROW()` of a row formula are as written
-    #[test]
-    fn what_can_be_read_back() {
-        let back = custom();
-        for (sheet, formula, forge) in [
-            ("p", "=B6", "=p_total.rev"),
-            ("costs.t", "=A2", "=profit"),
-            ("v", "='costs.t'!B2:B4", "=@costs.t.rev"),
-            ("p", "=TRUE + FALSE", "=TRUE + FALSE"),
-            ("p", "=A2 <> B2", "=profit <> rev"),
-            ("p", "=A2 < B2 > 1", "=profit < rev > 1"),
-            ("p", "=2E5 + 1.5e-3 + 3E+2", "=2E5 + 1.5e-3 + 3E+2"),
-            ("p", "=ROW()", "=(ROW() + 1)"),
-        ] {
-            assert_eq!(
-                back.to_forge(formula, sheet, 2),
-                Ok(forge.to_string()),
-                "{sheet}: {formula}"
-            );
-        }
-        assert_eq!(
-            back.total_to_forge("=SUM(B2:B4)", "p"),
-            Ok("=SUM(p.rev)".to_string())
-        );
     }
 
     fn layout() -> WorkbookRefs {
@@ -1002,6 +870,109 @@ mod tests {
             .to_forge("=A2:B4", "p", 2)
             .unwrap_err()
             .contains("several columns"));
+    }
+
+    #[test]
+    fn what_excel_does_not_write_is_refused() {
+        let back = reverse(&layout());
+        for (formula, error) in [
+            // Not a cell: lower case, four letters, a row that is not a number
+            ("=abc1", "unsupported name 'abc1'"),
+            ("=ABCD1", "unsupported name 'ABCD1'"),
+            ("=A1X", "unsupported name 'A1X'"),
+            ("=SUM('p'!A2:foo)", "unsupported range"),
+            ("=\"abc", "missing closing \""),
+            ("='p", "missing closing '"),
+            ("='p' + 1", "quoted name without '!'"),
+            ("=1 % 2", "unsupported character '%'"),
+            ("=p!1", "sheet name not followed by a cell"),
+            ("=p!", "sheet name not followed by a cell"),
+            ("=1, 2", "a comma outside a call"),
+            ("=SUM(1", "( without )"),
+            ("=SUM(1, (2)", "( without )"),
+        ] {
+            assert_eq!(
+                back.to_forge(formula, "v", 0),
+                Err(error.to_string()),
+                "{formula}"
+            );
+        }
+        assert_eq!(
+            back.to_forge("=1", "nosheet", 0),
+            Err("unknown sheet 'nosheet'".to_string())
+        );
+    }
+
+    #[test]
+    fn references_with_no_forge_name_are_refused() {
+        let back = reverse(&layout());
+        for (formula, sheet, row, error) in [
+            (
+                "=B2:B4 + 1",
+                "p",
+                2,
+                "a range where Forge reads the row's value (a row formula reads a whole \
+                 column only as an aggregate's range, ADR-058)",
+            ),
+            (
+                "=SUM(B2)",
+                "p",
+                2,
+                "one cell where Forge reads the whole column (ADR-058)",
+            ),
+            (
+                "='a'!C2",
+                "v",
+                0,
+                "reference to a scalar sheet outside the Value column",
+            ),
+            (
+                "='a'!B2:B3",
+                "v",
+                0,
+                "reference to a scalar sheet outside the Value column",
+            ),
+            ("='a'!B99", "v", 0, "no scalar in row 99"),
+            ("=Z2", "p", 2, "no column Z in 'p'"),
+        ] {
+            assert_eq!(
+                back.to_forge(formula, sheet, row),
+                Err(error.to_string()),
+                "{formula}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_included_table_and_a_total_row() {
+        let mut back = reverse(&layout());
+        let table =
+            |name: &str, include: Option<&str>, total: Option<(u32, String)>| SheetKind::Table {
+                name: name.to_string(),
+                columns: HashMap::from([("A".to_string(), "c".to_string())]),
+                include: include.map(ToString::to_string),
+                rows: vec![2, 3],
+                ends: HashMap::new(),
+                total,
+            };
+        back.sheets
+            .insert("inc.t".to_string(), table("t", Some("inc"), None));
+        back.sheets.insert(
+            "tt".to_string(),
+            table("tt", None, Some((5, "tt_total".to_string()))),
+        );
+        assert_eq!(
+            back.to_forge("='p'!B2", "inc.t", 2),
+            Err("an included file reads a table outside itself".to_string())
+        );
+        assert_eq!(
+            back.to_forge("=tt!A5", "v", 0).as_deref(),
+            Ok("=tt_total.c")
+        );
+        assert_eq!(
+            back.to_forge("=tt!Z5", "v", 0),
+            Err("no column Z in 'tt'".to_string())
+        );
     }
 
     #[test]

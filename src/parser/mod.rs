@@ -12,8 +12,10 @@
 //! - `includes`: Cross-file include resolution (v4.0)
 //! - `variables`: Table and scalar variable parsing
 //! - `model`: Core model parsing logic
+//! - `expect`: what a model states its results should be (`expect:`, ADR-074)
 
 mod arrays;
+mod expect;
 mod finite;
 mod includes;
 mod memory;
@@ -28,6 +30,8 @@ mod variables;
 
 // Re-export commonly used functions
 pub use arrays::{detect_array_type, is_valid_date_format, parse_array_value, type_name};
+#[cfg(feature = "cli")]
+pub(crate) use includes::normalize;
 pub use includes::{parse_includes, resolve_includes};
 pub use memory::{files_in_memory, read_model_text, with_files_in_memory};
 pub use merge_keys::read_yaml;
@@ -36,7 +40,7 @@ pub use multi_doc::{
     detect_multi_document, parse_multi_document_yaml, parse_single_document_yaml,
     split_yaml_documents,
 };
-pub use schema::{validate_against_schema, validate_v1_0_0_no_tables};
+pub use schema::{format_at_least, validate_against_schema, validate_v1_0_0_no_tables};
 pub use variables::{
     is_nested_scalar_section, looks_like_date, parse_metadata, parse_scalar_variable, parse_table,
     scalar_date,
@@ -149,6 +153,53 @@ mod tests {
     use std::io::Write;
     use std::path::Path;
     use tempfile::NamedTempFile;
+
+    #[test]
+    fn includes_of_a_model_on_disk_come_from_memory_inside_with_files_in_memory() {
+        let files = std::collections::HashMap::from([
+            (
+                "m.yaml".to_string(),
+                "_forge_version: \"5.0.0\"\n_includes:\n  - file: costs.yaml\n    as: costs\nt:\n  x: [1]\n"
+                    .to_string(),
+            ),
+            (
+                "costs.yaml".to_string(),
+                "_forge_version: \"5.0.0\"\nc:\n  y: [2]\n".to_string(),
+            ),
+        ]);
+        let model = with_files_in_memory(files, || parse_model(Path::new("m.yaml"))).unwrap();
+        assert_eq!(
+            model.resolved_includes.keys().collect::<Vec<_>>(),
+            ["costs"]
+        );
+        assert_eq!(
+            model.resolved_includes["costs"]
+                .model
+                .tables
+                .keys()
+                .collect::<Vec<_>>(),
+            ["c"]
+        );
+    }
+
+    #[test]
+    fn a_model_that_cannot_be_read_has_no_included_files_to_check() {
+        let calls = std::cell::Cell::new(0);
+        let check = |_: &Path| {
+            calls.set(calls.get() + 1);
+            Err("no file may be opened".to_string())
+        };
+        assert_eq!(
+            check(Path::new("a.yaml")),
+            Err("no file may be opened".to_string())
+        );
+        assert_eq!(
+            check_included_files(Path::new("/nonexistent/path/file.yaml"), &check),
+            Ok(())
+        );
+        // Only the call above: reading the model failed first
+        assert_eq!(calls.get(), 1);
+    }
 
     #[test]
     fn test_parse_file_not_found() {
@@ -390,8 +441,8 @@ data:
                 "_forge_version: \"5.1.0\"\nt:\n  y:\n    formula: \"=x * 2\"\n    unit: CAD\n  x: [1, 2]\n",
             )
             .unwrap();
-            assert!(m.tables.contains_key("t"), "{:?}", m.tables.keys());
-            assert!(m.scalars.is_empty(), "{:?}", m.scalars.keys());
+            assert_eq!(m.tables.keys().collect::<Vec<_>>(), ["t"]);
+            assert_eq!(m.scalars.keys().count(), 0);
         }
 
         #[test]

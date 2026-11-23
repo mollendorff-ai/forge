@@ -31,6 +31,12 @@ pub struct NodeResult {
 pub struct TreeResult {
     /// Tree name
     pub name: String,
+    /// The root node's name
+    #[serde(default)]
+    pub root_name: String,
+    /// How many nodes the tree lists under `nodes:`, the root apart
+    #[serde(default)]
+    pub node_count: usize,
     /// Expected value at root
     pub root_expected_value: f64,
     /// Node results
@@ -112,6 +118,10 @@ impl DecisionTreeEngine {
     /// # Errors
     ///
     /// Returns an error if the tree has no root or a branch references a missing node.
+    ///
+    /// # Panics
+    ///
+    /// Never: once every node is evaluated, every branch the policy follows is found.
     pub fn analyze(&self) -> Result<TreeResult, String> {
         let mut node_results = BTreeMap::new();
 
@@ -135,11 +145,14 @@ impl DecisionTreeEngine {
             &mut Vec::new(),
             (1.0, 0.0),
             &mut outcomes,
-        )?;
+        )
+        .expect("evaluating the tree checked every node and branch the policy follows");
         let risk_profile = Self::calculate_risk_profile(outcomes);
 
         Ok(TreeResult {
             name: self.config.name.clone(),
+            root_name: root.name.clone(),
+            node_count: self.config.nodes.len(),
             root_expected_value: root_result.expected_value,
             node_results,
             optimal_path,
@@ -637,6 +650,66 @@ mod engine_tests {
             "Node 'root' has no branch 'stay'"
         );
         assert_eq!(collect(&chose("go")).unwrap_err(), "Node 'ghost' not found");
+    }
+
+    /// A failure deeper in the tree is the same failure, from the evaluation
+    /// and from the collecting of outcomes.
+    #[test]
+    fn a_failure_below_the_root_is_reported_from_the_root() {
+        let nested = DecisionTreeConfig::new("t")
+            .with_root(Node::decision("A").with_branch("go", Branch::continuation("B")))
+            .with_node(
+                "B",
+                Node::chance("B").with_branch("x", Branch::continuation("C")),
+            )
+            .with_node(
+                "C",
+                Node::chance("C").with_branch(
+                    "y",
+                    Branch {
+                        probability: 1.0,
+                        cost: 0.0,
+                        value: None,
+                        next: None,
+                    },
+                ),
+            );
+        let engine = unchecked(nested.clone());
+        assert_eq!(
+            engine.analyze().unwrap_err(),
+            "Branch has neither value nor next node"
+        );
+        // And collecting outcomes for a decision below the root with no choice
+        let root = nested.root.unwrap();
+        let decision_below = DecisionTreeConfig::new("t")
+            .with_root(root.clone())
+            .with_node(
+                "B",
+                Node::decision("B").with_branch("x", Branch::terminal(1.0)),
+            );
+        let engine = unchecked(decision_below);
+        let at_root = BTreeMap::from([(
+            "root".to_string(),
+            NodeResult {
+                name: "A".to_string(),
+                node_type: NodeType::Decision,
+                expected_value: 0.0,
+                optimal_choice: Some("go".to_string()),
+                branch_values: BTreeMap::new(),
+                tied_with: Vec::new(),
+            },
+        )]);
+        let error = engine
+            .collect_outcomes(
+                "root",
+                &root,
+                &at_root,
+                &mut Vec::new(),
+                (1.0, 0.0),
+                &mut Vec::new(),
+            )
+            .unwrap_err();
+        assert_eq!(error, "No optimal choice for decision node 'B'");
     }
 
     #[test]

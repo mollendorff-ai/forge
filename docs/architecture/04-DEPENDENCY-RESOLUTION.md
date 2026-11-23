@@ -1,1120 +1,131 @@
-# Dependency Resolution Architecture
+# 04 - Dependency resolution
 
-> **Superseded (2026-11-08):** The idea holds (a dependency graph, sorted with `petgraph`), the structure does not. There are no per-table graphs and no table phase then scalar phase: one graph holds every formula column and scalar (`Cell::Column` and `Cell::Scalar` in `src/core/array_calculator/mod.rs`), so a column can read a calculated scalar. A cycle is reported with the cells that form it (`tarjan_scc`), and an unknown name fails when that cell is evaluated while every other cell is still calculated, so all failures are reported at once. The table examples below use `columns:`/`row_formulas:` keys, which the parser rejects: a column is an array or an `=` formula directly under the table. (2026-11-20) `petgraph` is gone too: the topological sort and the strongly connected components are Forge's own, in `src/core/array_calculator/graph.rs`, the same algorithms visiting nodes in the same order, checked against petgraph on random graphs in a test.
+Which cell is calculated before which: the cells of a model, how their dependencies are found, the order, cycles, columns that read the row above (`PREV`), included files and games. How each cell is then evaluated is [03 - Formula evaluation](03-FORMULA-EVALUATION.md).
 
-**Document Version:** 1.0.0
-**Forge Version:** v1.2.1
-**Last Updated:** 2025-11-24
-**Status:** Complete
+All paths below are under `src/core/array_calculator/`.
 
----
+## One graph for the whole model
 
-## Table of Contents
+Every formula in a model is a node of one graph: a scalar can read a calculated column, and a column can read a calculated scalar, in either order. There is no "tables first, then scalars" phase.
 
-1. [Introduction](#introduction)
-2. [Graph Theory Foundations](#graph-theory-foundations)
-3. [Dependency Graph Construction](#dependency-graph-construction)
-4. [Topological Sorting](#topological-sorting)
-5. [Circular Dependency Detection](#circular-dependency-detection)
-6. [Multi-Level Dependencies](#multi-level-dependencies)
-7. [petgraph Integration](#petgraph-integration)
-8. [Performance Analysis](#performance-analysis)
-9. [Edge Cases and Error Handling](#edge-cases-and-error-handling)
-10. [Related Documentation](#related-documentation)
+```mermaid
+flowchart LR
+    subgraph inputs["Data: no node, no edge"]
+        price["assumptions.price<br/>16"]
+        dozens["months.dozens<br/>[1402.5, 2124.4, ...]"]
+    end
+    revenue["months.revenue<br/>=dozens * assumptions.price"]
+    total["year.revenue<br/>=SUM(months.revenue)"]
+    share["months.share<br/>=revenue / year.revenue"]
+    top["year.best_share<br/>=MAX(months.share)"]
 
----
+    revenue --> total --> share --> top
+    revenue --> share
+    price -.-> revenue
+    dozens -.-> revenue
+```
 
-## Introduction
+Arrows point from a cell to the cells that read it. `months.share` reads the scalar `year.revenue`, which sums the column `months.revenue`: a column, a scalar and a column again, in one order. A cell is one of four kinds (`Cell` in `order.rs`):
 
-### Purpose
+| Kind | Is | Calculated by |
+| --- | --- | --- |
+| `Cell::Column { table, column }` | One row-formula column, all its rows | `ArrayCalculator::calculate_column` |
+| `Cell::Scalar(name)` | One scalar with a formula | `calculate_scalar_cell` |
+| `Cell::Columns { table, columns }` | Columns of one table that read each other through `PREV`, calculated together row by row | `recursive.rs` |
+| `Cell::Game(name)` | A game: its payoffs worked out, its equilibria found, its results stored as scalars under its name | `games.rs` |
 
-This document provides a comprehensive specification of Forge's dependency resolution system, including:
+Inputs (a scalar without a formula, a data column) are not cells: nothing needs to be calculated before them.
 
-- **Graph construction** - How dependency graphs are built from formulas
-- **Topological sorting** - Algorithm for determining calculation order
-- **Cycle detection** - Identifying circular dependencies
-- **petgraph integration** - External graph library usage
-- **Performance** - Complexity analysis and optimization
+## Finding what a formula reads
 
-### Why Dependency Resolution Matters
+`cell_dependencies` in `order.rs` reads the **words** of the formula (`formula_words`: names, with string literals removed) and resolves each the way the evaluator will:
 
-Formulas reference other variables, creating **dependencies**. Calculating in the wrong order produces incorrect results.
+```mermaid
+flowchart TB
+    word["a word of the formula"] --> qual{"table.column<br/>with a row formula?"}
+    qual -- yes --> dcol["depends on that Column"]
+    qual -- no --> own{"in a row formula: a formula<br/>column of the same table?"}
+    own -- yes --> dcol2["depends on that Column"]
+    own -- no --> inp{"an input column<br/>of the same table?"}
+    inp -- yes --> none["no edge"]
+    inp -- no --> game{"a game's result<br/>(name.equilibria, ...)?"}
+    game -- yes --> dgame["depends on that Game"]
+    game -- no --> sc{"resolves to a scalar<br/>with a formula?<br/>(names.rs)"}
+    sc -- yes --> dsc["depends on that Scalar"]
+    sc -- no --> none2["no edge: a function name,<br/>a number, an input, or unknown"]
+```
 
-**Example Problem:**
+Two points follow:
+
+- **Dependency finding and evaluation resolve names with the same function** (`resolve_scalar_name` in `names.rs`), so the order always matches what the formula will read. A change to name resolution changes both.
+- **An unknown name adds no edge.** It fails when its cell is evaluated, with the cell's name; every other cell is still calculated ([03](03-FORMULA-EVALUATION.md#errors-all-of-them-at-once)).
+
+## The order
+
+```mermaid
+flowchart TB
+    cells["every formula cell,<br/>sorted by kind then name"] --> deps["each cell's dependencies<br/>(above)"]
+    deps --> lagged["split out lagged dependencies:<br/>a column read only inside PREV's first argument"]
+    lagged --> topo{"graph.rs: topological order<br/>without the lagged edges"}
+    topo -- "a cycle" --> cyc["error: formulas A, B depend on each other<br/>(members found with strongly connected components)"]
+    topo -- ok --> scc["graph.rs: strongly connected components<br/>with the lagged edges"]
+    scc --> groups{"each component of<br/>more than one cell"}
+    groups -- "columns of one table" --> grp["one Cell::Columns step"]
+    groups -- "through a scalar or another table" --> cyc2["error: a whole column is needed<br/>before its first row exists"]
+    grp --> order["the order: Vec of (cell, its dependencies)"]
+    scc --> order
+    order --> plan[("CalcPlan, by the model's fingerprint")]
+```
+
+- `graph.rs` has the two algorithms (a topological sort and Tarjan's strongly connected components). They visit nodes in the same order petgraph did, so the order, and which error is reported first, did not change when petgraph was replaced; a test compares them on thousands of random graphs, with petgraph kept as a dev-dependency for it.
+- Cells start sorted by kind, then name (`Cell` derives `Ord`). With the sort's fixed visiting order, the calculation order, and so the error report, is the same on every run (`test_order_is_the_same_on_every_run`).
+- The order with each cell's dependencies is stored in the `CalcPlan` under the model's fingerprint, so a simulation orders its model once.
+
+## PREV: columns that read the row above
+
+A period table (a loan, a cash balance) has columns that read each other across rows:
 
 ```yaml
-
-# Wrong order calculation
-
-profit: =revenue - costs    # revenue not yet calculated!
-revenue: =price * quantity  # Calculate revenue AFTER using it?
+schedule:
+  month: {start: 2026-12, count: 300, unit: month}
+  opening: "=PREV(closing, loan.principal)"   # last row's closing, or the principal in row 1
+  interest: "=opening * loan.rate / 12"
+  closing: "=opening + interest - loan.payment"
 ```
 
-**Solution: Dependency Resolution**
+`opening` reads `closing`, and `closing` reads `opening`, but never in the same row. `recursive.rs` handles this (ADR-053):
 
-```text
-
-1. Build dependency graph: revenue → profit
-2. Topological sort: [revenue, profit]
-3. Calculate in order: revenue first, then profit
-
+```mermaid
+flowchart LR
+    subgraph row1["row 1"]
+        o1["opening"] --> i1["interest"] --> c1["closing"]
+    end
+    subgraph row2["row 2"]
+        o2["opening"] --> i2["interest"] --> c2["closing"]
+    end
+    c1 -. "PREV" .-> o2
 ```
 
-### Design Principles
+1. A dependency is _lagged_ when a column of the same table is read only inside `PREV`'s first argument (`names_by_row` walks the syntax tree).
+2. Without the lagged edges the cells must still have an order; a cycle there is an ordinary circular reference.
+3. With them, cells that reach each other form a group. The group is one step, `Cell::Columns`, calculated row by row, its columns in the order of step 2 within each row. While it runs, `EvalContext.growing_table` says the table's columns are shorter than the table, and `lag` tells a reference inside `PREV` how many rows back to read.
 
-1. **Correctness First** - Guaranteed correct calculation order
-2. **Fail Fast** - Detect circular dependencies immediately
-3. **Clear Errors** - Report dependency cycles with full context
-4. **Performance** - O(V+E) complexity for dependency resolution
-5. **Testability** - Pure functions, deterministic output
+A model without `PREV` has no lagged edge and no group.
 
----
+## Included files
 
-## Graph Theory Foundations
-
-### Directed Acyclic Graph (DAG)
-
-**Definition:** A directed graph with no cycles.
-
-**Properties:**
-
-- **Directed**: Edges have direction (A → B means A depends on B)
-- **Acyclic**: No path from a node back to itself
-- **Topological Order**: Nodes can be linearly ordered such that every edge points forward
-
-**Example:**
-
-```text
-Variables: a, b, c, d
-Dependencies:
-  a depends on b    (a → b)
-  a depends on c    (a → c)
-  b depends on d    (b → d)
-  c depends on d    (c → d)
-
-Graph:
-      d
-     / \
-    b   c
-     \ /
-      a
-
-Topological Order: [d, b, c, a] or [d, c, b, a]
+```mermaid
+flowchart LR
+    costs["costs.yaml<br/>(its own ParsedModel)"] -->|"calculated first,<br/>with its own order"| vals["@costs.ingredients.flour_per_kg<br/>@costs.labour.loaded_wage<br/>@costs.table.column"]
+    vals -->|"read like inputs"| main["bagel.yaml's order"]
 ```
 
-### Graph Representation
+Each included file is a whole model, calculated on its own before the model that includes it (`includes.rs`), recursively for an include of an include. Its values enter the main model's context as `@namespace.path`, which never matches a cell name of the main model (`@` is part of the word), so they add no edge. A circular include is refused when the files are read ([02](02-DATA-MODEL.md#reading-a-file)). A scenario that overrides `@costs.x` changes the included model before it is calculated.
 
-**Adjacency List:**
+## Games
 
-```rust
-use std::collections::HashMap;
+A game's payoff cells are formulas over the model (ADR-068). The game is one cell, `Cell::Game`, whose dependencies are every cell its payoffs read (`game_dependencies`). Its results (`price_war.equilibria`, `price_war.equilibrium_1.lune.payoff`, `price_war.dominated.lune.hold`, ...) become scalars named under it, and a formula that reads one depends on the game. So a model can calculate a payoff from its inputs, find the equilibrium, and use the equilibrium's payoff in a later formula, in one order.
 
-struct Graph {
-    // Node → List of dependencies
-    edges: HashMap<String, Vec<String>>,
-}
+## Bayesian networks
 
-// Example:
-// edges = {
-//   "a": ["b", "c"],
-//   "b": ["d"],
-//   "c": ["d"],
-//   "d": [],
-// }
-```
-
-**petgraph Representation:**
-
-```rust
-use petgraph::graph::DiGraph;
-
-// Create directed graph
-let mut graph = DiGraph::new();
-
-// Add nodes
-let d = graph.add_node("d");
-let b = graph.add_node("b");
-let c = graph.add_node("c");
-let a = graph.add_node("a");
-
-// Add edges (from dependency to dependent)
-graph.add_edge(d, b, ());  // b depends on d
-graph.add_edge(d, c, ());  // c depends on d
-graph.add_edge(b, a, ());  // a depends on b
-graph.add_edge(c, a, ());  // a depends on c
-```
-
----
-
-## Dependency Graph Construction
-
-### Three-Level Dependency System
-
-Forge has **three levels of dependencies**:
-
-1. **Column-level** - Within a table (column depends on other columns)
-2. **Table-level** - Between tables (table depends on other tables)
-3. **Scalar-level** - Scalar variables (scalar depends on tables or other scalars)
-
-### Level 1: Column Dependencies
-
-**Within a table, formula columns depend on data columns or other formula columns.**
-
-**Example:**
-
-```yaml
-pl_2025:
-  columns:
-    revenue: [100, 120, 150, 180]    # Data column
-    cogs: [30, 36, 45, 54]          # Data column
-  row_formulas:
-    gross_profit: "=revenue - cogs"          # Depends on revenue, cogs
-    gross_margin: "=gross_profit / revenue"  # Depends on gross_profit, revenue
-```
-
-**Dependency Graph:**
-
-```text
-revenue ──┐
-          ├──→ gross_profit ──→ gross_margin
-cogs ─────┘              ↑
-                         │
-revenue ─────────────────┘
-```
-
-**Calculation Order:** `[gross_profit, gross_margin]`
-
-**Algorithm:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/core/array_calculator.rs:136-176
-fn get_formula_calculation_order(&self, table: &Table) -> ForgeResult<Vec<String>> {
-    use petgraph::algo::toposort;
-    use petgraph::graph::DiGraph;
-    use std::collections::HashMap;
-
-    let mut graph = DiGraph::new();
-    let mut node_indices = HashMap::new();
-
-    // Create nodes for all formula columns
-    for col_name in table.row_formulas.keys() {
-        let idx = graph.add_node(col_name.clone());
-        node_indices.insert(col_name.clone(), idx);
-    }
-
-    // Add edges for dependencies
-    for (col_name, formula) in &table.row_formulas {
-        let deps = self.extract_column_references(formula)?;
-        for dep in deps {
-            // Only add dependency if it's another formula column
-            if let Some(&dep_idx) = node_indices.get(&dep) {
-                if let Some(&col_idx) = node_indices.get(col_name) {
-                    graph.add_edge(dep_idx, col_idx, ());
-                }
-            }
-        }
-    }
-
-    // Topological sort
- let order = toposort(&graph, None).map_err(|_| {
-        ForgeError::CircularDependency(
-            "Circular dependency detected in table formulas".to_string(),
-        )
-    })?;
-
-    let ordered_names: Vec<String> = order
-        .iter()
- .filter_map(|idx| graph.node_weight(*idx).cloned())
-        .collect();
-
-    Ok(ordered_names)
-}
-```
-
-### Level 2: Table Dependencies
-
-**Tables can reference other tables via cross-table references.**
-
-**Example:**
-
-```yaml
-pl_2025:
-  columns:
-    revenue: [100, 120, 150, 180]
-
-pl_2026:
-  row_formulas:
-    revenue: "=pl_2025.revenue * 1.2"  # Depends on pl_2025
-
-pl_2027:
-  row_formulas:
-    revenue: "=pl_2026.revenue * 1.15"  # Depends on pl_2026
-```
-
-**Dependency Graph:**
-
-```text
-pl_2025 → pl_2026 → pl_2027
-```
-
-**Calculation Order:** `[pl_2025, pl_2026, pl_2027]`
-
-**Algorithm:**
-
-```rust
-// From: /home/rex/src/utils/forge/src/core/array_calculator.rs:36-81
-fn get_table_calculation_order(&self, table_names: &[String])
-    -> ForgeResult<Vec<String>>
-{
-    use petgraph::algo::toposort;
-    use petgraph::graph::DiGraph;
-    use std::collections::HashMap;
-
-    let mut graph = DiGraph::new();
-    let mut node_indices = HashMap::new();
-
-    // Create nodes for all tables
-    for name in table_names {
-        let idx = graph.add_node(name.clone());
-        node_indices.insert(name.clone(), idx);
-    }
-
-    // Add edges for cross-table dependencies
-    for name in table_names {
-        if let Some(table) = self.model.tables.get(name) {
-            // Check all row formulas for cross-table references
-            for formula in table.row_formulas.values() {
-                let deps = self.extract_table_dependencies_from_formula(formula)?;
-                for dep_table in deps {
-                    // Only add edge if dependency is another table
-                    if let Some(&dep_idx) = node_indices.get(&dep_table) {
-                        if let Some(&name_idx) = node_indices.get(name) {
-                            graph.add_edge(dep_idx, name_idx, ());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Topological sort
- let order = toposort(&graph, None).map_err(|_| {
-        ForgeError::CircularDependency(
-            "Circular dependency detected between tables".to_string(),
-        )
-    })?;
-
-    let ordered_names: Vec<String> = order
-        .iter()
- .filter_map(|idx| graph.node_weight(*idx).cloned())
-        .collect();
-
-    Ok(ordered_names)
-}
-```
-
-### Level 3: Scalar Dependencies
-
-**Scalars can depend on tables (aggregations) or other scalars.**
-
-**Example:**
-
-```yaml
-pl_2025:
-  columns:
-    revenue: [100, 120, 150, 180]
-
-summary:
-  total_revenue:
-    formula: "=SUM(pl_2025.revenue)"  # Depends on pl_2025 table
-
-  avg_revenue:
-    formula: "=total_revenue / 4"     # Depends on total_revenue scalar
-
-  growth_rate:
-    formula: "=avg_revenue * 0.1"     # Depends on avg_revenue scalar
-```
-
-**Dependency Graph:**
-
-```text
-pl_2025 → total_revenue → avg_revenue → growth_rate
-```
-
-**Calculation Order:** `[total_revenue, avg_revenue, growth_rate]`
-
-**Note:** Tables are calculated in Phase 1, scalars in Phase 2.
-
----
-
-## Topological Sorting
-
-### Kahn's Algorithm
-
-**Concept:** Process nodes with no incoming edges, removing them from the graph.
-
-**Algorithm:**
-
-```text
-
-1. Find all nodes with in-degree 0 (no dependencies)
-2. Add them to the queue
-3. While queue is not empty:
-   a. Remove node from queue
-   b. Add to sorted list
-   c. For each outgoing edge:
-      - Decrement target's in-degree
-      - If target's in-degree becomes 0, add to queue
-4. If all nodes processed, return sorted list
-5. Otherwise, cycle detected
-
-```
-
-**Example:**
-
-```text
-Graph:
-  a → b → d
-  a → c → d
-
-Step 1: in_degree = {a: 0, b: 1, c: 1, d: 2}
-        queue = [a]
-
-Step 2: Process a
-        sorted = [a]
-        Decrement in_degree of b, c
-        in_degree = {b: 0, c: 0, d: 2}
-        queue = [b, c]
-
-Step 3: Process b
-        sorted = [a, b]
-        Decrement in_degree of d
-        in_degree = {c: 0, d: 1}
-        queue = [c]
-
-Step 4: Process c
-        sorted = [a, b, c]
-        Decrement in_degree of d
-        in_degree = {d: 0}
-        queue = [d]
-
-Step 5: Process d
-        sorted = [a, b, c, d]
-        queue = []
-
-Result: [a, b, c, d]
-```
-
-### DFS-Based Topological Sort (petgraph)
-
-**petgraph uses a DFS-based algorithm:**
-
-```text
-
-1. Start DFS from each unvisited node
-2. Mark nodes as visited
-3. After processing all children, add node to result
-4. Reverse the result
-
-```
-
-**Properties:**
-
-- **Time Complexity:** O(V + E) where V = vertices, E = edges
-- **Space Complexity:** O(V) for visited set and result list
-- **Deterministic:** Same input produces same output
-
-**Code Example:**
-
-```rust
-use petgraph::algo::toposort;
-use petgraph::graph::DiGraph;
-
-let mut graph = DiGraph::new();
-let a = graph.add_node("a");
-let b = graph.add_node("b");
-let c = graph.add_node("c");
-
-graph.add_edge(a, b, ());  // b depends on a
-graph.add_edge(a, c, ());  // c depends on a
-
-let order = toposort(&graph, None).unwrap();
-// order = [a, b, c] or [a, c, b] (both valid)
-```
-
----
-
-## Circular Dependency Detection
-
-### What is a Circular Dependency?
-
-A **circular dependency** (or cycle) occurs when a variable depends on itself through a chain of dependencies.
-
-**Example 1: Direct Cycle**
-
-```yaml
-a:
-  formula: "=b"
-b:
-  formula: "=a"
-```
-
-**Dependency Graph:**
-
-```text
-a → b → a  (cycle!)
-```
-
-**Error:** "Circular dependency detected: a → b → a"
-
-**Example 2: Indirect Cycle**
-
-```yaml
-a:
-  formula: "=b + 1"
-b:
-  formula: "=c * 2"
-c:
-  formula: "=a - 5"
-```
-
-**Dependency Graph:**
-
-```text
-a → b → c → a  (cycle!)
-```
-
-**Error:** "Circular dependency detected: a → b → c → a"
-
-### Detection Algorithm
-
-**petgraph's toposort detects cycles automatically:**
-
-```rust
-let order = toposort(&graph, None).map_err(|cycle| {
-    // cycle is a NodeIndex indicating where the cycle was found
-    ForgeError::CircularDependency(
-        "Circular dependency detected".to_string()
-    )
-})?;
-```
-
-**How it works:**
-
-1. During DFS, mark nodes as "visiting"
-2. If we encounter a "visiting" node again, cycle detected
-3. Mark nodes as "visited" after processing all children
-
-**Implementation Detail:**
-
-```rust
-// Simplified DFS cycle detection
-fn has_cycle_dfs(
-    node: NodeIndex,
-    graph: &DiGraph,
-    visiting: &mut HashSet<NodeIndex>,
-    visited: &mut HashSet<NodeIndex>,
-) -> bool {
-    if visiting.contains(&node) {
-        return true;  // Cycle detected!
-    }
-    if visited.contains(&node) {
-        return false;  // Already processed
-    }
-
-    visiting.insert(node);
-    for neighbor in graph.neighbors(node) {
-        if has_cycle_dfs(neighbor, graph, visiting, visited) {
-            return true;
-        }
-    }
-    visiting.remove(&node);
-    visited.insert(node);
-
-    false
-}
-```
-
-### Real-World Example
-
-**Scenario: Financial model with circular reference**
-
-```yaml
-revenue:
-  formula: "=customers * arpu"
-
-customers:
-  formula: "=revenue / arpu"  # Circular!
-
-arpu:
-  value: 50
-```
-
-**Dependency Graph:**
-
-```text
-revenue → customers → revenue  (cycle!)
-```
-
-**Error Message:**
-
-```text
-Error: Circular dependency detected in scalar formulas
-  revenue depends on customers
-  customers depends on revenue
-```
-
-**Fix:**
-
-```yaml
-
-# Remove circular dependency
-
-customers:
-  value: 1000  # Define explicitly
-
-revenue:
-  formula: "=customers * arpu"
-
-arpu:
-  value: 50
-```
-
----
-
-## Multi-Level Dependencies
-
-### Dependency Chains
-
-**Example: Three-level dependency chain**
-
-```yaml
-pl_2025:
-  columns:
-    revenue: [100, 120, 150, 180]
-    cogs: [30, 36, 45, 54]
-  row_formulas:
-    gross_profit: "=revenue - cogs"
-    gross_margin: "=gross_profit / revenue"
-    tier: "=IF(gross_margin > 0.7, \"High\", \"Low\")"
-
-summary:
-  total_revenue:
-    formula: "=SUM(pl_2025.revenue)"
-
-  high_margin_count:
-    formula: "=COUNTIF(pl_2025.tier, \"High\")"
-
-  high_margin_pct:
-    formula: "=high_margin_count / 4 * 100"
-```
-
-**Dependency Hierarchy:**
-
-```text
-Level 1 (Columns):
-  revenue, cogs → gross_profit → gross_margin → tier
-
-Level 2 (Tables):
-  pl_2025 (complete table)
-
-Level 3 (Scalars):
-  pl_2025 → total_revenue
-  pl_2025 → high_margin_count → high_margin_pct
-```
-
-**Calculation Order:**
-
-```text
-
-1. pl_2025.gross_profit (depends on revenue, cogs)
-2. pl_2025.gross_margin (depends on gross_profit, revenue)
-3. pl_2025.tier (depends on gross_margin)
-4. total_revenue (depends on pl_2025)
-5. high_margin_count (depends on pl_2025)
-6. high_margin_pct (depends on high_margin_count)
-
-```
-
-### Cross-Level Dependencies
-
-**Tables can depend on other tables, scalars can depend on tables.**
-
-**Example:**
-
-```yaml
-pricing:
-  columns:
-    base_price: [100, 120, 150]
-
-sales_2025:
-  row_formulas:
-    revenue: "=pricing.base_price * volume"
-
-sales_2026:
-  row_formulas:
-    revenue: "=sales_2025.revenue * 1.1"
-
-summary:
-  total_2025:
-    formula: "=SUM(sales_2025.revenue)"
-
-  total_2026:
-    formula: "=SUM(sales_2026.revenue)"
-
-  growth:
-    formula: "=total_2026 / total_2025 - 1"
-```
-
-**Full Dependency Graph:**
-
-```text
-pricing → sales_2025 → sales_2026
-            ↓              ↓
-        total_2025 → growth ← total_2026
-```
-
-**Calculation Order:**
-
-```text
-Phase 1 (Tables):
-
-  1. pricing
-  2. sales_2025 (depends on pricing)
-  3. sales_2026 (depends on sales_2025)
-
-Phase 2 (Scalars):
-
-  4. total_2025 (depends on sales_2025)
-  5. total_2026 (depends on sales_2026)
-  6. growth (depends on total_2025, total_2026)
-
-```
-
----
-
-## petgraph Integration
-
-### Why petgraph?
-
-**petgraph** is Rust's de facto graph library, providing:
-
-- **Robust algorithms** - Topological sort, cycle detection, shortest path
-- **Type safety** - Generic over node/edge types
-- **Performance** - Efficient implementations
-- **Battle-tested** - Used in thousands of Rust projects
-
-### Key petgraph Types
-
-**1. DiGraph (Directed Graph)**
-
-```rust
-use petgraph::graph::DiGraph;
-
-// DiGraph<N, E> where N = node type, E = edge type
-let mut graph: DiGraph<String, ()> = DiGraph::new();
-
-// Add nodes, returns NodeIndex
-let node_a = graph.add_node("a".to_string());
-let node_b = graph.add_node("b".to_string());
-
-// Add edge from a to b
-graph.add_edge(node_a, node_b, ());
-```
-
-**2. NodeIndex**
-
-```rust
-use petgraph::graph::NodeIndex;
-
-// Opaque handle to a node in the graph
-let idx: NodeIndex = graph.add_node("value");
-
-// Use to retrieve node data
-let node_data = graph.node_weight(idx);
-```
-
-**3. Algorithms**
-
-```rust
-use petgraph::algo::{toposort, is_cyclic_directed};
-
-// Topological sort
-let order = toposort(&graph, None)?;
-
-// Check for cycles
-if is_cyclic_directed(&graph) {
-    println!("Graph has a cycle!");
-}
-```
-
-### Forge's petgraph Usage
-
-**Pattern: Build graph, sort, extract order**
-
-```rust
-// 1. Create graph and node index map
-let mut graph = DiGraph::new();
-let mut node_indices = HashMap::new();
-
-// 2. Add nodes
-for name in table_names {
-    let idx = graph.add_node(name.clone());
-    node_indices.insert(name.clone(), idx);
-}
-
-// 3. Add edges (dependencies)
-for (name, formula) in formulas {
-    let deps = extract_dependencies(formula);
-    for dep in deps {
-        if let Some(&dep_idx) = node_indices.get(&dep) {
-            if let Some(&name_idx) = node_indices.get(name) {
-                graph.add_edge(dep_idx, name_idx, ());
-            }
-        }
-    }
-}
-
-// 4. Topological sort
-let order = toposort(&graph, None).map_err(|_| {
-    ForgeError::CircularDependency("Cycle detected".to_string())
-})?;
-
-// 5. Extract ordered names
-let ordered_names: Vec<String> = order
-    .iter()
- .filter_map(|idx| graph.node_weight(*idx).cloned())
-    .collect();
-```
-
-### Memory Usage
-
-**Per-graph overhead:**
-
-```text
-DiGraph structure: ~48 bytes
-NodeIndex: 8 bytes each
-Edge: 16 bytes each (from, to)
-Node data: sizeof(T) bytes each
-```
-
-**Example:**
-
-```text
-10 nodes (String, avg 10 chars):
-  NodeIndex: 10 * 8 = 80 bytes
-  Node data: 10 * (24 + 10) = 340 bytes
-  Edges (20): 20 * 16 = 320 bytes
-  Graph struct: 48 bytes
-  Total: ~788 bytes
-```
-
----
-
-## Performance Analysis
-
-### Time Complexity
-
-**Operation Complexities:**
-
-| Operation | Complexity | Notes |
-|-----------|-----------|-------|
-| Add node | O(1) | Amortized |
-| Add edge | O(1) | Amortized |
-| Topological sort | O(V + E) | V = vertices, E = edges |
-| Cycle detection | O(V + E) | Part of topological sort |
-| Extract dependencies | O(formula_length) | Parse formula string |
-
-**Total complexity for Forge:**
-
-```text
-Build graph: O(V + F) where F = total formula length
-Topological sort: O(V + E)
-Total: O(V + E + F)
-```
-
-**Real-world example:**
-
-```text
-Model with:
-
-  - 10 tables
-  - 50 columns with formulas
-  - 20 scalars
-  - Average 5 dependencies per formula
-
-V = 10 + 50 + 20 = 80 nodes
-E = 80 * 5 = 400 edges
-
-Time: O(80 + 400) = O(480) operations
-Actual time: <1ms
-```
-
-### Space Complexity
-
-**Graph storage:**
-
-```text
-Space = O(V + E)
-```
-
-**Example:**
-
-```text
-80 nodes, 400 edges:
-  Node storage: 80 * 40 bytes = 3.2 KB
-  Edge storage: 400 * 16 bytes = 6.4 KB
-  Hash maps: 80 * 24 bytes = 1.9 KB
-  Total: ~12 KB
-```
-
-### Performance Benchmarks
-
-**Test Case: Large Financial Model**
-
-```text
-Tables: 15
-Rows per table: 50
-Columns per table: 20
-Formulas per table: 8
-Scalars: 100
-Total formulas: 220
-
-Results:
-  Dependency resolution: 2.3ms
-  Topological sort: 0.8ms
-  Formula evaluation: 185ms
-  Total: 188ms
-
-Dependency resolution is <2% of total time
-```
-
-### Optimization Opportunities
-
-**1. Cache dependency graphs**
-
-```rust
-// Current: Rebuild graph every calculation
-fn calculate_all() {
-    let order = build_graph_and_sort()?;  // Rebuild every time
-    for item in order {
-        calculate(item);
-    }
-}
-
-// Future: Cache graph between calculations
-struct Calculator {
-    dependency_cache: Option<Vec<String>>,
-}
-
-fn calculate_all(&mut self) {
- let order = self.dependency_cache.get_or_insert_with(|| {
-        build_graph_and_sort().unwrap()
-    });
-    // Use cached order
-}
-```
-
-**2. Incremental dependency tracking**
-
-```rust
-// Track which dependencies changed
-struct DependencyTracker {
-    changed: HashSet<String>,
-}
-
-// Only recalculate affected nodes
-fn recalculate_incremental(&self, changed: &HashSet<String>) {
-    let affected = self.find_downstream_dependencies(changed);
-    for node in affected {
-        calculate(node);
-    }
-}
-```
-
----
-
-## Edge Cases and Error Handling
-
-### Edge Case 1: Empty Graph
-
-**Scenario:** No formulas to calculate
-
-```yaml
-pl_2025:
-  columns:
-    revenue: [100, 120, 150]  # No formulas
-```
-
-**Handling:**
-
-```rust
-let formula_order = self.get_formula_calculation_order(&table)?;
-if formula_order.is_empty() {
-    return Ok(table.clone());  // No formulas, return as-is
-}
-```
-
-### Edge Case 2: Self-Reference
-
-**Scenario:** Variable references itself
-
-```yaml
-a:
-  formula: "=a + 1"  # Self-reference
-```
-
-**Detection:**
-
-```rust
-// Detected as cycle: a → a
-toposort(&graph, None).map_err(|_| {
-    ForgeError::CircularDependency("a references itself".to_string())
-})
-```
-
-### Edge Case 3: Missing Dependency
-
-**Scenario:** Formula references non-existent variable
-
-```yaml
-profit:
-  formula: "=revenue - costs"  # 'costs' doesn't exist
-```
-
-**Handling:**
-
-```rust
-// Validate before building graph
-let deps = extract_dependencies(formula);
-for dep in deps {
-    if !variables.contains_key(dep) {
-        return Err(ForgeError::Eval(format!(
-            "Variable '{}' not found", dep
-        )));
-    }
-}
-```
-
-### Edge Case 4: Diamond Dependency
-
-**Scenario:** Multiple paths to same dependency
-
-```yaml
-d: {value: 100}
-b: {formula: "=d * 2"}
-c: {formula: "=d * 3"}
-a: {formula: "=b + c"}
-```
-
-**Dependency Graph:**
-
-```text
-    d
-   / \
-  b   c
-   \ /
-    a
-```
-
-**Handling:**
-
-This is **NOT a cycle**! Valid DAG.
-Topological sort handles correctly: `[d, b, c, a]` or `[d, c, b, a]`
-
-### Edge Case 5: Disconnected Components
-
-**Scenario:** Multiple independent subgraphs
-
-```yaml
-
-# Group 1
-
-a: {formula: "=b"}
-b: {value: 10}
-
-# Group 2 (independent)
-
-x: {formula: "=y"}
-y: {value: 20}
-```
-
-**Dependency Graph:**
-
-```text
-b → a    (independent from)    y → x
-```
-
-**Handling:**
-
-Topological sort handles disconnected components correctly.
-Result: `[b, a, y, x]` (or any valid interleaving)
-
-### Error Message Design
-
-**Principle: Provide actionable context**
-
-**Bad Error:**
-
-```text
-Error: Circular dependency
-```
-
-**Good Error:**
-
-```text
-Error: Circular dependency detected in table 'pl_2025'
-
-Dependency chain:
-  profit → revenue → profit
-
-To fix this:
-
-  1. Remove the circular reference
-  2. Define one of these variables explicitly
-  3. Check your formula logic
-
-```
-
-**Implementation:**
-
-```rust
-fn format_cycle_error(cycle: &[String]) -> String {
-    format!(
-        "Circular dependency detected:\n  {}\n\nPlease remove the circular reference.",
-        cycle.join(" → ")
-    )
-}
-```
-
----
-
-## Related Documentation
-
-### Architecture Deep Dives
-
-- [00-OVERVIEW.md](00-OVERVIEW.md) - High-level architecture
-- [01-COMPONENT-ARCHITECTURE.md](01-COMPONENT-ARCHITECTURE.md) - Component interactions
-- [02-DATA-MODEL.md](02-DATA-MODEL.md) - Type system and data structures
-- [03-FORMULA-EVALUATION.md](03-FORMULA-EVALUATION.md) - Formula evaluation pipeline
-- [05-EXCEL-INTEGRATION.md](05-EXCEL-INTEGRATION.md) - Excel conversion
-- [06-CLI-ARCHITECTURE.md](06-CLI-ARCHITECTURE.md) - Command structure
-- [07-TESTING-ARCHITECTURE.md](07-TESTING-ARCHITECTURE.md) - Test strategy
-
-### Source Files Referenced
-
-- `/home/rex/src/utils/forge/src/core/array_calculator.rs` - Dependency resolution implementation
-  - Lines 36-81: Table dependency resolution
-  - Lines 136-176: Column dependency resolution
-  - Lines 492-537: Scalar dependency resolution
-
-### External Documentation
-
-- petgraph: https://docs.rs/petgraph/latest/petgraph/
-- Graph Theory: https://en.wikipedia.org/wiki/Directed_acyclic_graph
-- Topological Sort: https://en.wikipedia.org/wiki/Topological_sorting
-
----
-
-**Previous:** [← Formula Evaluation](03-FORMULA-EVALUATION.md)
-**Next:** [Excel Integration →](05-EXCEL-INTEGRATION.md)
+A network is ordered as a game is (ADR-074, `src/core/array_calculator/network.rs`). Its priors and table entries may be formulas over the model's scalars (`src/bayesian/written.rs`), and the network is one cell, `Cell::Network`, whose dependencies are every cell those formulas read. Once they are worked out, each row is checked to be probabilities and inference runs; the posterior of each named query (`bayesian_network.queries.<q>: {node, evidence}`) becomes a scalar `bayesian_network.<q>.<state>`, and a formula that reads one depends on the network. A network whose formulas read its own results is a cycle, and is refused. `examples/expected_loss.yaml` feeds the probability of default, given the economy, into an expected loss.

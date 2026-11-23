@@ -1,3 +1,6 @@
+# Scenarios on an acquisition: a base case, a bull and a bear, weighted.
+# Run in the examples folder: forge scenarios scenarios.yaml
+
 _forge_version: "5.1.0"
 assumptions:
   acquisition_cost: 10000000.0

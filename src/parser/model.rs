@@ -24,9 +24,23 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     read_model(yaml)
 }
 
+/// The top-level sections that are analyses, read by their own commands
+const ANALYSES: [&str; 6] = [
+    "monte_carlo",
+    "tornado",
+    "decision_tree",
+    "real_options",
+    "bootstrap",
+    "bayesian_network",
+];
+
 /// The tables, scalars and scenarios of a model the schema has accepted.
 fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     let mut model = ParsedModel::new();
+    let version = yaml
+        .get("_forge_version")
+        .and_then(Value::as_str)
+        .unwrap_or("");
 
     // Parse each top-level key as either a table or scalar
     if let Value::Mapping(map) = yaml {
@@ -38,31 +52,36 @@ fn read_model(yaml: &Value) -> ForgeResult<ParsedModel> {
             // Skip special keys (handled by specific commands)
             // Note: scenarios is NOT skipped here - it has special handling below
             // to distinguish scenario overrides from tables named "scenarios"
-            if key_str == "_forge_version"
-                || key_str == "_name"
-                || key_str == "monte_carlo"
-                || key_str == "tornado"
-                || key_str == "decision_tree"
-                || key_str == "real_options"
-                || key_str == "bootstrap"
-                || key_str == "bayesian_network"
-            {
+            if key_str == "_forge_version" || key_str == "_name" {
+                continue;
+            }
+            // An analysis section is read by its command; the model notes
+            // that the file has one (ADR-077)
+            if ANALYSES.contains(&key_str) {
+                model.analyses.push(key_str.to_string());
+                // The network is a cell of the model too: its probabilities
+                // may read scalars, and its queries give scalars (ADR-074)
+                if key_str == crate::bayesian::written::SECTION {
+                    model.network = Some(
+                        crate::bayesian::WrittenNetwork::read(value).map_err(ForgeError::Parse)?,
+                    );
+                }
                 continue;
             }
 
             // Games (5.5.0, ADR-068); before 5.5.0 a group named `games`
             // reads as a group (the schema check refused a game section)
-            if key_str == "games"
-                && super::schema::format_at_least(
-                    yaml.get("_forge_version")
-                        .and_then(Value::as_str)
-                        .unwrap_or(""),
-                    "5.5.0",
-                )
-            {
+            if key_str == "games" && super::schema::format_at_least(version, "5.5.0") {
                 for game in crate::games::parse_games(value)? {
                     model.games.insert(game.name().to_string(), game);
                 }
+                continue;
+            }
+
+            // What the file as written should give (5.6.0, ADR-074); before
+            // 5.6.0 a group named `expect` reads as a group
+            if key_str == "expect" && super::schema::format_at_least(version, "5.6.0") {
+                model.expect = super::expect::parse_expect(value, "expect")?;
                 continue;
             }
 
@@ -291,15 +310,21 @@ pub fn parse_scenarios(
         if let Value::Mapping(overrides_map) = scenario_value {
             let mut scenario = Scenario::new();
 
-            // Detect structured format: has reserved keys "probability" or "scalars"
-            let is_structured =
-                overrides_map.contains_key("probability") || overrides_map.contains_key("scalars");
+            // Detect structured format: has reserved keys "probability",
+            // "scalars" or "expect" (ADR-074)
+            let is_structured = ["probability", "scalars", "expect"]
+                .iter()
+                .any(|key| overrides_map.contains_key(*key));
 
             if is_structured {
                 scenario.description = overrides_map
                     .get("description")
                     .and_then(Value::as_str)
                     .map(str::to_string);
+                if let Some(expect) = overrides_map.get("expect") {
+                    scenario.expect =
+                        super::expect::parse_expect(expect, &format!("scenarios.{name}.expect"))?;
+                }
                 // Structured ScenarioDefinition format: extract overrides from "scalars" only.
                 // "probability" and "description" are intentionally skipped here;
                 // they are consumed by ScenarioEngine via serde deserialization.
@@ -938,6 +963,39 @@ sales:
 
     fn reason<T>(result: ForgeResult<T>) -> String {
         result.err().unwrap().to_string()
+    }
+
+    /// The analysis sections are noted in the file's order, and read as
+    /// neither tables nor scalars (ADR-077)
+    #[test]
+    fn a_files_analysis_sections_are_noted_in_its_order() {
+        let model =
+            read("bootstrap:\n  data: [1, 2]\nprice: 16\ntornado:\n  output: price\n_name: x\n")
+                .unwrap();
+        assert_eq!(model.analyses, ["bootstrap", "tornado"]);
+        assert_eq!(model.scalars.keys().collect::<Vec<_>>(), ["price"]);
+        assert_eq!(model.tables.len(), 0);
+        assert_eq!(read("price: 16\n").unwrap().analyses, Vec::<String>::new());
+    }
+
+    /// The network is read into the model in any format, its probabilities
+    /// numbers or formulas (ADR-074: a string was refused before, so no file
+    /// reads differently), and one that cannot be read says why
+    #[test]
+    fn the_network_is_read_with_the_model() {
+        let model = read(
+            "_forge_version: \"5.1.0\"\np: 0.5\nbayesian_network:\n  nodes:\n    a: {states: [x, y], prior: [=p, 0.5]}\n",
+        )
+        .unwrap();
+        assert_eq!(model.analyses, ["bayesian_network"]);
+        assert_eq!(model.network.unwrap().formulas(), ["=p"]);
+        assert!(read("p: 1\n").unwrap().network.is_none());
+        assert_eq!(
+            reason(read(
+                "bayesian_network:\n  nodes:\n    a: {states: [], prior: []}\n"
+            )),
+            "Parse error: Node 'a': discrete node must have states"
+        );
     }
 
     #[test]

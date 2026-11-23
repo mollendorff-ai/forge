@@ -81,15 +81,7 @@ fn load_for_export(input: &Path) -> ForgeResult<(crate::types::ParsedModel, Opti
 fn plan_values(
     model: &crate::types::ParsedModel,
 ) -> indexmap::IndexMap<String, crate::monte_carlo::engine::PlanInput> {
-    crate::monte_carlo::engine::MonteCarloEngine::new(
-        crate::monte_carlo::MonteCarloConfig::default(),
-    )
-    .and_then(|mut engine| {
-        engine
-            .parse_distributions_from_model(model)
-            .map(|()| engine.plan_inputs())
-    })
-    .unwrap_or_default()
+    crate::monte_carlo::engine::plan_of(model).unwrap_or_default()
 }
 
 /// The formula of scalar `name`, of the model or of an included file
@@ -118,7 +110,7 @@ pub fn export_core(
     let scalar_count = model.scalars.len();
 
     let exporter = ExcelExporter::new(model);
-    let mut warnings: Vec<String> = uncalculated.into_iter().collect();
+    let mut warnings: Vec<String> = uncalculated.iter().cloned().collect();
     warnings.extend(exporter.export_with_warnings(output)?);
     warnings.extend(crate::cli::commands::carried::yaml_only(input));
 
@@ -128,6 +120,7 @@ pub fn export_core(
         table_count,
         scalar_count,
         warnings,
+        not_checked: uncalculated,
     })
 }
 
@@ -206,30 +199,28 @@ pub fn export(c: &mut Console<'_>, input: &Path, output: &Path, verbose: bool) -
     if verbose {
         outln!(c, "{}", "📖 Parsing YAML file...".cyan());
     }
-    let (model, uncalculated) = load_for_export(input)?;
+    let result = export_core(input, output)?;
     if verbose {
-        let (t, s) = (model.tables.len(), model.scalars.len());
+        let (t, s) = (result.table_count, result.scalar_count);
         outln!(c, "   Found {t} tables, {s} scalars\n");
         outln!(c, "{}", "📊 Exporting to Excel...".cyan());
     }
 
-    let exporter = ExcelExporter::new(model);
-    let mut warnings = exporter.export_with_warnings(output)?;
-    warnings.extend(crate::cli::commands::carried::yaml_only(input));
-
-    if let Some(reason) = &uncalculated {
+    if let Some(reason) = &result.not_checked {
         outln!(c, "{}", "⚠️  Exported, but not checked:".yellow());
         outln!(c, "   - {reason}\n");
     }
     outln!(c, "{}", "✅ Export Complete!".bold().green());
     outln!(c, "   Excel file: {}\n", output.display());
+    // The reason it was not checked is said above
+    let warnings = &result.warnings[usize::from(result.not_checked.is_some())..];
     if !warnings.is_empty() {
         outln!(
             c,
             "{}",
             "⚠️  Not exported, or not as Excel formulas:".yellow()
         );
-        for warning in &warnings {
+        for warning in warnings {
             outln!(c, "   - {warning}");
         }
         outln!(c);
@@ -312,7 +303,7 @@ r:
             let input = model(dir.path(), FAILING);
             let output = dir.path().join("m.xlsx");
             let ran = forge(&["export", input.to_str().unwrap(), output.to_str().unwrap()]);
-            assert!(ran.success(), "{}", ran.both());
+            assert!(ran.success(), "{ran:?}");
             let warned = ran.out.find("does not calculate").expect(&ran.out);
             let done = ran.out.find("Export Complete").expect(&ran.out);
             assert!(warned < done, "{}", ran.out);
@@ -338,13 +329,11 @@ r:
         //! ```
 
         use super::*;
-        use calamine::{open_workbook, Data, Reader, Xlsx};
+        use calamine::{open_workbook, DataType, Reader, Xlsx};
 
         fn cell(book: &mut Xlsx<std::io::BufReader<std::fs::File>>, sheet: &str, row: u32) -> f64 {
-            match book.worksheet_range(sheet).unwrap().get_value((row, 1)) {
-                Some(Data::Float(f)) => *f,
-                other => panic!("{sheet} row {row}: {other:?}"),
-            }
+            let range = book.worksheet_range(sheet).unwrap();
+            range.get_value((row, 1)).unwrap().get_float().unwrap()
         }
 
         #[test]
@@ -449,6 +438,149 @@ r:
                 ),
                 "{warnings}"
             );
+        }
+    }
+
+    mod in_memory_and_failures {
+        //! The in-memory export the browser uses, the verbose command, and
+        //! what each way of exporting says when it cannot.
+
+        use super::*;
+        use crate::cli::forge;
+
+        const MODEL: &str = r#"_forge_version: "5.2.0"
+t:
+  n: [1, 2, 3]
+  double: "=n * 2"
+s:
+  total: {formula: "=SUM(t.double)"}
+"#;
+
+        const FAILING: &str = r#"_forge_version: "5.2.0"
+r:
+  missing: {formula: "=MATCH(99, {1, 2}, 0)"}
+"#;
+
+        fn write(dir: &Path, name: &str, text: &str) -> std::path::PathBuf {
+            let path = dir.join(name);
+            std::fs::write(&path, text).unwrap();
+            path
+        }
+
+        #[test]
+        fn the_workbook_in_memory_is_the_one_the_file_holds() {
+            let dir = tempfile::tempdir().unwrap();
+            let input = write(dir.path(), "m.yaml", MODEL);
+            let made = export_bytes_core(&input).unwrap();
+            assert_eq!((made.table_count, made.scalar_count), (1, 1));
+            assert_eq!(made.warnings, Vec::<String>::new());
+            // An .xlsx is a zip archive
+            assert_eq!(&made.bytes[..2], b"PK");
+            let output = dir.path().join("m.xlsx");
+            export_core(&input, &output).unwrap();
+            let mut book: calamine::Xlsx<_> =
+                calamine::open_workbook_from_rs(std::io::Cursor::new(made.bytes)).unwrap();
+            let mut from_file: calamine::Xlsx<_> = calamine::open_workbook(&output).unwrap();
+            for sheet in ["t", "s"] {
+                use calamine::Reader;
+                assert_eq!(
+                    book.worksheet_formula(sheet)
+                        .unwrap()
+                        .rows()
+                        .collect::<Vec<_>>(),
+                    from_file
+                        .worksheet_formula(sheet)
+                        .unwrap()
+                        .rows()
+                        .collect::<Vec<_>>(),
+                    "{sheet}"
+                );
+            }
+        }
+
+        #[test]
+        fn the_workbook_in_memory_names_what_does_not_calculate() {
+            let dir = tempfile::tempdir().unwrap();
+            let input = write(dir.path(), "m.yaml", FAILING);
+            let made = export_bytes_core(&input).unwrap();
+            assert!(
+                made.warnings[0].contains("does not calculate"),
+                "{:?}",
+                made.warnings
+            );
+        }
+
+        #[test]
+        fn verbose_says_each_step() {
+            let dir = tempfile::tempdir().unwrap();
+            let input = write(dir.path(), "m.yaml", MODEL);
+            let output = dir.path().join("m.xlsx");
+            let ran = forge(&[
+                "export",
+                "--verbose",
+                input.to_str().unwrap(),
+                output.to_str().unwrap(),
+            ]);
+            assert!(ran.success(), "{ran:?}");
+            for step in [
+                "Parsing YAML file...",
+                "Found 1 tables, 1 scalars",
+                "Exporting to Excel...",
+                "Export Complete!",
+            ] {
+                assert!(ran.out.contains(step), "{step}\n{ran:?}");
+            }
+        }
+
+        #[test]
+        fn a_missing_model_is_an_error_in_every_way_of_exporting() {
+            let dir = tempfile::tempdir().unwrap();
+            let missing = dir.path().join("nowhere.yaml");
+            let output = dir.path().join("m.xlsx");
+            let gone = "IO error: No such file or directory (os error 2)";
+            assert_eq!(
+                export_core(&missing, &output).unwrap_err().to_string(),
+                gone
+            );
+            assert_eq!(export_buffer_core(&missing).unwrap_err().to_string(), gone);
+            assert_eq!(export_bytes_core(&missing).err().unwrap().to_string(), gone);
+            for args in [vec!["export"], vec!["export", "-v"]] {
+                let mut args = args;
+                args.extend([missing.to_str().unwrap(), output.to_str().unwrap()]);
+                let ran = forge(&args);
+                assert!(!ran.success());
+                assert!(ran.err.contains(gone), "{args:?}: {ran:?}");
+            }
+        }
+
+        /// A table too wide for a worksheet is refused whichever way the
+        /// workbook is made.
+        #[test]
+        fn a_table_too_wide_for_a_worksheet_is_refused_in_memory_too() {
+            let dir = tempfile::tempdir().unwrap();
+            let columns: Vec<String> = (0..=16_384).map(|i| format!("  c{i}: [1]")).collect();
+            let text = format!("_forge_version: \"5.2.0\"\nt:\n{}\n", columns.join("\n"));
+            let input = write(dir.path(), "wide.yaml", &text);
+            let refused = "Excel export error: t: 16385 columns do not fit in an Excel worksheet, which holds 16384";
+            assert_eq!(export_buffer_core(&input).unwrap_err().to_string(), refused);
+            assert_eq!(
+                export_bytes_core(&input).err().unwrap().to_string(),
+                refused
+            );
+        }
+
+        #[test]
+        fn a_workbook_that_cannot_be_written_is_an_error() {
+            let dir = tempfile::tempdir().unwrap();
+            let input = write(dir.path(), "m.yaml", MODEL);
+            let output = dir.path().join("no-such-folder").join("m.xlsx");
+            let cannot =
+                "IO error: Failed to save Excel file: No such file or directory (os error 2)";
+            let err = export_core(&input, &output).unwrap_err().to_string();
+            assert_eq!(err, cannot);
+            let ran = forge(&["export", input.to_str().unwrap(), output.to_str().unwrap()]);
+            assert!(!ran.success());
+            assert!(ran.err.contains(cannot), "{ran:?}");
         }
     }
 }

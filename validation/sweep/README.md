@@ -57,7 +57,7 @@ The first run, on 2026-11-13, found the wrong answers fixed then (holidays in
 with a year below 1900, `TIME` past a day, `EFFECT` and `NOMINAL` with a
 fractional `npery`, `IPMT`/`PPMT` periods out of range, `DDB` after the life),
 whose cases are in `validation/gnumeric/tests/edge/edge_date_finance_sweep.yaml`.
-What it left open is in `.asimov/roadmap.yaml` (T1-EXCEL-CHECKS).
+What it left open is listed in ADR-062 (T1-EXCEL-CHECKS).
 
 The second run, on 2026-11-14, over the statistical, lookup, math and text
 functions, found the wrong answers fixed then (wildcards in criteria, `MATCH`,

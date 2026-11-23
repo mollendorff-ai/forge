@@ -40,6 +40,9 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test
@@ -49,10 +52,10 @@ jobs:
       matrix:
         rust: [stable]   # beta runs weekly, see weekly.yml
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust ${{ matrix.rust }}
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
           toolchain: ${{ matrix.rust }}
           targets: x86_64-unknown-linux-gnu
@@ -60,7 +63,7 @@ jobs:
       # Compiled dependencies, restored from the last run on main; only main
       # saves one, so pull requests do not fill the 10 GB the repository has
       - name: Cache compiled dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
@@ -82,7 +85,7 @@ jobs:
 
       - name: Update test count badge
         if: matrix.rust == 'stable' && github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@v1.9.0
+        uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
           gistID: b8e2fa78efcf26a20ff97b483050b05a
@@ -96,17 +99,18 @@ jobs:
     timeout-minutes: 20
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       # Compiled dependencies, restored from the last run on main; only main
       # saves one, so pull requests do not fill the 10 GB the repository has
       - name: Cache compiled dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
@@ -135,19 +139,21 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
 
       # Compiled dependencies, restored from the last run on main; only main
       # saves one, so pull requests do not fill the 10 GB the repository has
       - name: Cache compiled dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: forge-binary
           path: target/release
@@ -167,13 +173,13 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Read the declared version
         run: echo "MSRV=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
 
       - name: Install that Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
           toolchain: ${{ env.MSRV }}
           components: clippy
@@ -181,7 +187,7 @@ jobs:
       # Compiled dependencies, restored from the last run on main; only main
       # saves one, so pull requests do not fill the 10 GB the repository has
       - name: Cache compiled dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
@@ -201,18 +207,19 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust stable with the WebAssembly target
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
           components: clippy
 
       # Compiled dependencies, restored from the last run on main; only main
       # saves one, so pull requests do not fill the 10 GB the repository has
       - name: Cache compiled dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
@@ -234,22 +241,23 @@ jobs:
     timeout-minutes: 45
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust stable with the WebAssembly target
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
           components: clippy
 
       # Compiled dependencies, restored from the last run on main; only main
       # saves one, so pull requests do not fill the 10 GB the repository has
       - name: Cache compiled dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
 
@@ -318,7 +326,7 @@ jobs:
       - name: Every scalar on screen is forge calculate's
         working-directory: studio
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           # The browser comes from Playwright's own server. Its system packages
           # come from the runner's Ubuntu mirror, which did not answer on
           # 2026-11-11 and held a run for 20 minutes, so that step is limited
@@ -326,6 +334,10 @@ jobs:
           npx playwright install chromium
           timeout 180 npx playwright install-deps chromium || echo "system packages not installed; continuing"
           node tests/screen.mjs ../studio-site ../forge-wasm/expected.json
+
+      - name: An uncertain model shows its plan, and each output its range from forge simulate
+        working-directory: studio
+        run: node tests/uncertain.mjs ../studio-site ../forge-wasm/expected.json
 
       - name: Formulas edited on their cards change their one line, and Forge refuses invalid ones
         working-directory: studio
@@ -351,6 +363,18 @@ jobs:
         working-directory: studio
         run: node tests/welcome.mjs ../studio-site
 
+      - name: Studio shows a set's models as questions, with the kinds Forge gives
+        working-directory: studio
+        run: node tests/sets.mjs ../studio-site
+
+      - name: Studio draws decision trees, real options, bootstraps and Bayesian networks from their tools
+        working-directory: studio
+        run: node tests/analyses.mjs ../studio-site
+
+      - name: Studio's help opens from every heading, and every link lands on a heading of the manual
+        working-directory: studio
+        run: node tests/help.mjs ../studio-site
+
       - name: Studio's grid shows what Forge returns
         working-directory: studio
         run: node tests/grid.mjs ../studio-site
@@ -362,6 +386,10 @@ jobs:
       - name: Studio shows the games Forge works out, and they move with the inputs
         working-directory: studio
         run: node tests/games.mjs ../studio-site
+
+      - name: "Studio shows what a model's expect: states, as Forge checks it"
+        working-directory: studio
+        run: node tests/expect.mjs ../studio-site
 
       - name: Studio shows a format as Forge gives it
         working-directory: studio
@@ -385,7 +413,7 @@ jobs:
 
       - name: Upload Studio's screenshots
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: studio-screenshots
           path: studio-screenshots
@@ -393,7 +421,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Forge Studio
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: forge-studio
           path: studio-site
@@ -405,15 +433,17 @@ jobs:
     timeout-minutes: 45
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
 
       # Compiled dependencies, restored from the last run on main; only main
       # saves one, so pull requests do not fill the 10 GB the repository has
       - name: Cache compiled dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
@@ -425,7 +455,7 @@ jobs:
           test -f target/release/forge && echo "forge binary built"
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: forge-binary
           path: target/release/forge
@@ -439,9 +469,9 @@ jobs:
       run:
         working-directory: editors/vscode
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
 
@@ -459,7 +489,7 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: forge-binary
           path: .
@@ -492,10 +522,10 @@ jobs:
           done < mcp-output.txt
           echo "PASS: All $LINES stdout lines are valid JSON"
 
-          # tools/list must return exactly 21 tools
+          # tools/list must return exactly 22 tools
           TOOLS=$(jq -r 'select(.result.tools) | .result.tools | length' mcp-output.txt)
-          if [ "$TOOLS" != "21" ]; then
-            echo "FAIL: Expected 21 tools, got ${TOOLS:-none}"
+          if [ "$TOOLS" != "22" ]; then
+            echo "FAIL: Expected 22 tools, got ${TOOLS:-none}"
             exit 1
           fi
           echo "PASS: Tool count is $TOOLS"
@@ -518,22 +548,25 @@ jobs:
     timeout-minutes: 45
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
+          toolchain: stable
           components: llvm-tools-preview
 
       # Compiled dependencies, restored from the last run on main; only main
       # saves one, so pull requests do not fill the 10 GB the repository has
       - name: Cache compiled dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@41e135bca37b18b5a9cc134855b5b3bccbedbf26 # cargo-llvm-cov
+        with:
+          tool: cargo-llvm-cov
 
       - name: Generate coverage
         run: |
@@ -575,11 +608,31 @@ jobs:
       # 98.37%), the same way.
       # Raised 2026-11-21 from CI's run on main after PR #337 (98.90%, 97.82%,
       # 98.61%), the same way.
+      # Raised 2026-11-22 from CI's run on main after PR #351 (99.22%, 98.32%,
+      # 98.95%), the same way.
+      # Raised 2026-11-22 from CI's run on main after PR #355 (99.31%, 98.44%,
+      # 99.05%), the same way.
+      # Raised 2026-11-22 from CI's run on PR #359 (99.54%, 98.87%, 99.36%),
+      # the same way.
+      # Raised 2026-11-22 from CI's run on PR #362 (99.69%, 99.16%, 99.51%),
+      # the same way; the regions floor a tenth lower, since the run on this
+      # change measured 99.4986% for the same code.
+      # Raised 2026-11-22 from CI's run on PR #366 (99.85%, 99.39%, 99.79%),
+      # the same way; the lines floor a tenth lower, since 99.8 would leave
+      # under 0.05 of margin over the 99.848% measured.
+      # Raised 2026-11-23 from CI's run on main after PR #369 and #371
+      # (99.84%, 99.42%, 99.77%), the same way, rounded down to a tenth with
+      # no tenth taken off: lines and functions keep under 0.05 of margin
+      # (about 30 lines and 1 function), which only more tests widen.
+      # Raised 2026-11-23 from CI's run on main after PR #374 (99.93%, 99.85%,
+      # 99.88%), the same way: functions to 99.7 and regions to 99.8; lines
+      # stay at 99.8, since 99.9 would leave 0.03 of margin, and 99.8 for
+      # functions 0.049.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "99.0"
-          FLOOR_FUNCTIONS: "98.1"
-          FLOOR_REGIONS: "98.7"
+          FLOOR_LINES: "99.8"
+          FLOOR_FUNCTIONS: "99.7"
+          FLOOR_REGIONS: "99.8"
         run: |
           fail=0
           for kind in lines functions regions; do
@@ -596,7 +649,7 @@ jobs:
 
       - name: Update coverage badge
         if: github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@v1.9.0
+        uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
           gistID: b8e2fa78efcf26a20ff97b483050b05a
@@ -620,9 +673,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: forge-binary
           path: .
@@ -653,7 +706,7 @@ jobs:
           rm functions.json
 
       - name: Update functions badge
-        uses: schneegans/dynamic-badges-action@v1.9.0
+        uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
           gistID: b8e2fa78efcf26a20ff97b483050b05a
@@ -694,7 +747,7 @@ jobs:
       contents: write
       actions: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 

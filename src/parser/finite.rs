@@ -122,7 +122,7 @@ mod tests {
     /// written as `inf - inf` with a cached `NaN` that Excel cannot read
     #[test]
     fn neither_the_model_nor_a_workbook_gets_a_number_that_is_not_finite() {
-        use calamine::{open_workbook, Data, Reader, Xlsx};
+        use calamine::{open_workbook, Reader, Xlsx};
         let dir = tempfile::tempdir().unwrap();
         let model = dir.path().join("m.yaml");
         let path = model.display().to_string();
@@ -157,20 +157,29 @@ mod tests {
         let printed = ran.printed();
         assert!(printed.contains("out.m: left empty"), "{printed}");
         let mut book: Xlsx<_> = open_workbook(&xlsx).unwrap();
-        for sheet in book.sheet_names() {
-            let values = book.worksheet_range(&sheet).unwrap();
-            assert!(
-                values.cells().all(|(_, _, cell)| match cell {
-                    Data::Float(n) => n.is_finite(),
-                    other => !other.to_string().contains("inf"),
-                }),
-                "{sheet}"
-            );
-            let formulas = book.worksheet_formula(&sheet).unwrap();
-            assert!(
-                formulas.cells().all(|(_, _, f)| !f.contains("inf")),
-                "{sheet}"
-            );
-        }
+        // The one sheet has the name, and the value left empty: no `inf`
+        // text, and no formula that could carry one
+        assert_eq!(book.sheet_names(), ["out"]);
+        let values = book.worksheet_range("out").unwrap();
+        let cells: Vec<(u32, u32, String)> = values
+            .cells()
+            .map(|(row, column, cell)| {
+                (
+                    u32::try_from(row).unwrap(),
+                    u32::try_from(column).unwrap(),
+                    cell.to_string(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            cells,
+            [
+                (0, 0, "Name".to_string()),
+                (0, 1, "Value".to_string()),
+                (1, 0, "m".to_string()),
+                (1, 1, String::new()),
+            ]
+        );
+        assert_eq!(book.worksheet_formula("out").unwrap().cells().count(), 0);
     }
 }

@@ -1,6 +1,6 @@
 # ADR-068: Games: a Payoff Table, Its Equilibria, and Tournaments
 
-**Status:** Accepted (the three recommendations). Built: sections 1 to 4, games played once and tournaments, with `forge game`, the `forge_game` MCP tool, `game` in forge-wasm and seven examples. The suite against outside engines, `validation/games` (T2-GAME-THEORY-E2E), is built (2026-11-20). Left: kinship-protocol's three models rewritten in its own repository
+**Status:** Accepted (the three recommendations). Built: sections 1 to 4, games played once and tournaments, with `forge game`, the `forge_game` MCP tool, `game` in forge-wasm and seven examples (`examples/games` has ten with ADR-073's). The suite against outside engines, `validation/games` (T2-GAME-THEORY-E2E), is built (2026-11-20). Left: kinship-protocol's three models rewritten in its own repository
 **Date:** 2026-11-19
 **Decided by:** the maintainer, who accepted the three recommendations (2026-11-19); the analysis and the recommendations are Claude's
 **For:** roadmap T2-GAME-THEORY. T2-GAME-THEORY-MORE is not part of this.

@@ -1,7 +1,7 @@
 //! `forge decision-tree`: the best choice at each decision, by backward
 //! induction.
 
-use super::serialize_for_file;
+use super::write_result;
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::core::precision::money;
@@ -9,7 +9,6 @@ use crate::decision_trees::{DecisionTreeConfig, DecisionTreeEngine};
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use colored::Colorize;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Analyze a decision tree and return structured results (no printing).
@@ -54,38 +53,19 @@ pub fn decision_tree(
     outln!(c, "   File: {}", file.display());
     outln!(c);
 
-    // Parse YAML
-    let yaml_content = parser::read_model_text(file)?;
-
-    // Parse decision_tree config
-    let value: yaml_serde::Value = parser::read_yaml(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
-
-    let config: DecisionTreeConfig = if let Some(dt_value) = value.get("decision_tree") {
-        yaml_serde::from_value(dt_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("decision_tree config error: {e}")))?
-    } else {
-        return Err(ForgeError::Validation(
-            "No 'decision_tree' section found in YAML".to_string(),
-        ));
-    };
+    let result = decision_tree_core(file)?;
 
     // Display config
-    outln!(c, "   {}", format!("Tree: {}", config.name).bold());
+    outln!(c, "   {}", format!("Tree: {}", result.name).bold());
     if verbose {
-        outln!(c, "      Root: {:?}", config.root.as_ref().map(|r| &r.name));
-        outln!(c, "      Nodes: {}", config.nodes.len());
+        outln!(c, "      Root: {:?}", Some(&result.root_name));
+        outln!(c, "      Nodes: {}", result.node_count);
     }
     outln!(c);
-
-    // Create engine and analyze
-    let engine = DecisionTreeEngine::new(config).map_err(ForgeError::Validation)?;
 
     if verbose {
         outln!(c, "{}", "🔄 Running backward induction...".cyan());
     }
-
-    let result = engine.analyze().map_err(ForgeError::Eval)?;
 
     print_decision_tree_result(c, &result);
 
@@ -99,15 +79,7 @@ pub fn decision_tree(
     }
 
     if let Some(output_path) = output_file {
-        let output_str = serialize_for_file(&result, &output_path)?;
-        fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-        outln!(
-            c,
-            "{}",
-            format!("💾 Results written to {}", output_path.display())
-                .bold()
-                .green()
-        );
+        write_result(c, &result, &output_path)?;
     }
 
     outln!(c, "{}", "✅ Decision tree analysis complete".bold().green());
@@ -192,6 +164,7 @@ fn print_decision_tree_result(c: &mut Console<'_>, result: &crate::decision_tree
 mod tests {
     use super::*;
     use crate::cli::console::capture;
+    use std::fs;
 
     #[test]
     fn test_decision_tree_config_parsing() {
@@ -316,7 +289,22 @@ decision_tree:
         let (_dir, path) = model(TIED);
         let out = PathBuf::from("no/such/dir/out.yaml");
         let (result, _) = capture(|c| decision_tree(c, &path, false, Some(out), false));
-        assert!(matches!(result, Err(ForgeError::Io(_))));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "IO error: No such file or directory (os error 2)"
+        );
+    }
+
+    #[test]
+    fn a_branch_with_nothing_on_it_is_an_error_from_the_analysis() {
+        let (_dir, path) = model(
+            "decision_tree:\n  name: T\n  root:\n    type: decision\n    name: Pick\n    branches:\n      a: {}\n",
+        );
+        let (result, _) = capture(|c| decision_tree(c, &path, false, None, false));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Formula evaluation error: Branch has neither value nor next node"
+        );
     }
 
     mod printed_numbers {
@@ -575,5 +563,14 @@ decision_tree:
             assert_eq!(after.optimal_choice.as_deref(), Some("raise_to_45_percent"));
             assert!(close(result.risk_profile.worst_case, 18.0, 1e-12));
         }
+    }
+
+    /// The root's name and how many nodes the tree lists are in the result
+    /// (T1-CLI-FROM-CORES).
+    #[test]
+    fn the_result_names_the_root_and_counts_the_nodes() {
+        let result = decision_tree_core(Path::new("examples/decision-tree.yaml")).unwrap();
+        assert_eq!(result.root_name, "Invest in R&D?");
+        assert_eq!(result.node_count, 4);
     }
 }

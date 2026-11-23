@@ -17,6 +17,10 @@ pub struct ScenarioDefinition {
     /// Scalar overrides for this scenario
     #[serde(default)]
     pub scalars: BTreeMap<String, ScalarOverride>,
+    /// What the scenario should give (ADR-074): read by the parser and
+    /// checked by `forge validate`; the weighing has no use for it
+    #[serde(default, skip_serializing)]
+    pub expect: serde::de::IgnoredAny,
 }
 
 /// A scalar override can be a fixed value or a Monte Carlo distribution
@@ -158,6 +162,7 @@ impl ScenarioDefinition {
             probability,
             description: String::new(),
             scalars: BTreeMap::new(),
+            expect: serde::de::IgnoredAny,
         }
     }
 
@@ -254,6 +259,36 @@ mod config_tests {
 
 #[cfg(test)]
 mod tests {
+    /// Each kind of override gives what it is, and nothing else.
+    #[test]
+    fn an_override_is_a_value_a_formula_or_a_date() {
+        use super::ScalarOverride;
+        let value = ScalarOverride::Value(2.5);
+        let formula = ScalarOverride::Formula {
+            formula: "=1 + 1".to_string(),
+        };
+        let date = ScalarOverride::Date("2026-01-31".to_string());
+        assert_eq!(value.as_value(), Some(2.5));
+        assert_eq!(formula.as_value(), None);
+        assert_eq!(date.as_value(), None);
+        assert_eq!(value.as_formula(), None);
+        assert_eq!(formula.as_formula(), Some("=1 + 1"));
+        assert_eq!(date.as_formula(), None);
+    }
+
+    /// A configuration lists its scenarios in name order and finds each by name.
+    #[test]
+    fn scenarios_are_listed_and_found_by_name() {
+        use super::{ScenarioConfig, ScenarioDefinition};
+        let mut config = ScenarioConfig::new();
+        config.add_scenario("b", ScenarioDefinition::new(0.4));
+        config.add_scenario("a", ScenarioDefinition::new(0.6));
+        assert_eq!(config.scenario_names(), ["a", "b"]);
+        assert!(config.has_scenario("a"));
+        assert!(!config.has_scenario("c"));
+        assert!((config.get_scenario("b").unwrap().probability - 0.4).abs() < 1e-15);
+        assert!(config.get_scenario("c").is_none());
+    }
 
     mod unweighted {
         //! `validate` names the scenarios without a probability (ADR-067)

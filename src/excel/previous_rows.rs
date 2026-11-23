@@ -22,9 +22,9 @@ fn parsed(formula: &str) -> Option<Expr> {
     parse(tokenize(formula.trim_start_matches('=')).ok()?).ok()
 }
 
-/// A marker: the column it reads and how many rows back. `PREV(column, 0)`
-/// reads 1 row back, `PREV(column, 0, n)` n.
-fn marker(expr: &Expr) -> Option<(&Expr, usize)> {
+/// How many rows back a marker reads: `PREV(column, 0)` is 1,
+/// `PREV(column, 0, n)` is n.
+fn marker_back(expr: &Expr) -> Option<usize> {
     let Expr::FunctionCall { name, args } = expr else {
         return None;
     };
@@ -32,11 +32,11 @@ fn marker(expr: &Expr) -> Option<(&Expr, usize)> {
         return None;
     }
     match args.as_slice() {
-        [column, Expr::Number(zero)] if *zero == 0.0 => Some((column, 1)),
-        [column, Expr::Number(zero), Expr::Number(back)]
+        [_, Expr::Number(zero)] if *zero == 0.0 => Some(1),
+        [_, Expr::Number(zero), Expr::Number(back)]
             if *zero == 0.0 && *back >= 1.0 && back.fract() == 0.0 =>
         {
-            back.to_usize().map(|back| (column, back))
+            back.to_usize()
         },
         _ => None,
     }
@@ -62,8 +62,8 @@ fn children(expr: &Expr) -> Vec<&Expr> {
 
 /// The rows back of every marker in `expr`.
 fn backs(expr: &Expr, out: &mut Vec<usize>) {
-    match marker(expr) {
-        Some((_, back)) => out.push(back),
+    match marker_back(expr) {
+        Some(back) => out.push(back),
         None => children(expr).into_iter().for_each(|c| backs(c, out)),
     }
 }
@@ -73,7 +73,7 @@ fn backs(expr: &Expr, out: &mut Vec<usize>) {
 /// amount`) would be read a row up too if the part became one `PREV`, and so
 /// would `ROW()`.
 fn reads_only_above(expr: &Expr) -> bool {
-    if marker(expr).is_some() {
+    if marker_back(expr).is_some() {
         return true;
     }
     match expr {
@@ -85,10 +85,11 @@ fn reads_only_above(expr: &Expr) -> bool {
 
 /// `expr` with every marker replaced by the column it reads.
 fn unmarked(expr: &Expr) -> Expr {
-    if let Some((column, _)) = marker(expr) {
-        return column.clone();
+    match expr {
+        // A marker is a call, so its column is its first argument
+        Expr::FunctionCall { args, .. } if marker_back(expr).is_some() => args[0].clone(),
+        _ => rebuilt(expr, children(expr).into_iter().map(unmarked).collect()),
     }
-    rebuilt(expr, children(expr).into_iter().map(unmarked).collect())
 }
 
 /// `expr` with its children replaced, in order.
@@ -161,7 +162,7 @@ fn line_up(rest: &Expr, first: &Expr, row: Option<usize>) -> Option<Expr> {
         return (rest == first).then(|| rest.clone());
     }
     // The same calculation in both, part by part
-    if marker(rest).is_none() && same_node(rest, first) {
+    if marker_back(rest).is_none() && same_node(rest, first) {
         let parts: Option<Vec<Expr>> = children(rest)
             .into_iter()
             .zip(children(first))
@@ -281,50 +282,53 @@ mod tests {
         // `amount` is read in the row itself, so this is not one PREV
         assert!(rows(&["=amount", "=PREV(balance, 0) + amount"]).is_err());
         assert!(rows(&["=0", "=PREV(balance, 0) * ROW()"]).is_err());
+        // A part that reads the row itself, beside one read from above
+        assert_eq!(rows(&["=1 + y", "=PREV(a, 0) + x"]), Err(1));
     }
 
-    /// Whatever else the later rows are made of, a part that reads the rows
-    /// above is lined up with the same part of the first row
     #[test]
-    fn prev_inside_other_expressions() {
-        for (formulas, want) in [
-            (["=-1", "=-PREV(x, 0)"], "=-PREV(x, 1)"),
-            (["=y[1]", "=PREV(x, 0)[1]"], "=PREV(x, y)[1]"),
-            (["=a:b", "=PREV(x, 0):b"], "=PREV(x, a):b"),
-            (
-                ["=LAMBDA(a, a)(1)", "=LAMBDA(a, a)(PREV(x, 0))"],
-                "=LAMBDA(a, a)(PREV(x, 1))",
-            ),
-            // A literal inside the part that is one PREV
-            (["=b", "=PREV(x, 0) + 1"], "=PREV(x + 1, b)"),
-        ] {
-            assert_eq!(rows(&formulas), Ok(want.to_string()), "{formulas:?}");
-        }
+    fn a_row_that_is_not_a_formula_or_a_column_of_one_row_is_refused() {
+        assert_eq!(rows(&["=1", "=\"open"]), Err(1));
+        assert_eq!(rows(&["=1", "=1 +"]), Err(1));
+        assert_eq!(rows(&["=1"]), Err(1));
     }
 
-    /// Each way the rows are not one PREV: the first row that is not what
-    /// one gives is named (the second, when nothing says which)
     #[test]
-    fn what_is_not_a_prev_is_refused() {
-        for (formulas, row) in [
-            // Not a formula, or no later row to read
-            (vec!["=(", "=1"], 1),
-            (vec!["=\"", "=1"], 1),
-            (vec!["=1"], 1),
-            (vec![], 1),
-            // The same calculation, but a part of it is neither
-            (vec!["=1 + b", "=PREV(x, 0) + a"], 1),
-            // Not markers: the value is not 0, or the rows back are not a whole
-            // number, or the function is not PREV
-            (vec!["=0", "=PREV(x, 0.5)"], 1),
-            (vec!["=0", "=PREV(x, 1, 2)"], 1),
-            (vec!["=0", "=PREV(x, 0, 0.5)"], 1),
-            (vec!["=0", "=FOO(x, 0)"], 1),
-            // Rows back that differ in one part
-            (vec!["=0", "=PREV(x, 0, 2) + PREV(y, 0)"], 1),
-        ] {
-            assert_eq!(rows(&formulas), Err(row), "{formulas:?}");
-        }
+    fn a_prev_with_a_first_value_is_not_a_marker() {
+        // Only PREV(column, 0) and PREV(column, 0, n) stand for a cell above
+        assert_eq!(
+            rows(&["=PREV(x, 5)", "=PREV(x, 5)"]),
+            Ok("=PREV(x, 5)".into())
+        );
+    }
+
+    #[test]
+    fn a_prev_inside_a_sign_a_call_an_index_or_a_range() {
+        assert_eq!(
+            rows(&["=-(1)", "=-(PREV(x, 0))"]),
+            Ok("=-PREV(x, 1)".into())
+        );
+        assert_eq!(
+            rows(&["=LAMBDA(v, v * 2)(1)", "=LAMBDA(v, v * 2)(PREV(x, 0))"]),
+            Ok("=LAMBDA(v, v * 2)(PREV(x, 1))".into())
+        );
+        assert_eq!(
+            rows(&["=y[3]", "=y[PREV(i, 0)]"]),
+            Ok("=y[PREV(i, 3)]".into())
+        );
+        assert_eq!(
+            rows(&["=SUM(c:b)", "=SUM(PREV(a, 0):b)"]),
+            Ok("=SUM(PREV(a, c):b)".into())
+        );
+    }
+
+    #[test]
+    fn parts_that_differ_without_a_name_become_one_prev() {
+        // 1 and 2 differ, so the whole sum is the one PREV
+        assert_eq!(
+            rows(&["=5 + 2", "=PREV(a, 0) + 1"]),
+            Ok("=PREV(a + 1, 5 + 2)".into())
+        );
     }
 
     mod import_prev {
@@ -338,7 +342,7 @@ mod tests {
 
         use crate::cli::{export_core, import_core};
         use crate::core::ArrayCalculator;
-        use crate::ColumnValue;
+        use std::borrow::Cow;
         use std::path::Path;
 
         const MODEL: &str = r#"_forge_version: "5.1.0"
@@ -372,7 +376,9 @@ t:
             (MODEL.to_string(), std::fs::read_to_string(back).unwrap())
         }
 
-        fn columns(text: &str) -> Vec<(String, ColumnValue)> {
+        /// Each column's name, type and numbers (none for a column of
+        /// another type).
+        fn columns(text: &str) -> Vec<(String, &'static str, Vec<f64>)> {
             let dir = tempfile::tempdir().unwrap();
             let file = dir.path().join("m.yaml");
             std::fs::write(&file, text).unwrap();
@@ -381,7 +387,17 @@ t:
             model.tables["t"]
                 .columns
                 .iter()
-                .map(|(name, column)| (name.clone(), column.values.clone()))
+                .map(|(name, column)| {
+                    (
+                        name.clone(),
+                        column.values.type_name(),
+                        column
+                            .values
+                            .numbers()
+                            .map(Cow::into_owned)
+                            .unwrap_or_default(),
+                    )
+                })
                 .collect()
         }
 

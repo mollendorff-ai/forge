@@ -59,14 +59,17 @@ mod tests {
 
         // FILTER should return [10, 30, 50]
         let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
-        if let Value::Array(arr) = result {
-            assert_eq!(arr.len(), 3);
-            assert_eq!(arr[0], Value::Number(10.0));
-            assert_eq!(arr[1], Value::Number(30.0));
-            assert_eq!(arr[2], Value::Number(50.0));
-        } else {
-            panic!("Expected array");
-        }
+        assert_eq!(
+            result,
+            Value::Array(
+                vec![
+                    Value::Number(10.0),
+                    Value::Number(30.0),
+                    Value::Number(50.0)
+                ]
+                .into()
+            )
+        );
     }
 
     #[test]
@@ -89,11 +92,7 @@ mod tests {
 
         // FILTER should return empty array
         let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
-        if let Value::Array(arr) = result {
-            assert_eq!(arr.len(), 0);
-        } else {
-            panic!("Expected array");
-        }
+        assert_eq!(result, Value::Array(vec![].into()));
     }
 
     #[test]
@@ -124,14 +123,30 @@ mod tests {
 
         // FILTER should return all values
         let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
-        if let Value::Array(arr) = result {
-            assert_eq!(arr.len(), 3);
-            assert_eq!(arr[0], Value::Number(100.0));
-            assert_eq!(arr[1], Value::Number(200.0));
-            assert_eq!(arr[2], Value::Number(300.0));
-        } else {
-            panic!("Expected array");
-        }
+        assert_eq!(
+            result,
+            Value::Array(
+                vec![
+                    Value::Number(100.0),
+                    Value::Number(200.0),
+                    Value::Number(300.0)
+                ]
+                .into()
+            )
+        );
+    }
+}
+
+#[cfg(test)]
+mod argument_tests {
+    use super::super::super::tests::{each_argument, fails_with};
+
+    #[test]
+    fn an_error_in_any_argument_is_the_filters_error() {
+        each_argument("FILTER", &[("1", None), ("TRUE", None)]);
+        // An error the criteria give when they are evaluated, not only a
+        // name checked before
+        fails_with("FILTER(1, 1/0)", "Division by zero");
     }
 }
 

@@ -648,9 +648,9 @@ games:
             ran.err
         );
         let ran = forge(&["game", &file, "--scenario", "nope"]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1, "{ran:?}");
         let ran = forge(&["game", "no/such/file.yaml"]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
+        assert_eq!(ran.code, 1, "{ran:?}");
         // A model that cannot be calculated at all (a cycle) stops the command
         let cycle = write(
             &dir,
@@ -662,8 +662,8 @@ games:
         // above was written over the model, so it is written again)
         let file = write(&dir, MODEL);
         let ran = forge(&["game", &file, "-o", dir.path().to_str().unwrap()]);
-        assert_eq!(ran.code, 1, "{}", ran.both());
-        assert!(ran.err.contains("IO error"), "{}", ran.both());
+        assert_eq!(ran.code, 1, "{ran:?}");
+        assert!(ran.err.contains("IO error"), "{ran:?}");
         let plain = write(&dir, "_forge_version: \"5.5.0\"\nx: 1\n");
         let ran = forge(&["game", &plain]);
         assert!(ran.err.contains("No 'games' section"), "{}", ran.err);
@@ -1053,6 +1053,77 @@ games:
                 one.contains("1. pure, stable: a population returns to it"),
                 "{one}"
             );
+        }
+
+        #[test]
+        fn the_bagel_shops_cut_across_the_city_and_fund_no_festival() {
+            // The price war across the city (examples/bagel/price_war.yaml),
+            // iterated in Python 3.12 from the plan's R, S, T and P (the
+            // price war's test in examples/mod.rs works them out):
+            //   x' = x f_hold / (x f_hold + (1 - x) f_cut), 24 times from 0.9
+            // gives 0.9913363782163622 cutting, 19189.979129372958 a month;
+            // half cut after 11 months (0.5474685); with loyal regulars
+            // (0.55) 0.023538895793148717 cut, 21406.839796760803 a month
+            let file = "examples/bagel/price_war.yaml";
+            let war = calculated(file, None);
+            let cut = value(&war, "war.cutting_in_two_years");
+            assert!((cut - 0.991_336_378_216_362_2).abs() < 1e-12, "{cut}");
+            let margin = value(&war, "war.city_margin_then");
+            assert!((margin - 19_189.979_129_372_958).abs() < 1e-8, "{margin}");
+            let loyal = calculated(file, Some("loyal_regulars"));
+            let cut = value(&loyal, "war.cutting_in_two_years");
+            assert!((cut - 0.023_538_895_793_148_717).abs() < 1e-12, "{cut}");
+            let out = forge(&["game", file, "--game", "price_war"]).printed();
+            assert!(
+                out.contains("Dynamics, 24 generations (baseline 0.00):"),
+                "{out}"
+            );
+            assert!(out.contains("11   0.452531   0.547469  19,685.06"), "{out}");
+
+            // The street's festival (examples/bagel/street_fund.yaml), by
+            // hand: a fee brings 8 dozen a day for 30 days at the plan's
+            // margin of 13.0238667, 3,125.728 to the street, 625.1456 to
+            // each shop; keeping pays 1,000 - 625.1456 = 374.8544 more
+            // whatever the others do, so all keep; all paying would give
+            // 5 x 625.1456 - 1,000 = 2,125.728 each. Paying pays from a
+            // lift of 1,000 x 5 / (30 x 13.0238667) = 12.797019 dozen
+            let file = "examples/bagel/street_fund.yaml";
+            // Sums of products of decimals: within 1e-9 of the hand figures
+            let near = |a: f64, b: f64| (a - b).abs() < 1e-9;
+            let street = calculated(file, None);
+            assert!(near(value(&street, "festival.share_of_a_fee"), 625.1456));
+            assert!(close(value(&street, "street.pure_equilibria"), 1.0));
+            assert!(close(
+                value(&street, "street.equilibrium_1.fruiterer.keep"),
+                1.0
+            ));
+            assert!(close(value(&street, "outcome.each_gets"), 0.0));
+            assert!(near(value(&street, "outcome.if_all_paid"), 2_125.728));
+            assert!(near(
+                value(&street, "outcome.keeping_pays_more_by"),
+                374.8544
+            ));
+            assert!(near(
+                value(&street, "outcome.lift_that_pays"),
+                12.797_018_806_498_8
+            ));
+            assert!(close(value(&street, "street.dominated.cafe.pay"), 1.0));
+            // Matched by the borough, or with twice the lift, a shop's own
+            // fee earns it 1,250.2912, and all five pay: 5,251.456 each
+            for scenario in ["borough_matches", "bigger_lift"] {
+                let paid = calculated(file, Some(scenario));
+                assert!(
+                    close(value(&paid, "street.equilibrium_1.lune.pay"), 1.0),
+                    "{scenario}"
+                );
+                assert!(
+                    near(value(&paid, "outcome.each_gets"), 5_251.456),
+                    "{scenario}"
+                );
+            }
+            let out = forge(&["game", file]).printed();
+            assert!(out.contains("lune: keep (payoff 0.00)"), "{out}");
+            assert!(out.contains("lune: pay 875.44, keep 1,250.29"), "{out}");
         }
 
         #[test]

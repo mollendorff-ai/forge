@@ -2,7 +2,7 @@
 
 > **Note (2026-11-08):** 100% is a goal, not a gate: neither the Makefile nor CI fails below 100% (`make coverage` reports, CI reads the function percentage for a badge).
 >
-> **Note (2026-11-16):** the maintainer has made 100% coverage non-negotiable again, as a gate, with no exceptions and no skipping: lines, functions and regions, no coverage-only code and no ignored test (CLAUDE.md). The Coverage job in ci.yml now fails below a floor that only rises, to 100, and `make coverage` fails below 100; `tests/no_skipping.rs` counts what is still skipped (roadmap T1-COVERAGE-GATE, T1-NO-SKIPPING). The 2026-11-08 note above no longer describes CI.
+> **Note (2026-11-16):** the maintainer has made 100% coverage non-negotiable again, as a gate, with no exceptions and no skipping: lines, functions and regions, no coverage-only code and no ignored test (CLAUDE.md). The Coverage job in ci.yml now fails below a floor that only rises, to 100, and `make coverage` fails below 100; `tests/no_skipping.rs` (now `validation/repo/src/no_skipping.rs`) counts what is still skipped (roadmap T1-COVERAGE-GATE, T1-NO-SKIPPING). The 2026-11-08 note above no longer describes CI.
 
 **Status:** Accepted
 **Date:** 2025-12-04
@@ -287,9 +287,9 @@ PR Merge Requirements:
 
 - [ADR-001: HTTP REST Over gRPC](ADR-001-NO-GRPC.md)
 - [ADR-002: Variance YAML Only](ADR-002-VARIANCE-YAML-ONLY.md)
-- [ADR-003: Editor Extension Architecture](ADR-003-EDITOR-EXTENSIONS.md)
+- ADR-003: Editor Extension Architecture (removed; superseded by [ADR-005](ADR-005-NO-LSP.md))
 - [07-TESTING-ARCHITECTURE](07-TESTING-ARCHITECTURE.md)
 
 ---
 
-**Previous:** [ADR-003](ADR-003-EDITOR-EXTENSIONS.md)
+**Previous:** [ADR-002](ADR-002-VARIANCE-YAML-ONLY.md)

@@ -72,7 +72,7 @@ mod tests {
         let doc = read("docs/PROMPTS.md");
         let line = INSTALL_LINE;
         let prompts = prompts(&doc);
-        assert_eq!(prompts.len(), 6, "docs/PROMPTS.md has six prompts");
+        assert_eq!(prompts.len(), 7, "docs/PROMPTS.md has seven prompts");
         for (i, prompt) in prompts.iter().enumerate() {
             let n = i + 1;
             assert!(
@@ -106,6 +106,9 @@ mod tests {
             "examples/bagel/bagel_simulate.yaml",
             "examples/bagel/second_shop.yaml",
             "examples/bagel/wait_option.yaml",
+            "examples/bagel/price_war.yaml",
+            "examples/games/inspection.yaml",
+            "examples/games/axelrod.yaml",
             "examples/starter.yaml",
         ] {
             assert!(root.join(file).exists(), "{file}");
@@ -118,6 +121,9 @@ mod tests {
             ("bagel_simulate.yaml", "bagel_simulate.yaml"),
             ("second_shop.yaml", "second_shop.yaml"),
             ("wait_option.yaml", "wait_option.yaml"),
+            ("price_war.yaml", "bagel/price_war.yaml"),
+            ("inspection.yaml", "games/inspection.yaml"),
+            ("axelrod.yaml", "games/axelrod.yaml"),
         ] {
             assert!(doc.contains(path), "docs/PROMPTS.md names {name}");
         }

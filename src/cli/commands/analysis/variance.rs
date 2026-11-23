@@ -15,24 +15,7 @@ use std::path::Path;
 
 use crate::cli::commands::display_number;
 
-/// Variance result for a single variable
-#[derive(Debug, Clone)]
-pub struct VarianceResult {
-    pub name: String,
-    pub budget: f64,
-    pub actual: f64,
-    pub variance: f64,
-    pub variance_pct: f64,
-    /// `false` when the percentage means nothing (n/m): the budget is zero,
-    /// or the budget and the actual have opposite signs
-    pub pct_meaningful: bool,
-    /// `None` when Forge cannot tell whether higher or lower is better
-    pub is_favorable: Option<bool>,
-    /// "higher", "lower" or "unknown": which way is good, and so how
-    /// `is_favorable` was decided
-    pub better: &'static str,
-    pub exceeds_threshold: bool,
-}
+use crate::cli::commands::results::VarianceEntry;
 
 /// Compute variance analysis and return structured results (no printing).
 ///
@@ -62,23 +45,8 @@ pub fn variance_core(
     let on_target_count = variances.iter().filter(|v| on_target(v)).count();
     let alert_count = variances.iter().filter(|v| v.exceeds_threshold).count();
 
-    let entries = variances
-        .into_iter()
-        .map(|v| crate::cli::commands::results::VarianceEntry {
-            name: v.name,
-            budget: v.budget,
-            actual: v.actual,
-            variance: v.variance,
-            variance_pct: v.variance_pct,
-            pct_meaningful: v.pct_meaningful,
-            is_favorable: v.is_favorable,
-            better: v.better.to_string(),
-            exceeds_threshold: v.exceeds_threshold,
-        })
-        .collect();
-
     Ok(crate::cli::commands::results::VarianceAnalysis {
-        results: entries,
+        results: variances,
         favorable_count,
         unfavorable_count,
         no_direction_count,
@@ -108,26 +76,14 @@ pub fn variance(
     outln!(c, "   Actual: {}", actual_path.display());
     outln!(c, "   Threshold: {threshold}%\n");
 
-    // Parse both files
     if verbose {
         outln!(c, "{}", "📖 Parsing YAML files...".cyan());
     }
-
-    let budget_model = parser::parse_model(budget_path)?;
-    let actual_model = parser::parse_model(actual_path)?;
-
-    // Calculate both models
+    let analysis = variance_core(budget_path, actual_path, threshold)?;
     if verbose {
         outln!(c, "{}", "🧮 Calculating formulas...".cyan());
     }
-
-    let budget_calculator = ArrayCalculator::new(budget_model);
-    let budget_result = budget_calculator.calculate_all()?;
-
-    let actual_calculator = ArrayCalculator::new(actual_model);
-    let actual_result = actual_calculator.calculate_all()?;
-
-    let (variances, not_compared) = collect_variances(&budget_result, &actual_result, threshold);
+    let variances = &analysis.results;
 
     // Handle output
     if let Some(output_path) = output {
@@ -138,7 +94,7 @@ pub fn variance(
 
         match extension {
             "xlsx" => {
-                export_variance_to_excel(output_path, &variances, threshold)?;
+                export_variance_to_excel(output_path, variances, threshold)?;
                 outln!(
                     c,
                     "{}",
@@ -148,7 +104,7 @@ pub fn variance(
                 );
             },
             "yaml" | "yml" => {
-                export_variance_to_yaml(output_path, &variances, threshold)?;
+                export_variance_to_yaml(output_path, variances, threshold)?;
                 outln!(
                     c,
                     "{}",
@@ -165,39 +121,32 @@ pub fn variance(
         }
     } else {
         // Print to terminal
-        print_variance_table(c, &variances, threshold);
+        print_variance_table(c, variances, threshold);
     }
 
     // Summary
-    let count = |f: Option<bool>| {
-        variances
-            .iter()
-            .filter(|v| !on_target(v) && v.is_favorable == f)
-            .count()
-    };
-    let alert_count = variances.iter().filter(|v| v.exceeds_threshold).count();
-
+    let alert_count = analysis.alert_count;
     outln!(c);
     outln!(c, "   {} Favorable: {}  {} Unfavorable: {}  · No direction: {}  = On target: {}  {} Alerts (>{:.0}%): {}",
         "✅".green(),
-        count(Some(true)).to_string().green(),
+        analysis.favorable_count.to_string().green(),
         "❌".red(),
-        count(Some(false)).to_string().red(),
-        count(None),
-        variances.iter().filter(|v| on_target(v)).count(),
+        analysis.unfavorable_count.to_string().red(),
+        analysis.no_direction_count,
+        analysis.on_target_count,
         "⚠️".yellow(),
         threshold,
         alert_count.to_string().yellow()
     );
-    if count(None) > 0 {
+    if analysis.no_direction_count > 0 {
         outln!(c, "   For a scalar with no direction, add `better: lower` (costs) or `better: higher` to it."
         );
     }
-    if !not_compared.is_empty() {
+    if !analysis.not_compared.is_empty() {
         outln!(
             c,
             "   Not compared (missing or empty in one model, or a date): {}",
-            not_compared.join(", ")
+            analysis.not_compared.join(", ")
         );
     }
 
@@ -300,7 +249,7 @@ fn collect_variances(
     budget_result: &crate::types::ParsedModel,
     actual_result: &crate::types::ParsedModel,
     threshold: f64,
-) -> (Vec<VarianceResult>, Vec<String>) {
+) -> (Vec<VarianceEntry>, Vec<String>) {
     let mut variances = Vec::new();
     let mut not_compared = Vec::new();
 
@@ -349,7 +298,7 @@ fn collect_variances(
             variance_abs.abs() > 0.0
         };
 
-        variances.push(VarianceResult {
+        variances.push(VarianceEntry {
             name: name.clone(),
             budget: budget_val,
             actual: actual_val,
@@ -357,7 +306,7 @@ fn collect_variances(
             variance_pct,
             pct_meaningful,
             is_favorable,
-            better,
+            better: better.to_string(),
             exceeds_threshold,
         });
     }
@@ -383,12 +332,12 @@ pub fn pct_is_meaningful(budget: f64, actual: f64) -> bool {
     actual == 0.0 || budget.is_sign_positive() == actual.is_sign_positive()
 }
 
-fn on_target(v: &VarianceResult) -> bool {
+fn on_target(v: &VarianceEntry) -> bool {
     same(v.actual, v.budget)
 }
 
 /// The status word for a variance, for the terminal, Excel and YAML reports.
-fn variance_status(v: &VarianceResult) -> &'static str {
+fn variance_status(v: &VarianceEntry) -> &'static str {
     if on_target(v) {
         return "On target";
     }
@@ -407,7 +356,7 @@ fn variance_status(v: &VarianceResult) -> &'static str {
 /// # Errors
 ///
 /// Returns an error if the output cannot be written.
-pub fn print_variance_table(c: &mut Console<'_>, variances: &[VarianceResult], threshold: f64) {
+pub fn print_variance_table(c: &mut Console<'_>, variances: &[VarianceEntry], threshold: f64) {
     // As wide as the longest name, so every column lines up
     let w = variances
         .iter()
@@ -492,7 +441,7 @@ pub fn print_variance_table(c: &mut Console<'_>, variances: &[VarianceResult], t
 /// Returns an error if the Excel workbook cannot be created or saved.
 pub fn export_variance_to_excel(
     output: &Path,
-    variances: &[VarianceResult],
+    variances: &[VarianceEntry],
     threshold: f64,
 ) -> ForgeResult<()> {
     #[cfg(not(feature = "excel"))]
@@ -511,7 +460,7 @@ pub fn export_variance_to_excel(
 #[cfg(feature = "excel")]
 fn export_variance_to_excel_with_xlsx(
     output: &Path,
-    variances: &[VarianceResult],
+    variances: &[VarianceEntry],
     threshold: f64,
 ) -> ForgeResult<()> {
     use rust_xlsxwriter::{Format, Workbook};
@@ -595,11 +544,9 @@ fn export_variance_to_excel_with_xlsx(
 /// Returns an error if the output file cannot be created or written.
 pub fn export_variance_to_yaml(
     output: &Path,
-    variances: &[VarianceResult],
+    variances: &[VarianceEntry],
     threshold: f64,
 ) -> ForgeResult<()> {
-    use std::io::Write as IoWrite;
-
     let mut content = String::new();
     content.push_str("# Forge Variance Analysis Report\n");
     content.push_str(concat!(
@@ -643,12 +590,81 @@ pub fn export_variance_to_yaml(
         let _ = writeln!(content, "    exceeds_threshold: {}", v.exceeds_threshold);
     }
 
-    let mut file = fs::File::create(output)
-        .map_err(|e| ForgeError::Export(format!("Failed to create file: {e}")))?;
-    file.write_all(content.as_bytes())
+    fs::write(output, content)
         .map_err(|e| ForgeError::Export(format!("Failed to write file: {e}")))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod comparing_tests {
+    use super::{collect_variances, export_variance_to_yaml};
+    use crate::types::{ParsedModel, Variable};
+
+    fn model(scalars: &[(&str, Option<f64>)]) -> ParsedModel {
+        let mut model = ParsedModel::new();
+        for (name, value) in scalars {
+            model.add_scalar(
+                name.to_string(),
+                Variable::new(name.to_string(), *value, None),
+            );
+        }
+        model
+    }
+
+    /// A scalar one model lacks, or has no value for, is named and not
+    /// compared: a missing value is not a 0.
+    #[test]
+    fn what_has_no_value_in_both_models_is_not_compared() {
+        let budget = model(&[
+            ("a", Some(10.0)),
+            ("b", None),
+            ("c", Some(5.0)),
+            ("d", Some(1.0)),
+        ]);
+        let actual = model(&[("a", Some(12.0)), ("b", Some(1.0)), ("c", None)]);
+        let (variances, not_compared) = collect_variances(&budget, &actual, 0.1);
+        let compared: Vec<&str> = variances.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(compared, ["a"]);
+        assert_eq!(not_compared, ["b", "c", "d"]);
+    }
+
+    /// The command says the same when the report is a YAML file it cannot write.
+    #[test]
+    fn the_command_cannot_write_a_yaml_report_where_there_is_no_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = |name: &str| {
+            let path = dir.path().join(name);
+            std::fs::write(&path, "_forge_version: \"5.1.0\"\ns:\n  x: 1\n").unwrap();
+            path.to_string_lossy().into_owned()
+        };
+        let output = dir.path().join("no-such-folder").join("v.yaml");
+        let ran = crate::cli::forge(&[
+            "variance",
+            &file("budget.yaml"),
+            &file("actual.yaml"),
+            "--output",
+            &output.to_string_lossy(),
+        ]);
+        assert_eq!(ran.code, 1, "{ran:?}");
+        assert_eq!(
+            ran.err,
+            "Error: Excel export error: Failed to write file: No such file or directory (os error 2)\n"
+        );
+    }
+
+    /// A report that cannot be written is an export error, for the file named.
+    #[test]
+    fn a_variance_report_that_cannot_be_written_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("no-such-folder").join("v.yaml");
+        assert_eq!(
+            export_variance_to_yaml(&output, &[], 0.1)
+                .unwrap_err()
+                .to_string(),
+            "Excel export error: Failed to write file: No such file or directory (os error 2)"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -965,7 +981,7 @@ mod tests {
 
         #[test]
         fn each_status_word_names_the_direction_and_the_alert() {
-            let line = |actual, exceeds, favorable| VarianceResult {
+            let line = |actual, exceeds, favorable| VarianceEntry {
                 name: "x".to_string(),
                 budget: 1.0,
                 actual,
@@ -973,7 +989,7 @@ mod tests {
                 variance_pct: 0.0,
                 pct_meaningful: true,
                 is_favorable: favorable,
-                better: "unknown",
+                better: "unknown".to_string(),
                 exceeds_threshold: exceeds,
             };
             assert_eq!(variance_status(&line(1.0, false, None)), "On target");

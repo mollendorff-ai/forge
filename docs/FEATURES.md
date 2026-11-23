@@ -10,6 +10,7 @@ The reference for what Forge does, one section per feature. For a first model, s
 # Core Operations
 forge validate <files...>           # Validate YAML model(s)
 forge calculate <file>              # Execute all formulas
+forge edit <file> --set year.price=17  # Change the model's text, comments kept
 forge audit <file> <variable>       # Trace formula dependencies
 forge watch <file>                  # Validate and calculate again on every save
 forge report <file>                 # A calculated file's scalars side by side
@@ -112,11 +113,13 @@ year:
 
 Comments, quotes, blank lines, key order and inputs stay as you typed them, and a `.yaml.bak` keeps the previous file. If the results cannot be written without changing anything else, Forge leaves the file alone and says so. `--dry-run` shows the results without writing. A stored `value` can be out of date after you change an input, as with any saved result: run `forge calculate` again, and `forge validate` reports any value that no longer matches its formula.
 
+**`forge edit` changes the model's text, and nothing else (ADR-075).** `--set year.price=17` sets an input, `--formula 'year.margin==year.profit / year.revenue'` a formula, `--add year.tax=0.15` or `--add 'year.net==year.profit * 0.85'` adds an input or a formula (a column, in a table) at the end of its group, in the indentation of the keys there, and `--delete year.old_fee` takes one out with the lines under it, leaving a comment above it. `@costs.rent` is changed in the file included as `costs`. Every other byte stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else: otherwise no file is written, and the message says why. The MCP tool `forge_edit` takes the same changes as JSON. Results are not written by `edit`: `forge calculate` writes them.
+
 **Anchors and aliases work; a YAML merge key does not (ADR-071).** `players: &roster [a, b]` and later `players: *roster` reuse a whole block. A merge key, `<<: *base`, is refused wherever it is written, in the model, an included file or an analysis section, with its place: `'scenarios.more.<<' is a YAML merge key (<<), which Forge does not read`. YAML 1.2 dropped merge keys, and a reader in 1.2 mode would see a different model; write the keys out, or make the change a scenario.
 
 How Forge reads a group under a top-level key: it is a **table** if any entry is a list or a period column (`{start, count, unit}`, below); otherwise a **group of scalars** if any entry is a number or has `value:` or `formula:`. In a group of scalars, a formula needs the `formula:` form, because a bare string has no place to hold its result.
 
-**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads seven formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included), `5.1.0` (5.0.0 plus the short form above), `5.2.0` (5.1.0 plus the period column, needed only by a file that has one; `forge upgrade --to 5.2.0`), `5.3.0` (5.2.0 plus the empty cell, below; `forge upgrade --to 5.3.0`) `5.4.0` (5.3.0 plus a date as a scalar and `format:`, below; `forge upgrade --to 5.4.0`) and `5.5.0` (5.4.0 plus games, below; `forge upgrade --to 5.5.0`). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
+**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads eight formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included), `5.1.0` (5.0.0 plus the short form above), `5.2.0` (5.1.0 plus the period column, needed only by a file that has one; `forge upgrade --to 5.2.0`), `5.3.0` (5.2.0 plus the empty cell, below; `forge upgrade --to 5.3.0`) `5.4.0` (5.3.0 plus a date as a scalar and `format:`, below; `forge upgrade --to 5.4.0`) `5.5.0` (5.4.0 plus games, below; `forge upgrade --to 5.5.0`) and `5.6.0` (5.5.0 plus `expect:`, below; `forge upgrade --to 5.6.0`). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
 
 ---
 
@@ -231,7 +234,10 @@ The full list, by category, is in [FUNCTIONS.md](FUNCTIONS.md); `forge functions
 - **A scalar can be a date** (format 5.4.0, ADR-060): `last_actual: 2026-10-31`, or `value: 2026-10-31`. It is read as a cell of a date column is: `=YEAR(inputs.last_actual)` is 2026, `">" & inputs.last_actual` is a criterion on dates, `=LEFT(inputs.last_actual, 4)` is `2026`. A formula scalar whose value is a date (`=EOMONTH(last_actual, 12)`, `=DATE(2026, 10, 31)`) is a date too. Both print as dates in `calculate`, `report`, `compare`, `audit` and Forge Studio, are text in JSON (`"2026-10-31"`), are written back as dates in a 5.4.0 file (as the day number in an older one), and are date cells in the exported workbook. A date is a full day from 1900-03-01 on and has no `unit:`; a month (`2026-10`) is refused with the form to write. A scenario can give a date input another date. `sensitivity`, `goal-seek`, `break-even`, `tornado` and `probability-seek` do not vary a date input, and `variance` lists a date among the scalars it does not compare.
 - `+` adds: `"5" + 1` is 6, and text that is not a number or a date is `#VALUE!`. `&` joins text: `=name & "-" & d`.
 - `TEXT(value, format)` reads these Excel format codes: digits `0` and `#`, a point, `,` between digits, `%`, `E+00`, text in quotes (and `$ - + ( ) :` and spaces as they are), and for dates `yy yyyy`, `m mm mmm mmmm`, `d dd ddd dddd`, with names in English; and (ADR-061) up to three sections `positive;negative;zero` (the negative one has no minus of its own: `#,##0;(#,##0)`), a colour in brackets (`[Red]`, no text), `_x` (a space), `*x` (nothing) and a run of `,` after the last digit, each dividing by 1,000 (`0.0,,"M"`). Any other code (a fourth section, a condition such as `[>1000]`, a locale tag, times, fractions) is an error that says which part Forge does not read.
-- **`format:` beside `unit:`** (format 5.4.0, ADR-061) says how a number is shown, with any code `TEXT` reads: `price: {value: 16, format: "$#,##0.00"}`, a data column `{value: [...], format: "0%"}`, a formula column `{formula: "=...", format: "#,##0;(#,##0)"}`, and a date code on a date (`"mmm yyyy"`). It never changes the value: `calculate`, the file it writes and every value in JSON stay as they are. `forge export` writes the code into each cell, `forge import` reads it back where a column's cells share one, `forge report`'s table and Markdown show the formatted text (CSV and JSON the value), and so do the terminal output of `forge calculate` (the formatted value, then the full value in brackets: `year.margin = 0.2%  (0.00203274189215848)`; a column's formatted values are separated by `;`, as a format may write commas), `forge scenarios` and `forge compare`'s table and Markdown, JSON has a `formatted` map beside the values, and Forge Studio shows what Forge formats. A code Forge does not read, a date code on a number and a number code on a date are refused. A formula column's long form keeps its `unit:` and `notes:` too (they were dropped).
+
+### How a number is shown (`format:`)
+
+`format:`, beside `unit:` (format 5.4.0, ADR-061), says how a number is shown, with any code `TEXT` reads: `price: {value: 16, format: "$#,##0.00"}`, a data column `{value: [...], format: "0%"}`, a formula column `{formula: "=...", format: "#,##0;(#,##0)"}`, and a date code on a date (`"mmm yyyy"`). It never changes the value: `calculate`, the file it writes and every value in JSON stay as they are. `forge export` writes the code into each cell, `forge import` reads it back where a column's cells share one, `forge report`'s table and Markdown show the formatted text (CSV and JSON the value), and so do the terminal output of `forge calculate` (the formatted value, then the full value in brackets: `year.margin = 0.2%  (0.00203274189215848)`; a column's formatted values are separated by `;`, as a format may write commas), `forge scenarios` and `forge compare`'s table and Markdown, JSON has a `formatted` map beside the values, and Forge Studio shows what Forge formats. A code Forge does not read, a date code on a number and a number code on a date are refused. A formula column's long form keeps its `unit:` and `notes:` too (they were dropped).
 
 ---
 
@@ -269,20 +275,25 @@ games:
 
 - **What Forge works out:** strictly dominated strategies, removed one at a time (by another of the player's own strategies; weak dominance is noted, not removed); every pure equilibrium, for any number of players; every mixed equilibrium for two players with at most ten strategies each, by support enumeration, the method nashpy uses; for a game marked symmetric with two strategies, of any number of players, every mixed equilibrium in which all players play alike, and whether a population returns to it (below); and each strategy's payoff when the others play each of theirs equally often. In a degenerate game, where a tie can give a whole line of equilibria, the list may be incomplete, and `degenerate` is 1.
 - **A symmetric game of two strategies, of any number of players:** when every other player plays the first strategy with probability *x*, it pays more than the second by *g*(*x*) = Σₖ C(*n*−1, *k*) *x*ᵏ (1−*x*)ⁿ⁻¹⁻ᵏ *d*ₖ, where *d*ₖ is the difference with *k* of the others playing it (ADR-073). Each root of *g* between 0 and 1 is an equilibrium in which every player plays the first strategy with probability *x*. These follow the pure ones, by increasing *x*, and the list of them is complete: a root where *g* touches 0 without changing sign is found too. `<game>.equilibrium_<k>.stable` is 1 when a population returns to that equilibrium after a small change in the shares (*g* falls through 0 there) and 0 when it moves away; it exists for every equilibrium in which all play alike, pure or mixed, two players included. Mixed equilibria in which players mix differently are not looked for when there are more than two players, so such a game has no `equilibria` count, and the report says so. When the two strategies pay the same however many of the others play each (the public goods game at *r* = *n*), every mix is an equilibrium: `degenerate` is 1, the tie is named and none of the mixes is listed. [`examples/games/volunteers-dilemma.yaml`](../examples/games/volunteers-dilemma.yaml) has five players, one of whom must volunteer: each does with probability 1 − 0.4^(1/4) = 0.2047, and nobody does with probability 0.318.
-- **Strategies that spread, `dynamics:`** (ADR-073): in a symmetric game, of any number of players and strategies, the share of each strategy in a population, generation by generation, by the discrete replicator equation *x*′ₛ = *x*ₛ (*f*ₛ + *b*) / (*f̄* + *b*). *f*ₛ is what strategy *s* pays against the population, over every way the other players' strategies can fall; *f̄* is the average and *b* is `baseline` (0 if not given). It is exact arithmetic, with no step size. `start` gives every strategy's share, adding up to 1; `generations` is a whole number from 1 to 100,000; each of the three can be a formula, so a scenario or a tornado moves them. A strategy that is played and pays no more than minus the baseline would take its share below 0: it is refused with the strategy, the generation and a baseline that is enough (above minus the least payoff in the table). `<game>.dynamics.share.<strategy>` and `<game>.dynamics.payoff` are the shares and the average payoff after the last generation; `forge game` prints every generation, and `-o` writes them as `dynamics.path`. [`examples/games/hawk-dove.yaml`](../examples/games/hawk-dove.yaml) goes from 10% hawks to *V*/*C* = 2/3; in [`examples/games/stag-hunt.yaml`](../examples/games/stag-hunt.yaml) every hunter hunts the stag from a start of 0.8 and the hare from 0.7, either side of the mix at 3/4. Checked every generation against egttools (`validation/games/dynamics.py`). Continuous time, mutation and finite populations are left out (ADR-073).
+- **`forge game model.yaml`** prints each game's dominated strategies, equilibria, ties and even-mix payoffs (`--game NAME` for one game, `--scenario NAME`, `-o FILE` for YAML or JSON, which also has every cell's payoffs). Forge Studio shows the same on its Model view, worked out again as the inputs change, and its Games set opens the models of `examples/games`. A game of three or more players alike is drawn by count, one row for a player's own strategy and one column for each way the others split (the public goods game's 32 profiles are 10 numbers), with its pure equilibria listed by split; a game with `dynamics:` has a chart of the shares, generation by generation, and the path as a table.
+- **The results are scalars** named under the game, which any formula and any command can read: `inspection.pure_equilibria`, `inspection.equilibria`, `inspection.degenerate`, `inspection.equilibrium_1.human.audit` (the probability; pure equilibria first, in table order, then mixed ones), `inspection.equilibrium_1.human.payoff`, `inspection.dominated.ai.cheat` (1 or 0), `inspection.even_mix.ai.cheat`, and, in a symmetric game of two strategies, `vd.equilibrium_6.stable` (1 or 0). `forge calculate` prints them and does not write them into the file. A name the game does not have (`equilibrium_2` of a game with one) is an error that says how many it has, so a sweep that crosses a change in the number of equilibria stops there rather than read another one under the same name.
+- **Checked:** every equilibrium in the tests is checked with nashpy 0.0.43 or by hand. In the example above the human audits a third of the time and the AI cheats a third of the time; with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third.
+- **Excel:** `forge export` does not write the payoff formulas, since Excel cannot find an equilibrium. The results are written as numbers as of the export and do not follow the inputs, and the export warns and names the games.
+- **Not in this format:** mixed equilibria for three or more players in which players mix differently, and any with three or more strategies (their pure equilibria are found), extensive-form games (moves in turn), auctions and continuous strategies, dominance by a mix of strategies, and strategies written by the user. Strategy shares that change by generation are `dynamics:` (below).
+
+### Strategies that spread (`dynamics:`)
+
+In a symmetric game, of any number of players and strategies, the share of each strategy in a population, generation by generation, by the discrete replicator equation *x*′ₛ = *x*ₛ (*f*ₛ + *b*) / (*f̄* + *b*). *f*ₛ is what strategy *s* pays against the population, over every way the other players' strategies can fall; *f̄* is the average and *b* is `baseline` (0 if not given). It is exact arithmetic, with no step size. `start` gives every strategy's share, adding up to 1; `generations` is a whole number from 1 to 100,000; each of the three can be a formula, so a scenario or a tornado moves them. A strategy that is played and pays no more than minus the baseline would take its share below 0: it is refused with the strategy, the generation and a baseline that is enough (above minus the least payoff in the table). `<game>.dynamics.share.<strategy>` and `<game>.dynamics.payoff` are the shares and the average payoff after the last generation; `forge game` prints every generation, and `-o` writes them as `dynamics.path`. [`examples/games/hawk-dove.yaml`](../examples/games/hawk-dove.yaml) goes from 10% hawks to *V*/*C* = 2/3; in [`examples/games/stag-hunt.yaml`](../examples/games/stag-hunt.yaml) every hunter hunts the stag from a start of 0.8 and the hare from 0.7, either side of the mix at 3/4. Checked every generation against egttools (`validation/games/dynamics.py`), and again in R from the payoffs alone (`validation/games/many_players.R`), which also finds the symmetric mixed equilibria as polynomial roots. Continuous time, mutation and finite populations are left out (ADR-073).
 
 ```yaml
+games:
+  hawk_dove:
+    # players, strategies, symmetric: true and payoffs as above
     dynamics:
       start: {hawk: 0.1, dove: 0.9}   # every strategy, adding up to 1
       generations: 200
       baseline: 5                     # added to every payoff in the equation
 ```
-
-- **`forge game model.yaml`** prints each game's dominated strategies, equilibria, ties and even-mix payoffs (`--game NAME` for one game, `--scenario NAME`, `-o FILE` for YAML or JSON, which also has every cell's payoffs). Forge Studio shows the same on its Model view, worked out again as the inputs change, and its Games set opens the models of `examples/games`. A game of three or more players alike is drawn by count, one row for a player's own strategy and one column for each way the others split (the public goods game's 32 profiles are 10 numbers), with its pure equilibria listed by split; a game with `dynamics:` has a chart of the shares, generation by generation, and the path as a table.
-- **The results are scalars** named under the game, which any formula and any command can read: `inspection.pure_equilibria`, `inspection.equilibria`, `inspection.degenerate`, `inspection.equilibrium_1.human.audit` (the probability; pure equilibria first, in table order, then mixed ones), `inspection.equilibrium_1.human.payoff`, `inspection.dominated.ai.cheat` (1 or 0), `inspection.even_mix.ai.cheat`, and, in a symmetric game of two strategies, `vd.equilibrium_6.stable` (1 or 0). `forge calculate` prints them and does not write them into the file. A name the game does not have (`equilibrium_2` of a game with one) is an error that says how many it has, so a sweep that crosses a change in the number of equilibria stops there rather than read another one under the same name.
-- **Checked:** every equilibrium in the tests is checked with nashpy 0.0.43 or by hand. In the example above the human audits a third of the time and the AI cheats a third of the time; with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third.
-- **Excel:** `forge export` does not write the payoff formulas, since Excel cannot find an equilibrium. The results are written as numbers as of the export and do not follow the inputs, and the export warns and names the games.
-- **Not in this format:** mixed equilibria for three or more players in which players mix differently, and any with three or more strategies (their pure equilibria are found), extensive-form games (moves in turn), auctions and continuous strategies, dominance by a mix of strategies, strategies written by the user, and strategy shares that change by generation.
 
 ### Tournaments
 
@@ -433,6 +444,27 @@ A model that cannot be read answers in the same shape with the operation's flag 
 
 ---
 
+## Goal Seek, Break-Even and Sensitivity
+
+Three questions about one input and one result, asked of any model without changing it:
+
+- **Goal seek** (`forge goal-seek`): what must an input be for a result to reach a target? Forge searches by bisection between bounds it chooses, or `--min` and `--max`, until the result is within `--tolerance` (0.0001) of the target.
+- **Break-even** (`forge break-even`): goal seek with a target of 0, where a result such as a profit or a margin crosses zero.
+- **Sensitivity** (`forge sensitivity`): a result over a range of one input (`--range start,end,step`), or over a grid of two (`--vary2`, `--range2`).
+
+A name can be written without its group (`price_per_dozen` for `assumptions.price_per_dozen`) when only one scalar has it. On the bagel shop ([`examples/bagel`](../examples/bagel/README.md)):
+
+```bash
+forge break-even examples/bagel/bagel.yaml --output-var year.profit --vary assumptions.price_per_dozen
+# 15.97 a dozen breaks even
+forge goal-seek examples/bagel/bagel.yaml --target year.profit --value 60000 --vary assumptions.staff_hours_per_day
+# 24.27 staff hours a day give a profit of 60,000
+```
+
+The same are the MCP tools `forge_goal_seek`, `forge_break_even` and `forge_sensitivity` ([MCP.md](MCP.md)), and Forge Studio's Analyze tab, whose "Use this value" writes the answer into the model. For an uncertain model, `forge simulate --seek` finds the input that gives a result a chance of passing a threshold ([Seeking a probability](#seeking-a-probability)).
+
+---
+
 ## Monte Carlo Simulation (`forge simulate`)
 
 A model gets uncertain inputs as `MC.*` formulas; `forge simulate` samples them thousands of times, calculates the whole model for each sample, and reports each output's spread, the probability of thresholds, and which inputs drive it.
@@ -504,7 +536,7 @@ The price barely drives profit: a higher price brings fewer units (the correlati
 
 Every argument is a finite number: `inf`, `NaN` and a literal too large for a number (`1E+400`) are refused with the scalar and the argument named, and so is a distribution whose `max - min` or whose draws would overflow (`MC.Normal(0, 1E+308)`).
 
-An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}`); a bare string is an error in a scalar group. It can also be in an included file: the input is then named `@costs.ingredients.flour_per_kg`, and `examples/bagel/costs_risk.yaml` shows the pattern (it reads the certain prices from `costs.yaml` and makes two uncertain). A table column can be one too (`shock: "=MC.Normal(0, 0.06)"`): each row is then drawn on its own, as an input named `years.shock (row 2)`, so a column of yearly shocks is a path rather than one draw repeated, and the rows are independent; `examples/realestate/realestate_flex.yaml` shows it. The plan value of each row is the distribution's mode, mean or midpoint. `forge calculate` cannot evaluate `MC.*` and says to run `forge simulate`, naming each scalar and column.
+An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}`); a bare string is an error in a scalar group. It can also be in an included file: the input is then named `@costs.ingredients.flour_per_kg`, and `examples/bagel/costs_risk.yaml` shows the pattern (it reads the certain prices from `costs.yaml` and makes two uncertain). A table column can be one too (`shock: "=MC.Normal(0, 0.06)"`): each row is then drawn on its own, as an input named `years.shock (row 2)`, so a column of yearly shocks is a path rather than one draw repeated, and the rows are independent; `examples/realestate/realestate_flex.yaml` shows it. The plan value of each row is the distribution's mode, mean or midpoint. `forge calculate` cannot evaluate `MC.*` and says to run `forge simulate`, naming each scalar and column. `forge calculate --plan` calculates the model once with each uncertain input at its plan figure, the one `forge simulate` gives each output's value at plan with, after the scenario if there is one, prints those figures and writes nothing: it is how Forge Studio shows an uncertain model on its cards (ADR-076). The MCP `forge_calculate` tool, the REST API and forge-wasm take `plan: true`, and their answer's `at_plan` lists the figures.
 
 ### Settings (`monte_carlo:`)
 
@@ -585,6 +617,33 @@ A scenario's overrides are numbers. To see a scenario's spread, give the uncerta
 
 A key under `scalars:` can be a bare name (`growth`, when exactly one group has a `growth`), a full name (`assumptions.growth`), or a value from an included file (`"@costs.prices.flour"`, quoted because YAML keys cannot start with `@`). The included file is then calculated with the new value, so formulas that read it change too. A name that matches nothing is an error that suggests the closest scalar; it used to be ignored, which gave the base numbers under the scenario's name.
 
+### Stating what a scenario gives (`expect:`, format 5.6.0, ADR-074)
+
+A model can say what it should give, for the file as written and for each scenario, and `forge validate` checks it. `value:` beside a formula is the result `forge calculate` last stored, so `validate` asks whether the file is up to date. `expect:` is written by a person and never by Forge, so `validate` asks whether the model still gives what was checked somewhere else: by hand, in a spreadsheet, with another library.
+
+```yaml
+_forge_version: "5.6.0"
+c: 0
+
+expect:                          # the file as written
+  kinship.stag_share: =3/4
+  kinship.crossover_c: 1
+
+scenarios:
+  c3:
+    scalars: {c: 1.5}
+    expect: {kinship.stag_share: =3/8, kinship.coop_wins: 1}
+```
+
+- **A name** is any scalar the calculation gives, named as `forge calculate` prints it: an input, a formula, or a game's result (`stag_hunt.equilibrium_3.me.stag`). A bare name is found as a scenario's override is. A name the model does not give is a difference, not a pass.
+- **A value** is a number, or a formula over numbers only (`=2/11`, `=-19/15`). A formula that reads a name is refused: an expectation is stated, not worked out by the model.
+- **The tolerance** is 10⁻⁶ × max(1, |expected|): absolute below 1, relative above. `value:` keeps its 0.0001.
+- **`forge validate`** calculates the file and each scenario that has an `expect:`, and lists every result that differs, with the scenario, the name and both numbers: `❌ 1 of 11 expected results differ (the file as written and 4 scenarios)`, then `scenario c1`, `kinship.stag_share`, `Expected: 0.555556 (=5/9)`, `Forge: 0.625`. A scenario that does not calculate fails it, named. A scenario without an `expect:` is not calculated. The MCP tool `forge_validate`, `POST /api/v1/validate` and Forge Studio give the same report as data (`expectation_differences`), and `forge_calculate` gives the expectations of the run it calculates (`expectations`). Studio shows each one on its card, under the scenario applied, and keeps an edit that moves a result away from it.
+- **`forge calculate --scenario` writes nothing.** It wrote the scenario's results into the file's own `value:`s, which `validate` then reported as out of date; under a scenario it now prints the results and says why it wrote none. `expect:` is never written by Forge: an expectation Forge rewrote would follow a bug.
+- **Before 5.6.0**, a scenario's `expect:` is refused with the format that has it, and a top-level group named `expect` is a group, as it was. `forge upgrade --to 5.6.0` refuses a file with such a group, so that nothing reads differently.
+
+[`examples/games/stag-hunt.yaml`](../examples/games/stag-hunt.yaml) states its mixed equilibrium, (3 − c) / 4, at each cost, and where the population ends, all worked out by hand.
+
 ### CLI Usage
 
 ```bash
@@ -594,8 +653,11 @@ forge scenarios revenue_model.yaml --output results.yaml
 # Show one scenario (the expected values still cover all of them)
 forge scenarios revenue_model.yaml --scenario bull_case
 
-# Calculate the whole model under one scenario
-forge calculate revenue_model.yaml --scenario bull_case --dry-run
+# Calculate the whole model under one scenario (nothing is written)
+forge calculate revenue_model.yaml --scenario bull_case
+
+# Check what the file and each scenario state they should give (expect:)
+forge validate revenue_model.yaml
 ```
 
 ### Output
@@ -662,7 +724,7 @@ Decision Trees model sequential decisions and chance events as a tree structure.
 ### Configuration
 
 ```yaml
-_forge_version: "8.4.0"
+_forge_version: "5.1.0"
 
 decision_tree:
   name: "R&D Investment Decision"
@@ -780,7 +842,7 @@ Real Options Analysis values the flexibility to make future decisions (defer, ex
 ### Configuration
 
 ```yaml
-_forge_version: "8.5.0"
+_forge_version: "5.1.0"
 
 real_options:
   name: "Factory Investment"
@@ -891,7 +953,7 @@ Tornado Diagrams identify which input variables have the biggest impact on outpu
 ### Configuration
 
 ```yaml
-_forge_version: "8.6.0"
+_forge_version: "5.1.0"
 
 tornado:
   output: "valuation.npv"       # Variable to analyze
@@ -1014,7 +1076,7 @@ Bootstrap Resampling generates confidence intervals by resampling from historica
 ### Configuration
 
 ```yaml
-_forge_version: "8.7.0"
+_forge_version: "5.1.0"
 
 bootstrap:
   iterations: 10000             # Number of bootstrap samples
@@ -1048,7 +1110,7 @@ bootstrap:
 ### Example: Revenue Growth Bootstrap
 
 ```yaml
-_forge_version: "8.7.0"
+_forge_version: "5.1.0"
 
 # Historical quarterly revenue growth rates (last 7.5 years)
 bootstrap:
@@ -1200,7 +1262,7 @@ bayesian_network:
 
 ### Inference Queries
 
-Queries are command-line options. The file holds only the network.
+`forge bayesian` asks the network what the command line asks. The file can also name queries of its own, whose answers are scalars of the model (see [A network that reads and feeds the model](#a-network-that-reads-and-feeds-the-model)).
 
 ```bash
 # Probabilities for every node
@@ -1228,6 +1290,47 @@ forge bayesian examples/bayesian.yaml -o inference.yaml
 | `economic_conditions` given `default_probability=high` | good 16.73%, neutral 46.26%, bad 37.01% |
 
 These match a hand enumeration of the joint distribution. A bad economy is 20% likely beforehand; seeing a high default risk raises it to 37%.
+
+### A network that reads and feeds the model
+
+A network is part of the model (ADR-074). Three things make it so:
+
+- **A probability can be a formula over the model's scalars.** Any entry of a `prior` or a `cpt` row is a number or a formula (`"=outlook.p_bad"`). The formulas are worked out after the scalars they read, under the scenario applied. Each row must then still add up to 1, with every entry from 0 to 1. Otherwise the calculation fails, naming the node (and, in `forge validate` or `forge bayesian --scenario`, the scenario). Text that is not a formula is refused when the file is read.
+- **`forge bayesian --scenario <name>`** works the network out under a scenario's overrides. The MCP tool `forge_bayesian` and forge-wasm's `bayesian` take `scenario` too.
+- **Named queries give posteriors as scalars.** Each query under `queries` names a `node` and, optionally, `evidence` (a state of each node known). It gives `bayesian_network.<query>.<state>` for each state of the node, which formulas, `expect:`, `forge simulate` outputs and `forge tornado` read like any scalar. The network is calculated as a game is: after the cells its formulas read, before the formulas that read its results. A network that reads its own results is a cycle, and is refused. Queries are checked when the file is read: a node or state that does not exist is named, with the query.
+
+`examples/expected_loss.yaml` feeds a probability of default given the economy into an expected loss:
+
+```yaml
+_forge_version: "5.6.0"
+outlook: {p_bad: 0.2, p_neutral: 0.5}
+loan: {exposure: 1000000, recovery: 0.4}
+
+bayesian_network:
+  nodes:
+    economy:
+      states: [good, neutral, bad]
+      prior: ["=1 - outlook.p_neutral - outlook.p_bad", "=outlook.p_neutral", "=outlook.p_bad"]
+    revenue: {states: [high, medium, low], parents: [economy], cpt: {...}}
+    default: {states: ["no", "yes"], parents: [revenue], cpt: {...}}
+  queries:
+    any_year: {node: default}
+    bad_year: {node: default, evidence: {economy: bad}}
+    after_default: {node: economy, evidence: {default: "yes"}}
+
+loss:
+  expected:
+    formula: "=bayesian_network.any_year.yes * loan.exposure * (1 - loan.recovery)"
+```
+
+| Result | As written | Recession (`p_bad` 0.5, `p_neutral` 0.3) |
+|--------|-----------:|------------------------------------------:|
+| `bayesian_network.any_year.yes` | 0.0975 | 0.1254 |
+| `loss.expected` | 58,500 | 75,240 |
+| `bayesian_network.bad_year.yes` | 0.173 | 0.173 |
+| `bayesian_network.after_default.bad` | 346/975 | 865/1254 |
+
+The file works the same figures out with Bayes' rule in formulas of its own (`by_hand`), and its `expect:` pins both, in the file and in each scenario, so `forge validate` checks variable elimination against arithmetic. An included file's network gives its results by the include's alias, as its other scalars do: `@alias.bayesian_network.<query>.<state>`. A file has one network, in any of its documents. Left out (ADR-074): `=BAYES()`, evidence that changes by scenario or comes from a formula, and soft evidence.
 
 ### Network Topology
 

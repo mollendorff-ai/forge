@@ -10,6 +10,7 @@ Forge - Git-native financial modeling
 
 COMMANDS:
   calculate     - Execute formulas, update values
+  edit          - Change values and formulas, comments kept
   validate      - Check model integrity
   audit         - Trace formula dependencies
   functions     - List all 203 supported functions
@@ -32,13 +33,14 @@ COMMANDS:
   export        - YAML -> Excel (.xlsx) with formulas
   import        - Excel -> YAML
   watch         - Auto-calculate on save
-  upgrade       - Upgrade YAML to latest schema
+  upgrade       - Upgrade a model to a newer format
   update        - Check for updates and self-update
   mcp           - Start MCP server for AI integration
   serve         - Start HTTP REST API server
 
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
+  forge edit model.yaml --set year.price=17     # Change an input
   forge simulate model.yaml --iterations 10000  # Monte Carlo
   forge scenarios model.yaml                    # Scenario analysis
   forge decision-tree model.yaml                # Decision tree
@@ -54,6 +56,7 @@ Usage: forge <COMMAND>
 
 Commands:
   calculate      Calculate all formulas in a YAML file
+  edit           Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, comments kept
   audit          Show audit trail for a specific variable
   validate       Validate formulas without calculating
   export         Export a model to an Excel .xlsx workbook
@@ -76,7 +79,7 @@ Commands:
   functions      List all supported Excel-compatible functions
   schema         Display JSON schema for model validation
   examples       Show example YAML models for Forge capabilities
-  upgrade        Upgrade YAML files to latest schema version
+  upgrade        Upgrade a model to a newer format
   update         Check for updates and install latest version
   mcp            Start MCP server for AI integration (JSON-RPC over stdio)
   serve          Start HTTP REST API server
@@ -117,6 +120,10 @@ CROSS-FILE REFERENCES:
 When a value changes, the file as it was is kept next to it as
 model.yaml.bak. Use --dry-run to preview changes without modifying files.
 
+Nothing is written under --scenario (a scenario states its results under its
+expect:, which forge validate checks) or --plan, which calculates an uncertain
+model (MC.* inputs) with each uncertain input at its plan figure.
+
 Usage: forge calculate [OPTIONS] <FILE>
 
 Arguments:
@@ -133,6 +140,84 @@ Options:
   -s, --scenario <SCENARIO>
           Scenario name to apply (uses variable overrides from 'scenarios' section)
 
+      --plan
+          Calculate an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge simulate` does for its value at plan. Never writes the file
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## edit
+
+```
+Change a model's text: set an input's value or a formula, add or delete an
+input, a formula or a table's column, or rename a scalar, a group, a table, a
+column, a game, a player or a strategy and every name that reads it (formulas,
+scenarios, expectations, a simulation's outputs, a tornado's inputs, a game's
+results, in every file of the model), or make
+an input uncertain (a distribution, its value kept as the plan) and certain
+again, in the model or in a file it includes (@alias.name). Every byte outside
+the change stays as it was, comments and layout included. A change is made
+only when Forge reads the model back valid, with that change and nothing else;
+when one cannot be made, no file is written and the message says why. Each
+file that changes is kept as it was next to it (model.yaml.bak). Results are
+not written: forge calculate does.
+
+A name is written as formulas read it: price, year.price, a table's column
+months.sales, or @costs.rent in the file included as costs. The changes are
+made in this order: --changes, --set, --formula, --add, --delete, --rename,
+--uncertain, --certain.
+
+EXAMPLES:
+  forge edit model.yaml --set year.price=17
+  forge edit model.yaml --formula 'year.margin==year.profit / year.revenue'
+  forge edit model.yaml --add year.tax=0.15 --add 'year.net==year.profit * 0.85'
+  forge edit model.yaml --add fee=25 --after rate          # At the top level
+  forge edit model.yaml --delete year.old_fee --dry-run
+  forge edit model.yaml --rename year.price=unit_price   # And every name that reads it
+  forge edit model.yaml --rename price_war.strategies.hold=keep   # A game's strategy
+  forge edit model.yaml --uncertain year.price           # A triangle, 80% to 120%
+  forge edit model.yaml --uncertain 'year.price==MC.PERT(12, 16, 22)'
+  forge edit model.yaml --certain year.price             # Back to its value
+  forge edit model.yaml --changes '[{"op": "add", "path": "year.fee", "value": 25, "unit": "CAD"}]'
+
+Usage: forge edit [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          The model file
+
+Options:
+      --set <PATH=VALUE>
+          Set an input: PATH=VALUE (a number, or a date 2026-01-31)
+
+      --formula <PATH==FORMULA>
+          Set a formula: PATH==FORMULA (the formula's = after the name's)
+
+      --add <PATH=VALUE>
+          Add an input, PATH=VALUE, or a formula or table column, PATH==FORMULA
+
+      --after <NAME>
+          The top-level name an added top-level name follows
+
+      --delete <PATH>
+          Delete an input, a formula or a column, with the lines under it
+
+      --rename <PATH=NAME>
+          Rename a scalar, a group, a table, a column, a game, a player or a strategy, and every name that reads it: PATH=NAME, the new name one word (year.price=cost, rivalry.players.steady=calm)
+
+      --uncertain <PATH>
+          Make an input uncertain: PATH, or PATH==DISTRIBUTION (=MC.PERT(1, 2, 3))
+
+      --certain <PATH>
+          Make a distribution an input again: PATH, or PATH=VALUE to keep
+
+      --changes <JSON>
+          Changes as JSON, as Forge's MCP edit tool takes them
+
+  -n, --dry-run
+          Show the new text without writing the files
+
   -h, --help
           Print help (see a summary with '-h')
 ```
@@ -140,10 +225,11 @@ Options:
 ## validate
 
 ```
-Validate formulas without calculating.
+Validate a model's stored results, and what it states it should give.
 
 Checks that the result stored next to each formula is what the formula
-calculates to, with the included files calculated first.
+calculates to, with the included files calculated first, and that each
+expectation (expect:) is met.
 
 CROSS-FILE REFERENCES:
   Formulas may read included files with @alias.name:
@@ -158,6 +244,13 @@ CROSS-FILE REFERENCES:
 NOTE: Only the stored results of the files given are checked. To check an
   included file's own stored results, give it too:
   forge validate model.yaml pricing.yaml
+
+EXPECTED RESULTS (format 5.6.0, ADR-074): what the file and each scenario
+  should give, by any name forge calculate prints (a game's results too), as
+  a number or a formula over numbers. Each scenario with one is calculated,
+  and every result that differs by more than 1e-6 (relative above 1) is named
+  with the scenario and both numbers:
+  scenarios: {costly: {scalars: {c: 0.5}, expect: {kinship.barrier: =2/11}}}
 
 BATCH VALIDATION:
   forge validate file1.yaml file2.yaml file3.yaml
@@ -230,7 +323,8 @@ Options:
 ## import
 
 ```
-Import an Excel .xlsx workbook as a Forge model (format 5.1.0).
+Import an Excel .xlsx workbook as a Forge model (format 5.1.0, or 5.3.0
+with empty cells, 5.4.0 with dates or formats).
 
 Reads the layout forge export writes, and plain workbooks too:
   A sheet whose header is Name, Value -> a scalar group (Scalars -> ungrouped)
@@ -775,6 +869,8 @@ The versions are model formats (_forge_version), not Forge versions:
   v5.3.0 - v5.2.0 plus the empty cell, null in a column of numbers (ADR-059)
   v5.4.0 - v5.3.0 plus a date as a scalar (ADR-060) and format: (ADR-061)
   v5.5.0 - v5.4.0 plus games: payoff tables of formulas, and their equilibria (ADR-068)
+  v5.6.0 - v5.5.0 plus expect: what the file and each scenario should give,
+           checked by forge validate (ADR-074)
 
 EXAMPLES:
   forge schema                # List available versions
@@ -785,7 +881,7 @@ Usage: forge schema [OPTIONS] [VERSION]
 
 Arguments:
   [VERSION]
-          Schema version to display (v1, v5, v5.1 ... v5.5, 1.0.0, 5.0.0, 5.1.0 ... 5.5.0)
+          Schema version to display (v1, v5, v5.1 ... v5.6, 1.0.0, 5.0.0, 5.1.0 ... 5.6.0)
 
 Options:
   -l, --list
@@ -809,8 +905,12 @@ Start a new model from `starter`; the others show Forge's analysis commands:
   tornado       - One-at-a-time sensitivity analysis
   bootstrap     - Non-parametric confidence intervals
   bayesian      - Probabilistic graphical models
+  expected-loss - A network's posterior feeding an expected loss
   variance      - Budget vs actual analysis
   breakeven     - Break-even calculations
+  stag-hunt, chicken, axelrod, inspection, noisy-tournament,
+  battle-of-the-sexes, continuation, public-goods, volunteers-dilemma,
+  hawk-dove     - Games: equilibria, tournaments and dynamics
 
 EXAMPLES:
   forge examples                    # List all examples
@@ -839,7 +939,8 @@ Options:
 ## upgrade
 
 ```
-Upgrade a model and its includes to the latest model format (5.1.0).
+Upgrade a model and its includes to a newer model format: 5.1.0 by
+default, up to 5.6.0 with --to.
 
 _forge_version is the model format version, not the Forge version.
 Creates backups before modifying files.
@@ -850,10 +951,12 @@ TO 5.1.0 (default, ADR-051):
   - Edited in place: comments, quotes and layout are kept
   - Checked: the converted file must read as the same model, or it is not written
 
-TO 5.2.0, 5.3.0, 5.4.0 OR 5.5.0 (ADR-053, ADR-059, ADR-060, ADR-061, ADR-068):
+TO 5.2.0, 5.3.0, 5.4.0, 5.5.0 OR 5.6.0 (ADR-053, ADR-059, ADR-060, ADR-061,
+ADR-068, ADR-074):
   - As to 5.1.0, with the _forge_version a period column (5.2.0), an empty
-    cell (5.3.0), a date or a format: (5.4.0) or a game (5.5.0) needs. 5.1.0
-    changes that line.
+    cell (5.3.0), a date or a format: (5.4.0), a game (5.5.0) or expect:
+    (5.6.0) needs. 5.1.0 changes that line. A file with a group named
+    expect is not upgraded to 5.6.0: rename the group first.
 
 TO 5.0.0 (from 1.0.0):
   - Splits scalars into inputs/outputs by formula presence, keeping metadata
@@ -915,10 +1018,14 @@ YAML CONFIGURATION:
     iterations: 10000
     sampling: latin_hypercube  # spreads samples evenly; steadier results per iteration
     seed: 12345                # For reproducibility
+    correlations:              # rank correlation between two MC.* inputs
+      - variables: [revenue, costs]
+        coefficient: 0.5
     outputs:
       - variable: valuation.npv
         percentiles: [10, 50, 90]
         thresholds: ["> 0", "> 250000"]
+        expected_shortfall: [5]  # mean of the worst 5% of runs
 
   assumptions:
     revenue:
@@ -1241,18 +1348,73 @@ Options:
 ## game
 
 ```
-Find the equilibria of the games in a model, and play its tournaments
+Find the dominated strategies and the equilibria of the games in a model,
+and play its tournaments.
+
+A game is a payoff table of numbers or formulas in the 'games' section of a
+model (format 5.5.0). Every payoff can read the rest of the model, so a
+scenario or an analysis command moves the game with it.
+
+REPORTS, PER GAME:
+  - Strategies strictly dominated by another of the player's own, in the
+    order they are removed; weakly dominated ones are named, not removed
+  - Pure-strategy Nash equilibria, for any number of players
+  - Mixed equilibria, for two players with at most ten strategies each
+    (support enumeration); a tie that makes the list possibly incomplete
+    is named as degenerate
+  - Each strategy's payoff against an even mix of the others' strategies
+  - In a symmetric game of two strategies, the mixes in which all play
+    alike, for any number of players, and whether a population returns
+    to each equilibrium in which all play alike (stable)
+  - With a dynamics: key, in a symmetric game, the share of each strategy
+    generation by generation (the discrete replicator equation), from a
+    start, with a baseline added to every payoff
+
+A tournament plays a symmetric game of two strategies (cooperate, defect)
+round after round, between built-in strategies: always_cooperate,
+always_defect, tit_for_tat, suspicious_tit_for_tat, tit_for_two_tats,
+grim_trigger, win_stay_lose_shift, generous_tit_for_tat (forgive) and
+random (cooperate). A match lasts a number of rounds, or goes on after each
+round with a chance (continuation), and noise flips each move with a chance.
+The values are exact expected values, not samples.
+
+REPORTS, PER TOURNAMENT:
+  - Each player's score (payoff per round over its matches), rank and share
+    of moves that cooperate
+  - The match table: each player's payoff per round against each other
+  - The collectively stable players: none does better against one than it
+    does against itself
+
+The same numbers are scalars named under the game, which formulas and the
+other commands can read: stag_hunt.equilibrium_1.me.stag, stag_hunt.equilibria,
+stag_hunt.even_mix.me.hare, stag_hunt.equilibrium_3.stable,
+hawk_dove.dynamics.share.hawk, hawk_dove.dynamics.payoff, axelrod.score.tft,
+axelrod.match.tft.ad, axelrod.stable.grim, and so on.
+
+EXAMPLES:
+  forge game model.yaml                       # Every game in the model
+  forge game model.yaml --game stag_hunt      # One game
+  forge game model.yaml --scenario costly     # With a scenario's overrides
+  forge game model.yaml -o equilibria.json    # Write the results (JSON or YAML)
 
 Usage: forge game [OPTIONS] <FILE>
 
 Arguments:
-  <FILE>  Path to YAML file with a games section
+  <FILE>
+          Path to YAML file with a games section
 
 Options:
-  -g, --game <GAME>          Only this game
-  -s, --scenario <SCENARIO>  Scenario name to apply (uses variable overrides from 'scenarios' section)
-  -o, --output <OUTPUT>      Output file (.yaml or .json)
-  -h, --help                 Print help
+  -g, --game <GAME>
+          Only this game
+
+  -s, --scenario <SCENARIO>
+          Scenario name to apply (uses variable overrides from 'scenarios' section)
+
+  -o, --output <OUTPUT>
+          Output file (.yaml or .json)
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ## bootstrap
@@ -1269,7 +1431,9 @@ YAML CONFIGURATION:
     confidence_levels: [0.90, 0.95, 0.99]
     seed: 12345
     data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12]
-    statistic: mean  # or median, std, var
+    statistic: mean  # or median, std, var, min, max, percentile
+    # percentile_value: 90  # with statistic: percentile
+    method: bca      # the interval: percentile (default), basic or bca
 
 OUTPUT:
   - Original statistic value
@@ -1317,6 +1481,7 @@ Bayesian networks are probabilistic graphical models for causal reasoning.
 Uses Variable Elimination algorithm for efficient inference.
 
 YAML CONFIGURATION:
+  _forge_version: "5.6.0"
   bayesian_network:
     name: "Credit Risk"
     nodes:
@@ -1336,10 +1501,17 @@ YAML CONFIGURATION:
   A node with several parents (parents: [a, b]) has one CPT row per
   combination of their states, in that order: "x, y": [...]
 
+  A prior or a CPT entry may be a formula over the model's scalars
+  ("=1 - risk.p"), worked out under --scenario. Named queries give
+  posteriors as scalars formulas can read, bayesian_network.<query>.<state>:
+    queries:
+      in_a_bad_year: {node: default_probability, evidence: {economic_conditions: bad}}
+
 EXAMPLES:
   forge bayesian model.yaml                           # Query all nodes
-  forge bayesian model.yaml --query default_prob      # Query specific node
-  forge bayesian model.yaml -e economy=bad            # Set evidence
+  forge bayesian model.yaml --query default_probability   # Query one node
+  forge bayesian model.yaml -e economic_conditions=bad    # Set evidence
+  forge bayesian model.yaml --scenario stress             # Under a scenario
 
 Usage: forge bayesian [OPTIONS] <FILE>
 
@@ -1353,6 +1525,9 @@ Options:
 
   -e, --evidence <EVIDENCE>
           Evidence in format var=state (can repeat)
+
+  -s, --scenario <SCENARIO>
+          Work the network out under a scenario's overrides (a probability may be a formula over the model's scalars)
 
   -o, --output <OUTPUT>
           Output file (.yaml)
@@ -1384,11 +1559,12 @@ CONFIGURATION:
     }
   }
 
-AVAILABLE TOOLS (20):
-  Core:      forge_validate, forge_calculate, forge_audit, forge_export, forge_import
+AVAILABLE TOOLS (22):
+  Core:      forge_validate, forge_calculate, forge_edit, forge_audit, forge_export,
+             forge_import
   Analysis:  forge_sensitivity, forge_goal_seek, forge_break_even, forge_variance, forge_compare
   Engines:   forge_simulate, forge_scenarios, forge_decision_tree, forge_real_options,
-             forge_tornado, forge_bootstrap, forge_bayesian
+             forge_tornado, forge_bootstrap, forge_bayesian, forge_game
   Discovery: forge_schema, forge_functions, forge_examples
 
 FILES:
@@ -1418,7 +1594,8 @@ Options:
 ```
 Start HTTP REST API server.
 
-Provides RESTful endpoints for all Forge operations:
+Provides five operations on model files over HTTP (the other analyses are
+MCP tools and commands):
   POST /api/v1/validate  - Validate YAML model files
   POST /api/v1/calculate - Calculate formulas (with dry-run support)
   POST /api/v1/audit     - Audit variable dependency trees

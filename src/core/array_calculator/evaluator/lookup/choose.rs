@@ -247,4 +247,10 @@ mod tests {
         use crate::core::array_calculator::evaluator::tests as h;
         h::fails_with("CHOOSE(\"x\", 1, 2)", "index must be a number");
     }
+
+    #[test]
+    fn an_error_in_any_argument_is_the_error() {
+        use crate::core::array_calculator::evaluator::tests::each_argument;
+        each_argument("CHOOSE", &[("1", None), ("2", None)]);
+    }
 }

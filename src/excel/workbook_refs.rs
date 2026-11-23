@@ -604,11 +604,9 @@ impl WorkbookRefs {
                     i = end;
                     continue;
                 },
-                Token::CloseBrace
-                | Token::Semicolon
-                | Token::Colon
-                | Token::OpenBracket
-                | Token::CloseBracket => return Err(no_equivalent(token)),
+                Token::CloseBrace | Token::Semicolon => {
+                    return Err("{ } or ; outside an array constant".to_string());
+                },
                 Token::Number(n) => out.push_str(&number_text(*n)),
                 Token::Text(t) => {
                     let _ = write!(out, "\"{}\"", t.replace('"', "\"\""));
@@ -665,10 +663,18 @@ impl WorkbookRefs {
                 },
                 Token::Comma => {
                     let Some(call) = calls.last_mut() else {
-                        return Err("a , outside a function call has no Excel equivalent".into());
+                        return Err("a comma outside a call".to_string());
                     };
                     call.1 += 1;
                     out.push_str(", ");
+                },
+                // Forge reads `a:b` as the text of its two ends; Excel would
+                // read a range
+                Token::Colon => {
+                    return Err("a range a:b has no Excel equivalent".to_string());
+                },
+                Token::OpenBracket | Token::CloseBracket => {
+                    return Err("array indexing [ ] has no Excel equivalent".to_string());
                 },
             }
             after_value = match token {
@@ -695,34 +701,40 @@ impl WorkbookRefs {
         has_range: &mut bool,
     ) -> Result<Option<(String, usize)>, String> {
         let next_is_paren = matches!(tokens.get(i + 1), Some(Token::OpenParen));
-        // Forge's own functions, written out as the Excel expression that
-        // computes the same thing
-        if let Some((word, function)) = ForgeFunction::called_at(tokens, i) {
-            let close =
-                matching_paren(tokens, i + 1).ok_or_else(|| format!("{word}: missing )"))?;
-            let given = split_arguments(&tokens[i + 2..close]);
-            let args = given
-                .iter()
-                .map(|arg| {
-                    if arg.is_empty() {
-                        return Err(format!("{word}: an argument is empty"));
-                    }
-                    self.translate(arg, ctx, calls, locals, has_range)
-                })
-                .collect::<Result<Vec<String>, String>>()?;
-            let text = function.to_excel(word, &args, given.get(2).copied())?;
-            return Ok(Some((text, close + 1)));
-        }
         match &tokens[i] {
+            // Forge's own functions, written out as the Excel expression
+            // that computes the same thing
+            Token::Identifier(word)
+                if next_is_paren && FORGE_FUNCTIONS.contains(&word.to_uppercase().as_str()) =>
+            {
+                let close =
+                    matching_paren(tokens, i + 1).ok_or_else(|| format!("{word}: missing )"))?;
+                let args = split_arguments(&tokens[i + 2..close])
+                    .into_iter()
+                    .map(|arg| {
+                        if arg.is_empty() {
+                            return Err(format!("{word}: an argument is empty"));
+                        }
+                        self.translate(arg, ctx, calls, locals, has_range)
+                    })
+                    .collect::<Result<Vec<String>, String>>()?;
+                let third = split_arguments(&tokens[i + 2..close])
+                    .get(2)
+                    .map(|t| t.to_vec());
+                Ok(Some((
+                    forge_function(word, &args, third.as_deref())?,
+                    close + 1,
+                )))
+            },
             // LET, LAMBDA called at once and COUNTUNIQUE: written as the
             // Excel expression that means the same (`local_names`)
             Token::Identifier(word)
                 if next_is_paren
                     && local_names::HANDLED.contains(&word.to_uppercase().as_str()) =>
             {
-                let (text, length) =
-                    self.translate_special(word, &tokens[i..], ctx, calls, locals, has_range)?;
-                Ok(Some((text, i + length)))
+                let (text, end) =
+                    self.translate_special(tokens, (word, i), ctx, calls, locals, has_range)?;
+                Ok(Some((text, end)))
             },
             // PREV and ROW(): the row above, and the table's row number
             Token::Identifier(word)
@@ -773,27 +785,14 @@ impl WorkbookRefs {
     }
 }
 
-/// Why a token that means something else in Excel, or nothing, is refused.
-fn no_equivalent(token: &Token) -> String {
-    match token {
-        Token::CloseBrace | Token::Semicolon => "{ } or ; outside an array constant",
-        // Forge reads `a:b` as the text of both values with a `:` between,
-        // and Excel as the range from one to the other
-        Token::Colon => "a range with : has no Excel equivalent: Forge reads it as text",
-        _ => "array indexing [ ] has no Excel equivalent",
-    }
-    .to_string()
-}
-
 /// Forge's own functions that are written to Excel as an expression.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ForgeFunction {
-    Variance,
-    VariancePct,
-    VarianceStatus,
-    BreakevenUnits,
-    BreakevenRevenue,
-}
+const FORGE_FUNCTIONS: [&str; 5] = [
+    "VARIANCE",
+    "VARIANCE_PCT",
+    "VARIANCE_STATUS",
+    "BREAKEVEN_UNITS",
+    "BREAKEVEN_REVENUE",
+];
 
 /// Index of the `)` that closes the `(` at `open`.
 fn matching_paren(tokens: &[Token], open: usize) -> Option<usize> {
@@ -838,70 +837,47 @@ fn split_arguments(tokens: &[Token]) -> Vec<&[Token]> {
     args
 }
 
-impl ForgeFunction {
-    /// The function called at `tokens[i]`, as written, if it is one of these.
-    fn called_at(tokens: &[Token], i: usize) -> Option<(&str, Self)> {
-        let Token::Identifier(word) = &tokens[i] else {
-            return None;
-        };
-        if !matches!(tokens.get(i + 1), Some(Token::OpenParen)) {
-            return None;
+/// The Excel expression for one of [`FORGE_FUNCTIONS`], from its translated
+/// arguments. Each computes what Forge computes; where Forge returns an error
+/// (a margin of zero or less), Excel returns #N/A. `third` is the third
+/// argument's tokens, for `VARIANCE_STATUS`, whose meaning depends on its type.
+fn forge_function(name: &str, args: &[String], third: Option<&[Token]>) -> Result<String, String> {
+    let upper = name.to_uppercase();
+    let want = |n: usize| {
+        if args.len() == n {
+            Ok(())
+        } else {
+            Err(format!("{name} takes {n} arguments, not {}", args.len()))
         }
-        let function = match word.to_uppercase().as_str() {
-            "VARIANCE" => Self::Variance,
-            "VARIANCE_PCT" => Self::VariancePct,
-            "VARIANCE_STATUS" => Self::VarianceStatus,
-            "BREAKEVEN_UNITS" => Self::BreakevenUnits,
-            "BREAKEVEN_REVENUE" => Self::BreakevenRevenue,
-            _ => return None,
-        };
-        Some((word, function))
-    }
-
-    /// The Excel expression for the function, called `name` in the formula, from
-    /// its translated arguments. Each computes what Forge computes; where Forge
-    /// returns an error (a margin of zero or less), Excel returns #N/A. `third` is
-    /// the third argument's tokens, for `VARIANCE_STATUS`, whose meaning depends on
-    /// its type.
-    fn to_excel(
-        self,
-        name: &str,
-        args: &[String],
-        third: Option<&[Token]>,
-    ) -> Result<String, String> {
-        let want = |n: usize| {
-            if args.len() == n {
-                Ok(())
-            } else {
-                Err(format!("{name} takes {n} arguments, not {}", args.len()))
+    };
+    let a = |k: usize| format!("({})", args[k]);
+    Ok(match upper.as_str() {
+        "VARIANCE" => {
+            want(2)?;
+            format!("({} - {})", a(0), a(1))
+        },
+        "VARIANCE_PCT" => {
+            want(2)?;
+            format!("(({} - {}) / ABS{})", a(0), a(1), a(1))
+        },
+        "BREAKEVEN_UNITS" => {
+            want(3)?;
+            let margin = format!("({} - {})", a(1), a(2));
+            format!("IF({margin} <= 0, NA(), {} / {margin})", a(0))
+        },
+        "BREAKEVEN_REVENUE" => {
+            want(2)?;
+            format!("IF(OR({r} <= 0, {r} > 1), NA(), {} / {r})", a(0), r = a(1))
+        },
+        // VARIANCE_STATUS, the last of FORGE_FUNCTIONS: it is only ever
+        // called with one of them
+        _ => {
+            if !(2..=3).contains(&args.len()) {
+                return Err(format!("{name} takes 2 or 3 arguments, not {}", args.len()));
             }
-        };
-        let a = |k: usize| format!("({})", args[k]);
-        Ok(match self {
-            Self::Variance => {
-                want(2)?;
-                format!("({} - {})", a(0), a(1))
-            },
-            Self::VariancePct => {
-                want(2)?;
-                format!("(({} - {}) / ABS{})", a(0), a(1), a(1))
-            },
-            Self::BreakevenUnits => {
-                want(3)?;
-                let margin = format!("({} - {})", a(1), a(2));
-                format!("IF({margin} <= 0, NA(), {} / {margin})", a(0))
-            },
-            Self::BreakevenRevenue => {
-                want(2)?;
-                format!("IF(OR({r} <= 0, {r} > 1), NA(), {} / {r})", a(0), r = a(1))
-            },
-            Self::VarianceStatus => {
-                if !(2..=3).contains(&args.len()) {
-                    return Err(format!("{name} takes 2 or 3 arguments, not {}", args.len()));
-                }
-                // A number is the threshold and the text "cost" flips the sign;
-                // only a literal says which it is
-                let (threshold, is_cost) = match third {
+            // A number is the threshold and the text "cost" flips the sign;
+            // only a literal says which it is
+            let (threshold, is_cost) = match third {
                 None => ("0.01".to_string(), false),
                 Some([Token::Text(t)]) => ("0.01".to_string(), t.eq_ignore_ascii_case("cost")),
                 Some([Token::Number(_)] | [Token::Operator(_), Token::Number(_)]) => {
@@ -913,16 +889,15 @@ impl ForgeFunction {
                     ))
                 },
             };
-                let (better, worse) = if is_cost { ("-1", "1") } else { ("1", "-1") };
-                let pct = format!("(({} - {}) / ABS{})", a(0), a(1), a(1));
-                format!(
+            let (better, worse) = if is_cost { ("-1", "1") } else { ("1", "-1") };
+            let pct = format!("(({} - {}) / ABS{})", a(0), a(1), a(1));
+            format!(
                 "IF({b} = 0, SIGN{x}, IF(ABS({pct}) <= {threshold}, 0, IF({pct} > 0, {better}, {worse})))",
                 b = a(1),
                 x = a(0),
             )
-            },
-        })
-    }
+        },
+    })
 }
 
 /// Forge's `IRR(a, b)` treats `b` as more cash flows unless `a` is a column;
@@ -1033,124 +1008,6 @@ mod tests {
         refs().to_excel(f, Context::Scalar { group })
     }
 
-    /// A name two groups have is refused in a scalar and in a row formula,
-    /// as the calculator refuses it; a column of an included table is the
-    /// cell in a row formula and the whole column where the function reads one
-    #[test]
-    fn ambiguous_names_and_included_columns() {
-        let two = WorkbookRefs::new([("t", vec!["c".to_string()], 3)], ["a.x", "b.x"]);
-        for ctx in [
-            Context::Scalar { group: None },
-            Context::Row { table: "t", row: 2 },
-        ] {
-            assert_eq!(
-                two.to_excel("=x + 1", ctx).err(),
-                Some("name 'x' is ambiguous".to_string())
-            );
-        }
-        let included = WorkbookRefs::new(
-            [
-                ("@inc.t", vec!["c".to_string()], 3),
-                ("u", vec!["d".to_string()], 3),
-            ],
-            ["k"],
-        );
-        assert_eq!(
-            included
-                .to_excel(
-                    "=SUM(@inc.t.c) + @inc.t.c",
-                    Context::Row { table: "u", row: 2 }
-                )
-                .unwrap()
-                .formula,
-            "=SUM('@inc.t'!$A$2:$A$4) + '@inc.t'!A2"
-        );
-    }
-
-    /// Each form that has no Excel equivalent, with why: the exporter writes
-    /// the values instead, and says so
-    #[test]
-    fn what_has_no_excel_equivalent_is_refused_with_why() {
-        for (formula, why) in [
-            ("={1, 2", "array constant without }"),
-            ("={1, nope}", "Identifier(\"nope\") in an array constant"),
-            ("=1; 2", "{ } or ; outside an array constant"),
-            ("=1 }", "{ } or ; outside an array constant"),
-            (
-                "=LET(f, 1, f(2))",
-                "f is a name of a LET or LAMBDA, not a function",
-            ),
-            (
-                "=1, 2",
-                "a , outside a function call has no Excel equivalent",
-            ),
-            ("=VARIANCE(1, 2", "VARIANCE: missing )"),
-            ("=VARIANCE(1, )", "VARIANCE: an argument is empty"),
-            ("=VARIANCE(nope, 1)", "unknown name 'nope'"),
-            ("=VARIANCE_PCT(1)", "VARIANCE_PCT takes 2 arguments, not 1"),
-            (
-                "=BREAKEVEN_UNITS(1, 2)",
-                "BREAKEVEN_UNITS takes 3 arguments, not 2",
-            ),
-            (
-                "=BREAKEVEN_REVENUE(1)",
-                "BREAKEVEN_REVENUE takes 2 arguments, not 1",
-            ),
-            (
-                "=VARIANCE_STATUS(1)",
-                "VARIANCE_STATUS takes 2 or 3 arguments, not 1",
-            ),
-        ] {
-            assert_eq!(
-                scalar(formula, Some("valuation")).err(),
-                Some(why.to_string()),
-                "{formula}"
-            );
-        }
-        for (formula, why) in [
-            (
-                "=SUM(revenue:year)",
-                "a range with : has no Excel equivalent: Forge reads it as text",
-            ),
-            ("=revenue[1]", "array indexing [ ] has no Excel equivalent"),
-            (
-                "=IRR(revenue)",
-                "IRR in a row formula has no Excel equivalent",
-            ),
-        ] {
-            assert_eq!(row(formula), Err(why.to_string()), "{formula}");
-        }
-    }
-
-    /// `VARIANCE_STATUS` without a third argument has the threshold 1%, and
-    /// a number written in the formula, signed or not, is the threshold
-    #[test]
-    fn variance_status_thresholds() {
-        for (formula, threshold) in [
-            ("=VARIANCE_STATUS(5, 4)", "0.01"),
-            ("=VARIANCE_STATUS(5, 4, 0.05)", "(0.05)"),
-            ("=VARIANCE_STATUS(5, 4, -0.05)", "(-0.05)"),
-        ] {
-            assert_eq!(
-                scalar(formula, None).unwrap().formula,
-                format!("=IF((4) = 0, SIGN(5), IF(ABS((((5) - (4)) / ABS(4))) <= {threshold}, 0, IF((((5) - (4)) / ABS(4)) > 0, 1, -1)))"),
-                "{formula}"
-            );
-        }
-    }
-
-    /// A value named `irr` is a value, not the function
-    #[test]
-    fn a_value_named_irr_is_not_the_function() {
-        let refs = WorkbookRefs::new([("t", vec!["c".to_string()], 3)], ["g.irr"]);
-        assert_eq!(
-            refs.to_excel("=irr * 2", Context::Scalar { group: Some("g") })
-                .unwrap()
-                .formula,
-            "=$B$2 * 2"
-        );
-    }
-
     #[test]
     fn column_letters() {
         assert_eq!(column_letter(0), "A");
@@ -1229,6 +1086,19 @@ mod tests {
         assert!(err.contains("guess"), "{err}");
     }
 
+    /// A name `irr` that is not a call is a name like any other.
+    #[test]
+    fn a_name_irr_is_not_the_function() {
+        let refs = WorkbookRefs::new([("t", vec!["irr".to_string()], 3)], ["v.irr"]);
+        let row = Context::Row { table: "t", row: 2 };
+        assert_eq!(refs.to_excel("=irr * 2", row).unwrap().formula, "=A2 * 2");
+        let scalar = Context::Scalar { group: Some("v") };
+        assert_eq!(
+            refs.to_excel("=irr + 1", scalar).unwrap().formula,
+            "=$B$2 + 1"
+        );
+    }
+
     #[test]
     fn untranslatable_formulas_say_why() {
         assert!(row("=MC.Normal(1, 2)")
@@ -1236,6 +1106,110 @@ mod tests {
             .contains("no Excel equivalent"));
         assert!(row("=revenue[0]").unwrap_err().contains("indexing"));
         assert!(row("=missing * 2").unwrap_err().contains("unknown name"));
+    }
+
+    #[test]
+    fn a_range_or_a_comma_outside_a_call_is_not_written() {
+        // Forge reads revenue:year as text; Excel would read a range
+        assert_eq!(
+            row("=SUM(revenue:year)"),
+            Err("a range a:b has no Excel equivalent".to_string())
+        );
+        assert_eq!(row("=1, 2"), Err("a comma outside a call".to_string()));
+    }
+
+    #[test]
+    fn braces_semicolons_and_local_names_out_of_place_are_refused() {
+        assert_eq!(row("={1, 2"), Err("array constant without }".to_string()));
+        for f in ["=1; 2", "=1 }"] {
+            assert_eq!(
+                row(f),
+                Err("{ } or ; outside an array constant".to_string()),
+                "{f}"
+            );
+        }
+        assert_eq!(
+            row("=LET(f, 2, f(1))"),
+            Err("f is a name of a LET or LAMBDA, not a function".to_string())
+        );
+    }
+
+    #[test]
+    fn a_name_two_groups_end_with_is_ambiguous() {
+        let mut refs = refs();
+        refs.scalars.insert("a.rate".into(), ("a".into(), 2));
+        refs.scalars.insert("b.rate".into(), ("b".into(), 2));
+        let ambiguous = "name 'rate' is ambiguous";
+        let in_row = Context::Row {
+            table: "projections",
+            row: 3,
+        };
+        assert_eq!(refs.to_excel("=rate", in_row).unwrap_err(), ambiguous);
+        let in_scalar = Context::Scalar { group: None };
+        assert_eq!(refs.to_excel("=rate", in_scalar).unwrap_err(), ambiguous);
+    }
+
+    #[test]
+    fn an_included_column_in_a_row_formula() {
+        let mut refs = refs();
+        refs.add_include_tables("inc", [("t".to_string(), vec!["c".to_string()], 2)]);
+        let in_row = Context::Row {
+            table: "projections",
+            row: 3,
+        };
+        // The cell in the same row, or the whole column where SUM reads one
+        assert_eq!(
+            refs.to_excel("=@inc.t.c", in_row).map(|t| t.formula),
+            Ok("='inc.t'!A3".to_string())
+        );
+        let whole = refs.to_excel("=SUM(@inc.t.c)", in_row).unwrap();
+        assert_eq!(whole.formula, "=SUM('inc.t'!$A$2:$A$3)");
+        assert!(whole.has_range);
+    }
+
+    #[test]
+    fn forge_functions_with_the_wrong_arguments_are_refused() {
+        for (f, error) in [
+            ("=VARIANCE(revenue)", "VARIANCE takes 2 arguments, not 1"),
+            (
+                "=VARIANCE_PCT(revenue)",
+                "VARIANCE_PCT takes 2 arguments, not 1",
+            ),
+            (
+                "=BREAKEVEN_UNITS(revenue, 1)",
+                "BREAKEVEN_UNITS takes 3 arguments, not 2",
+            ),
+            (
+                "=BREAKEVEN_REVENUE(revenue)",
+                "BREAKEVEN_REVENUE takes 2 arguments, not 1",
+            ),
+            (
+                "=VARIANCE_STATUS(revenue)",
+                "VARIANCE_STATUS takes 2 or 3 arguments, not 1",
+            ),
+            ("=VARIANCE(revenue, 2", "VARIANCE: missing )"),
+            ("=VARIANCE(revenue, )", "VARIANCE: an argument is empty"),
+            ("=VARIANCE(nothing, 1)", "unknown name 'nothing'"),
+        ] {
+            assert_eq!(row(f), Err(error.to_string()), "{f}");
+        }
+    }
+
+    #[test]
+    fn variance_status_without_a_threshold_uses_one_percent() {
+        assert_eq!(
+            row("=VARIANCE_STATUS(revenue, 2)").unwrap(),
+            "=IF((2) = 0, SIGN(A3), IF(ABS((((A3) - (2)) / ABS(2))) <= 0.01, 0, \
+             IF((((A3) - (2)) / ABS(2)) > 0, 1, -1)))"
+        );
+    }
+
+    #[test]
+    fn irr_in_a_row_formula_is_refused() {
+        assert_eq!(
+            row("=IRR(revenue)"),
+            Err("IRR in a row formula has no Excel equivalent".to_string())
+        );
     }
 
     #[test]
@@ -1358,6 +1332,14 @@ mod tests {
             (
                 "=VARIANCE_STATUS(revenue, 100, \"cost\")",
                 "=IF((100) = 0, SIGN(A3), IF(ABS((((A3) - (100)) / ABS(100))) <= 0.01, 0, IF((((A3) - (100)) / ABS(100)) > 0, -1, 1)))",
+            ),
+            (
+                "=VARIANCE_STATUS(revenue, 100, 0.05)",
+                "=IF((100) = 0, SIGN(A3), IF(ABS((((A3) - (100)) / ABS(100))) <= (0.05), 0, IF((((A3) - (100)) / ABS(100)) > 0, 1, -1)))",
+            ),
+            (
+                "=VARIANCE_STATUS(revenue, 100, -0.05)",
+                "=IF((100) = 0, SIGN(A3), IF(ABS((((A3) - (100)) / ABS(100))) <= (-0.05), 0, IF((((A3) - (100)) / ABS(100)) > 0, 1, -1)))",
             ),
             (
                 "=ROUND(VARIANCE(MAX(revenue, 1), 2) * 3, 0)",

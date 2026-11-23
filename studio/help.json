@@ -1,0 +1,90 @@
+{
+  "scenarios": {
+    "title": "Scenarios",
+    "text": "A scenario is a named set of changes to the inputs, applied without changing the file. Tap one to see the whole model under it; plan is the file as written. When the scenarios have probabilities that add up to 1, Analyze also weighs them into expected values.",
+    "terms": [["plan", "the model as written, before any scenario"], ["probability", "how likely a scenario is, when it is a chance rather than a choice"]],
+    "doc": "docs/FEATURES.md#scenario-analysis"
+  },
+  "inputs": {
+    "title": "Inputs",
+    "text": "An input is a number the model starts from, with no formula. Drag its slider or type a number: Forge calculates every result again and changes that one line of the file, comments kept. Add puts a new input or formula in the group.",
+    "terms": [["group", "inputs and results under one name, read as group.name"], ["unit", "what a number counts; a percentage is shown as one"]],
+    "doc": "docs/FEATURES.md#the-model-file"
+  },
+  "results": {
+    "title": "Results",
+    "text": "A result is calculated by a formula, in Excel's language, from inputs and other results. Tap Edit to see the formula and change it: Forge keeps the change only if it can calculate it, and otherwise says why.",
+    "terms": [["formula", "after =, operators, Excel's functions and the model's names"]],
+    "doc": "docs/FEATURES.md#formula-evaluation"
+  },
+  "tables": {
+    "title": "Tables",
+    "text": "A table holds columns of the same length, such as twelve months. A column is a list of values, or a formula worked out row by row; a formula reads the row above with PREV, which is how a balance carries over. Tap a column to see its values.",
+    "terms": [["PREV(value, first)", "value in the row above, and first in the first row"]],
+    "doc": "docs/FEATURES.md#periods-and-the-row-above"
+  },
+  "games": {
+    "title": "Games",
+    "text": "A game is a choice two or more players make at once, each paid by what all of them chose. Forge finds the equilibria: the choices no player would change alone. A payoff can be a formula, so a game can be built from the model's own numbers and moves with its inputs.",
+    "terms": [["equilibrium", "a choice for every player that none would change alone; mixed when players choose by chance"], ["dominated", "a strategy that pays less than another whatever the others do"], ["count form", "a game of many players alike, written by how many of the others play each strategy"]],
+    "examples": [["games", "battle-of-the-sexes.yaml", "the battle of the sexes, in 19 lines"], ["bagel", "price_war.yaml", "a price war from the bagel's numbers"]],
+    "doc": "docs/FEATURES.md#games-format-550-adr-068"
+  },
+  "tournament": {
+    "title": "Tournaments",
+    "text": "A tournament plays a game round after round between habits, each against every other: always cooperate, tit for tat, grim trigger and others. The ranking is by the average payoff in a round; a habit is collectively stable when no other does better against it than it does against itself.",
+    "terms": [["continuation", "the chance that there is another round"], ["noise", "the chance that a move comes out as the other one"]],
+    "examples": [["games", "axelrod.yaml", "Axelrod's tournament"]],
+    "doc": "docs/FEATURES.md#tournaments"
+  },
+  "dynamics": {
+    "title": "Strategies that spread",
+    "text": "In a population that meets at random, the strategies that pay more against the population's mix gain a share each generation. Forge steps the shares from a start you give, and draws the path.",
+    "terms": [["generation", "one step of the shares"], ["baseline", "a number added to every payoff, so that none is below 0"]],
+    "examples": [["games", "hawk-dove.yaml", "hawks and doves"]],
+    "doc": "docs/FEATURES.md#strategies-that-spread-dynamics"
+  },
+  "goal-seek": {
+    "title": "Goal seek and break-even",
+    "text": "Goal seek finds the value an input must take for a result to reach a target; break-even is the same with a target of 0. The model is not changed until you tap Use this value.",
+    "doc": "docs/FEATURES.md#goal-seek-break-even-and-sensitivity"
+  },
+  "tornado": {
+    "title": "Tornado",
+    "text": "Each input is moved from its low to its high value, one at a time, and the inputs are ranked by how far they move a result. The longest bar is the input the result depends on most.",
+    "doc": "docs/FEATURES.md#tornado-diagrams"
+  },
+  "simulate": {
+    "title": "Simulation",
+    "text": "When some inputs are ranges rather than numbers (MC.PERT, MC.Triangular and the others), Forge calculates the model thousands of times, each with every range drawn at random, and gives the spread of each result: its mean, its percentiles, and the chance it passes a threshold. The same seed gives the same numbers as forge simulate.",
+    "terms": [["P5, P50, P95", "the values below which 5%, half and 95% of the runs fall"], ["seed", "the number that fixes the draws"], ["driver", "an uncertain input a result follows closely"]],
+    "examples": [["bagel", "bagel_simulate.yaml", "how sure the bagel shop can be of its year"]],
+    "doc": "docs/FEATURES.md#monte-carlo-simulation-forge-simulate"
+  },
+  "variance": {
+    "title": "Budget against actual",
+    "text": "The plan beside what happened, name by name: each difference, in money and in percent, marked favourable or unfavourable by whether more is better for that line.",
+    "examples": [["household", "budget.yaml", "a household's October"]],
+    "doc": "docs/FEATURES.md#budget-vs-actual-forge-variance"
+  },
+  "decision_tree": {
+    "title": "Decision trees",
+    "text": "Choices and chances in turn. Forge works back from the ends: at a chance, the average of its branches by their probabilities; at a choice, the best branch. What is left at the root is what the best plan is worth on average.",
+    "doc": "docs/FEATURES.md#decision-trees"
+  },
+  "real_options": {
+    "title": "Real options",
+    "text": "The right, not the duty, to wait, expand, contract or abandon has a value of its own when the future is uncertain. Forge values each option on the project and compares it with deciding now.",
+    "doc": "docs/FEATURES.md#real-options"
+  },
+  "bootstrap": {
+    "title": "Bootstrap",
+    "text": "How sure can an estimate from a sample be, with no assumption about its shape? Forge draws from the data again and again, with replacement, and reads the interval from the spread of the estimates.",
+    "doc": "docs/FEATURES.md#bootstrap-resampling"
+  },
+  "bayesian_network": {
+    "title": "Bayesian networks",
+    "text": "Variables whose chances depend on one another, each given by a table. Tap a state you have seen, and Forge gives the chances of everything else given it: backwards, from an effect to its likely causes, as well as forwards.",
+    "doc": "docs/FEATURES.md#bayesian-networks"
+  }
+}

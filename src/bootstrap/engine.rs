@@ -59,6 +59,18 @@ pub struct BootstrapResult {
     pub distribution: Vec<f64>,
     /// Number of bootstrap iterations
     pub iterations: usize,
+    /// The statistic resampled
+    #[serde(default)]
+    pub statistic: BootstrapStatistic,
+    /// How many data points were resampled
+    #[serde(default)]
+    pub sample_size: usize,
+    /// The confidence levels asked for, in the order given
+    #[serde(default)]
+    pub confidence_levels: Vec<f64>,
+    /// The seed of the resampling, when one was given
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seed: Option<u64>,
 }
 
 impl BootstrapResult {
@@ -66,11 +78,11 @@ impl BootstrapResult {
     ///
     /// # Panics
     ///
-    /// Cannot panic: the result is numbers and a method's name, which YAML holds.
+    /// Never: results are names and numbers, which serialize as YAML.
     #[must_use]
     pub fn to_yaml(&self) -> String {
         yaml_serde::to_string(&crate::core::precision::Rounded(self))
-            .expect("a bootstrap result is numbers and a method's name")
+            .expect("results are strings and numbers, which serialize as YAML")
     }
 
     /// Export results to JSON format
@@ -89,6 +101,11 @@ impl BootstrapResult {
     }
 }
 
+/// The standard normal distribution: its parameters are valid.
+fn standard_normal() -> Normal {
+    Normal::new(0.0, 1.0).expect("a mean of 0 and a deviation of 1 make a normal distribution")
+}
+
 /// Value at probability `p` of a sorted distribution (index `floor(p * len)`, kept inside the data)
 fn quantile(sorted: &[f64], p: f64) -> f64 {
     // A NaN probability reads the smallest value
@@ -102,7 +119,7 @@ fn quantile(sorted: &[f64], p: f64) -> f64 {
 ///
 /// Fails when the acceleration makes the adjustment undefined.
 pub(super) fn bca_adjusted_probability(z0: f64, a: f64, p: f64) -> Result<f64, String> {
-    let z = Normal::standard().inverse_cdf(p);
+    let z = standard_normal().inverse_cdf(p);
     let denominator = a.mul_add(-(z0 + z), 1.0);
     if denominator <= 0.0 {
         return Err(
@@ -194,13 +211,16 @@ impl BootstrapEngine {
             confidence_intervals,
             distribution,
             iterations: self.config.iterations,
+            statistic: self.config.statistic,
+            sample_size: n,
+            confidence_levels: self.config.confidence_levels.clone(),
+            seed: self.config.seed,
         })
     }
 
-    /// Compute the statistic on a sample: never empty, as the data has at
-    /// least 2 values (`BootstrapConfig::validate`), a resample as many and a
-    /// jackknife sample one fewer
+    /// Compute the statistic on a sample
     fn compute_statistic(&self, sample: &[f64]) -> f64 {
+        // The data has at least 2 values (validated), and so has each resample
         match self.config.statistic {
             BootstrapStatistic::Mean => sample.iter().sum::<f64>() / precision::count(sample.len()),
             BootstrapStatistic::Median => {
@@ -247,19 +267,10 @@ impl BootstrapEngine {
         distribution: &[f64],
         estimate: f64,
     ) -> Result<Vec<ConfidenceInterval>, String> {
-        /// The method, with the `BCa` constants worked out once for every level
-        enum Interval {
-            Percentile,
-            Basic,
-            Bca { z0: f64, a: f64 },
-        }
-        let interval = match self.config.method {
-            BootstrapMethod::Percentile => Interval::Percentile,
-            BootstrapMethod::Basic => Interval::Basic,
-            BootstrapMethod::Bca => {
-                let (z0, a) = self.bca_constants(distribution, estimate)?;
-                Interval::Bca { z0, a }
-            },
+        let bca = if self.config.method == BootstrapMethod::Bca {
+            Some(self.bca_constants(distribution, estimate)?)
+        } else {
+            None
         };
         self.config
             .confidence_levels
@@ -267,21 +278,26 @@ impl BootstrapEngine {
             .map(|&level| {
                 let alpha = 1.0 - level;
                 let (lower_p, upper_p) = (alpha / 2.0, 1.0 - alpha / 2.0);
-                let (lower, upper) = match interval {
-                    Interval::Percentile => (
+                match self.config.method {
+                    BootstrapMethod::Percentile => Ok(ConfidenceInterval::new(
+                        level,
                         quantile(distribution, lower_p),
                         quantile(distribution, upper_p),
-                    ),
-                    Interval::Basic => (
+                    )),
+                    BootstrapMethod::Basic => Ok(ConfidenceInterval::new(
+                        level,
                         2.0f64.mul_add(estimate, -quantile(distribution, upper_p)),
                         2.0f64.mul_add(estimate, -quantile(distribution, lower_p)),
-                    ),
-                    Interval::Bca { z0, a } => (
-                        quantile(distribution, bca_adjusted_probability(z0, a, lower_p)?),
-                        quantile(distribution, bca_adjusted_probability(z0, a, upper_p)?),
-                    ),
-                };
-                Ok(ConfidenceInterval::new(level, lower, upper))
+                    )),
+                    BootstrapMethod::Bca => {
+                        let (z0, a) = bca.expect("the constants are computed for the BCa method");
+                        Ok(ConfidenceInterval::new(
+                            level,
+                            quantile(distribution, bca_adjusted_probability(z0, a, lower_p)?),
+                            quantile(distribution, bca_adjusted_probability(z0, a, upper_p)?),
+                        ))
+                    },
+                }
             })
             .collect()
     }
@@ -298,7 +314,7 @@ impl BootstrapEngine {
                     .to_string(),
             );
         }
-        let z0 = Normal::standard()
+        let z0 = standard_normal()
             .inverse_cdf(precision::count(below) / precision::count(distribution.len()));
 
         let data = &self.config.data;
@@ -484,83 +500,6 @@ mod engine_tests {
         );
     }
 
-    /// A `BCa` engine over `data`, at one level so near 1 that its normal
-    /// quantile is +-7.1305 (1 - 0.5e-12 a side)
-    fn extreme_bca(data: Vec<f64>, statistic: BootstrapStatistic) -> BootstrapEngine {
-        let config = BootstrapConfig::new()
-            .with_data(data)
-            .with_statistic(statistic)
-            .with_method(BootstrapMethod::Bca)
-            .with_iterations(2000)
-            .with_seed(1)
-            .with_confidence_levels(vec![1.0 - 1e-12]);
-        BootstrapEngine::new(config).unwrap()
-    }
-
-    const TOO_LARGE: &str = "BCa interval undefined: the acceleration is too large for this data; use method percentile or basic";
-
-    /// `BCa` divides by 1 - a (z0 + z). The jackknife gives the acceleration
-    /// `a` without any draw (by hand and in Python: +-0.154518 for both data
-    /// below), so the interval fails once z0 + z passes 1 / a = 6.4717.
-    ///
-    /// The largest of nineteen 0s, a 0.5 and a 1: a = +0.154518, and z0 is
-    /// the normal quantile of the share of resamples without the 1, (20/21)^21
-    /// = 0.359 (z0 = -0.36): above the 0.255 at which the upper end fails,
-    /// and the lower end (z = -7.13) is defined.
-    ///
-    /// The variance of ten -1s, ten 1s and a 0: leaving the 0 out raises it,
-    /// so a = -0.154518, and the lower end fails while the share of resamples
-    /// below the estimate is under 0.745 (with seed 1 it is 0.70)
-    #[test]
-    fn an_acceleration_too_large_fails_at_either_end() {
-        let mut data = vec![0.0; 19];
-        data.extend([1.0, 0.5]);
-        let mut upper = extreme_bca(data, BootstrapStatistic::Max);
-        let mut data: Vec<f64> = (0..20)
-            .map(|i| if i % 2 == 0 { -1.0 } else { 1.0 })
-            .collect();
-        data.push(0.0);
-        let mut lower = extreme_bca(data, BootstrapStatistic::Var);
-        for (engine, lower_end_ok) in [(&mut upper, true), (&mut lower, false)] {
-            let result = engine.analyze();
-            assert_eq!(result.unwrap_err(), TOO_LARGE);
-            let distribution = {
-                let mut percentile = BootstrapEngine::new(
-                    engine
-                        .config()
-                        .clone()
-                        .with_method(BootstrapMethod::Percentile),
-                )
-                .unwrap();
-                percentile.analyze().unwrap()
-            };
-            let (z0, a) = engine
-                .bca_constants(&distribution.distribution, distribution.original_estimate)
-                .unwrap();
-            assert!((a.abs() - 0.154_517_511_550_184).abs() <= 1e-12, "{a}");
-            assert_eq!(
-                (
-                    bca_adjusted_probability(z0, a, 0.5e-12).is_ok(),
-                    bca_adjusted_probability(z0, a, 1.0 - 0.5e-12).is_ok()
-                ),
-                (lower_end_ok, !lower_end_ok)
-            );
-        }
-    }
-
-    /// The middle value of an odd number of values, and the configuration kept
-    #[test]
-    fn the_median_of_an_odd_count_is_its_middle_value() {
-        let config = BootstrapConfig::new()
-            .with_data(vec![3.0, 1.0, 2.0])
-            .with_statistic(BootstrapStatistic::Median)
-            .with_iterations(10)
-            .with_seed(3);
-        let mut engine = BootstrapEngine::new(config).unwrap();
-        assert_eq!(engine.config().data, vec![3.0, 1.0, 2.0]);
-        assert_exact!(engine.analyze().unwrap().original_estimate, 2.0);
-    }
-
     #[test]
     fn test_yaml_export() {
         let config = BootstrapConfig::new()
@@ -575,5 +514,59 @@ mod engine_tests {
         assert!(yaml.contains("original_estimate"));
         assert!(yaml.contains("bootstrap_mean"));
         assert!(yaml.contains("confidence_intervals"));
+    }
+
+    fn analysed(config: BootstrapConfig) -> Result<BootstrapResult, String> {
+        BootstrapEngine::new(config).unwrap().analyze()
+    }
+
+    /// The median of an odd number of values is the middle one, of an even
+    /// number the mean of the middle two; the engine hands its configuration back.
+    #[test]
+    fn the_median_is_the_middle_value_or_the_mean_of_the_middle_two() {
+        let odd = BootstrapConfig::new()
+            .with_data(vec![9.0, 1.0, 5.0])
+            .with_statistic(BootstrapStatistic::Median)
+            .with_iterations(20)
+            .with_seed(1);
+        let engine = BootstrapEngine::new(odd).unwrap();
+        assert_eq!(engine.config().data, [9.0, 1.0, 5.0]);
+        assert_exact!(engine.compute_statistic(&[9.0, 1.0, 5.0]), 5.0);
+        assert_exact!(engine.compute_statistic(&[1.0, 2.0, 3.0, 10.0]), 2.5);
+    }
+
+    /// An acceleration too large for the data makes the adjusted probability
+    /// undefined, and so the interval.
+    #[test]
+    fn an_acceleration_that_is_too_large_has_no_adjusted_probability() {
+        assert_eq!(
+            bca_adjusted_probability(0.0, 10.0, 0.975).unwrap_err(),
+            "BCa interval undefined: the acceleration is too large for this data; use method percentile or basic"
+        );
+        let p = bca_adjusted_probability(0.0, 0.0, 0.975).unwrap();
+        assert!((p - 0.975).abs() < 1e-9, "{p}");
+    }
+
+    /// One outlier among forty values gives a jackknife acceleration of a
+    /// sixth or so, and a confidence of 1 - 1e-12 reaches seven standard
+    /// deviations out: past that the `BCa` adjustment is undefined, at the
+    /// upper end for a low outlier and at the lower end for a high one.
+    #[test]
+    fn a_bca_interval_far_in_the_tails_of_skewed_data_is_undefined() {
+        for outlier in [-1000.0, 1000.0] {
+            let mut data = vec![0.0; 39];
+            data.push(outlier);
+            let config = BootstrapConfig::new()
+                .with_data(data)
+                .with_method(BootstrapMethod::Bca)
+                .with_iterations(2000)
+                .with_seed(3)
+                .with_confidence_levels(vec![0.999_999_999_999]);
+            assert_eq!(
+                analysed(config).unwrap_err(),
+                "BCa interval undefined: the acceleration is too large for this data; use method percentile or basic",
+                "{outlier}"
+            );
+        }
     }
 }

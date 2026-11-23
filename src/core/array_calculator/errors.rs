@@ -48,7 +48,8 @@ pub(super) fn failure_report(failures: &[String], skipped: &[(Cell, Cell)]) -> F
 }
 
 /// Say which cells form a dependency cycle, for example
-/// "scalars calc.a, calc.b depend on each other".
+/// "scalars calc.a, calc.b depend on each other". The graph is one whose
+/// order failed, so at least one cell is in a cycle.
 pub(super) fn describe_cycle(graph: &Graph<Cell>) -> String {
     let mut cells: Vec<&Cell> = graph
         .strongly_connected()
@@ -68,7 +69,6 @@ pub(super) fn describe_cycle(graph: &Graph<Cell>) -> String {
     };
     let names: Vec<String> = cells.iter().map(|c| c.label()).collect();
     match names.as_slice() {
-        [] => "formulas depend on each other".to_string(),
         [one] if matches!(cells[0], Cell::Column { .. }) => format!(
             "{one} refers to itself (to read the row above, write PREV(column, first_row_value))"
         ),
@@ -253,5 +253,22 @@ mod tests {
         // The stored 42 is never reported or used as a result
         assert!(!err.contains("42"), "{err}");
         assert!(!err.contains("t.ok"), "{err}");
+    }
+
+    /// Only an evaluation error is told where it happened: another error
+    /// already says it, and is passed on as it is
+    #[test]
+    fn only_evaluation_errors_are_located() {
+        use crate::error::ForgeError;
+        let other = super::locate_error(ForgeError::Parse("bad".into()), "calc.x", "=1");
+        assert_eq!(
+            other.to_string(),
+            ForgeError::Parse("bad".into()).to_string()
+        );
+        let eval = super::locate_error(ForgeError::Eval("bad".into()), "calc.x", "=1");
+        assert_eq!(
+            eval.to_string(),
+            ForgeError::Eval("calc.x: bad (formula: =1)".into()).to_string()
+        );
     }
 }

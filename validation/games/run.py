@@ -9,7 +9,11 @@ tournaments  every pair of the nine strategies in three settings, and the
 generated    seeded random games, 2 x 2 to 6 x 6, ties included, against
              Gambit; a game Gambit and Forge disagree on fails unless Forge
              reports it as degenerate
-r            the closed forms of 2 x 2 games, against R
+r            the closed forms of 2 x 2 games, against R; and the games of many
+             players worked out again in R (many_players.R): every generation
+             of the dynamics, the symmetric mixed equilibria as polynomial roots
+             with their stability, the volunteer's dilemma and public goods
+             closed forms
 counted      symmetric games of three to five players in the count form
              (ADR-073): the public goods game and seeded games, the table
              expanded cell by cell and the pure equilibria, against Gambit
@@ -118,6 +122,15 @@ def run_counted(work, seed, count):
         group = kind if kind.startswith("public goods") else kind.split(",")[0]
         kinds[group] = kinds.get(group, 0) + 1
         failures += [f"{name} ({kind}): {b}" for b in bad]
+    # The bagel's festival of five shops, from its file, with its scenario
+    for scenario, match in ((None, 1), ("borough_matches", 2)):
+        report = only(tables.run_forge(os.path.join(HERE, specs.EXAMPLES, "../bagel/street_fund.yaml"), "street",
+                                       scenario), "street")
+        strategies = ["pay", "keep"]
+        bad, found = counted.check(report, 5, strategies, counted.expand(5, strategies, counted.street_fund(match)))
+        equilibria += found
+        kinds["bagel street fund"] = kinds.get("bagel street fund", 0) + 1
+        failures += [f"examples/bagel/street_fund.yaml ({scenario or 'no scenario'}): {b}" for b in bad]
     print(f"counted: seed {seed}, {sum(kinds.values())} games "
           f"({', '.join(f'{n} {k}' for k, n in sorted(kinds.items()))}), "
           f"{equilibria} pure equilibria, every cell compared, {len(failures)} failed")
@@ -158,7 +171,7 @@ def run_dynamics(work, seed, count):
         games += 1
         failures += [f"examples/games/{file} ({scenario or 'no scenario'}): {b}" for b in bad]
     failures += dynamics.refused(work)
-    print(f"dynamics: seed {seed}, {games} games (7 named, {count} drawn, 6 runs of the examples), {steps} generations "
+    print(f"dynamics: seed {seed}, {games} games (7 named, {count} drawn, 8 runs of the examples, the bagel's price war among them), {steps} generations "
           f"compared with egttools' replicator gradient, one refusal, {len(failures)} failed")
     if failures:
         print(f"replay: python3 -I run.py --only dynamics --seed {seed} --games {count * 10}")
@@ -204,6 +217,45 @@ def run_closed_forms(work, seed, count):
     return [] if done.returncode == 0 else [f"R: {done.stdout[-800:]}{done.stderr[-800:]}"]
 
 
+def run_many_players(work, seed, count):
+    """The games of many players and the dynamics, worked out again in R
+    (many_players.R): the symmetric games, the dynamics' cases and the
+    examples, from the same seed as symmetric.py and dynamics.py."""
+    def table(n, strategies, pay):
+        return [[{"split": list(c), "value": float(pay(s, c))} for c in counted.splits(n - 1, len(strategies))]
+                for s in range(len(strategies))]
+    out = []
+    for name, kind, text, n, strategies, pay, closed in symmetric.cases(seed, count):
+        report = only(tables.run_forge(write(work, f"many_{name}_{len(out)}.yaml", text)), name)
+        case = {"name": name, "kind": kind, "n": n, "strategies": strategies, "pay": table(n, strategies, pay),
+                "report": report, "roots": True}
+        if name == "vd":
+            case["volunteer"] = {"b": 10, "c": 4}
+        out.append(case)
+    for r in (F(8, 5), F(5), F(6)):
+        name, kind, text, n, strategies, pay = counted.public_goods(r)
+        report = only(tables.run_forge(write(work, f"many_pg_{len(out)}.yaml", text)), name)
+        out.append({"name": name, "kind": kind, "n": n, "strategies": strategies, "pay": table(n, strategies, pay),
+                    "report": report, "roots": True, "public_goods": {"r": float(r)}})
+    for name, kind, text, n, strategies, pay, known in dynamics.cases(seed, count):
+        report = only(tables.run_forge(write(work, f"many_{name}_{len(out)}.yaml", text)), name)
+        out.append({"name": name, "kind": kind, "n": n, "strategies": strategies, "pay": table(n, strategies, pay),
+                    "report": report, "roots": len(strategies) == 2,
+                    "known": None if known is None else [float(v) for v in known]})
+    for file, game, scenario, n, strategies, pay, known in dynamics.examples():
+        report = only(tables.run_forge(os.path.join(HERE, specs.EXAMPLES, file), game, scenario), game)
+        out.append({"name": f"examples/games/{file}", "kind": scenario or "no scenario", "n": n,
+                    "strategies": strategies, "pay": table(n, strategies, pay), "report": report, "roots": True,
+                    "known": None if known is None else [float(v) for v in known]})
+    data = write(work, f"many{seed}.json", json.dumps(out))
+    done = subprocess.run(["Rscript", os.path.join(HERE, "many_players.R"), data], capture_output=True, text=True)
+    print(done.stdout.strip() or done.stderr.strip())
+    if done.returncode == 0:
+        return []
+    print(f"replay: python3 -I run.py --only r --seed {seed} --games {count * 10}")
+    return [f"R: {done.stdout[-800:]}{done.stderr[-800:]}"]
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--only", nargs="*", choices=["specs", "tournaments", "generated", "r", "counted", "symmetric",
@@ -232,6 +284,7 @@ def main():
         failures += run_tournaments(a.work, a.runs)
     if "r" in parts:
         failures += run_closed_forms(a.work, a.seed, a.games)
+        failures += run_many_players(a.work, a.seed, max(a.games // 10, 10))
     for f in failures:
         print("FAIL", f)
     if failures and a.fail:

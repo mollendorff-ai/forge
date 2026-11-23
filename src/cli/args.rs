@@ -1,10 +1,10 @@
-//! The command line: every command, its flags and its help text. `run.rs`
-//! runs them.
+//! The command line: every command and its help text; `args/options.rs`
+//! holds each command's flags, and `run.rs` runs them.
 
-use crate::cli::ReportFormat;
-use clap::builder::PossibleValue;
-use clap::{Args, Parser, Subcommand};
-use std::path::PathBuf;
+use clap::{Parser, Subcommand};
+
+mod options;
+pub use options::*;
 
 #[derive(Parser)]
 #[command(name = "forge")]
@@ -14,6 +14,7 @@ use std::path::PathBuf;
 
 COMMANDS:
   calculate     - Execute formulas, update values
+  edit          - Change values and formulas, comments kept
   validate      - Check model integrity
   audit         - Trace formula dependencies
   functions     - List all 203 supported functions
@@ -36,13 +37,14 @@ COMMANDS:
   export        - YAML -> Excel (.xlsx) with formulas
   import        - Excel -> YAML
   watch         - Auto-calculate on save
-  upgrade       - Upgrade YAML to latest schema
+  upgrade       - Upgrade a model to a newer format
   update        - Check for updates and self-update
   mcp           - Start MCP server for AI integration
   serve         - Start HTTP REST API server
 
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
+  forge edit model.yaml --set year.price=17     # Change an input
   forge simulate model.yaml --iterations 10000  # Monte Carlo
   forge scenarios model.yaml                    # Scenario analysis
   forge decision-tree model.yaml                # Decision tree
@@ -83,17 +85,26 @@ CROSS-FILE REFERENCES:
   results of an included file in it.
 
 When a value changes, the file as it was is kept next to it as
-model.yaml.bak. Use --dry-run to preview changes without modifying files.")]
+model.yaml.bak. Use --dry-run to preview changes without modifying files.
+
+Nothing is written under --scenario (a scenario states its results under its
+expect:, which forge validate checks) or --plan, which calculates an uncertain
+model (MC.* inputs) with each uncertain input at its plan figure.")]
     /// Calculate all formulas in a YAML file
     Calculate(CalculateArgs),
+
+    // Its help is EditArgs' own: a doc comment here would replace it
+    Edit(crate::cli::commands::EditArgs),
 
     /// Show audit trail for a specific variable
     Audit(AuditArgs),
 
-    #[command(long_about = "Validate formulas without calculating.
+    #[command(
+        long_about = "Validate a model's stored results, and what it states it should give.
 
 Checks that the result stored next to each formula is what the formula
-calculates to, with the included files calculated first.
+calculates to, with the included files calculated first, and that each
+expectation (expect:) is met.
 
 CROSS-FILE REFERENCES:
   Formulas may read included files with @alias.name:
@@ -109,9 +120,17 @@ NOTE: Only the stored results of the files given are checked. To check an
   included file's own stored results, give it too:
   forge validate model.yaml pricing.yaml
 
+EXPECTED RESULTS (format 5.6.0, ADR-074): what the file and each scenario
+  should give, by any name forge calculate prints (a game's results too), as
+  a number or a formula over numbers. Each scenario with one is calculated,
+  and every result that differs by more than 1e-6 (relative above 1) is named
+  with the scenario and both numbers:
+  scenarios: {costly: {scalars: {c: 0.5}, expect: {kinship.barrier: =2/11}}}
+
 BATCH VALIDATION:
   forge validate file1.yaml file2.yaml file3.yaml
-  Validates multiple files in sequence, reporting all errors.")]
+  Validates multiple files in sequence, reporting all errors."
+    )]
     /// Validate formulas without calculating
     Validate(ValidateArgs),
 
@@ -138,7 +157,8 @@ EXAMPLE:
     Export(ExportArgs),
 
     #[command(
-        long_about = "Import an Excel .xlsx workbook as a Forge model (format 5.1.0).
+        long_about = "Import an Excel .xlsx workbook as a Forge model (format 5.1.0, or 5.3.0
+with empty cells, 5.4.0 with dates or formats).
 
 Reads the layout forge export writes, and plain workbooks too:
   A sheet whose header is Name, Value -> a scalar group (Scalars -> ungrouped)
@@ -410,10 +430,14 @@ YAML CONFIGURATION:
     iterations: 10000
     sampling: latin_hypercube  # spreads samples evenly; steadier results per iteration
     seed: 12345                # For reproducibility
+    correlations:              # rank correlation between two MC.* inputs
+      - variables: [revenue, costs]
+        coefficient: 0.5
     outputs:
       - variable: valuation.npv
         percentiles: [10, 50, 90]
         thresholds: [\"> 0\", \"> 250000\"]
+        expected_shortfall: [5]  # mean of the worst 5% of runs
 
   assumptions:
     revenue:
@@ -608,7 +632,7 @@ EXAMPLES:
     /// Generate tornado sensitivity diagram
     Tornado(TornadoArgs),
 
-    /// Find the equilibria of the games in a model, and play its tournaments
+    // Its help is GameArgs' own: a doc comment here would replace it
     Game(crate::cli::commands::GameArgs),
 
     #[command(long_about = "Run bootstrap resampling for confidence intervals.
@@ -622,7 +646,9 @@ YAML CONFIGURATION:
     confidence_levels: [0.90, 0.95, 0.99]
     seed: 12345
     data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12]
-    statistic: mean  # or median, std, var
+    statistic: mean  # or median, std, var, min, max, percentile
+    # percentile_value: 90  # with statistic: percentile
+    method: bca      # the interval: percentile (default), basic or bca
 
 OUTPUT:
   - Original statistic value
@@ -643,6 +669,7 @@ Bayesian networks are probabilistic graphical models for causal reasoning.
 Uses Variable Elimination algorithm for efficient inference.
 
 YAML CONFIGURATION:
+  _forge_version: \"5.6.0\"
   bayesian_network:
     name: \"Credit Risk\"
     nodes:
@@ -662,10 +689,17 @@ YAML CONFIGURATION:
   A node with several parents (parents: [a, b]) has one CPT row per
   combination of their states, in that order: \"x, y\": [...]
 
+  A prior or a CPT entry may be a formula over the model's scalars
+  (\"=1 - risk.p\"), worked out under --scenario. Named queries give
+  posteriors as scalars formulas can read, bayesian_network.<query>.<state>:
+    queries:
+      in_a_bad_year: {node: default_probability, evidence: {economic_conditions: bad}}
+
 EXAMPLES:
   forge bayesian model.yaml                           # Query all nodes
-  forge bayesian model.yaml --query default_prob      # Query specific node
-  forge bayesian model.yaml -e economy=bad            # Set evidence")]
+  forge bayesian model.yaml --query default_probability   # Query one node
+  forge bayesian model.yaml -e economic_conditions=bad    # Set evidence
+  forge bayesian model.yaml --scenario stress             # Under a scenario")]
     /// Bayesian network inference
     Bayesian(BayesianArgs),
 
@@ -695,6 +729,8 @@ The versions are model formats (_forge_version), not Forge versions:
   v5.3.0 - v5.2.0 plus the empty cell, null in a column of numbers (ADR-059)
   v5.4.0 - v5.3.0 plus a date as a scalar (ADR-060) and format: (ADR-061)
   v5.5.0 - v5.4.0 plus games: payoff tables of formulas, and their equilibria (ADR-068)
+  v5.6.0 - v5.5.0 plus expect: what the file and each scenario should give,
+           checked by forge validate (ADR-074)
 
 EXAMPLES:
   forge schema                # List available versions
@@ -715,8 +751,12 @@ Start a new model from `starter`; the others show Forge's analysis commands:
   tornado       - One-at-a-time sensitivity analysis
   bootstrap     - Non-parametric confidence intervals
   bayesian      - Probabilistic graphical models
+  expected-loss - A network's posterior feeding an expected loss
   variance      - Budget vs actual analysis
   breakeven     - Break-even calculations
+  stag-hunt, chicken, axelrod, inspection, noisy-tournament,
+  battle-of-the-sexes, continuation, public-goods, volunteers-dilemma,
+  hawk-dove     - Games: equilibria, tournaments and dynamics
 
 EXAMPLES:
   forge examples                    # List all examples
@@ -729,7 +769,8 @@ EXAMPLES:
     Examples(ExamplesArgs),
 
     #[command(
-        long_about = "Upgrade a model and its includes to the latest model format (5.1.0).
+        long_about = "Upgrade a model and its includes to a newer model format: 5.1.0 by
+default, up to 5.6.0 with --to.
 
 _forge_version is the model format version, not the Forge version.
 Creates backups before modifying files.
@@ -740,10 +781,12 @@ TO 5.1.0 (default, ADR-051):
   - Edited in place: comments, quotes and layout are kept
   - Checked: the converted file must read as the same model, or it is not written
 
-TO 5.2.0, 5.3.0, 5.4.0 OR 5.5.0 (ADR-053, ADR-059, ADR-060, ADR-061, ADR-068):
+TO 5.2.0, 5.3.0, 5.4.0, 5.5.0 OR 5.6.0 (ADR-053, ADR-059, ADR-060, ADR-061,
+ADR-068, ADR-074):
   - As to 5.1.0, with the _forge_version a period column (5.2.0), an empty
-    cell (5.3.0), a date or a format: (5.4.0) or a game (5.5.0) needs. 5.1.0
-    changes that line.
+    cell (5.3.0), a date or a format: (5.4.0), a game (5.5.0) or expect:
+    (5.6.0) needs. 5.1.0 changes that line. A file with a group named
+    expect is not upgraded to 5.6.0: rename the group first.
 
 TO 5.0.0 (from 1.0.0):
   - Splits scalars into inputs/outputs by formula presence, keeping metadata
@@ -761,7 +804,7 @@ EXAMPLES:
 BACKUP:
   Original files are backed up as .yaml.bak before modification."
     )]
-    /// Upgrade YAML files to latest schema version
+    /// Upgrade a model to a newer format
     Upgrade(UpgradeArgs),
 
     #[command(
@@ -806,11 +849,12 @@ CONFIGURATION:
     }
   }
 
-AVAILABLE TOOLS (20):
-  Core:      forge_validate, forge_calculate, forge_audit, forge_export, forge_import
+AVAILABLE TOOLS (22):
+  Core:      forge_validate, forge_calculate, forge_edit, forge_audit, forge_export,
+             forge_import
   Analysis:  forge_sensitivity, forge_goal_seek, forge_break_even, forge_variance, forge_compare
   Engines:   forge_simulate, forge_scenarios, forge_decision_tree, forge_real_options,
-             forge_tornado, forge_bootstrap, forge_bayesian
+             forge_tornado, forge_bootstrap, forge_bayesian, forge_game
   Discovery: forge_schema, forge_functions, forge_examples
 
 FILES:
@@ -827,7 +871,8 @@ EXAMPLE:
 
     #[command(long_about = "Start HTTP REST API server.
 
-Provides RESTful endpoints for all Forge operations:
+Provides five operations on model files over HTTP (the other analyses are
+MCP tools and commands):
   POST /api/v1/validate  - Validate YAML model files
   POST /api/v1/calculate - Calculate formulas (with dry-run support)
   POST /api/v1/audit     - Audit variable dependency trees
@@ -860,536 +905,6 @@ EXAMPLES:
     Serve(ServeArgs),
 }
 
-#[derive(Args)]
-pub struct CalculateArgs {
-    /// Path to YAML file (can include other files via an '_includes' section)
-    pub file: PathBuf,
-
-    /// Preview changes without writing to file
-    #[arg(short = 'n', long)]
-    pub dry_run: bool,
-
-    /// Show verbose calculation steps
-    #[arg(short, long)]
-    pub verbose: bool,
-
-    /// Scenario name to apply (uses variable overrides from 'scenarios' section)
-    #[arg(short, long)]
-    pub scenario: Option<String>,
-}
-
-#[derive(Args)]
-pub struct AuditArgs {
-    /// Path to YAML file
-    pub file: PathBuf,
-
-    /// Variable name to audit
-    pub variable: String,
-}
-
-#[derive(Args)]
-pub struct ValidateArgs {
-    /// Path to YAML file(s) to validate
-    #[arg(required = true)]
-    pub files: Vec<PathBuf>,
-}
-
-#[derive(Args)]
-pub struct ExportArgs {
-    /// Path to the model (.yaml)
-    pub input: PathBuf,
-
-    /// Output Excel file path (.xlsx)
-    pub output: PathBuf,
-
-    /// Show verbose export steps
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct ImportArgs {
-    /// Path to Excel file (.xlsx)
-    pub input: PathBuf,
-
-    /// Output YAML file path (or directory if --split-files)
-    pub output: PathBuf,
-
-    /// Show verbose import steps
-    #[arg(short, long)]
-    pub verbose: bool,
-
-    /// Create separate YAML file per worksheet (v4.4.2)
-    #[arg(long)]
-    pub split_files: bool,
-
-    /// Create multi-document YAML with --- separators (v4.4.2)
-    #[arg(long)]
-    pub multi_doc: bool,
-}
-
-#[derive(Args)]
-pub struct WatchArgs {
-    /// Path to YAML file to watch
-    pub file: PathBuf,
-
-    /// Only validate (don't calculate)
-    #[arg(long)]
-    pub validate: bool,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct CompareArgs {
-    /// Path to YAML file
-    pub file: PathBuf,
-
-    /// Comma-separated list of scenario names to compare
-    #[arg(short, long, value_delimiter = ',')]
-    pub scenarios: Vec<String>,
-
-    /// Output format
-    #[arg(long, value_enum, default_value = "table")]
-    pub format: ReportFormat,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct ReportArgs {
-    /// Path to a calculated YAML file
-    pub file: PathBuf,
-
-    /// Show only these groups (comma-separated)
-    #[arg(long, value_delimiter = ',')]
-    pub group: Vec<String>,
-
-    /// Show only these keys, in this order, as one table (comma-separated);
-    /// narrows a wide table. Not with --no-inputs: --keys already chooses the columns
-    #[arg(long, value_delimiter = ',', conflicts_with = "no_inputs")]
-    pub keys: Vec<String>,
-
-    /// Output format
-    #[arg(long, value_enum, default_value = "table")]
-    pub format: ReportFormat,
-
-    /// Leave out inputs, the values written with no formula. Not with --keys,
-    /// which already chooses the columns
-    #[arg(long)]
-    pub no_inputs: bool,
-}
-
-#[derive(Args)]
-pub struct VarianceArgs {
-    /// Path to budget YAML file
-    pub budget: PathBuf,
-
-    /// Path to actual YAML file
-    pub actual: PathBuf,
-
-    /// Variance threshold percentage for alerts (default: 10)
-    #[arg(short, long, default_value = "10")]
-    pub threshold: f64,
-
-    /// Output file (optional: .yaml or .xlsx)
-    #[arg(short, long)]
-    pub output: Option<PathBuf>,
-
-    /// Exit with 1 when any line exceeds the threshold
-    #[arg(long)]
-    pub fail_on_alert: bool,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct SensitivityArgs {
-    /// Path to YAML file
-    pub file: PathBuf,
-
-    /// Variable to vary (scalar name)
-    #[arg(long)]
-    pub vary: String,
-
-    /// Range for first variable: start,end,step
-    #[arg(short, long)]
-    pub range: String,
-
-    /// Second variable to vary (for 2D analysis)
-    #[arg(long)]
-    pub vary2: Option<String>,
-
-    /// Range for second variable: start,end,step
-    #[arg(long)]
-    pub range2: Option<String>,
-
-    /// Output variable to observe (--output is accepted too)
-    #[arg(long = "output-var", visible_alias = "output")]
-    pub output_var: String,
-
-    /// Output format: table (default) or json
-    #[arg(long, default_value = "table", value_parser = ["table", "json"])]
-    pub format: String,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct GoalSeekArgs {
-    /// Path to YAML file
-    pub file: PathBuf,
-
-    /// Target variable to achieve
-    #[arg(short, long)]
-    pub target: String,
-
-    /// Desired value for target
-    #[arg(long)]
-    pub value: f64,
-
-    /// Variable to adjust
-    #[arg(long)]
-    pub vary: String,
-
-    /// Minimum bound for search (optional)
-    #[arg(long)]
-    pub min: Option<f64>,
-
-    /// Maximum bound for search (optional)
-    #[arg(long)]
-    pub max: Option<f64>,
-
-    /// How close the output must get to the target (default: 0.0001)
-    #[arg(long, default_value = "0.0001")]
-    pub tolerance: f64,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct BreakEvenArgs {
-    /// Path to YAML file
-    pub file: PathBuf,
-
-    /// Output variable to find zero crossing (--output is accepted too)
-    #[arg(long = "output-var", visible_alias = "output")]
-    pub output_var: String,
-
-    /// Variable to adjust
-    #[arg(long)]
-    pub vary: String,
-
-    /// Minimum bound for search (optional)
-    #[arg(long)]
-    pub min: Option<f64>,
-
-    /// Maximum bound for search (optional)
-    #[arg(long)]
-    pub max: Option<f64>,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct SimulateArgs {
-    /// Path to YAML file with `monte_carlo`: section
-    pub file: PathBuf,
-
-    /// Number of iterations (overrides YAML config)
-    #[arg(short = 'n', long)]
-    pub iterations: Option<usize>,
-
-    /// Random seed for reproducibility
-    #[arg(long)]
-    pub seed: Option<u64>,
-
-    /// Sampling method: `monte_carlo` or `latin_hypercube`
-    #[arg(long)]
-    pub sampling: Option<String>,
-
-    /// Apply a scenario's overrides first (an override of an MC.* input fixes it)
-    #[arg(long)]
-    pub scenario: Option<String>,
-
-    /// Find the value of --vary that meets a probability, e.g. "P(year.profit > 0) = 0.8"
-    #[arg(long, requires_all = ["vary", "min", "max"])]
-    pub seek: Option<String>,
-
-    /// Input to vary for --seek (a scalar with a plain value)
-    #[arg(long, requires = "seek")]
-    pub vary: Option<String>,
-
-    /// Lowest value of --vary to try
-    #[arg(long, requires = "seek", allow_hyphen_values = true)]
-    pub min: Option<f64>,
-
-    /// Highest value of --vary to try
-    #[arg(long, requires = "seek", allow_hyphen_values = true)]
-    pub max: Option<f64>,
-
-    /// Show only this output of `monte_carlo.outputs` (repeat for more). A name
-    /// can be written without its group when only one output has it
-    #[arg(long = "output-var", value_name = "OUTPUT", conflicts_with = "seek")]
-    pub output_var: Vec<String>,
-
-    /// Output file (.json, .yaml or .xlsx)
-    #[arg(short, long)]
-    pub output: Option<PathBuf>,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct ScenariosArgs {
-    /// Path to YAML file with scenarios section
-    pub file: PathBuf,
-
-    /// Run specific scenario only
-    #[arg(short, long)]
-    pub scenario: Option<String>,
-
-    /// Output file (.yaml)
-    #[arg(short, long)]
-    pub output: Option<PathBuf>,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct DecisionTreeArgs {
-    /// Path to YAML file with `decision_tree` section
-    pub file: PathBuf,
-
-    /// Export as DOT graph (for Graphviz visualization)
-    #[arg(long)]
-    pub dot: bool,
-
-    /// Output file (.yaml or .dot)
-    #[arg(short, long)]
-    pub output: Option<PathBuf>,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct RealOptionsArgs {
-    /// Path to YAML file with `real_options` section
-    pub file: PathBuf,
-
-    /// Value specific option only
-    #[arg(long)]
-    pub option: Option<String>,
-
-    /// Compare with traditional NPV
-    #[arg(long)]
-    pub compare_npv: bool,
-
-    /// Output file (.yaml)
-    #[arg(short, long)]
-    pub output: Option<PathBuf>,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct TornadoArgs {
-    /// Path to YAML file with tornado section
-    pub file: PathBuf,
-
-    /// Override output variable to analyze
-    #[arg(long)]
-    pub output_var: Option<String>,
-
-    /// Output file (.yaml)
-    #[arg(short, long)]
-    pub output: Option<PathBuf>,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct BootstrapArgs {
-    /// Path to YAML file with bootstrap section
-    pub file: PathBuf,
-
-    /// Number of iterations (overrides YAML config)
-    #[arg(short = 'n', long)]
-    pub iterations: Option<usize>,
-
-    /// Random seed for reproducibility
-    #[arg(long)]
-    pub seed: Option<u64>,
-
-    /// Confidence levels (e.g., 0.90,0.95,0.99)
-    #[arg(long, value_delimiter = ',')]
-    pub confidence: Option<Vec<f64>>,
-
-    /// Output file (.yaml)
-    #[arg(short, long)]
-    pub output: Option<PathBuf>,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct BayesianArgs {
-    /// Path to YAML file with `bayesian_network` section
-    pub file: PathBuf,
-
-    /// Target variable to query
-    #[arg(short, long)]
-    pub query: Option<String>,
-
-    /// Evidence in format var=state (can repeat)
-    #[arg(short, long, value_delimiter = ',')]
-    pub evidence: Vec<String>,
-
-    /// Output file (.yaml)
-    #[arg(short, long)]
-    pub output: Option<PathBuf>,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct FunctionsArgs {
-    /// Output as JSON
-    #[arg(long)]
-    pub json: bool,
-}
-
-#[derive(Args)]
-pub struct SchemaArgs {
-    /// Schema version to display (v1, v5, v5.1 ... v5.5, 1.0.0, 5.0.0, 5.1.0 ... 5.5.0)
-    pub version: Option<String>,
-
-    /// List available schema versions
-    #[arg(short, long)]
-    pub list: bool,
-}
-
-#[derive(Args)]
-pub struct ExamplesArgs {
-    /// Example name (monte-carlo, scenarios, decision-tree, etc.)
-    pub name: Option<String>,
-
-    /// Execute the example after displaying it
-    #[arg(long)]
-    pub run: bool,
-
-    /// Output as JSON (for tooling)
-    #[arg(long)]
-    pub json: bool,
-}
-
-#[derive(Args)]
-pub struct UpgradeArgs {
-    /// Path to YAML file to upgrade
-    pub file: PathBuf,
-
-    /// Preview changes without modifying files
-    #[arg(short = 'n', long)]
-    pub dry_run: bool,
-
-    /// Target model format (default: 5.1.0)
-    #[arg(long, default_value = "5.1.0")]
-    pub to: String,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct UpdateArgs {
-    /// Only check for updates, don't install
-    #[arg(short = 'c', long)]
-    pub check: bool,
-
-    /// Show verbose output
-    #[arg(short, long)]
-    pub verbose: bool,
-}
-
-#[derive(Args)]
-pub struct McpArgs {
-    /// Folder every file path must stay inside (default: the current folder)
-    #[arg(long, value_name = "DIR")]
-    pub root: Option<std::path::PathBuf>,
-
-    /// Allow any path the user can reach (no folder limit)
-    #[arg(long, conflicts_with = "root")]
-    pub any_path: bool,
-}
-
-#[derive(Args)]
-pub struct ServeArgs {
-    /// Host address to bind to (use 0.0.0.0 for all interfaces)
-    #[arg(short = 'H', long, default_value = "127.0.0.1", env = "FORGE_HOST")]
-    pub host: String,
-
-    /// Port to listen on
-    #[arg(short, long, default_value = "8080", env = "FORGE_PORT")]
-    pub port: u16,
-
-    /// Token required on /api/v1/* (prefer the environment variable, which
-    /// other users cannot see in the process list)
-    #[arg(long, env = "FORGE_API_TOKEN", hide_env_values = true)]
-    pub token: Option<String>,
-
-    /// Browser origin allowed to call the API, e.g. <http://localhost:3000>
-    /// (repeatable; none by default)
-    #[arg(long = "cors-origin", value_name = "ORIGIN")]
-    pub cors_origins: Vec<String>,
-    /// Folder every file path must stay inside (none by default)
-    #[arg(long, value_name = "DIR")]
-    pub root: Option<std::path::PathBuf>,
-}
-
-/// `--format` of `forge compare` and `forge report`: clap reads the name and
-/// lists the four in the help.
-impl clap::ValueEnum for ReportFormat {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Table, Self::Csv, Self::Json, Self::Markdown]
-    }
-
-    fn to_possible_value(&self) -> Option<PossibleValue> {
-        Some(PossibleValue::new(match self {
-            Self::Table => "table",
-            Self::Csv => "csv",
-            Self::Json => "json",
-            Self::Markdown => "markdown",
-        }))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::Cli;
@@ -1399,12 +914,17 @@ mod tests {
     fn words(line: &str) -> Vec<String> {
         let mut out = Vec::new();
         let mut word = String::new();
-        let mut quoted = false;
+        // The quote a word is inside, as the shell reads it: in '...' a "
+        // is a character, and in "..." a '
+        let mut quote: Option<char> = None;
         for c in line.chars() {
+            let quoted = quote.is_some();
             match c {
                 // A shell comment or redirect ends the command
                 '#' | '>' if !quoted && word.is_empty() => break,
-                '"' => quoted = !quoted,
+                '"' | '\'' if quote.is_none_or(|q| q == c) => {
+                    quote = if quoted { None } else { Some(c) };
+                },
                 ' ' if !quoted => {
                     if !word.is_empty() {
                         out.push(std::mem::take(&mut word));
@@ -1422,7 +942,6 @@ mod tests {
     /// Every `forge ...` example in a command's help parses as written.
     #[test]
     fn every_example_in_the_help_parses() {
-        let mut wrong = Vec::new();
         for sub in Cli::command().get_subcommands() {
             let help = sub
                 .get_long_about()
@@ -1441,36 +960,25 @@ mod tests {
                 }
                 let full = format!("{pending}{line}");
                 pending.clear();
-                if let Err(e) = Cli::try_parse_from(words(&full)) {
-                    wrong.push(format!("{full}\n    {}", e.kind()));
-                }
+                assert!(
+                    Cli::try_parse_from(words(&full)).is_ok(),
+                    "help example that does not parse: {full}"
+                );
             }
         }
-        assert!(
-            wrong.is_empty(),
-            "help examples that do not parse:\n{}",
-            wrong.join("\n")
-        );
     }
 
     /// `-o` is the output file and `-v` is `--verbose`, in every command.
     #[test]
     fn short_flags_mean_the_same_in_every_command() {
-        let mut wrong = Vec::new();
         for sub in Cli::command().get_subcommands() {
+            let name = sub.get_name();
             for arg in sub.get_arguments() {
                 let id = arg.get_id().as_str();
-                match arg.get_short() {
-                    Some('o') if id != "output" => {
-                        wrong.push(format!("{} -o is {id}", sub.get_name()));
-                    },
-                    Some('v') if id != "verbose" => {
-                        wrong.push(format!("{} -v is {id}", sub.get_name()));
-                    },
-                    _ => {},
-                }
+                let short = arg.get_short();
+                assert!(short != Some('o') || id == "output", "{name} -o is {id}");
+                assert!(short != Some('v') || id == "verbose", "{name} -v is {id}");
             }
         }
-        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
     }
 }

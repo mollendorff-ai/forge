@@ -28,49 +28,59 @@ mod round_trip_tests {
         (a - b).abs() <= 1e-9 * a.abs().max(b.abs()).max(1.0)
     }
 
-    /// Export `path`, import the workbook, and compare every calculated number
-    /// with the original. Returns the differences found.
-    fn round_trip(path: &Path) -> Result<Vec<String>, String> {
-        let original = calculate(parser::parse_model(path).map_err(|e| e.to_string())?)
+    /// Export `path`, import the workbook, and check every calculated number
+    /// against the original's: a difference fails the test. `Err` only for a
+    /// model that does not calculate on its own.
+    fn round_trip(path: &Path) -> Result<(), String> {
+        let original = calculate(parser::parse_model(path).unwrap())
             .map_err(|e| format!("original does not calculate: {e}"))?;
         let dir = tempfile::TempDir::new().unwrap();
         let xlsx = dir.path().join("model.xlsx");
         let yaml = dir.path().join("model.yaml");
-        ExcelExporter::new(original.clone())
-            .export(&xlsx)
-            .map_err(|e| format!("export: {e}"))?;
-        import_core(&xlsx, &yaml, false, false).map_err(|e| format!("import: {e}"))?;
-        let back = parser::parse_model(&yaml).map_err(|e| format!("imported YAML: {e}"))?;
-        let back = calculate(back).map_err(|e| format!("imported model: {e}"))?;
+        ExcelExporter::new(original.clone()).export(&xlsx).unwrap();
+        import_core(&xlsx, &yaml, false, false).unwrap();
+        let back = calculate(parser::parse_model(&yaml).unwrap()).unwrap();
 
-        let mut diffs = Vec::new();
-        for (path, var) in &original.scalars {
-            if let Some(a) = var.value {
-                let lower = path.to_lowercase();
-                match back.scalars.get(path).or_else(|| back.scalars.get(&lower)) {
-                    Some(v) if v.value.is_some_and(|b| close(a, b)) => {},
-                    Some(v) => diffs.push(format!("{path}: {a} vs {:?}", v.value)),
-                    None => diffs.push(format!("{path}: missing")),
-                }
-            }
+        for (name, a) in original
+            .scalars
+            .iter()
+            .filter_map(|(name, var)| var.value.map(|a| (name, a)))
+        {
+            // Import may lower-case a name, and brings a network's results
+            // back under another group, since a model's bayesian_network is
+            // its network
+            let wanted = name.strip_prefix("bayesian_network.").map_or_else(
+                || name.to_lowercase(),
+                |rest| format!("network_results.{rest}"),
+            );
+            let found = back
+                .scalars
+                .iter()
+                .find(|(k, _)| k.to_lowercase() == wanted)
+                .map(|(_, v)| v.value);
+            assert!(
+                found.flatten().is_some_and(|b| close(a, b)),
+                "{path:?}: {name}: {a} vs {found:?}"
+            );
         }
         for (name, table) in &original.tables {
             for (col, column) in &table.columns {
-                let ColumnValue::Number(a) = &column.values else {
+                let Some(a) = column.values.numbers() else {
                     continue;
                 };
-                let b = back
+                let found = back
                     .tables
                     .get(&name.to_lowercase())
-                    .and_then(|t| t.columns.get(col));
-                match b.map(|c| &c.values) {
-                    Some(ColumnValue::Number(b))
-                        if a.len() == b.len() && a.iter().zip(b).all(|(x, y)| close(*x, *y)) => {},
-                    other => diffs.push(format!("{name}.{col}: {a:?} vs {other:?}")),
-                }
+                    .and_then(|t| t.columns.get(col))
+                    .and_then(|c| c.values.numbers());
+                assert!(
+                    found.as_ref().is_some_and(|b| a.len() == b.len()
+                        && a.iter().zip(b.iter()).all(|(x, y)| close(*x, *y))),
+                    "{path:?}: {name}.{col}: {a:?} vs {found:?}"
+                );
             }
         }
-        Ok(diffs)
+        Ok(())
     }
 
     /// Columns and scalars keep the order of the model file through calculate,
@@ -123,8 +133,7 @@ g:
         );
         assert_eq!(back.scalars["g.a_first"].value, Some(15.0));
 
-        let diffs = round_trip(&model).unwrap();
-        assert!(diffs.is_empty(), "{diffs:#?}");
+        round_trip(&model).unwrap();
     }
 
     /// The shipped examples that calculate on their own come back from Excel
@@ -142,8 +151,7 @@ g:
             "bagel/costs",
         ] {
             let file = root.join(format!("examples/{example}.yaml"));
-            let diffs = round_trip(&file).unwrap_or_else(|e| panic!("{example}: {e}"));
-            assert!(diffs.is_empty(), "{example}: {diffs:#?}");
+            round_trip(&file).unwrap();
         }
     }
 
@@ -332,10 +340,8 @@ g:
     }
 
     fn column(model: &crate::types::ParsedModel, table: &str, column: &str) -> Vec<f64> {
-        match &model.tables[table].columns[column].values {
-            crate::types::ColumnValue::Number(v) => v.clone(),
-            other => panic!("{table}.{column}: {other:?}"),
-        }
+        let values = &model.tables[table].columns[column].values;
+        values.numbers().unwrap().into_owned()
     }
 
     /// T2-TIME: a PREV column is cells that read the row above, a period
@@ -343,7 +349,7 @@ g:
     /// that still reads the row above.
     #[test]
     fn a_column_that_reads_the_row_above_survives_export_and_import() {
-        use calamine::{open_workbook, Reader, Xlsx};
+        use calamine::{open_workbook, DataType, Reader, Xlsx};
         let dir = tempfile::TempDir::new().unwrap();
         let path = dir.path().join("m.yaml");
         fs::write(
@@ -380,13 +386,9 @@ g:
         // A period column is dates in the workbook: the day number of
         // 2027-01-01, shown as a date (ADR-054)
         let values = wb.worksheet_range("schedule").unwrap();
-        match values.get_value((2, 0)) {
-            Some(calamine::Data::DateTime(date)) => {
-                assert!((date.as_f64() - 46388.0).abs() < 1e-9, "{date:?}");
-                assert_eq!(date.to_ymd_hms_milli(), (2027, 1, 1, 0, 0, 0, 0));
-            },
-            other => panic!("not a date: {other:?}"),
-        }
+        let date = values.get_value((2, 0)).unwrap().get_datetime().unwrap();
+        assert!((date.as_f64() - 46388.0).abs() < 1e-9, "{date:?}");
+        assert_eq!(date.to_ymd_hms_milli(), (2027, 1, 1, 0, 0, 0, 0));
 
         let back = dir.path().join("back.yaml");
         import_core(&xlsx, &back, false, false).unwrap();
@@ -654,22 +656,13 @@ g:
             }
         }
         files.sort();
-        let results: Vec<(String, Result<Vec<String>, String>)> = files
+        let results: Vec<(String, Result<(), String>)> = files
             .iter()
             .map(|f| {
                 let name = f.strip_prefix(&root).unwrap().display().to_string();
                 (name, round_trip(f))
             })
             .collect();
-
-        let different: Vec<_> = results
-            .iter()
-            .filter(|(_, r)| r.as_ref().is_ok_and(|d| !d.is_empty()))
-            .collect();
-        assert_eq!(
-            different,
-            Vec::<&(String, Result<Vec<String>, String>)>::new()
-        );
 
         let skipped: Vec<(&str, &str)> = results
             .iter()
@@ -698,11 +691,13 @@ g:
             let text = fs::read_to_string(root.join(name)).unwrap();
             assert!(text.contains("MC."), "{name} has no MC. distribution");
         }
-        // The rest, 52 models, all round-trip with no difference. The ten
-        // in games/, bagel/price_war.yaml and acquisition/deal_game.yaml come
+        // The rest, 54 models, all round-trip with no difference. The ten
+        // in games/, bagel/price_war.yaml, bagel/street_fund.yaml and
+        // acquisition/deal_game.yaml come
         // back as their results, numbers as of the export: the export warns
-        // that the games themselves are not written
-        assert_eq!(results.len() - skipped.len(), 52);
+        // that the games themselves are not written. So does the network of
+        // expected_loss.yaml, under group network_results
+        assert_eq!(results.len() - skipped.len(), 54);
     }
 }
 
@@ -871,5 +866,66 @@ mod inherited_budget {
         let net_trapped = trapped.scalars["summary.net_income"].unwrap();
         assert!(close(net_trapped, 644_060.464_438_365), "{net_trapped}");
         assert!(close(net_trapped - net, 1_125.0));
+    }
+}
+
+#[cfg(test)]
+mod printed_from_the_result {
+    //! What `forge export` and `forge import` print is in their cores'
+    //! results (T1-CLI-FROM-CORES).
+
+    use crate::cli::commands::{export_core, import_core};
+    use std::path::Path;
+
+    #[test]
+    fn export_names_why_a_workbook_was_not_checked() {
+        let dir = tempfile::tempdir().unwrap();
+        let failing = dir.path().join("f.yaml");
+        std::fs::write(
+            &failing,
+            "_forge_version: \"5.2.0\"\nr:\n  missing: {formula: \"=MATCH(99, 1, 0)\"}\n",
+        )
+        .unwrap();
+        let result = export_core(&failing, &dir.path().join("f.xlsx")).unwrap();
+        let reason = result.not_checked.clone().unwrap();
+        assert_eq!(result.warnings[0], reason);
+        let fine = export_core(
+            Path::new("examples/quota_forecast.yaml"),
+            &dir.path().join("b.xlsx"),
+        )
+        .unwrap();
+        assert!(fine.not_checked.is_none());
+        let json = serde_json::to_value(&fine).unwrap();
+        assert!(json.get("not_checked").is_none(), "{json}");
+    }
+
+    #[test]
+    fn import_gives_each_table_the_formulas_kept_and_the_files_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let workbook = dir.path().join("b.xlsx");
+        export_core(Path::new("examples/bagel/bagel.yaml"), &workbook).unwrap();
+        let single = import_core(&workbook, &dir.path().join("b.yaml"), false, false).unwrap();
+        // As the file it wrote reads: the data columns, the formulas apart
+        let written = crate::parser::parse_model(&dir.path().join("b.yaml")).unwrap();
+        let shapes: Vec<(&str, usize, usize)> = single
+            .tables
+            .iter()
+            .map(|t| (t.name.as_str(), t.columns, t.rows))
+            .collect();
+        let expected: Vec<(&str, usize, usize)> = written
+            .tables
+            .values()
+            .map(|t| (t.name.as_str(), t.columns.len(), t.row_count()))
+            .collect();
+        assert_eq!(shapes, expected);
+        assert_eq!(shapes[0].0, "months");
+        assert!(single.formulas_kept > 0);
+        assert_eq!(single.files_written, Vec::<String>::new());
+        // A model whose parts do not refer to each other can be split
+        let plain = dir.path().join("q.xlsx");
+        export_core(Path::new("examples/quota_forecast.yaml"), &plain).unwrap();
+        let split = import_core(&plain, &dir.path().join("split"), true, false).unwrap();
+        assert_ne!(split.files_written, Vec::<String>::new());
+        assert!(split.files_written.iter().all(|f| Path::new(f).exists()));
     }
 }

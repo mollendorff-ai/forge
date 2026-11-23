@@ -12,6 +12,7 @@ use num_traits::ToPrimitive;
 use std::path::Path;
 
 use crate::cli::commands::display_number;
+use crate::cli::commands::results::SensitivityData;
 
 /// Parse a range string "start,end,step" into a vector of values
 ///
@@ -224,31 +225,28 @@ pub fn sensitivity(
     }
     outln!(c, "   Output: {}\n", output.bright_blue());
 
-    let Resolved {
-        model: base_model,
-        vary,
-        vary2,
-        output,
-    } = resolve(file, vary, vary2, output)?;
-
-    // Parse range
-    let values1 = parse_range(range)?;
-
-    if verbose {
-        outln!(
-            c,
-            "   Range 1: {} values from {} to {}",
-            values1.len(),
-            values1.first().unwrap_or(&0.0),
-            values1.last().unwrap_or(&0.0)
-        );
-    }
-
-    // Two-variable analysis
-    if let (Some(v2), Some(r2)) = (vary2.as_deref(), range2) {
-        run_two_var_sensitivity(c, &base_model, &vary, (v2, r2), &output, &values1, verbose)?;
-    } else {
-        print_one_var_sensitivity(c, &base_model, &vary, &output, &values1);
+    let result = sensitivity_core(file, vary, range, vary2, range2, output)?;
+    let (vary, output) = (result.vary.as_str(), result.output.as_str());
+    match &result.data {
+        SensitivityData::OneVar { entries } => {
+            if verbose {
+                let inputs: Vec<f64> = entries.iter().map(|e| e.input).collect();
+                print_range(c, 1, &inputs);
+            }
+            print_one_var_sensitivity(c, vary, output, entries);
+        },
+        SensitivityData::TwoVar {
+            vary2,
+            row_values,
+            col_values,
+            matrix,
+        } => {
+            if verbose {
+                print_range(c, 1, row_values);
+                print_range(c, 2, col_values);
+            }
+            print_two_var_sensitivity(c, (vary, vary2), output, (row_values, col_values), matrix);
+        },
     }
 
     outln!(c, "\n{}", "✅ Sensitivity analysis complete".bold().green());
@@ -261,10 +259,9 @@ pub fn sensitivity(
 /// under the table, where its lines do not stretch the column.
 fn print_one_var_sensitivity(
     c: &mut Console<'_>,
-    base_model: &crate::types::ParsedModel,
     vary: &str,
     output: &str,
-    values: &[f64],
+    entries: &[crate::cli::commands::results::SensitivityEntry],
 ) {
     outln!(
         c,
@@ -274,13 +271,13 @@ fn print_one_var_sensitivity(
         output.bright_blue()
     );
     // Wide enough for the names and the numbers, so the header lines up
-    let rows: Vec<(String, Result<f64, String>)> = values
+    let rows: Vec<(String, Result<f64, String>)> = entries
         .iter()
-        .map(|val| {
-            (
-                format!("{val:.4}"),
-                calculate_with_override(base_model, vary, *val, output).map_err(|e| e.to_string()),
-            )
+        .map(|entry| {
+            let result = entry
+                .output
+                .ok_or_else(|| entry.error.clone().unwrap_or_default());
+            (format!("{:.4}", entry.input), result)
         })
         .collect();
     let shown = |result: &Result<f64, String>| {
@@ -357,28 +354,25 @@ pub fn sensitivity_in_format(
     Ok(())
 }
 
-/// Run two-variable sensitivity analysis matrix, for inputs [`resolve`] found
-fn run_two_var_sensitivity(
+/// How many values a range has, and its first and last.
+fn print_range(c: &mut Console<'_>, which: u8, values: &[f64]) {
+    outln!(
+        c,
+        "   Range {which}: {} values from {} to {}",
+        values.len(),
+        values.first().unwrap_or(&0.0),
+        values.last().unwrap_or(&0.0)
+    );
+}
+
+/// The matrix of a two-input sensitivity, each cell the output or `ERR`.
+fn print_two_var_sensitivity(
     c: &mut Console<'_>,
-    base_model: &crate::types::ParsedModel,
-    vary: &str,
-    (v2, r2): (&str, &str),
+    (vary, v2): (&str, &str),
     output: &str,
-    values1: &[f64],
-    verbose: bool,
-) -> ForgeResult<()> {
-    let values2 = parse_range(r2)?;
-
-    if verbose {
-        outln!(
-            c,
-            "   Range 2: {} values from {} to {}",
-            values2.len(),
-            values2.first().unwrap_or(&0.0),
-            values2.last().unwrap_or(&0.0)
-        );
-    }
-
+    (values1, values2): (&[f64], &[f64]),
+    matrix: &[Vec<Option<f64>>],
+) {
     // Calculate matrix
     outln!(
         c,
@@ -388,18 +382,16 @@ fn run_two_var_sensitivity(
         output.bright_blue()
     );
 
-    // Calculate every cell first, so the columns can be as wide as their numbers
-    let cell = |val1: f64, val2: f64| {
-        two_input_cell(base_model, (vary, val1), (v2, val2), output)
-            .map_or_else(|| "ERR".to_string(), display_number)
-    };
+    // Every cell first, so the columns can be as wide as their numbers
     let rows: Vec<(String, Vec<String>)> = values1
         .iter()
-        .map(|val1| {
-            (
-                format!("{val1:.4}"),
-                values2.iter().map(|val2| cell(*val1, *val2)).collect(),
-            )
+        .zip(matrix)
+        .map(|(val1, cells)| {
+            let cells = cells
+                .iter()
+                .map(|cell| cell.map_or_else(|| "ERR".to_string(), display_number))
+                .collect();
+            (format!("{val1:.4}"), cells)
         })
         .collect();
     let heads: Vec<String> = values2.iter().map(|val2| format!("{val2:.4}")).collect();
@@ -438,7 +430,6 @@ fn run_two_var_sensitivity(
         }
         outln!(c);
     }
-    Ok(())
 }
 
 #[cfg(test)]

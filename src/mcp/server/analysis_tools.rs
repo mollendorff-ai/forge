@@ -22,42 +22,32 @@ use crate::cli::{
 fn scenarios_json(path: &Path, results: &crate::scenarios::ScenarioResults) -> String {
     let mut json =
         serde_json::to_value(crate::core::precision::Rounded(results)).unwrap_or_default();
-    let dates: Vec<String> = crate::parser::parse_model(path).map_or_else(
-        |_| Vec::new(),
-        |m| {
+    // The run parsed this file, so reading it again does not fail
+    let dates: Vec<String> = crate::parser::parse_model(path)
+        .map(|m| {
             m.scalars
                 .iter()
                 .filter(|(_, v)| v.is_date)
                 .map(|(k, _)| k.clone())
                 .collect()
-        },
-    );
-    let text = |v: &serde_json::Value| {
-        v.as_f64().map_or_else(
-            || v.clone(),
-            |n| {
-                serde_json::Value::String(
-                    crate::core::array_calculator::evaluator::serial_date_text(n),
-                )
-            },
-        )
+        })
+        .unwrap_or_default();
+    // A date is an input, so it is in a scenario's scalars and the expected
+    // values, and never in the ranges, which are of calculated outputs
+    let as_text = |v: &mut serde_json::Value| {
+        let day = v.as_f64().expect("a date is a number");
+        *v = serde_json::Value::String(crate::core::array_calculator::evaluator::serial_date_text(
+            day,
+        ));
     };
     for name in &dates {
-        if let Some(scenarios) = json["scenarios"].as_array_mut() {
-            for scenario in scenarios {
-                if let Some(v) = scenario["scalars"].get_mut(name) {
-                    *v = text(v);
-                }
-            }
+        for scenario in json["scenarios"]
+            .as_array_mut()
+            .expect("results have scenarios")
+        {
+            as_text(&mut scenario["scalars"][name]);
         }
-        if let Some(v) = json["expected_values"].get_mut(name) {
-            *v = text(v);
-        }
-        if let Some(range) = json["ranges"].get_mut(name).and_then(|r| r.as_array_mut()) {
-            for end in range {
-                *end = text(end);
-            }
-        }
+        as_text(&mut json["expected_values"][name]);
     }
     json.to_string()
 }
@@ -543,22 +533,23 @@ scenarios:
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         let scenarios = parsed["scenarios"].as_array().unwrap();
-        // Verify each scenario actually overrode the grouped scalar
-        for s in scenarios {
-            let name = s["name"].as_str().unwrap();
-            let profit = s["scalars"]["profit"].as_f64().unwrap();
-            match name {
-                "bull" => assert!(
-                    (profit - 250_000.0).abs() < 1.0,
-                    "bull profit: expected 250000, got {profit}"
-                ),
-                "bear" => assert!(
-                    (profit - 20_000.0).abs() < 1.0,
-                    "bear profit: expected 20000, got {profit}"
-                ),
-                _ => panic!("unexpected scenario: {name}"),
-            }
-        }
+        // Each scenario actually overrode the grouped scalar
+        let profits: Vec<(String, f64)> = scenarios
+            .iter()
+            .map(|s| {
+                (
+                    s["name"].as_str().unwrap().to_string(),
+                    s["scalars"]["profit"].as_f64().unwrap().round(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            profits,
+            [
+                ("bear".to_string(), 20_000.0),
+                ("bull".to_string(), 250_000.0)
+            ]
+        );
     }
 
     #[test]
@@ -686,6 +677,12 @@ scalars:
             "{text}"
         );
         assert!(v["expected_values"]["inputs.rate"].is_number());
+        // The weighted date is a date too, and a calculated output stays a number
+        assert_eq!(v["expected_values"]["inputs.last_actual"], "2026-11-15");
+        assert_eq!(
+            v["ranges"]["out.next"],
+            serde_json::json!([23178.0, 23193.5])
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1082,6 +1079,61 @@ scenarios:
         );
     }
 
+    /// The games of many players and the dynamics (ADR-073), by path and as
+    /// text with their includes: the bagel's price war across the city and
+    /// the street's festival of five shops (worked out by hand in
+    /// src/cli/commands/game.rs), and the volunteer's dilemma of five
+    /// players, 1 - 0.4^(1/4) (Python 3.12)
+    #[test]
+    fn game_reports_games_of_five_players_and_the_dynamics() {
+        let server = ForgeMcpServer::new();
+        let includes = [("plan", "bagel.yaml"), ("costs", "costs.yaml")];
+        for inline in [false, true] {
+            let ask = |(file_path, content, includes): Source| {
+                json(&ok_text(server.game(Parameters(GameRequest {
+                    file_path,
+                    content,
+                    includes,
+                    game: None,
+                    scenario: None,
+                }))))
+            };
+            let war = ask(bagel_source(inline, "price_war.yaml", &includes));
+            let path = war[0]["dynamics"]["path"].as_array().unwrap();
+            assert_eq!(path.len(), 25, "inline {inline}");
+            assert_eq!(path[0]["shares"]["cut"].as_f64(), Some(0.1));
+            let cut = path[24]["shares"]["cut"].as_f64().unwrap();
+            assert!(close(cut, 0.991_336_378_216_362_2, 1e-12), "{cut}");
+
+            let street = ask(bagel_source(inline, "street_fund.yaml", &includes));
+            assert_eq!(street[0]["players"].as_array().unwrap().len(), 5);
+            assert_eq!(street[0]["cells"].as_array().unwrap().len(), 32);
+            assert_eq!(street[0]["symmetric_searched"], true);
+            assert_eq!(street[0]["equilibria"].as_array().unwrap().len(), 1);
+            assert_eq!(
+                street[0]["equilibria"][0]["players"]["deli"]["strategies"]["keep"],
+                1.0
+            );
+            assert_eq!(street[0]["equilibria"][0]["stable"], true);
+            let pay = street[0]["even_mix"]["lune"]["pay"].as_f64().unwrap();
+            assert!(close(pay, 875.4368, 1e-9), "{pay}");
+
+            let dilemma = ask(example_source(
+                inline,
+                "games",
+                "volunteers-dilemma.yaml",
+                &[],
+            ));
+            let mixed = &dilemma[0]["equilibria"][5];
+            assert_eq!(mixed["kind"], "mixed");
+            assert_eq!(mixed["stable"], true);
+            let share = mixed["players"]["a5"]["strategies"]["volunteer"]
+                .as_f64()
+                .unwrap();
+            assert!(close(share, 0.204_729_271_232_949, 1e-12), "{share}");
+        }
+    }
+
     /// What every tool that reads a model says when it is given none
     const ASKS: &str = "Either file_path or content is required";
 
@@ -1124,5 +1176,88 @@ scenarios:
         assert_eq!(server.scenarios(request(json!({}))).unwrap_err(), ASKS);
         assert_eq!(server.tornado(request(json!({}))).unwrap_err(), ASKS);
         assert_eq!(server.game(request(json!({}))).unwrap_err(), ASKS);
+    }
+
+    #[test]
+    fn a_failed_sensitivity_or_variance_says_why() {
+        let server = ForgeMcpServer::new();
+        let priced =
+            "_forge_version: \"5.1.0\"\nprice: 4\nout:\n  total: {formula: \"=price * 2\"}\n";
+        assert_eq!(
+            err_text(server.sensitivity(Parameters(SensitivityRequest {
+                file_path: None,
+                content: Some(priced.to_string()),
+                includes: None,
+                vary: "nope".into(),
+                range: "1,2,1".into(),
+                output: "out.total".into(),
+                vary2: None,
+                range2: None,
+            }))),
+            "Sensitivity analysis failed: Validation error: Variable 'nope' not found. Available scalars: [\"price\", \"out.total\"]"
+        );
+        let variance = |budget: Option<&str>, actual: &str| {
+            err_text(server.variance(Parameters(VarianceRequest {
+                budget_path: None,
+                budget_content: budget.map(str::to_string),
+                actual_path: None,
+                actual_content: Some(actual.to_string()),
+                includes: None,
+                threshold: None,
+            })))
+        };
+        assert_eq!(
+            variance(None, priced),
+            "Either budget_path or budget_content is required"
+        );
+        let broken = "_forge_version: \"5.1.0\"\nout:\n  total: {formula: \"=nope + 1\"}\n";
+        assert_eq!(
+            variance(Some(broken), broken),
+            "Variance analysis failed: Formula evaluation error: out.total: Unknown variable: nope (formula: =nope + 1)"
+        );
+    }
+
+    #[test]
+    fn a_failed_goal_seek_break_even_or_tornado_says_why() {
+        let server = ForgeMcpServer::new();
+        let content = Some(
+            "_forge_version: \"5.1.0\"\nprice: 4\nout:\n  total: {formula: \"=price * 2\"}\n"
+                .to_string(),
+        );
+        assert_eq!(
+            err_text(server.goal_seek(Parameters(GoalSeekRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+                target: "nope".into(),
+                value: 1.0,
+                vary: "price".into(),
+                min: Some(0.0),
+                max: Some(10.0),
+                tolerance: 0.01,
+            }))),
+            "Goal seek failed: Validation error: Output variable 'nope' not found in model"
+        );
+        assert_eq!(
+            err_text(server.break_even(Parameters(BreakEvenRequest {
+                file_path: None,
+                content: content.clone(),
+                includes: None,
+                output: "nope".into(),
+                vary: "price".into(),
+                min: Some(0.0),
+                max: Some(10.0),
+            }))),
+            "Break-even analysis failed: Validation error: Output variable 'nope' not found in model"
+        );
+        assert_eq!(
+            err_text(server.tornado(Parameters(TornadoRequest {
+                file_path: None,
+                content,
+                includes: None,
+                output_var: None,
+            }))),
+            "Tornado analysis failed: Validation error: No 'tornado' section found in YAML"
+        );
     }
 }

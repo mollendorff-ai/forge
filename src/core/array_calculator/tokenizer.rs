@@ -71,6 +71,9 @@ impl std::error::Error for TokenizeError {}
 pub struct Tokenizer<'a> {
     chars: Peekable<Chars<'a>>,
     position: usize,
+    /// Where the next character is in the formula as given, in bytes, its
+    /// `=` counted
+    byte: usize,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -78,10 +81,11 @@ impl<'a> Tokenizer<'a> {
     #[must_use]
     pub fn new(formula: &'a str) -> Self {
         // Strip leading '=' if present (formulas start with =)
-        let formula = formula.strip_prefix('=').unwrap_or(formula);
+        let rest = formula.strip_prefix('=').unwrap_or(formula);
         Self {
-            chars: formula.chars().peekable(),
+            chars: rest.chars().peekable(),
             position: 0,
+            byte: formula.len() - rest.len(),
         }
     }
 
@@ -159,11 +163,11 @@ impl<'a> Tokenizer<'a> {
                     },
 
                     // Minus could be operator or negative number
-                    '-' => self.read_minus_or_negative()?,
+                    '-' => self.read_minus_or_negative(),
 
                     // Comparison operators
-                    '<' => self.read_less_than_operator()?,
-                    '>' => self.read_greater_than_operator()?,
+                    '<' => self.read_less_than_operator(),
+                    '>' => self.read_greater_than_operator(),
                     '=' => {
                         self.advance();
                         Token::Operator("=".to_string())
@@ -206,8 +210,9 @@ impl<'a> Tokenizer<'a> {
     /// Advance to the next character
     fn advance(&mut self) -> Option<char> {
         let c = self.chars.next();
-        if c.is_some() {
+        if let Some(c) = c {
             self.position += 1;
+            self.byte += c.len_utf8();
         }
         c
     }
@@ -359,49 +364,43 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Handle minus sign - could be operator or start of negative number
-    // Returns Result for uniform tokenizer method signature.
-    #[allow(clippy::unnecessary_wraps)]
-    fn read_minus_or_negative(&mut self) -> Result<Token, TokenizeError> {
+    fn read_minus_or_negative(&mut self) -> Token {
         self.advance(); // consume '-'
 
         // Check if followed by a digit (negative number)
         // But we need context: if previous token was a value, this is an operator
         // For simplicity in tokenizer, we'll treat '-' as always an operator
         // The parser will handle unary minus
-        Ok(Token::Operator("-".to_string()))
+        Token::Operator("-".to_string())
     }
 
     /// Read operators starting with '<'
-    // Returns Result for uniform tokenizer method signature.
-    #[allow(clippy::unnecessary_wraps)]
-    fn read_less_than_operator(&mut self) -> Result<Token, TokenizeError> {
+    fn read_less_than_operator(&mut self) -> Token {
         self.advance(); // consume '<'
 
         match self.peek() {
             Some('=') => {
                 self.advance();
-                Ok(Token::Operator("<=".to_string()))
+                Token::Operator("<=".to_string())
             },
             Some('>') => {
                 self.advance();
-                Ok(Token::Operator("<>".to_string()))
+                Token::Operator("<>".to_string())
             },
-            _ => Ok(Token::Operator("<".to_string())),
+            _ => Token::Operator("<".to_string()),
         }
     }
 
     /// Read operators starting with '>'
-    // Returns Result for uniform tokenizer method signature.
-    #[allow(clippy::unnecessary_wraps)]
-    fn read_greater_than_operator(&mut self) -> Result<Token, TokenizeError> {
+    fn read_greater_than_operator(&mut self) -> Token {
         self.advance(); // consume '>'
 
         match self.peek() {
             Some('=') => {
                 self.advance();
-                Ok(Token::Operator(">=".to_string()))
+                Token::Operator(">=".to_string())
             },
-            _ => Ok(Token::Operator(">".to_string())),
+            _ => Token::Operator(">".to_string()),
         }
     }
 }
@@ -415,9 +414,56 @@ pub fn tokenize(formula: &str) -> Result<Vec<Token>, TokenizeError> {
     Tokenizer::new(formula).tokenize()
 }
 
+/// The names a formula reads, each with where it starts in `formula`, in bytes.
+///
+/// Its identifiers, without a function's (followed by `(`) and without TRUE
+/// and FALSE. `rename` finds a name's references by them (ADR-075).
+///
+/// # Errors
+///
+/// Returns `TokenizeError` for invalid tokens, as [`tokenize`].
+pub fn names(formula: &str) -> Result<Vec<(usize, String)>, TokenizeError> {
+    let mut tokenizer = Tokenizer::new(formula);
+    let mut names = Vec::new();
+    loop {
+        tokenizer.skip_whitespace();
+        let at = tokenizer.byte;
+        match tokenizer.next_token()? {
+            None => return Ok(names),
+            // An identifier is read with the white space after it, so the
+            // next character tells a function's name
+            Some(Token::Identifier(name)) if tokenizer.peek() != Some('(') => {
+                names.push((at, name));
+            },
+            Some(_) => {},
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_names_a_formula_reads_are_found_where_they_are_written() {
+        let formula = "=SUM(months.sales) * prix_unitaire + IF(TRUE, @costs.rent, \"a b\") - 单价";
+        let names = names(formula).unwrap();
+        let words: Vec<&str> = names.iter().map(|(_, n)| n.as_str()).collect();
+        assert_eq!(
+            words,
+            ["months.sales", "prix_unitaire", "@costs.rent", "单价"]
+        );
+        for (at, name) in &names {
+            assert_eq!(&formula[*at..at + name.len()], name);
+        }
+        // Without `=`: a name in a string is not read, a function's name
+        // before its `(` is not either
+        assert_eq!(
+            super::names("a + 'b c' + SUM (d)").unwrap(),
+            [(0, "a".to_string()), (17, "d".to_string())]
+        );
+        assert!(super::names("=a # b").is_err());
+    }
 
     #[test]
     fn test_tokenize_simple_number() {
@@ -755,6 +801,16 @@ mod tests {
                 Token::Operator("&".to_string()),
                 Token::Text(" World".to_string()),
             ]
+        );
+    }
+
+    /// An exponent with no digits, at the end of the formula, is no number
+    #[test]
+    fn an_exponent_with_nothing_after_it_is_refused() {
+        let err = tokenize("2 * 1e").unwrap_err();
+        assert_eq!(
+            (err.message.as_str(), err.position),
+            ("Invalid number: 1e", 4)
         );
     }
 }

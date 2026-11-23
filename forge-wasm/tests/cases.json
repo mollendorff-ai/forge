@@ -10,12 +10,15 @@
   {"name": "tornado bagel", "tool": "tornado", "dir": "bagel", "files": ["bagel.yaml", "costs.yaml"], "main": "bagel.yaml"},
   {"name": "simulate bagel", "tool": "simulate", "dir": "bagel", "files": ["bagel_simulate.yaml", "costs_risk.yaml", "costs.yaml"], "main": "bagel_simulate.yaml"},
   {"name": "simulate bagel, rent hike", "tool": "simulate", "dir": "bagel", "files": ["bagel_simulate.yaml", "costs_risk.yaml", "costs.yaml"], "main": "bagel_simulate.yaml", "args": {"scenario": "rent_hike", "iterations": 1000}},
+  {"name": "calculate bagel simulate at plan", "tool": "calculate", "dir": "bagel", "files": ["bagel_simulate.yaml", "costs_risk.yaml", "costs.yaml"], "main": "bagel_simulate.yaml", "args": {"plan": true}},
+  {"name": "calculate bagel simulate at plan, rent hike", "tool": "calculate", "dir": "bagel", "files": ["bagel_simulate.yaml", "costs_risk.yaml", "costs.yaml"], "main": "bagel_simulate.yaml", "args": {"plan": true, "scenario": "rent_hike"}},
   {"name": "probability seek price", "tool": "probability_seek", "dir": "bagel", "files": ["bagel_simulate.yaml", "costs_risk.yaml", "costs.yaml"], "main": "bagel_simulate.yaml", "args": {"goal": {"output": "year.profit", "threshold": "> 0", "probability": 0.8}, "input": "price_per_dozen", "min": 14, "max": 24, "iterations": 1000}},
   {"name": "variance bagel", "tool": "variance", "dir": "bagel", "files": ["bagel.yaml", "actual.yaml", "costs.yaml"], "args": {"budget": "bagel.yaml", "actual": "actual.yaml"}},
   {"name": "decision tree second shop", "tool": "decision_tree", "dir": "bagel", "files": ["second_shop.yaml"], "main": "second_shop.yaml"},
   {"name": "real options wait", "tool": "real_options", "dir": "bagel", "files": ["wait_option.yaml"], "main": "wait_option.yaml"},
   {"name": "bootstrap first month", "tool": "bootstrap", "dir": "bagel", "files": ["first_month.yaml"], "main": "first_month.yaml"},
   {"name": "bayesian slow week", "tool": "bayesian", "dir": "bagel", "files": ["slow_week.yaml"], "main": "slow_week.yaml", "args": {"query": "roadwork", "evidence": ["sales=slow", "weather=rainy"]}},
+  {"name": "bayesian expected loss, recession", "tool": "bayesian", "dir": "", "files": ["expected_loss.yaml"], "main": "expected_loss.yaml", "args": {"query": "economy", "evidence": ["default=yes"], "scenario": "recession"}},
   {"name": "model bagel price war", "tool": "model", "dir": "bagel", "files": ["price_war.yaml", "bagel.yaml", "costs.yaml"], "main": "price_war.yaml"},
   {"name": "game bagel price war", "tool": "game", "dir": "bagel", "files": ["price_war.yaml", "bagel.yaml", "costs.yaml"], "main": "price_war.yaml"},
   {"name": "game acquisition sealed bids", "tool": "game", "dir": "acquisition", "files": ["deal_game.yaml", "deal.yaml", "buyer.yaml", "target.yaml"], "main": "deal_game.yaml"},
@@ -60,5 +63,7 @@
   {"name": "refused: a period that starts on no date", "tool": "validate", "model": "_forge_version: \"5.4.0\"\ncash:\n  year: {start: \"text\", count: 5, unit: year}\n  x: \"=1\"\n", "refused": "must be a month (YYYY-MM) or a day (YYYY-MM-DD)"},
   {"name": "refused: three variables in one correlation", "tool": "validate", "model": "_forge_version: \"5.4.0\"\na: 1\nb: 2\nc: 3\nmonte_carlo:\n  iterations: 1000\n  correlations:\n    - variables: [a, b, c]\n      coefficient: 0\n  outputs:\n    - variable: a\n", "refused": "has more than 2 entries"},
   {"name": "refused: no format version", "tool": "validate", "model": "price: 1\n", "refused": "Missing required field: _forge_version"},
-  {"name": "refused: a format version Forge does not have", "tool": "validate", "model": "_forge_version: \"6.0.0\"\nprice: 1\n", "refused": "Unsupported _forge_version: '6.0.0'"}
+  {"name": "refused: a format version Forge does not have", "tool": "validate", "model": "_forge_version: \"6.0.0\"\nprice: 1\n", "refused": "Unsupported _forge_version: '6.0.0'"},
+  {"name": "refused: plan that is not true or false", "tool": "calculate", "model": "_forge_version: \"5.1.0\"\na: 1\n", "args": {"plan": "yes"}, "refused": "'plan' must be true or false"},
+  {"name": "refused: an uncertain model calculated without plan", "tool": "calculate", "model": "_forge_version: \"5.1.0\"\ng:\n  a:\n    formula: \"=MC.Normal(1, 2)\"\n", "refused": "forge calculate --plan"}
 ]

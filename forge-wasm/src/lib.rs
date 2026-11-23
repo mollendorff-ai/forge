@@ -15,15 +15,16 @@
 //! function's result, or `{"error": "..."}` with Forge's message.
 
 use mollendorff_forge::cli::{
-    audit_core, bayesian_core, bootstrap_core, calculate_core, compare_core, decision_tree_core,
-    examples_core, functions_core, game_core, goal_seek_core, probability_seek_core,
-    real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
-    validate_core, variance_core, SeekGoal, SimulateOptions,
+    audit_core, bayesian_core, bootstrap_core, calculate_core, calculate_plan_core, compare_core,
+    decision_tree_core, examples_core, functions_core, game_core, goal_seek_core,
+    probability_seek_core, real_options_core, scenarios_core, schema_core, sensitivity_core,
+    simulate_core, tornado_core, validate_core_with, variance_core, SeekGoal, SimulateOptions,
 };
 use mollendorff_forge::cli::{
     commands::render, commands::report_core, ReportFormat, ReportOptions,
 };
 use mollendorff_forge::cli::{export_bytes_core, import_text_core};
+use mollendorff_forge::edit::{edit_files, Change};
 use mollendorff_forge::parser::{parse_model, with_files_in_memory};
 use mollendorff_forge::types::ParsedModel;
 use serde_json::{json, Map, Value};
@@ -32,8 +33,9 @@ use std::path::Path;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The tools, by the names of the MCP tools without `forge_`.
-pub const TOOLS: [&str; 23] = [
+pub const TOOLS: [&str; 24] = [
     "validate",
+    "edit",
     "calculate",
     "audit",
     "scenarios",
@@ -103,7 +105,7 @@ pub fn run(tool: &str, request: &Value) -> Result<Value, String> {
         .as_object()
         .ok_or("The request must be a JSON object")?;
     match tool {
-        "functions" => return functions_core().map_err(|e| e.to_string()),
+        "functions" => return Ok(functions_core()),
         "examples" => return examples_core(opt_str(args, "name")?).map_err(|e| e.to_string()),
         "schema" => {
             return schema_core(opt_str(args, "version")?)
@@ -111,6 +113,7 @@ pub fn run(tool: &str, request: &Value) -> Result<Value, String> {
                 .map_err(|e| e.to_string())
         },
         "import" => return import(args),
+        "edit" => return edit(args),
         _ => {},
     }
     if !TOOLS.contains(&tool) && !STUDIO_TOOLS.contains(&tool) {
@@ -154,14 +157,27 @@ pub fn run_on_disk(tool: &str, request: &Value, dir: &Path) -> Result<Value, Str
 fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Value, String> {
     let fail = |e: mollendorff_forge::ForgeError| e.to_string();
     match tool {
-        "validate" => to_value(validate_core(main).map_err(fail)?),
+        // Studio checks an edit without the expectations (ADR-074)
+        "validate" => {
+            let expectations = args
+                .get("expectations")
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
+            to_value(validate_core_with(main, expectations).map_err(fail)?)
+        },
         "export" => export(main),
         "model" => parse_model(main)
             .map(|model| structure(&model))
             .map_err(fail),
-        // Results are never written back: there is no file to write to
+        // Results are never written back: there is no file to write to.
+        // `plan`: an uncertain model at its plan figures (ADR-076)
         "calculate" => {
-            to_value(calculate_core(main, true, opt_str(args, "scenario")?).map_err(fail)?)
+            let scenario = opt_str(args, "scenario")?;
+            to_value(if opt_bool(args, "plan")? {
+                calculate_plan_core(main, scenario).map_err(fail)?
+            } else {
+                calculate_core(main, true, scenario).map_err(fail)?
+            })
         },
         "audit" => to_value(audit_core(main, str_arg(args, "variable")?).map_err(fail)?),
         "scenarios" => {
@@ -222,6 +238,7 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
                 main,
                 opt_str(args, "query")?,
                 &opt_strings(args, "evidence")?,
+                opt_str(args, "scenario")?,
             )
             .map_err(fail)?,
         ),
@@ -308,7 +325,24 @@ fn structure(model: &ParsedModel) -> Value {
         "includes": includes,
         "scenarios": scenarios,
         "games": games,
+        // The analysis sections, for the kind of model Studio shows (ADR-077)
+        "analyses": model.analyses,
     })
+}
+
+/// `forge edit` on files in memory (ADR-075): the new text of each file that
+/// changed, by its name in `files`.
+fn edit(args: &Map<String, Value>) -> Result<Value, String> {
+    let files = files(args)?;
+    let main = opt_str(args, "main")?.unwrap_or("model.yaml");
+    let changes: Vec<Change> = serde_json::from_value(
+        args.get("changes")
+            .cloned()
+            .ok_or("'changes' is required: a list of changes")?,
+    )
+    .map_err(|e| format!("'changes': {e}"))?;
+    let new_texts = edit_files(&files, main, &changes).map_err(|e| e.to_string())?;
+    Ok(json!({ "files": new_texts }))
 }
 
 /// `forge export` into memory: the MCP tool's in-memory answer.
@@ -455,6 +489,15 @@ fn opt_f64(args: &Map<String, Value>, key: &str) -> Result<Option<f64>, String> 
             .as_f64()
             .map(Some)
             .ok_or_else(|| format!("'{key}' must be a number")),
+    }
+}
+
+fn opt_bool(args: &Map<String, Value>, key: &str) -> Result<bool, String> {
+    match args.get(key) {
+        None | Some(Value::Null) => Ok(false),
+        Some(v) => v
+            .as_bool()
+            .ok_or_else(|| format!("'{key}' must be true or false")),
     }
 }
 
@@ -649,6 +692,31 @@ mod tests {
             );
         }
 
+        /// What `expect:` states is checked as the command checks it, and
+        /// Studio's edit check can leave it out (ADR-074)
+        #[test]
+        fn validate_checks_the_expectations_unless_asked_not_to() {
+            let model = "_forge_version: \"5.6.0\"\nw: 0.6\nout:\n  twice: {formula: \"=w * 2\"}\n\
+                         scenarios:\n  short:\n    scalars: {w: 0.4}\n    expect: {out.twice: 0.9}\n";
+            let request = |extra: Value| {
+                let mut r = serde_json::json!({ "files": { "m.yaml": model }, "main": "m.yaml" });
+                if let Value::Object(more) = extra {
+                    r.as_object_mut().unwrap().extend(more);
+                }
+                r
+            };
+            let checked = run("validate", &request(serde_json::json!({}))).unwrap();
+            assert_eq!(checked["expectations_met"], false);
+            assert_eq!(checked["expectation_differences"][0]["got"], 0.8);
+            let gate = run(
+                "validate",
+                &request(serde_json::json!({ "expectations": false })),
+            )
+            .unwrap();
+            assert_eq!(gate["expectations_checked"], 0);
+            assert_eq!(gate["expectations_met"], true);
+        }
+
         #[test]
         fn every_case_answers_from_memory_as_from_disk() {
             for case in cases::all() {
@@ -702,6 +770,26 @@ mod tests {
             );
         }
 
+        /// The simulation's model at plan is the plan: every uncertain input at
+        /// its value:, and the year at the plan's profit (ADR-076)
+        #[test]
+        fn bagel_simulate_at_plan_is_the_plan() {
+            let plan = case("calculate bagel simulate at plan");
+            close(number(&plan, "/scalars/year.profit"), 786.32, 0.005);
+            let simulated = case("simulate bagel");
+            let inputs = simulated["monte_carlo_results"]["inputs"]
+                .as_object()
+                .unwrap();
+            assert_eq!(plan["at_plan"].as_object().unwrap().len(), inputs.len());
+            for (name, input) in inputs {
+                close(
+                    number(&plan, &format!("/at_plan/{name}")),
+                    number(input, "/plan"),
+                    0.0,
+                );
+            }
+        }
+
         #[test]
         fn bagel_break_even_and_goal_seek() {
             close(number(&case("break-even price"), "/solution"), 15.97, 0.005);
@@ -710,6 +798,21 @@ mod tests {
                 24.27,
                 0.005,
             );
+        }
+
+        /// `examples/expected_loss.yaml` in its recession: the prior reads the
+        /// scenario's outlook (ADR-074), so a default makes a bad year
+        /// 0.0865 / 0.1254 likely, by Bayes' rule by hand
+        #[test]
+        fn a_network_under_a_scenario() {
+            let answer = case("bayesian expected loss, recession");
+            let economy = &answer["queries"]["economy"];
+            assert_eq!(
+                economy["states"],
+                serde_json::json!(["good", "neutral", "bad"])
+            );
+            close(number(economy, "/probabilities/2"), 0.0865 / 0.1254, 1e-12);
+            assert_eq!(answer["evidence"], serde_json::json!({"default": "yes"}));
         }
 
         /// kinship-protocol's tournament with c = 0.2 (examples/games): the
@@ -727,6 +830,36 @@ mod tests {
                 .find(|s| s["player"] == "ad")
                 .unwrap();
             close(number(ad, "/score"), 2.008, 1e-12);
+        }
+
+        /// Each of the bagel's files names its analysis sections, so Studio
+        /// can tell a decision tree from a plan without reading the YAML
+        /// (ADR-077)
+        #[test]
+        fn each_bagel_file_names_its_analyses() {
+            let dir = examples().join("bagel");
+            for (file, analyses) in [
+                ("bagel.yaml", serde_json::json!(["tornado"])),
+                ("bagel_simulate.yaml", serde_json::json!(["monte_carlo"])),
+                ("second_shop.yaml", serde_json::json!(["decision_tree"])),
+                ("wait_option.yaml", serde_json::json!(["real_options"])),
+                ("first_month.yaml", serde_json::json!(["bootstrap"])),
+                ("slow_week.yaml", serde_json::json!(["bayesian_network"])),
+                ("price_war.yaml", serde_json::json!([])),
+            ] {
+                let files: serde_json::Map<String, Value> = std::fs::read_dir(&dir)
+                    .unwrap()
+                    .map(|e| e.unwrap().path())
+                    .filter(|p| p.extension().is_some_and(|x| x == "yaml"))
+                    .map(|p| {
+                        let name = p.file_name().unwrap().to_string_lossy().into_owned();
+                        (name, Value::String(std::fs::read_to_string(&p).unwrap()))
+                    })
+                    .collect();
+                let model = run("model", &serde_json::json!({"files": files, "main": file}))
+                    .unwrap_or_else(|e| panic!("{file}: {e}"));
+                assert_eq!(model["analyses"], analyses, "{file}");
+            }
         }
 
         /// `examples/bagel/price_war.yaml`: the model names its two games, and
@@ -868,6 +1001,89 @@ mod tests {
             );
             let message = refused.unwrap_err();
             assert!(message.contains("Failed to open Excel file"), "{message}");
+        }
+
+        /// `edit` changes the bagel's own files and answers the new text of
+        /// each one that changed (ADR-075)
+        #[test]
+        fn edit_answers_the_files_it_changed() {
+            let dir = examples().join("bagel");
+            let read = |name: &str| std::fs::read_to_string(dir.join(name)).unwrap();
+            let files = serde_json::json!({"bagel.yaml": read("bagel.yaml"), "costs.yaml": read("costs.yaml")});
+            let price = run(
+                "model",
+                &serde_json::json!({"files": files, "main": "bagel.yaml"}),
+            )
+            .unwrap()["scalars"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|s| s["formula"].is_null() && s["path"].as_str().unwrap().contains('.'))
+                .unwrap()["path"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            let edited = run(
+                "edit",
+                &serde_json::json!({"files": files, "main": "bagel.yaml",
+                                    "changes": [{"op": "set_value", "path": price, "value": 123.5}]}),
+            )
+            .unwrap();
+            let changed = edited["files"].as_object().unwrap();
+            assert_eq!(changed.keys().collect::<Vec<_>>(), ["bagel.yaml"]);
+            let before = read("bagel.yaml");
+            let after = changed["bagel.yaml"].as_str().unwrap();
+            assert_eq!(after.lines().count(), before.lines().count());
+            let differ: Vec<&str> = after
+                .lines()
+                .zip(before.lines())
+                .filter(|(a, b)| a != b)
+                .map(|(a, _)| a)
+                .collect();
+            assert_eq!(differ.len(), 1, "{differ:?}");
+            assert!(differ[0].contains("123.5"), "{differ:?}");
+            // A rename, and every name that reads it
+            let renamed = run(
+                "edit",
+                &serde_json::json!({"files": files, "main": "bagel.yaml",
+                                    "changes": [{"op": "rename", "path": price, "new_name": "edit_renamed"}]}),
+            )
+            .unwrap();
+            let last = price.rsplit('.').next().unwrap();
+            let text = renamed["files"]["bagel.yaml"].as_str().unwrap();
+            assert!(text.contains("edit_renamed:"), "{text}");
+            assert!(!text.contains(&format!("{last}:")), "{text}");
+            // An input made uncertain keeps its value as the plan, and the
+            // model asks for a simulation
+            let uncertain = run(
+                "edit",
+                &serde_json::json!({"files": files, "main": "bagel.yaml",
+                                    "changes": [{"op": "make_uncertain", "path": price}]}),
+            )
+            .unwrap();
+            let text = uncertain["files"]["bagel.yaml"].as_str().unwrap();
+            assert!(text.contains("formula: \"=MC.Triangular("), "{text}");
+            assert!(
+                text.contains("\nmonte_carlo:\n  iterations: 5000\n"),
+                "{text}"
+            );
+
+            let message = |request: Value| run("edit", &request).unwrap_err();
+            assert_eq!(
+                message(serde_json::json!({"files": files, "main": "bagel.yaml"})),
+                "'changes' is required: a list of changes"
+            );
+            assert!(message(serde_json::json!({"files": files, "main": "bagel.yaml", "changes": [{"op": "move"}]}))
+                .starts_with("'changes': unknown variant `move`"));
+            assert_eq!(
+                message(serde_json::json!({"files": files, "main": "bagel.yaml",
+                                           "changes": [{"op": "delete", "path": "nothing"}]})),
+                "Validation error: delete nothing: it is not in the model (bagel.yaml). No file was changed"
+            );
+            assert_eq!(
+                message(serde_json::json!({"changes": []})),
+                "'files' must be an object of file name to YAML text"
+            );
         }
     }
 }

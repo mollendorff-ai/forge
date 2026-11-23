@@ -98,6 +98,7 @@ pub struct SeekResult {
 /// Returns an error if the model or settings are invalid, `input` is not an
 /// input of the model (a scalar without a formula), the output is not
 /// simulated, or the probability is not reached within the range.
+#[allow(clippy::too_many_arguments)] // the CLI's arguments, one each
 pub fn probability_seek_core(
     file: &Path,
     options: SimulateOptions<'_>,
@@ -292,6 +293,137 @@ mod tests {
             "P(x > a) = 0.5",
         ] {
             assert!(SeekGoal::parse(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn goals_that_are_not_written_as_a_probability_say_how_to() {
+        let form = |text: &str| {
+            format!("--seek '{text}': write it as \"P(year.profit > 0) = 0.8\" (or = 80%)")
+        };
+        for bad in [
+            "P(> 0) = 0.8",
+            "x > 0 = 0.8",
+            "P(x > 0) = abc",
+            "P(x > 0) = 5x%",
+        ] {
+            assert_eq!(SeekGoal::parse(bad).unwrap_err(), form(bad), "{bad}");
+        }
+        // A lower case p is as good as P
+        let lower = SeekGoal::parse("p(x > 0) = 50%").unwrap();
+        assert!((lower.probability - 0.5).abs() <= 1e-12);
+    }
+
+    mod failures {
+        //! Each way a seek can fail says what it was given.
+
+        use super::super::{probability_seek_core, SeekGoal};
+        use crate::cli::{forge, SimulateOptions};
+        use std::path::PathBuf;
+
+        fn model(extra: &str) -> (tempfile::TempDir, PathBuf) {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("m.yaml");
+            let text = format!(
+                "_forge_version: \"5.4.0\"\ns:\n  x: 1\n  d: \"2026-01-31\"\n  noise: {{value: 0, formula: \"=MC.Normal(0, 1)\"}}\n  out: {{formula: \"=x + noise{extra}\"}}\nmonte_carlo:\n  iterations: 400\n  seed: 5\n  outputs:\n    - variable: s.out\n      thresholds: [\"> 0\"]\n"
+            );
+            std::fs::write(&path, text).unwrap();
+            (dir, path)
+        }
+
+        fn seek(path: &std::path::Path, goal: &SeekGoal, input: &str, range: (f64, f64)) -> String {
+            probability_seek_core(
+                path,
+                SimulateOptions::default(),
+                goal,
+                input,
+                range.0,
+                range.1,
+            )
+            .unwrap_err()
+            .to_string()
+        }
+
+        fn goal() -> SeekGoal {
+            SeekGoal::parse("P(s.out > 0) = 0.75").unwrap()
+        }
+
+        #[test]
+        fn the_range_the_input_the_output_and_the_threshold_must_be_right() {
+            let (_dir, path) = model("");
+            assert_eq!(
+                seek(&path, &goal(), "s.x", (2.0, 0.0)),
+                "Validation error: --min (2) must be below --max (0)"
+            );
+            assert_eq!(
+                seek(&path, &goal(), "s.x", (0.0, f64::INFINITY)),
+                "Validation error: --min (0) must be below --max (inf)"
+            );
+            assert_eq!(
+                seek(&path, &goal(), "s.nope", (0.0, 2.0)),
+                "Validation error: Scenario override 's.nope' does not name a scalar in the model. Did you mean 's.noise'?"
+            );
+            assert_eq!(
+                seek(&path, &goal(), "s.d", (0.0, 2.0)),
+                "Validation error: 's.d' is a date (2026-01-31), so it is set to a date, not a number (ADR-060)"
+            );
+            let other = SeekGoal::parse("P(s.zzz > 0) = 0.75").unwrap();
+            assert_eq!(
+                seek(&path, &other, "s.x", (0.0, 2.0)),
+                "Validation error: --seek: 's.zzz' is not an output of monte_carlo (outputs: s.out)"
+            );
+            // The fields are public: a threshold that was not read by `parse`
+            let bad = SeekGoal {
+                threshold: "~ 3".to_string(),
+                ..goal()
+            };
+            assert_eq!(
+                seek(&path, &bad, "s.x", (0.0, 2.0)),
+                "Validation error: Invalid threshold format: ~ 3. Use '> 0', '< 100', etc."
+            );
+            assert_eq!(
+                seek(
+                    &path.with_file_name("none.yaml"),
+                    &goal(),
+                    "s.x",
+                    (0.0, 2.0)
+                ),
+                "IO error: No such file or directory (os error 2)"
+            );
+        }
+
+        /// The output fails where the input is at the top of the range, or at
+        /// the first value the search tries between the ends: each says so.
+        #[test]
+        fn a_value_where_the_output_fails_stops_the_seek_there() {
+            // x - 2 is 0 at the top of the range, x - 1 at its middle
+            for divisor in ["x - 2", "x - 1"] {
+                let (_dir, path) = model(&format!(" + 0 * (1 / ({divisor}))"));
+                let err = seek(&path, &goal(), "s.x", (0.0, 2.0));
+                assert!(err.contains("Division by zero"), "{divisor}: {err}");
+            }
+        }
+
+        #[test]
+        fn the_command_says_what_it_could_not_read() {
+            let (_dir, path) = model("");
+            let ran = forge(&[
+                "simulate",
+                path.to_str().unwrap(),
+                "--seek",
+                "oops",
+                "--vary",
+                "s.x",
+                "--min",
+                "0",
+                "--max",
+                "2",
+            ]);
+            assert_eq!(ran.code, 1);
+            assert_eq!(
+                ran.err,
+                "Error: Validation error: --seek 'oops': write it as \"P(year.profit > 0) = 0.8\" (or = 80%)\n"
+            );
         }
     }
 

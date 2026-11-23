@@ -75,26 +75,26 @@ fn has_comment(line: &str) -> bool {
     false
 }
 
+/// How many formulas `model` has: its scalars' and its columns'.
+pub(super) fn formulas_kept(model: &crate::types::ParsedModel) -> usize {
+    model
+        .scalars
+        .values()
+        .filter(|v| v.formula.is_some())
+        .count()
+        + model
+            .tables
+            .values()
+            .map(|t| t.row_formulas.len())
+            .sum::<usize>()
+}
+
 /// After `forge import`: the formulas brought in as values, or that every
-/// formula was kept as a formula.
+/// formula (`kept` of them) was kept as a formula.
 #[cfg(feature = "cli")]
-pub(super) fn print_import_formulas(
-    c: &mut Console<'_>,
-    model: &crate::types::ParsedModel,
-    as_values: &[String],
-) {
+pub(super) fn print_import_formulas(c: &mut Console<'_>, kept: usize, as_values: &[String]) {
     use colored::Colorize;
     if as_values.is_empty() {
-        let kept = model
-            .scalars
-            .values()
-            .filter(|v| v.formula.is_some())
-            .count()
-            + model
-                .tables
-                .values()
-                .map(|t| t.row_formulas.len())
-                .sum::<usize>();
         if kept > 0 {
             outln!(
                 c,
@@ -118,7 +118,26 @@ pub(super) fn print_import_formulas(
 
 #[cfg(test)]
 mod tests {
-    use super::has_comment;
+    use super::{formulas_kept, has_comment, print_import_formulas, yaml_only};
+    use crate::cli::console::capture;
+    use crate::types::ParsedModel;
+
+    /// A file that cannot be read has nothing to say: the export reports it.
+    #[test]
+    fn a_file_that_cannot_be_read_carries_nothing() {
+        assert_eq!(
+            yaml_only(std::path::Path::new("no-such-folder/m.yaml")),
+            Vec::<String>::new()
+        );
+    }
+
+    /// A model with no formula has none to say were kept.
+    #[test]
+    fn a_model_without_formulas_says_nothing_of_kept_formulas() {
+        let ((), printed) =
+            capture(|c| print_import_formulas(c, formulas_kept(&ParsedModel::new()), &[]));
+        assert_eq!(printed.out, "");
+    }
 
     #[test]
     fn a_hash_in_quotes_or_a_word_is_not_a_comment() {

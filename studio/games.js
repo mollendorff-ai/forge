@@ -154,7 +154,7 @@ function dynamicsView(r) {
   const legend = strategies.map((s, i) => `<span class="key" data-share="${esc(s)}" data-value="${last.shares[s]}"><i style="background:${SERIES[i] || "var(--muted)"}"></i>${esc(s)} <b>${esc(pct(last.shares[s]))}</b></span>`).join("");
   const rows = sample(d.path.length, 21).map((g) => `<tr data-gen="${g}"><th scope="row">${g}</th>${strategies.map((s) => `<td>${esc(pct(d.path[g].shares[s]))}</td>`).join("")}<td>${esc(fmt(d.path[g].payoff))}</td></tr>`).join("");
   return `<div class="dynamics" data-dynamics="${esc(r.game)}" data-generations="${d.generations}" data-payoff="${last.payoff}">
-    <p class="sub" style="margin-top:12px">the shares, generation by generation</p>
+    <p class="sub" style="margin-top:12px">the shares, generation by generation <span data-help-slot="dynamics"></span></p>
     <p class="note">A population in which each meets strangers, started from ${esc(strategies.map((s) => `${s} ${pct(d.path[0].shares[s])}`).join(", "))}, with the baseline ${esc(fmt(d.baseline))} added to every payoff. After ${esc(fmt(d.generations))} generations:</p>
     <div class="legend">${legend}<span class="key">average payoff <b>${esc(fmt(last.payoff))}</b></span></div>
     <svg class="path-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="The share of each strategy over ${esc(fmt(d.generations))} generations">${grid}${axis}${lines}<line class="cross" x1="0" x2="0" y1="${T}" y2="${H - B}" visibility="hidden"/><rect class="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>
@@ -182,7 +182,7 @@ export function pathHover(e) {
 
 export function tournamentCard(r) {
   const length = r.rounds != null ? `${r.rounds} rounds a match` : `goes on after each round with chance ${fmt(r.continuation)}`;
-  let h = `<div class="game-head"><b>${esc(r.game)}</b><span class="note">${esc(r.round)} played again and again: ${esc(length)}${r.noise ? `, a move flipped with chance ${esc(fmt(r.noise))}` : ""}${r.self_play ? ", each also against itself" : ""}</span></div>`;
+  let h = `<div class="game-head"><b>${esc(r.game)}</b><span class="note">${esc(r.round)} played again and again: ${esc(length)}${r.noise ? `, a move flipped with chance ${esc(fmt(r.noise))}` : ""}${r.self_play ? ", each also against itself" : ""}</span><span data-help-slot="tournament"></span></div>`;
   h += `<div class="scroll-x"><table class="report ranking"><thead><tr><th scope="col">player</th><th scope="col">rank</th><th scope="col">a round</th><th scope="col">cooperates</th></tr></thead><tbody>` +
     r.ranking.map((s) => `<tr data-standing="${esc(s.player)}" data-score="${s.score}"><th scope="row">${esc(s.player)}<span class="plays">${esc(s.plays.replace(/_/g, " "))}</span></th><td>${s.rank}</td><td>${esc(fmt(s.score))}</td><td>${esc(pct(s.cooperation))}</td></tr>`).join("") +
     `</tbody></table></div>`;

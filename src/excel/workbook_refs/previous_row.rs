@@ -115,6 +115,11 @@ mod tests {
     }
 
     #[test]
+    fn prev_without_its_closing_paren_is_refused() {
+        assert_eq!(row("=PREV(closing, 0", 2).unwrap_err(), "PREV: missing )");
+    }
+
+    #[test]
     fn prev_is_the_first_value_then_the_cell_above() {
         let formula = "=PREV(closing, loan.principal) + x";
         assert_eq!(row(formula, 2).unwrap(), "=('loan'!$B$2) + A2");

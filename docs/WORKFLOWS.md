@@ -15,7 +15,7 @@ flowchart LR
 
     subgraph forge [Forge, one binary]
         cli[Command line]
-        mcp[MCP server, 21 tools]
+        mcp[MCP server, 22 tools]
         rest[REST API]
         studio[Studio in the browser, WebAssembly]
     end
@@ -90,7 +90,7 @@ sequenceDiagram
     A-->>P: the difference, and the YAML to keep
 ```
 
-Five tested prompts to start from are in [PROMPTS.md](PROMPTS.md). The AI can call Forge from its shell or through the MCP server (`forge mcp`, see [MCP.md](MCP.md)).
+Seven tested prompts to start from are in [PROMPTS.md](PROMPTS.md). The AI can call Forge from its shell or through the MCP server (`forge mcp`, see [MCP.md](MCP.md)).
 
 ## 3. A pipeline without AI
 

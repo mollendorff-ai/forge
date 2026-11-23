@@ -38,14 +38,21 @@ pub struct ScenarioResults {
     /// file's order (ADR-067)
     #[serde(default)]
     pub unweighted: Vec<String>,
+    /// The `format:` of each scalar that has one (ADR-061), by name
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub formats: BTreeMap<String, String>,
 }
 
 impl ScenarioResults {
     /// Export results to YAML format
+    ///
+    /// # Panics
+    ///
+    /// Never: results are names and numbers, which serialize as YAML.
     #[must_use]
     pub fn to_yaml(&self) -> String {
         yaml_serde::to_string(&crate::core::precision::Rounded(self))
-            .unwrap_or_else(|_| "# Error serializing results".to_string())
+            .expect("results are strings and numbers, which serialize as YAML")
     }
 
     /// Export results to JSON format
@@ -121,6 +128,12 @@ impl ScenarioEngine {
             probability_positive,
             ranges,
             unweighted: self.config.unweighted.clone(),
+            formats: self
+                .base_model
+                .scalars
+                .iter()
+                .filter_map(|(name, v)| Some((name.clone(), v.metadata.format.clone()?)))
+                .collect(),
         })
     }
 
@@ -189,15 +202,17 @@ impl ScenarioEngine {
     fn calculate_expected_values(results: &[ScenarioResult]) -> BTreeMap<String, f64> {
         let mut expected = BTreeMap::new();
 
-        // Get all variable names from first scenario
-        if let Some(first) = results.first() {
-            for var_name in first.scalars.keys() {
-                let weighted_sum: f64 = results
-                    .iter()
-                    .filter_map(|r| r.scalars.get(var_name).map(|v| v * r.probability))
-                    .sum();
-                expected.insert(var_name.clone(), weighted_sum);
-            }
+        // Get all variable names from first scenario (a run has at least one)
+        let names = results
+            .first()
+            .into_iter()
+            .flat_map(|first| first.scalars.keys());
+        for var_name in names {
+            let weighted_sum: f64 = results
+                .iter()
+                .filter_map(|r| r.scalars.get(var_name).map(|v| v * r.probability))
+                .sum();
+            expected.insert(var_name.clone(), weighted_sum);
         }
 
         expected
@@ -403,5 +418,85 @@ mod engine_tests {
 
         assert!(json.contains("\"scenarios\""));
         assert!(json.contains("\"expected_values\""));
+    }
+
+    fn engine_of(scenario: &ScenarioDefinition, outputs: &[&str]) -> ScenarioEngine {
+        let mut config = ScenarioConfig::new();
+        config.add_scenario("only", scenario.clone());
+        let engine = ScenarioEngine::new(config, create_test_model()).unwrap();
+        outputs.iter().fold(engine, |mut engine, output| {
+            engine.add_output(output);
+            engine
+        })
+    }
+
+    /// A formula is an override too, and a scenario's result reads it.
+    #[test]
+    fn a_formula_override_is_calculated_and_outputs_are_added_one_by_one() {
+        let scenario = ScenarioDefinition::new(1.0).with_formula("revenue_growth", "=0.5 * 0.2");
+        let engine = engine_of(&scenario, &["projected_revenue"]);
+        assert_eq!(engine.config().scenario_names(), ["only"]);
+        let result = engine.run_scenario("only", &scenario).unwrap();
+        assert!((result.scalars["projected_revenue"] - 1_100_000.0).abs() < 1e-6);
+        assert_eq!(
+            result.outputs.keys().collect::<Vec<_>>(),
+            ["projected_revenue"]
+        );
+    }
+
+    /// An output no scalar has is not in a result, nor in the ranges.
+    #[test]
+    fn an_output_no_scenario_has_is_left_out_of_the_results() {
+        let scenario = ScenarioDefinition::new(1.0);
+        let engine = engine_of(&scenario, &["nothing_like_it"]);
+        let results = engine.run().unwrap();
+        assert!(results.scenarios[0].outputs.is_empty());
+        assert!(results.ranges.is_empty());
+        assert!((results.probability_positive["nothing_like_it"]).abs() < 1e-15);
+    }
+
+    /// A scalar with no value, never calculated and with no formula, has no
+    /// result either.
+    #[test]
+    fn a_scalar_with_no_value_has_no_result() {
+        let mut model = create_test_model();
+        model.scalars.insert(
+            "gap".to_string(),
+            Variable::new("gap".to_string(), None, None),
+        );
+        let mut config = ScenarioConfig::new();
+        config.add_scenario("only", ScenarioDefinition::new(1.0));
+        let results = ScenarioEngine::new(config, model).unwrap().run().unwrap();
+        assert!(!results.scenarios[0].scalars.contains_key("gap"));
+        assert!(results.scenarios[0].scalars.contains_key("base_revenue"));
+    }
+
+    /// What an override cannot do, and a calculation that fails, name the
+    /// scenario or the formula.
+    #[test]
+    fn a_scenario_that_cannot_be_applied_or_calculated_is_an_error() {
+        let date = |text: &str| {
+            let mut scenario = ScenarioDefinition::new(1.0);
+            scenario.scalars.insert(
+                "revenue_growth".to_string(),
+                ScalarOverride::Date(text.to_string()),
+            );
+            engine_of(&scenario, &[]).run().unwrap_err()
+        };
+        assert_eq!(
+            date("hello"),
+            "Scenario 'only': 'revenue_growth': \"hello\" is not a number or a date"
+        );
+        assert_eq!(
+            date("2026-02-30"),
+            "Scenario 'only': Parse error: 'revenue_growth' is not a date: 2026-02-30 is no day of the calendar (a date is written 2026-10-31)"
+        );
+        let zero = ScenarioDefinition::new(1.0)
+            .with_scalar("base_revenue", 0.0)
+            .with_formula("revenue_growth", "=1 / base_revenue");
+        assert_eq!(
+            engine_of(&zero, &[]).run().unwrap_err(),
+            "Formula evaluation error: 1 formula failed:\n  - revenue_growth: Division by zero (formula: =1 / base_revenue)\n  Not calculated, because they use a failed formula:\n  - projected_revenue (uses revenue_growth)"
+        );
     }
 }

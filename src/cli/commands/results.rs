@@ -3,17 +3,72 @@
 //! These types capture computation results that were previously only printed.
 //! Used by both CLI (format & print) and MCP server (serialize to JSON).
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+/// Whether a value is its type's default (a count of 0), to leave it out of
+/// JSON
+fn is_zero<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
+}
 
 /// Result of the validate command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationResult {
     pub tables_valid: bool,
+    /// Every stored `value:` matches its formula
     pub scalars_valid: bool,
     pub table_count: usize,
     pub scalar_count: usize,
+    /// The stored values that do not match their formula
     pub mismatches: Vec<ValidationMismatch>,
+    /// Formulas with no stored value yet (nothing to compare)
+    #[serde(default)]
+    pub unstored: usize,
+    /// How many expectations (`expect:`, ADR-074) were checked, in the file
+    /// as written and in the scenarios
+    #[serde(default)]
+    pub expectations_checked: usize,
+    /// How many expectations of the file as written were checked
+    #[serde(default)]
+    pub base_checked: usize,
+    /// How many scenarios with an `expect:` were calculated and checked
+    #[serde(default)]
+    pub scenarios_checked: usize,
+    /// Every expectation checked is met (true when there are none)
+    #[serde(default)]
+    pub expectations_met: bool,
+    /// Each expectation the model does not meet
+    #[serde(default)]
+    pub expectation_differences: Vec<ExpectationCheck>,
+}
+
+/// One expectation checked against what Forge gives (ADR-074)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpectationCheck {
+    /// The scenario, or `None` for the file as written
+    pub scenario: Option<String>,
+    /// The result, as `expect:` names it
+    pub name: String,
+    /// Its full name, when the model gives a number by it
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// Whether Forge gives what it says, within 10⁻⁶ × max(1, |expected|)
+    #[serde(default)]
+    pub met: bool,
+    /// What `expect:` says it should be
+    pub expected: f64,
+    /// The formula the expectation was written as, when it was one
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formula: Option<String>,
+    /// What Forge gives, or `None` when it gives no number by that name
+    pub got: Option<f64>,
+    /// How far apart they are, when Forge gives one
+    pub diff: Option<f64>,
+    /// Why there is no number to compare, when there is none
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// A single value mismatch found during validation
@@ -29,19 +84,43 @@ pub struct ValidationMismatch {
 ///
 /// In JSON a date scalar's value is its text (`"2026-10-31"`), as a cell of a
 /// date column is (ADR-060); here it is its day number in `scalars`, named in
-/// `dates`.
+/// `dates`. Tables and scalars are in the model's order here, which is how
+/// `forge calculate` prints them, and in name order in JSON.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(from = "CalculationWire", into = "CalculationWire")]
 pub struct CalculationResult {
-    pub tables: BTreeMap<String, TableSummary>,
-    pub scalars: BTreeMap<String, Option<f64>>,
+    pub tables: IndexMap<String, TableSummary>,
+    pub scalars: IndexMap<String, Option<f64>>,
     /// The scalars whose value is a date
     pub dates: std::collections::BTreeSet<String>,
     /// Each scalar with a `format:`, as that format shows it (ADR-061)
     pub formatted: BTreeMap<String, String>,
     pub unit_warnings: Vec<String>,
     pub file_updated: bool,
+    /// How many stored values the run changed in the file (0 when nothing
+    /// was written)
+    pub values_updated: usize,
     pub dry_run: bool,
+    /// The file as read, before a scenario or the plan changed it (not in
+    /// JSON)
+    pub read: ModelRead,
+    /// The uncertain (`MC.*`) inputs, each with the plan figure it was
+    /// calculated at, in name order: empty unless the model was calculated at
+    /// plan (ADR-076)
+    pub at_plan: BTreeMap<String, f64>,
+    /// The expectations of the run calculated, the file as written or the
+    /// scenario applied, each checked (ADR-074)
+    pub expectations: Vec<ExpectationCheck>,
+}
+
+/// What a model file holds as read: what `forge calculate --verbose` says it
+/// found before it calculates.
+#[derive(Debug, Clone, Default)]
+pub struct ModelRead {
+    pub tables: usize,
+    pub scalars: usize,
+    /// Its scenarios' names
+    pub scenarios: Vec<String>,
 }
 
 impl CalculationResult {
@@ -67,7 +146,13 @@ struct CalculationWire {
     formatted: BTreeMap<String, String>,
     unit_warnings: Vec<String>,
     file_updated: bool,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    values_updated: usize,
     dry_run: bool,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    at_plan: BTreeMap<String, f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    expectations: Vec<ExpectationCheck>,
 }
 
 impl From<CalculationResult> for CalculationWire {
@@ -87,12 +172,15 @@ impl From<CalculationResult> for CalculationWire {
             })
             .collect();
         Self {
-            tables: r.tables,
+            tables: r.tables.into_iter().collect(),
             scalars,
             formatted: r.formatted,
             unit_warnings: r.unit_warnings,
             file_updated: r.file_updated,
+            values_updated: r.values_updated,
             dry_run: r.dry_run,
+            at_plan: r.at_plan,
+            expectations: r.expectations,
         }
     }
 }
@@ -119,13 +207,17 @@ impl From<CalculationWire> for CalculationResult {
             })
             .collect();
         Self {
-            tables: w.tables,
+            tables: w.tables.into_iter().collect(),
             scalars,
             dates,
             formatted: w.formatted,
             unit_warnings: w.unit_warnings,
             file_updated: w.file_updated,
+            values_updated: w.values_updated,
             dry_run: w.dry_run,
+            read: ModelRead::default(),
+            at_plan: w.at_plan,
+            expectations: w.expectations,
         }
     }
 }
@@ -204,9 +296,14 @@ pub struct ExportResult {
     pub table_count: usize,
     pub scalar_count: usize,
     /// Formulas written as values because Excel cannot express them, and
-    /// parts of the model that are not exported at all (scenarios)
+    /// parts of the model that are not exported at all (scenarios); the
+    /// reason in `not_checked`, if any, comes first
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// Why the workbook could not be checked: the model does not calculate,
+    /// so its formulas were written without results
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_checked: Option<String>,
 }
 
 /// Result of an in-memory (buffer) export — returned when no `excel_path` is given
@@ -236,6 +333,23 @@ pub struct ImportResult {
     /// Included files written beside the model, from the sheets of an included file
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub included_files: Vec<String>,
+    /// Each table imported, in the workbook's order
+    #[serde(default)]
+    pub tables: Vec<ImportedTable>,
+    /// How many formulas were kept as formulas
+    #[serde(default)]
+    pub formulas_kept: usize,
+    /// With `--split-files`: every file written, the included ones too
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files_written: Vec<String>,
+}
+
+/// A table `forge import` read from a workbook
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedTable {
+    pub name: String,
+    pub columns: usize,
+    pub rows: usize,
 }
 
 /// Result of sensitivity analysis
@@ -339,4 +453,63 @@ pub struct ComparisonResult {
     /// table and Markdown; JSON and CSV keep the full numbers
     #[serde(skip)]
     pub formats: std::collections::BTreeMap<String, String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CalculationResult, VarianceEntry};
+
+    const WIRE: &str = r#"{
+  "tables": {},
+  "scalars": {"s.due": "2026-01-31", "s.n": 4.5, "s.empty": null, "s.text": "words"},
+  "unit_warnings": [],
+  "file_updated": false,
+  "dry_run": true
+}"#;
+
+    /// A date comes back from JSON as its day number and is named; a string
+    /// that is no date, and an empty scalar, have no number.
+    #[test]
+    fn dates_numbers_and_gaps_come_back_from_json() {
+        let result: CalculationResult = serde_json::from_str(WIRE).unwrap();
+        assert_eq!(result.scalars["s.due"], Some(46053.0));
+        assert_eq!(result.scalars["s.n"], Some(4.5));
+        assert_eq!(result.scalars["s.empty"], None);
+        assert_eq!(result.scalars["s.text"], None);
+        assert_eq!(
+            result.dates.iter().collect::<Vec<_>>(),
+            [&"s.due".to_string()]
+        );
+        assert_eq!(result.shown("s.due"), Some("2026-01-31".to_string()));
+        assert_eq!(result.shown("s.n"), Some("4.5".to_string()));
+        assert_eq!(result.shown("s.empty"), None);
+        assert_eq!(result.shown("s.missing"), None);
+    }
+
+    /// And back to JSON: a date as its text, a number as a number, a gap as null.
+    #[test]
+    fn dates_numbers_and_gaps_go_out_as_json() {
+        let result: CalculationResult = serde_json::from_str(WIRE).unwrap();
+        let json: serde_json::Value = serde_json::to_value(&result).unwrap();
+        assert_eq!(
+            json["scalars"],
+            serde_json::json!({
+                "s.due": "2026-01-31",
+                "s.n": 4.5,
+                "s.empty": null,
+                "s.text": null,
+            })
+        );
+    }
+
+    /// An entry written before `pct_meaningful` existed has a percentage that
+    /// means something.
+    #[test]
+    fn an_old_variance_entry_has_a_meaningful_percentage() {
+        let old = r#"{"name": "n", "budget": 1.0, "actual": 2.0, "variance": 1.0,
+            "variance_pct": 100.0, "is_favorable": true, "better": "higher",
+            "exceeds_threshold": false}"#;
+        let entry: VarianceEntry = serde_json::from_str(old).unwrap();
+        assert!(entry.pct_meaningful);
+    }
 }

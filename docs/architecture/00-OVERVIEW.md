@@ -1,457 +1,145 @@
-# Forge Architecture Overview
+# 00 - Overview
 
-**Document Version:** 3.0.0
-**Forge Version:** v5.0.0
-**Last Updated:** 2025-12-04
-**Status:** Complete
+What Forge is, who and what it talks to, the parts it is built from, and where each part lives in this repository. Start here; the [README](README.md) lists the other pages and the decisions (ADRs).
 
-> **Note (2026-11-08):** This overview dates from v5.0.0. The cost, CO₂, token, speed and test-count figures it once carried were never sourced and have been removed; [VALIDATION.md](../../VALIDATION.md) says what is checked and how. The architecture sections have not been brought up to date and are wrong in detail: the dependency versions (see Cargo.toml), the module tree (`core/array_calculator/` and `cli/commands/` are directories; `src/lib.rs` has 18 modules, including `api`, `mcp` and the analysis engines), the type names (`ParsedModel`, `ExcelExporter`, `ExcelImporter`, `writer::write_calculated_results`), the Excel path (`src/excel/workbook_refs.rs`, not `FormulaTranslator`), the version marker (1.0.0 is scalars only; tables need 5.0.0 or 5.1.0) and several linked pages that do not exist. `forge calculate` writes results into the file (ADR-051) unless `--dry-run`. 01 to 05 carry their own notes. (2026-11-20) `jsonschema` was replaced by a reader of Forge's own (ADR-069); since 2026-11-21 it checks every model again (0.60, `src/parser/schema_reader.rs`, ADR-072).
+The diagrams follow the [C4 model](https://c4model.com/): this page has level 1 (the system and its surroundings) and level 2 (the deployable parts). [01 - Components](01-COMPONENT-ARCHITECTURE.md) has level 3, the modules inside the engine.
 
----
+## What Forge does
 
-## Table of Contents
+Forge reads a financial model written in YAML (inputs, formulas, tables, scenarios, games) and calculates it with Excel's functions, plus what a spreadsheet leaves to plug-ins: Monte Carlo, tornado charts, decision trees, real options, bootstrap intervals, Bayesian networks and game theory. A model is a text file in git; `forge calculate` writes each formula's result next to it, so `git diff` shows every number an edit moved.
 
-1. [Introduction](#introduction)
-2. [System Context](#system-context)
-3. [Architecture Principles](#architecture-principles)
-4. [High-Level Architecture](#high-level-architecture)
-5. [Technology Stack](#technology-stack)
-6. [Key Characteristics](#key-characteristics)
-7. [Module Structure](#module-structure)
-8. [Data Flow](#data-flow)
-9. [Related Documentation](#related-documentation)
+One engine, written in Rust, answers through four doors: the command line, an MCP server for AI agents, a REST API, and a WebAssembly module that Forge Studio runs in a browser tab. They all call the same functions, so a model gives the same numbers whichever door it came through.
 
----
-
-## Introduction
-
-### What is Forge?
-
-Forge is a **deterministic YAML formula calculator** with **bidirectional Excel integration**. It enables financial modeling, business calculations, and data processing with:
-
-- **Deterministic results** - Values come from the formula evaluator, not from a model's own arithmetic
-- **Excel compatibility** - 173 Excel functions, formula preservation
-- **Type-safe arrays** - Homogeneous column arrays with compile-time safety
-- **Version control** - YAML files tracked in Git, not binary Excel files
-- **Cross-file includes** - `_includes` loads other YAML files; a formula reads their scalars as `@namespace.name` (see FEATURES.md)
-
-### Problem Statement
-
-Traditional financial modeling suffers from:
-
-1. **Untraceable numbers** - A figure an AI model computes in prose has no formula behind it to check
-2. **Excel Lock-in** - Binary files, no version control, no code review
-
-### Solution
-
-Forge provides:
-
-- **Deterministic calculation** - Rust-based formula engine
-- **YAML-first** - Human-readable, Git-friendly, diff-friendly
-- **Bidirectional** - YAML ↔ Excel conversion with formula preservation
-- **Fast** - The 5-year DCF model in the README calculates in milliseconds
-
----
-
-## System Context
+## Level 1: system context
 
 ```mermaid
-graph TB
-    %% External Actors
-    analyst["👤 Financial Analyst<br/>Quarterly P&L, Budgets,<br/>Sensitivity Analysis"]
-    datascientist["👤 Data Scientist<br/>Data Processing,<br/>Transform & Validate"]
-    developer["👤 Developer<br/>Automate Calculations,<br/>App Integration"]
-    business["👤 Business User<br/>Business Logic,<br/>Pricing, Unit Economics"]
+C4Context
+    title Forge: system context
 
-    %% Forge System
-    forge["Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file includes<br/><br/>Deterministic:<br/>173 functions<br/>Type-safe arrays"]
+    Person(modeller, "Modeller", "Writes and reads models, in an editor or in Forge Studio")
+    Person(agent, "AI agent", "Writes models and asks what-ifs, through MCP or the command line")
+    System_Ext(job, "Scheduled job or CI", "Runs forge calculate and forge validate, reads JSON or CSV")
 
-    %% External Systems
-    git[("📦 Git Repository<br/>Version Control")]
-    excel[("Excel Files<br/>.xlsx")]
-    yaml[("📄 YAML Files")]
-    cicd[("⚙️ CI/CD Pipeline<br/>Automated Validation")]
+    System(forge, "Forge", "Parses, checks and calculates YAML financial models; runs the analyses")
 
-    %% Relationships
-    analyst -->|Creates financial models| forge
-    datascientist -->|Data processing & analysis| forge
-    developer -->|Automates calculations| forge
-    business -->|Business logic modeling| forge
+    System_Ext(git, "Git repository", "Holds the models as text: the source of truth")
+    System_Ext(excel, "Excel or another spreadsheet", "Opens the workbooks Forge exports; gives workbooks to import")
+    System_Ext(github, "GitHub Releases and Pages", "Serves the binaries, install.sh and Forge Studio")
 
-    forge -->|Reads/Writes| yaml
-    forge -->|Imports/Exports| excel
-    forge <-->|Version control| git
-    cicd -->|Automated validation| forge
+    Rel(modeller, forge, "forge commands, Studio")
+    Rel(agent, forge, "MCP tools over stdio, or commands")
+    Rel(job, forge, "commands, REST")
+    Rel(forge, git, "reads and writes model files")
+    Rel(forge, excel, "exports and imports .xlsx")
+    Rel(github, forge, "delivers")
 ```
 
-### Users
+Forge holds no state of its own: no database, no account, no server-side session. Everything it knows is in the model files it is given, and everything it works out is either printed, returned as JSON, or written back into those files.
 
-1. **Financial Analysts** - Build quarterly P&L models, budget forecasts, sensitivity analysis
-2. **Data Scientists** - Process datasets, transform data, validate calculations
-3. **Developers** - Automate financial calculations, integrate into applications
-4. **Business Users** - Model business logic, pricing strategies, unit economics
+## Level 2: containers
 
-### External Systems
-
-1. **Git Repository** - Version control for YAML models (main integration point)
-2. **Excel Files** - Import existing spreadsheets, export for visualization
-3. **CI/CD Pipeline** - Automated validation in pull requests
-4. **JSON Schema** - Validates YAML structure against `/home/rex/src/utils/forge/schema/forge-v1.0.schema.json`
-
----
-
-## Architecture Principles
-
-### 1. Determinism Over Intelligence
-
-**Principle:** Mathematical calculations, not AI predictions.
-
-- **No AI in the calculation path** - No LLMs; the same input always gives the same output
-- **Rust-based** - Type-safe, memory-safe, deterministic
-- **Own evaluator** - Excel-compatible formula evaluation (`src/core/array_calculator`)
-- **Reproducible** - Same input → same output, always
-
-### 2. Excel Compatibility = Excel Data Structures
-
-**Principle:** Map 1:1 with Excel to enable trivial conversion.
-
-- **Column arrays** = Excel columns
-- **Tables** = Excel worksheets
-- **Row-wise formulas** = Excel cell formulas
-- **Aggregations** = Excel summary formulas
-
-### 3. Type Safety > Flexibility
-
-**Principle:** Rust's type system prevents errors at compile time.
-
-- **Homogeneous arrays** - All elements same type (Number, Text, Date, Boolean)
-- **No mixed types** - Parser rejects `[100, "Q2", true]`
-- **Compile-time checks** - Rust compiler catches type mismatches
-- **Runtime validation** - Additional checks in parser
-
-### 4. Explicit > Implicit
-
-**Principle:** No magic, clear errors, obvious behavior.
-
-- **Explicit version marker** - `_forge_version: "1.0.0"`
-- **Explicit cross-file refs** - `@alias.variable` not auto-discovery
-- **Explicit errors** - "Column 'profit' has 3 rows, expected 4"
-- **No hidden conversions** - Types don't auto-convert
-
----
-
-## High-Level Architecture
+A _container_ in C4 is something that runs or is deployed on its own. Forge has one engine, compiled two ways, and four ways in.
 
 ```mermaid
-graph TB
-    %% User layer
-    user["☁️ User<br/>forge calculate<br/>forge validate<br/>forge export<br/>forge import"]
+C4Container
+    title Forge: containers
 
-    %% CLI Layer
-    subgraph cli["CLI Layer"]
-        main["main.rs"]
-        commands["cli/commands.rs"]
-    end
+    Person(user, "Modeller or agent")
 
-    %% Core Processing
-    subgraph core["Core Processing"]
-        parser["parser/mod.rs"]
-        calc["core/array_calculator.rs<br/><br/>Calculator:<br/>• Array operations<br/>• Row-wise formulas<br/>• Aggregation formulas<br/>• 60+ Excel functions"]
-        writer["writer/mod.rs"]
-    end
+    System_Boundary(b, "This repository") {
+        Container(cli, "forge binary", "Rust, clap", "Every command; also starts the two servers")
+        Container(mcp, "forge mcp", "Rust, rmcp, stdio", "The MCP tools, each a JSON answer")
+        Container(rest, "forge serve", "Rust, axum", "HTTP: validate, calculate, audit, export, import")
+        Container(engine, "Engine library", "Rust crate mollendorff-forge", "Parser, calculator, analyses, Excel; the *_core functions")
+        Container(wasm, "forge-wasm", "Rust to WebAssembly", "call(tool, request) on models held in memory")
+        Container(studio, "Forge Studio", "HTML and JavaScript, a worker", "Cards, grid, editor; every number from forge-wasm")
+        ContainerDb(files, "Model files", "YAML, xlsx", "On disk, or in the browser's storage for Studio")
+    }
 
-    %% Excel Integration
-    subgraph excel["Excel Integration"]
-        exporter["excel/exporter.rs"]
-        importer["excel/importer.rs"]
-        translator["excel/formula_translator.rs"]
-    end
+    Rel(user, cli, "runs")
+    Rel(user, mcp, "an AI client starts it")
+    Rel(user, rest, "HTTP")
+    Rel(cli, engine, "calls")
+    Rel(mcp, engine, "calls")
+    Rel(rest, engine, "calls")
+    Rel(studio, wasm, "worker message")
+    Rel(wasm, engine, "calls, files in memory")
+    Rel(engine, files, "reads, writes")
 
-    %% Data Structures
-    subgraph data["Data Structures"]
-        types["types.rs<br/><br/>Type-Safe Data:<br/>• ColumnValue enum<br/>• Table struct<br/>• ParsedModel"]
-        errors["error.rs"]
-    end
-
-    %% External Libraries
-    subgraph ext["External Libraries"]
-        xle[("Forge evaluator")]
-        graph[("graph.rs (own)")]
-        yaml[("yaml_serde")]
-        xlsx_writer[("rust_xlsxwriter")]
-        xlsx_reader[("calamine")]
-    end
-
-    %% User interactions
-    user --> main
-    main --> commands
-
-    %% Command routing
-    commands -->|parse YAML| parser
-    commands -->|calculate| calc
-    commands -->|export to Excel| exporter
-    commands -->|import from Excel| importer
-    commands -->|write YAML| writer
-
-    %% Core dependencies
-    parser -->|deserialize| yaml
-    parser -->|create Model| types
-    calc -->|evaluate formulas| xle
-    calc -->|resolve dependencies| graph
-    calc -->|operate on data| types
-    calc --> errors
-    writer -->|serialize| yaml
-    parser --> errors
-
-    %% Excel dependencies
-    exporter -->|create workbook| xlsx_writer
-    exporter -->|translate formulas| translator
-    importer -->|read workbook| xlsx_reader
-    importer -->|reverse translate| translator
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
 
----
+Forge Studio is opened in a browser by the same person; it is left out of the arrows above to keep them readable.
 
-## Technology Stack
+| Container | Code | Built with | Ships as | More |
+| --- | --- | --- | --- | --- |
+| Engine library | `src/` (crate `mollendorff-forge`) | default features `cli` (with `excel`), or `--no-default-features` | the crate on crates.io; inside every container below | [01](01-COMPONENT-ARCHITECTURE.md) |
+| `forge` binary | `src/main.rs`, `src/cli/` | `cargo build --release` | release archives, `install.sh`, Homebrew, `cargo binstall` | [06](06-INTERFACES.md#the-command-line) |
+| MCP server | `src/mcp/` | inside the binary: `forge mcp` | the same binary | [06](06-INTERFACES.md#the-mcp-server), [docs/MCP.md](../MCP.md) |
+| REST API | `src/api/` | inside the binary: `forge serve` | the same binary | [08](08-API-SERVER-ARCHITECTURE.md) |
+| forge-wasm | `forge-wasm/src/lib.rs` | `cargo build -p forge-wasm --profile wasm --target wasm32-unknown-unknown`, then `wasm-bindgen` | inside Studio; not published alone | [06](06-INTERFACES.md#the-browser-forge-wasm-and-forge-studio), ADR-055 |
+| Forge Studio | `studio/` | `node studio/build.mjs` | GitHub Pages, <https://forge.mollendorff.ai/> | [studio/README.md](../../studio/README.md), ADR-056 |
 
-### Core Language
+## The repository
 
-- **Rust 2021 Edition** - Memory safety, type safety, performance
-- **Cargo** - Build system, dependency management, testing
-
-### External Dependencies
-
-| Dependency | Version | Purpose |
-|------------|---------|---------|
-| (none: `core/array_calculator/graph.rs`) | | Dependency graph, topological sort (petgraph until 2026-11-20) |
-| **serde** | 1.0 | Serialization framework |
-| **yaml_serde** | 0.10 | YAML parsing and serialization |
-| **rust_xlsxwriter** | 0.90 | Excel .xlsx file creation |
-| **calamine** | 0.31 | Excel .xlsx file reading |
-| **clap** | 4.5 | CLI argument parsing |
-| **thiserror** | 1.0 | Error type derivation |
-| **anyhow** | 1.0 | Error handling utilities |
-| **regex** | 1.11 | Formula preprocessing |
-| **jsonschema** | 0.18 | JSON Schema validation |
-| **colored** | 2.1 | Terminal output coloring |
-
-### Development Tools
-
-- **cargo fmt** - Code formatting (rustfmt)
-- **cargo clippy** - Linting with pedantic checks
-- **cargo test** - Unit, integration, and e2e testing
-- **markdownlint-cli2** - Markdown validation
-- **yamllint** - YAML validation
-- **Mermaid** - Architecture diagrams (GitHub-native rendering)
-
----
-
-## Key Characteristics
-
-### Performance
-
-- **Milliseconds** - The README's 5-year DCF model calculates in about 5 ms (measured 2026-11-06)
-- **Monte Carlo** - 100,000 iterations of `examples/monte-carlo.yaml` took 8.9 s on two cores (measured 2026-11-06)
-- **O(V+E)** - Dependency resolution complexity
-- **O(n)** - Array formula evaluation (per row)
-
-### Scalability
-
-- **173 functions** - Most are Excel-compatible; `forge functions` lists them
-- **External checks** - Formulas are compared with Gnumeric and analytics with R, games with Gambit and the axelrod library (see VALIDATION.md)
-
-### Reliability
-
-- **Tests** - Unit tests run on every push; the Gnumeric, R and games suites run weekly and on pull requests that change `src/`
-- **Lints** - clippy pedantic; CI fails on warnings
-- **Known limitations** - Listed in the README and docs/STABILITY.md
-
----
-
-## Module Structure
-
-```text
-forge/
-├── src/
-│   ├── lib.rs                    # Library exports (7 modules)
-│   ├── main.rs                   # CLI entry point (220 lines)
-│   ├── types.rs                  # Data structures (290 lines)
-│   ├── error.rs                  # Error types (33 lines)
-│   ├── core/
-│   │   └── array_calculator.rs   # Array calculator (3,440 lines)
-│   ├── parser/
-│   │   └── mod.rs                # YAML parser (1,011 lines)
-│   ├── excel/
-│   │   ├── exporter.rs           # YAML→Excel (218 lines)
-│   │   ├── importer.rs           # Excel→YAML (400+ lines)
-│   │   ├── formula_translator.rs # Formula translation (286 lines)
-│   │   └── reverse_formula_translator.rs (300+ lines)
-│   ├── writer/
-│   │   └── mod.rs                # YAML writer (300+ lines)
-│   └── cli/
-│       └── commands.rs           # Command handlers (380 lines)
-├── tests/                        # Integration & e2e tests
-├── examples/                     # 4 usage examples
-├── docs/                         # Documentation
-├── diagrams/                     # Architecture diagrams
-└── schema/                       # JSON Schema for validation
-
-**Total:** ~7,436 lines of Rust code
+```mermaid
+flowchart LR
+    subgraph engine["Engine and its doors"]
+        src["src/<br/>the crate: parser, calculator,<br/>analyses, Excel, CLI, MCP, REST"]
+        wasm["forge-wasm/<br/>the browser build"]
+        studio["studio/<br/>Forge Studio"]
+    end
+    subgraph contract["The model format"]
+        schema["schema/<br/>JSON Schema per format version"]
+        examples["examples/<br/>models, also built into the binary"]
+        editors["editors/vscode/<br/>syntax and schema for VS Code"]
+    end
+    subgraph checks["Checks"]
+        validation["validation/<br/>gnumeric, r, games, sweep, repo"]
+        testdata["test-data/<br/>models the tests read"]
+        workflows[".github/workflows/<br/>CI, validation, weekly, release, pages"]
+    end
+    docs["docs/<br/>this documentation"]
+    src --> wasm --> studio
+    schema --> src
+    schema --> editors
+    examples --> src
+    examples --> studio
+    validation --> src
+    workflows --> validation
 ```
 
-### Module Responsibilities
+| Folder | What it holds |
+| --- | --- |
+| `src/` | The engine crate and the `forge` binary. [01](01-COMPONENT-ARCHITECTURE.md) maps every module. |
+| `forge-wasm/` | The browser build: one function, `call(tool, request)`, over the engine's `*_core` functions. Its `tests/` holds the cases that compare its answers with the native ones (JSON and Node, no Rust tests). |
+| `studio/` | Forge Studio: a static page, a worker that runs forge-wasm, and Node tests that compare the page with Forge. |
+| `schema/` | One JSON Schema per model format (`forge-v5.6.0.schema.json`, ...), embedded in the binary and copied to the VS Code extension. [schema/README.md](../../schema/README.md) says what each version adds. |
+| `examples/` | Example models. Some are built into the binary (`forge examples`) and into Studio's sets; tests run every one. |
+| `validation/` | Suites that check Forge against other engines (Gnumeric, LibreOffice, R, Gambit, axelrod, egttools) and checks of the repository itself. [07](07-TESTING-ARCHITECTURE.md). |
+| `editors/vscode/` | A VS Code extension: syntax colours (also used by Studio's editor) and the schemas. |
+| `test-data/` | Models and workbooks the unit tests read. |
+| `docs/` | User documentation, the architecture (this folder) and posts. |
+| `.asimov/` | The roadmap (`roadmap.yaml`) and project conventions; roadmap ids such as `T1-COVERAGE-GATE` refer to it. |
 
-| Module | Responsibility | Key Types |
-|--------|----------------|-----------|
-| **types** | Data structures | `Model`, `Table`, `Column`, `ColumnValue` |
-| **parser** | YAML parsing | `parse_model()` |
-| **core** | Formula calculation | `ArrayCalculator` |
-| **excel** | Excel integration | `Exporter`, `Importer`, `FormulaTranslator` |
-| **writer** | YAML serialization | `update_all_yaml_files()` |
-| **cli** | Command handling | `calculate()`, `validate()`, `export()`, `import()` |
-| **error** | Error types | `ForgeError`, `ForgeResult<T>` |
+## Principles
 
----
+Each of these is a decision someone made, with the record of why.
 
-## Data Flow
+| Principle | What it means in the code | Decided in |
+| --- | --- | --- |
+| The model is text in git | YAML, not a binary format; results are written back into the file so a diff shows them; comments and layout are kept byte for byte | ADR-009, ADR-010, ADR-051 |
+| One engine, many doors | Every command is a `*_core` function that returns a value and prints nothing; the CLI prints it, MCP and REST serialize it, forge-wasm returns it as JSON | ADR-047, ADR-055 |
+| Excel's meaning, checked | Functions have Excel's names and results; every function is compared with Gnumeric or LibreOffice, the analytics with R, the games with Gambit | ADR-007, ADR-037, ADR-057, ADR-062 |
+| Deterministic | The same model gives the same numbers: seeded simulations, a fixed calculation order, results rounded to Excel's 15 digits when written | ADR-016, ADR-065, ADR-066, [STABILITY.md](../STABILITY.md) |
+| Fail loudly, and all at once | An unknown name, a cycle or a bad formula is an error that names the cell; every cell that does not depend on it is still calculated, so all errors come in one report | [03](03-FORMULA-EVALUATION.md), [04](04-DEPENDENCY-RESOLUTION.md) |
+| Nothing hidden from the gates | 100% coverage, pedantic clippy, inline tests, no file over 1,500 lines, no way round any of them | [CLAUDE.md](../../CLAUDE.md), ADR-004 |
+| Libraries before our own code | A stable library wins unless our own code is more correct, simpler, or does what the library cannot | [CLAUDE.md](../../CLAUDE.md), ADR-072 |
+| A small browser download | Forge Studio's WebAssembly stays under 3,000,000 bytes gzipped | ADR-070 |
 
-### Calculate Command Flow
+## Where to go next
 
-```text
-User Input (YAML file)
-    ↓
-CLI Parser (clap)
-    ↓
-Command Handler (calculate)
-    ↓
-YAML Parser (yaml_serde)
-    ↓
-Array Calculator
-    ↓
-Dependency Resolution (core/array_calculator/graph.rs)
-    ↓
-Formula Evaluation (src/core/array_calculator)
-    ↓
-Results
-    ↓
-Display (stdout)
-```
-
-### Export/Import Flow
-
-```text
-YAML Model                       Excel Workbook
-    ↓                                 ↑
-Parser                          Exporter
-    ↓                                 ↑
-ParsedModel  ←────────────────→  FormulaTranslator
-    ↓                                 ↓
-Importer                        rust_xlsxwriter
-    ↑                                 ↓
-calamine                         .xlsx File
-    ↑
-Excel Workbook
-```
-
----
-
-## Related Documentation
-
-### Architecture Deep Dives
-
-1. [Component Architecture](01-COMPONENT-ARCHITECTURE.md) - Detailed component interactions
-2. [Data Model](02-DATA-MODEL.md) - Type system, structs, enums
-3. [Formula Evaluation](03-FORMULA-EVALUATION.md) - Calculation pipeline
-4. [Dependency Resolution](04-DEPENDENCY-RESOLUTION.md) - Graph algorithms
-5. [Excel Integration](05-EXCEL-INTEGRATION.md) - Bidirectional conversion
-6. [CLI Architecture](06-CLI-ARCHITECTURE.md) - Command structure
-7. [Testing Architecture](07-TESTING-ARCHITECTURE.md) - Test strategy
-
-### User Documentation
-
-- [README.md](../../README.md) - User guide, features, installation
-- [DESIGN_V1.md](../../DESIGN_V1.md) - v1.0.0 array model specification
-- [CHANGELOG.md](../../CHANGELOG.md) - Version history
-- [KNOWN_BUGS.md](../../KNOWN_BUGS.md) - Known issues and workarounds
-
-### Developer Documentation
-
-- [roadmap.yaml](../../roadmap.yaml) - Future features, milestones
-- [warmup.yaml](../../warmup.yaml) - Development protocol
-- [GLOSSARY.md](../../GLOSSARY.md) - Canonical terminology
-
-### Diagrams
-
-- [diagrams/architecture-overview.puml](../../diagrams/architecture-overview.puml) - Component diagram
-- [diagrams/README.md](../../diagrams/README.md) - PlantUML guide
-
----
-
-## Architecture Evolution
-
-### v1.0.0 (November 2025)
-
-- **Major rewrite** - Array-based model
-- Column arrays with type safety
-- Row-wise formulas
-- Aggregation formulas
-- Excel export/import
-- 100 tests passing
-- 12.5 hours development time (autonomous AI)
-
-### v1.2.1 (November 2025)
-
-- **27 new Excel functions** (conditional, math, text, date)
-- 136 tests passing
-- Formula translation improvements
-- <8 hours development time
-
-### v1.2.0 (Planned Q1 2026)
-
-- Lookup functions (VLOOKUP, INDEX, MATCH, XLOOKUP)
-- Audit trail (dependency visualization)
-- Watch mode (auto-recalculate)
-- VSCode extension
-- GitHub Action
-
----
-
-## Design Philosophy
-
-### "Excel compatibility = Excel data structures + Excel formulas"
-
-Forge doesn't try to replace Excel. It provides:
-
-1. **Version-controllable alternative** - YAML instead of binary
-2. **Validation without AI** - Deterministic, fast, accurate
-3. **Modular models** - Cross-file references for reusability
-4. **Bidirectional bridge** - Easy migration to/from Excel
-
-### Zero Tolerance for Ambiguity
-
-Financial calculations must be **unambiguous**:
-
-- Type-safe arrays (no mixed types)
-- Explicit version markers
-- Clear error messages
-- No implicit conversions
-- Deterministic evaluation
-
-### Performance Matters
-
-Calculation in milliseconds enables:
-
-- Real-time validation in editors
-- Fast CI/CD checks
-- Interactive development
-
----
-
-## Measured results
-
-See [VALIDATION.md](../../VALIDATION.md) for what is checked, the latest results, and how to run each check.
-
----
-
-**Next:** [Component Architecture →](01-COMPONENT-ARCHITECTURE.md)
-
+- To change how a model is read: [02 - Data model](02-DATA-MODEL.md).
+- To change how formulas are calculated, or add a function: [03 - Formula evaluation](03-FORMULA-EVALUATION.md), then [10 - Extending Forge](10-EXTENDING-FORGE.md).
+- To add a command, an MCP tool or a Studio view: [06 - Interfaces](06-INTERFACES.md).
+- To know what will check your change: [07 - Testing architecture](07-TESTING-ARCHITECTURE.md).

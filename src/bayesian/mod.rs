@@ -42,11 +42,13 @@
 pub mod config;
 pub mod engine;
 pub mod inference;
+pub mod written;
 
 // Re-exports
-pub use config::{BayesianConfig, BayesianNode, NodeType as BayesianNodeType};
-pub use engine::{BayesianEngine, BayesianResult, VariableResult};
+pub use config::{BayesianConfig, BayesianNode, NodeType as BayesianNodeType, Query};
+pub use engine::{BayesianEngine, BayesianResult, NodeOutline, VariableResult};
 pub use inference::BeliefPropagation;
+pub use written::{Probability, WrittenNetwork};
 
 #[cfg(test)]
 mod tests {
@@ -150,11 +152,8 @@ mod tests {
             // P(B=b1) = P(B=b1|A=a0)*P(A=a0) + P(B=b1|A=a1)*P(A=a1)
             //         = 0.1 * 0.6 + 0.8 * 0.4 = 0.06 + 0.32 = 0.38
             let b_result = engine.query("B").unwrap();
-            assert!(
-                (b_result.probabilities[1] - 0.38).abs() < 0.01,
-                "P(B=b1) should be 0.38, got {}",
-                b_result.probabilities[1]
-            );
+            let b1 = b_result.probabilities[1];
+            assert!((b1 - 0.38).abs() < 0.01, "P(B=b1) should be 0.38, got {b1}");
         }
 
         /// Test conditional independence (A _||_ C | B)
@@ -198,11 +197,10 @@ mod tests {
             let c_given_ab = engine.query_with_evidence("C", &evidence_ab).unwrap();
 
             // P(C|B) should equal P(C|A,B) due to conditional independence
+            let (given_b, given_ab) = (c_given_b.probabilities[0], c_given_ab.probabilities[0]);
             assert!(
-                (c_given_b.probabilities[0] - c_given_ab.probabilities[0]).abs() < 0.05,
-                "Conditional independence should hold: P(C|B)={:.3} vs P(C|A,B)={:.3}",
-                c_given_b.probabilities[0],
-                c_given_ab.probabilities[0]
+                (given_b - given_ab).abs() < 0.05,
+                "Conditional independence should hold: P(C|B)={given_b:.3} vs P(C|A,B)={given_ab:.3}"
             );
         }
 
@@ -470,18 +468,18 @@ mod tests {
 
             let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/bayesian.yaml");
 
-            let prior = bayesian_core(&file, Some("default_probability"), &[]).unwrap();
+            let prior = bayesian_core(&file, Some("default_probability"), &[], None).unwrap();
             let p = &prior.queries["default_probability"];
             assert!((p.get_probability("low").unwrap() - 0.4825).abs() < 1e-9);
             assert!((p.get_probability("high").unwrap() - 0.2205).abs() < 1e-9);
 
             let evidence = vec!["economic_conditions=bad".to_string()];
-            let bad = bayesian_core(&file, Some("default_probability"), &evidence).unwrap();
+            let bad = bayesian_core(&file, Some("default_probability"), &evidence, None).unwrap();
             let b = &bad.queries["default_probability"];
             assert!((b.get_probability("high").unwrap() - 0.408).abs() < 1e-9);
 
             let evidence = vec!["default_probability=high".to_string()];
-            let back = bayesian_core(&file, Some("economic_conditions"), &evidence).unwrap();
+            let back = bayesian_core(&file, Some("economic_conditions"), &evidence, None).unwrap();
             let e = &back.queries["economic_conditions"];
             assert!((e.get_probability("bad").unwrap() - 0.3701).abs() < 1e-3);
         }

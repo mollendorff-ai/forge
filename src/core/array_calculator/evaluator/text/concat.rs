@@ -487,10 +487,7 @@ mod tests {
                     Value::Text("Bo".to_string()),
                 ],
             )]);
-            let text = |f: &str| match h::eval(f, &ctx).unwrap() {
-                Value::Text(s) => s,
-                other => panic!("{f}: {other:?}"),
-            };
+            let text = |f: &str| h::text_in(f, &ctx);
             assert_eq!(text("TEXTJOIN(\", \", TRUE, t.names)"), "Ana, Bo");
             assert_eq!(text("TEXTJOIN(\", \", FALSE, t.names)"), "Ana, , Bo");
             assert_eq!(text("TEXTJOIN(\"-\", TRUE, \"a\", 2, \"c\")"), "a-2-c");

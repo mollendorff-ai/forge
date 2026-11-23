@@ -36,9 +36,10 @@ pub fn import_text_core(bytes: Vec<u8>) -> ForgeResult<ImportText> {
     let includes = model
         .includes
         .iter()
-        .filter_map(|include| {
-            let resolved = model.resolved_includes.get(&include.namespace)?;
-            Some((include.file.clone(), model_to_yaml(&resolved.model)))
+        .map(|include| {
+            // The importer adds an include and its model together
+            let resolved = &model.resolved_includes[&include.namespace];
+            (include.file.clone(), model_to_yaml(&resolved.model))
         })
         .collect();
     Ok(ImportText {
@@ -433,9 +434,25 @@ pub fn import_core(
         "single"
     };
 
+    let tables = model
+        .tables
+        .iter()
+        .map(
+            |(name, table)| crate::cli::commands::results::ImportedTable {
+                name: name.clone(),
+                columns: table.columns.len(),
+                rows: table.row_count(),
+            },
+        )
+        .collect();
+    let formulas_kept = crate::cli::commands::carried::formulas_kept(&model);
     let mut included_files = Vec::new();
+    let mut files_written = Vec::new();
     if split_files {
-        write_split_files_quiet(output, &model)?;
+        files_written = write_split_files_quiet(output, &model)?
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect();
     } else if multi_doc {
         included_files = write_multi_doc_quiet(output, &model)?;
     } else {
@@ -450,6 +467,9 @@ pub fn import_core(
         mode: mode.to_string(),
         warnings,
         included_files,
+        tables,
+        formulas_kept,
+        files_written,
     })
 }
 
@@ -575,57 +595,35 @@ pub fn import(
         outln!(c, "{}", "📖 Reading Excel file...".cyan());
     }
 
-    let importer = ExcelImporter::new(input);
-    let (model, warnings) = importer.import_with_warnings()?;
-    check_names(&model)?;
+    let result = import_core(input, output, split_files, multi_doc)?;
 
     if verbose {
-        outln!(c, "   Found {} tables", model.tables.len());
-        outln!(c, "   Found {} scalars\n", model.scalars.len());
-        for (table_name, table) in &model.tables {
-            outln!(c, "   📊 Table: {}", table_name.bright_blue());
-            outln!(
-                c,
-                "      {} columns, {} rows",
-                table.columns.len(),
-                table.row_count()
-            );
+        outln!(c, "   Found {} tables", result.table_count);
+        outln!(c, "   Found {} scalars\n", result.scalar_count);
+        for table in &result.tables {
+            outln!(c, "   📊 Table: {}", table.name.bright_blue());
+            outln!(c, "      {} columns, {} rows", table.columns, table.rows);
         }
         outln!(c);
         outln!(c, "{}", "💾 Writing YAML file(s)...".cyan());
     }
 
     if split_files {
-        write_split_files(c, output, &model, verbose)?;
-    } else if multi_doc {
-        write_multi_doc(c, output, &model)?;
+        if verbose {
+            for path in &result.files_written {
+                outln!(c, "   Created: {path}");
+            }
+        }
+        outln!(c, "{}", "✅ Import Complete!".bold().green());
+        outln!(c, "   Output directory: {}\n", output.display());
     } else {
-        let included = write_single(output, &model)?;
         outln!(c, "{}", "✅ Import Complete!".bold().green());
         outln!(c, "   YAML file: {}", output.display());
-        print_included_files(c, &included);
+        print_included_files(c, &result.included_files);
         outln!(c);
     }
 
-    crate::cli::commands::carried::print_import_formulas(c, &model, &warnings);
-    Ok(())
-}
-
-#[cfg(feature = "cli")]
-fn write_split_files(
-    c: &mut Console<'_>,
-    output: &Path,
-    model: &crate::types::ParsedModel,
-    verbose: bool,
-) -> ForgeResult<()> {
-    let written = write_split_files_quiet(output, model)?;
-    if verbose {
-        for path in &written {
-            outln!(c, "   Created: {}", path.display());
-        }
-    }
-    outln!(c, "{}", "✅ Import Complete!".bold().green());
-    outln!(c, "   Output directory: {}\n", output.display());
+    crate::cli::commands::carried::print_import_formulas(c, result.formulas_kept, &result.warnings);
     Ok(())
 }
 
@@ -657,20 +655,6 @@ fn write_multi_doc_quiet(
     let written = write_include_files(&output.with_file_name(""), model)?;
     fs::write(output, yaml_output).map_err(ForgeError::Io)?;
     Ok(written)
-}
-
-#[cfg(feature = "cli")]
-fn write_multi_doc(
-    c: &mut Console<'_>,
-    output: &Path,
-    model: &crate::types::ParsedModel,
-) -> ForgeResult<()> {
-    let included = write_multi_doc_quiet(output, model)?;
-    outln!(c, "{}", "✅ Import Complete!".bold().green());
-    outln!(c, "   YAML file: {}", output.display());
-    print_included_files(c, &included);
-    outln!(c);
-    Ok(())
 }
 
 /// Say which included files an import wrote beside the model: they hold the
@@ -747,6 +731,26 @@ mod tests {
         );
         assert_eq!(number(1e15), yaml_serde::Value::Number(1e15.into()));
         assert_eq!(number(2.5), yaml_serde::Value::Number(2.5.into()));
+    }
+
+    /// A unit beside a value, with no number format, comes back as the
+    /// value's mapping (ADR-061): the unit is not lost.
+    #[test]
+    fn an_input_with_a_unit_and_no_format_is_a_mapping() {
+        let mut book = rust_xlsxwriter::Workbook::new();
+        let sheet = book.add_worksheet().set_name("Scalars").unwrap();
+        for (col, header) in (0..).zip(["Name", "Value", "Unit"]) {
+            sheet.write_string(0, col, header).unwrap();
+        }
+        sheet.write_string(1, 0, "price").unwrap();
+        sheet.write_number(1, 1, 10.0).unwrap();
+        sheet.write_string(1, 2, "$").unwrap();
+        let imported = super::import_text_core(book.save_to_buffer().unwrap()).unwrap();
+        assert_eq!(
+            imported.main,
+            "_forge_version: \"5.1.0\"\n\nprice:\n  value: 10\n  unit: $\n"
+        );
+        assert_eq!(imported.warnings, Vec::<String>::new());
     }
 
     mod included_files {

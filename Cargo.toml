@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-rc.32"
+version = "10.0.0-rc.34"
 edition = "2021"
 # The oldest Rust that builds Forge; CI builds on it (the MSRV job) and
 # clippy.toml has the same version. Raise both together, on purpose.
@@ -103,6 +103,11 @@ polycool = "0.4.0"
 # YAML parsing
 serde = { version = "1.0", features = ["derive"] }
 yaml_serde = "0.10"
+# Forge writes a model's text through a lossless syntax tree, comments and
+# layout kept (forge edit, ADR-075). Its one default feature (binary) brings
+# base64 0.22, and Forge reads no binary scalars. Its rowan brings hashbrown
+# 0.14 (clippy.toml)
+yaml-edit = { version = "0.3.6", default-features = false }
 serde_json = "1.0"  # JSON handling for schema validation
 
 # CLI
@@ -206,10 +211,6 @@ proptest = { version = "1", default-features = false, features = ["std"] }
 petgraph = "0.8"
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
-
-# Allow coverage cfg for conditional compilation (ADR-006)
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 # Pedantic linting - code is for humans to read (ADR-004)
 [lints.clippy]
