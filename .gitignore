@@ -24,3 +24,5 @@ dist/
 /studio-screenshots/
 /forge-wasm/xlsx/
 __pycache__/
+/validation/mermaid/node_modules/
+/validation/mermaid/package-lock.json

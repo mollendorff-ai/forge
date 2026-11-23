@@ -607,10 +607,14 @@ jobs:
       # Raised 2026-11-22 from CI's run on PR #366 (99.85%, 99.39%, 99.79%),
       # the same way; the lines floor a tenth lower, since 99.8 would leave
       # under 0.05 of margin over the 99.848% measured.
+      # Raised 2026-11-23 from CI's run on main after PR #369 and #371
+      # (99.84%, 99.42%, 99.77%), the same way, rounded down to a tenth with
+      # no tenth taken off: lines and functions keep under 0.05 of margin
+      # (about 30 lines and 1 function), which only more tests widen.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "99.7"
-          FLOOR_FUNCTIONS: "99.3"
+          FLOOR_LINES: "99.8"
+          FLOOR_FUNCTIONS: "99.4"
           FLOOR_REGIONS: "99.7"
         run: |
           fail=0
