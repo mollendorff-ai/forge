@@ -772,6 +772,35 @@ mod tests {
         assert!(var.metadata.is_empty());
     }
 
+    /// A value is shown as its `format:` says (ADR-061), a date by its text,
+    /// and a formula with no result, or a variable with no format, has none
+    #[test]
+    fn a_variable_is_formatted_as_its_format_says() {
+        let metadata = |format: &str| Metadata {
+            format: Some(format.to_string()),
+            ..Default::default()
+        };
+        let number = Variable::with_metadata("a.n".to_string(), Some(12.5), None, metadata("0.00"));
+        assert_eq!(number.formatted().as_deref(), Some("12.50"));
+        let mut date = Variable::with_metadata(
+            "a.d".to_string(),
+            Some(46_000.0),
+            None,
+            metadata("yyyy-mm-dd"),
+        );
+        date.is_date = true;
+        assert_eq!(date.formatted().as_deref(), Some("2025-12-09"));
+        let no_result = Variable::with_metadata(
+            "a.f".to_string(),
+            None,
+            Some("=1+1".to_string()),
+            metadata("0.00"),
+        );
+        assert_eq!(no_result.formatted(), None);
+        let no_format = Variable::new("a.p".to_string(), Some(1.0), None);
+        assert_eq!(no_format.formatted(), None);
+    }
+
     #[test]
     fn test_variable_new_with_formula() {
         let var = Variable::new(
