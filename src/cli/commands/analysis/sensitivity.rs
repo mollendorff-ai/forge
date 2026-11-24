@@ -888,7 +888,10 @@ out:
             let missing = path.with_file_name("missing.yaml");
             assert_eq!(
                 refused(&missing, ("s.x", "1,2,1"), (None, None), "a.out"),
-                "IO error: No such file or directory (os error 2)"
+                format!(
+                    "IO error: {}: No such file or directory (os error 2)",
+                    missing.display()
+                )
             );
             assert_eq!(
                 refused(&path, ("s.q", "1,2,1"), (None, None), "a.out"),
@@ -964,7 +967,7 @@ out:
                         "--output-var",
                         "a.out",
                     ],
-                    "IO error: No such file or directory (os error 2)",
+                    "No such file or directory (os error 2)",
                 ),
                 (
                     vec![p, "--vary", "s.x", "-r", "1,2", "--output-var", "a.out"],

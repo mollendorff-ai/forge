@@ -590,8 +590,7 @@ pub fn export_variance_to_yaml(
         let _ = writeln!(content, "    exceeds_threshold: {}", v.exceeds_threshold);
     }
 
-    fs::write(output, content)
-        .map_err(|e| ForgeError::Export(format!("Failed to write file: {e}")))?;
+    fs::write(output, content).map_err(|e| ForgeError::IO(format!("{}: {e}", output.display())))?;
 
     Ok(())
 }
@@ -649,11 +648,14 @@ mod comparing_tests {
         assert_eq!(ran.code, 1, "{ran:?}");
         assert_eq!(
             ran.err,
-            "Error: Excel export error: Failed to write file: No such file or directory (os error 2)\n"
+            format!(
+                "Error: IO error: {}: No such file or directory (os error 2)\n",
+                output.display()
+            )
         );
     }
 
-    /// A report that cannot be written is an export error, for the file named.
+    /// A report that cannot be written is an I/O error, for the file named.
     #[test]
     fn a_variance_report_that_cannot_be_written_is_an_error() {
         let dir = tempfile::tempdir().unwrap();
@@ -662,7 +664,10 @@ mod comparing_tests {
             export_variance_to_yaml(&output, &[], 0.1)
                 .unwrap_err()
                 .to_string(),
-            "Excel export error: Failed to write file: No such file or directory (os error 2)"
+            format!(
+                "IO error: {}: No such file or directory (os error 2)",
+                output.display()
+            )
         );
     }
 }

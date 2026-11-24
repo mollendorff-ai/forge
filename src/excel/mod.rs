@@ -4,13 +4,12 @@
 //! - Export: YAML → Excel (.xlsx) with formulas
 //! - Import: Excel (.xlsx) → YAML with formulas
 
+mod excel_functions;
 mod exporter;
-mod formula_translator;
 mod importer;
 mod previous_rows;
 mod text_results;
 pub mod workbook_refs;
 
 pub use exporter::ExcelExporter;
-pub use formula_translator::FormulaTranslator;
 pub use importer::ExcelImporter;

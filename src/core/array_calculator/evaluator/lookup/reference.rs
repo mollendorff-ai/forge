@@ -138,17 +138,45 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 
 /// Evaluate ROW function
 /// ROW([reference])
-/// Returns the row number of a reference
-pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Value {
-    // ROW() returns current row number (1-based)
-    // ROW(reference) returns the row number of the reference
-    if args.is_empty() {
-        // Return current row if available
-        Value::Number(ctx.row().map_or(1.0, |row| precision::count(row + 1)))
-    } else {
-        // For a reference, we'd need to parse it. Simplified: return 1
-        Value::Number(1.0)
+///
+/// A row's number as `ROW()` counts it: a table's first row is 1 (the
+/// export writes it as the sheet's row less the header). `ROW()` is the
+/// formula's own row. `ROW(column)` is the row the column is read at in a
+/// row formula, and every row's number, 1 to the column's length, where the
+/// column is read whole (a scalar formula, or inside `SUM`), as Excel's
+/// `ROW(A2:A4)` is `{2; 3; 4}`. Anything but a table column has no row:
+/// `#VALUE!`, as Excel's ROW refuses what is not a reference.
+///
+/// # Errors
+///
+/// Returns `EvalError` if the reference is not a table column, or cannot be
+/// read.
+pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range("ROW", args, 0, 1)?;
+    let Some(reference) = args.first() else {
+        return Ok(Value::Number(
+            ctx.row().map_or(1.0, |row| precision::count(row + 1)),
+        ));
+    };
+    let not_a_column =
+        || EvalError::new("#VALUE!: ROW needs a table column: only a column has rows");
+    if !matches!(reference, Expr::Reference(_)) {
+        return Err(not_a_column());
     }
+    let Value::Array(column) = evaluate_without_row(reference, ctx)? else {
+        return Err(not_a_column());
+    };
+    if let Some(row) = ctx.row() {
+        // Read as the row formula reads it, so a shorter table is refused
+        evaluate(reference, ctx)?;
+        return Ok(Value::Number(precision::count(row + 1)));
+    }
+    Ok(Value::Array(
+        (1..=column.len())
+            .map(|row| Value::Number(precision::count(row)))
+            .collect::<Vec<_>>()
+            .into(),
+    ))
 }
 
 /// Evaluate COLUMN function
@@ -949,16 +977,48 @@ mod tests {
         h::is_exactly_in("COLUMNS(t)", &h::sweep_table(), 4.0);
     }
 
-    /// The simplified ROW and COLUMN, absolute and relative parts of an
+    /// The simplified COLUMN, absolute and relative parts of an
     /// address, and a name that is no table has one column
     #[test]
     fn rows_columns_and_addresses() {
         use crate::core::array_calculator::evaluator::tests as h;
         let mut ctx = EvalContext::new();
         ctx.scalars.insert("x".into(), Value::Number(3.0));
-        h::is_exactly_in("ROW(x)", &ctx, 1.0);
         h::is_exactly_in("COLUMN()", &ctx, 1.0);
         h::is_exactly_in("COLUMNS(x)", &ctx, 1.0);
         assert_eq!(h::text("ADDRESS(2, 3, 3)"), "$C2");
+    }
+
+    /// ROW counts a table's rows from 1, as `ROW()` does: the row a column is
+    /// read at in a row formula, every row where the column is read whole;
+    /// only a table column has rows
+    #[test]
+    fn row_of_a_column_is_its_row_number() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let mut ctx = h::table(&[("a", h::numbers(&[10.0, 20.0, 30.0]))]);
+        ctx.tables.insert(
+            "u".to_string(),
+            std::iter::once(("b".to_string(), h::numbers(&[1.0, 2.0]).into())).collect(),
+        );
+        ctx.scalars.insert("x".into(), Value::Number(3.0));
+        // Read whole: 1, 2, 3, so SUM is 6 and the last row is 3
+        assert_eq!(
+            eval("ROW(t.a)", &ctx).unwrap(),
+            Value::Array(h::numbers(&[1.0, 2.0, 3.0]).into())
+        );
+        h::is_exactly_in("SUM(ROW(t.a))", &ctx, 6.0);
+        h::is_exactly_in("MAX(ROW(t.a)) * 10", &ctx, 30.0);
+        // In the second row of a row formula it is 2, as ROW() is
+        let row = ctx.clone().with_row(1, 3);
+        h::is_exactly_in("ROW(t.a)", &row, 2.0);
+        h::is_exactly_in("ROW(t.a) * t.a", &row, 40.0);
+        h::is_exactly_in("ROW()", &row, 2.0);
+        // A table of another length is not read row by row
+        h::fails_in("ROW(u.b)", &row, "Row count mismatch");
+        for formula in ["ROW(x)", "ROW(1 + 2)", "ROW(\"t.a\")"] {
+            h::fails_in(formula, &ctx, "#VALUE!: ROW needs a table column");
+        }
+        h::fails_in("ROW(t.nope)", &ctx, "Unknown column: t.nope");
+        assert!(eval("ROW(t.a, 1)", &ctx).is_err());
     }
 }

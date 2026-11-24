@@ -12,8 +12,20 @@ use crate::core::array_calculator::tokenizer::Token;
 pub(super) fn to_excel(tokens: &[Token], open: usize) -> Result<(String, usize), String> {
     let mut out = String::from("{");
     let mut i = open + 1;
+    // Whether the last thing written is an item: a separator needs one
+    // before it, and the closing brace one after the last separator
+    let mut after_item = false;
     loop {
-        match tokens.get(i) {
+        let token = tokens.get(i);
+        let is_separator = matches!(token, Some(Token::Comma | Token::Semicolon));
+        let is_sign = matches!(token, Some(Token::Operator(op)) if op == "-" || op == "+");
+        if (is_separator || matches!(token, Some(Token::CloseBrace))) && !after_item {
+            return Err("an array constant item is missing".to_string());
+        }
+        if !is_sign {
+            after_item = !is_separator;
+        }
+        match token {
             Some(Token::CloseBrace) => {
                 out.push('}');
                 return Ok((out, i + 1));
@@ -151,6 +163,20 @@ mod tests {
         assert_eq!(forge("{\"a\";\"b\"}").unwrap(), "{\"a\"; \"b\"}");
         assert_eq!(forge("{true,FALSE}").unwrap(), "{TRUE, FALSE}");
         assert_eq!(forge("{1E+15}").unwrap(), "{1E+15}");
+    }
+
+    /// A separator with no item on one side is not a constant in Excel
+    /// (`{1;}` is a syntax error there), and is refused here.
+    #[test]
+    fn a_separator_without_an_item_is_refused() {
+        for text in ["{1; }", "{1,}", "{,1}", "{;}", "{}", "{1, -}"] {
+            assert_eq!(
+                to_excel(&tokenize(text).unwrap(), 0).unwrap_err(),
+                "an array constant item is missing",
+                "{text}"
+            );
+        }
+        assert_eq!(excel("{-1; +2}"), "{-1;2}");
     }
 
     #[test]

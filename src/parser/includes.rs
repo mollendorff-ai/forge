@@ -31,7 +31,7 @@ impl IncludeSource for FileSource {
     }
 
     fn read(&self, path: &Path) -> ForgeResult<String> {
-        Ok(std::fs::read_to_string(path)?)
+        super::memory::read_from_disk(path)
     }
 
     fn identity(&self, path: &Path) -> PathBuf {
@@ -382,7 +382,13 @@ data:
             &mut HashSet::new(),
         )
         .unwrap_err();
-        assert_eq!(err.to_string(), "IO error: Is a directory (os error 21)");
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "IO error: {}: Is a directory (os error 21)",
+                dir.path().join("folder").display()
+            )
+        );
 
         // A file that is not a model
         std::fs::write(

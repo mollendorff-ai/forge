@@ -764,7 +764,7 @@ impl WorkbookRefs {
         let upper = word.to_uppercase();
         if upper == "VLOOKUP" || upper == "HLOOKUP" {
             self.one_line_lookup(&upper, tokens, i, ctx)?;
-        } else if !super::FormulaTranslator::is_excel_function(word)
+        } else if !super::excel_functions::is_excel_function(word)
             || DIFFERENT_IN_EXCEL.contains(&upper.as_str())
         {
             return Err(format!("function {word} has no Excel equivalent"));
