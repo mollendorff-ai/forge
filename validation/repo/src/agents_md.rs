@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn a_rule_in_both_files_is_found_once() {
-        let agents = format!("# Rules\n\n{RULE}\n- Short\n");
+        let agents = format!("# Rules\n\n{RULE}\n- Short\n{RULE}\n");
         let claude = format!("@AGENTS.md\n{RULE}\n  {RULE}\n- Short\n");
         assert_eq!(repeated_rules(&agents, &claude), [RULE]);
     }

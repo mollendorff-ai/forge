@@ -800,6 +800,7 @@ adoption:
     why: "docs/WORKFLOWS.md says no whole pipeline without AI has been run, and the one with AI has run once (Sentinel)"
     acceptance: "The recipe, a workflow file in examples/, ran green and red in a scratch repository, and the page says so with the run's link"
     model: "Opus 5.5, high"
+    built: "2026-11-24: docs/guide/pipeline.md and examples/pipeline/forge.yml. The gate is forge validate (stale results, failing formulas, expect: not met; exit 1), and forge report --format json, whose uncalculated must be empty, since validate passes a formula with no stored value; the results go to the run's page (--format markdown) and an artifact (JSON). Run in mollendorff-ai/forge-pipeline-example with rc.34: main and PR #1 (price 17, calculated) green, PR #2 (not calculated) red at validate, PR #3 (a formula added, not calculated) red at the JSON step. validation/repo/src/pipeline.rs runs the workflow's steps with bash -eo pipefail on lesson 2's model, green and both reds, and checks that FORGE_VERSION is a release; guide.rs compares a yaml block headed # examples/....yml with its file"
   - id: A7-STUDIO-LINK
     title: "A Studio link that carries a model in its # part, and nowhere else"
     why: "A link opens only a bundled example today (?example=), so a lesson or an AI's answer cannot hand over its own YAML. The part after # is never sent to a server, so 'nothing you type leaves the tab' holds; an ADR first"
