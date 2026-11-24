@@ -829,6 +829,7 @@ adoption:
     why: "studio/README.md is for people who build Studio; the in-app ? has fifteen entries and no walk through"
     acceptance: "Every screenshot made by studio/screenshots.mjs; every link to a heading that exists"
     model: "Sonnet 5.5, medium"
+    built: "2026-11-24: docs/guide/studio.md (open a model, change a number and follow it into the YAML and the year's results, the six views, the ? on a heading, saving, links and offline, and Check it yourself with forge calculate at 16 and 17), six pictures in docs/guide/img/ made by studio/screenshots.mjs (a third argument, the folder), and validation/repo/src/studio_guide.rs: every picture has text, is a file, is one the script makes and the script makes no other; every studio/tests/*.mjs the page names exists; the numbers it quotes are lesson 1's. Its commands and links are guide.rs's. The page says where its claims come from (studio/README.md and the tests)"
   - id: A9-ROLES
     title: "CONTRIBUTING.md, docs/MAINTAINING.md, docs/EMBEDDING.md and the library's docs.rs page"
     why: "CONTRIBUTING.md is 35 lines with no set-up (Rust version, the wasm target, Gnumeric, R, Node); nothing says how a release is made beyond release.yml; src/lib.rs still describes 'a YAML formula calculator with Excel-style arrays'"

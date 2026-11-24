@@ -58,7 +58,7 @@ Every number is Forge's. The page reads no YAML itself: a change on a card is wr
 | `format.js` | How numbers look on screen: one rule (`isPercent`) for when a number is a percentage, by the model's unit first |
 | `build.mjs` | Puts the page, forge-wasm and the example sets in one folder |
 | `sw.js`, `manifest.webmanifest` | Offline and Add to Home Screen: the page keeps its own files on the device |
-| `screenshots.mjs` | Makes the screenshots in the main README from the page itself |
+| `screenshots.mjs` | Makes the screenshots in the main README from the page itself, and with a third argument those of [the Studio guide](../docs/guide/studio.md) (`docs/guide/img`) |
 
 ## Building it
 
