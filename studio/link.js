@@ -104,10 +104,13 @@ export const linkCard = (names) => `<div class="eyebrow"><h2>link</h2><span clas
 // a link's files:
 //   replaced()          the open files a link would replace that are kept only here
 //   sheet(title, html)  shows a message
+//   example(id)         the title of an example set
+//   openExample(id, model)  opens an example set, and draws it
 //   open(link, now)     opens the link's files, and draws them when `now`
 //   model()             { files, order } of the open model, its main file first
 export function listenLinks(app) {
   let waiting = null;
+  let example = null;
   let made = null;
   const sheet = () => document.querySelector("#sheet");
   // Opens the model in a fragment, or asks first when it would replace the
@@ -148,10 +151,24 @@ export function listenLinks(app) {
     document.querySelector("#link-msg").innerHTML = `<p class="note" style="margin-top:8px">${copied ? "Copied" : "Copy it from here"}: ${url.length.toLocaleString("en")} characters.</p><input type="text" class="mono" id="link-text" readonly aria-label="The link" value="${esc(url)}">`;
     if (!copied) document.querySelector("#link-text").select();
   }
+  // ?example= over the person's own files asks first, as a link does
+  function askExample(id, model) {
+    const name = app.example(id);
+    example = { id, model };
+    app.sheet("Open the example?", `<p class="note">${esc(`The address opens ${name}. It replaces ${app.replaced().join(", ")}, kept only in this browser: Save on the Files tab keeps a copy.`)}</p>
+      <div class="btns"><button class="btn primary" type="button" id="example-open">Open ${esc(name)}</button><button class="btn" type="button" id="example-keep">Keep my files</button></div>`);
+  }
   // A link pasted into the address bar of Studio already open
   window.addEventListener("hashchange", () => { if (isModelLink(location.hash)) open(location.hash, true); });
   document.addEventListener("click", async (e) => {
     if (e.target.id === "make-link") await copy();
+    if (e.target.id === "example-keep") { example = null; sheet().hidden = true; }
+    if (e.target.id === "example-open" && example) {
+      const { id, model } = example;
+      example = null;
+      sheet().hidden = true;
+      await app.openExample(id, model);
+    }
     if (e.target.id === "link-keep") { waiting = null; sheet().hidden = true; }
     if (e.target.id === "link-open" && waiting) {
       const link = waiting;
@@ -160,5 +177,5 @@ export function listenLinks(app) {
       await app.open(link, true);
     }
   });
-  return { open, prepare };
+  return { open, prepare, askExample };
 }

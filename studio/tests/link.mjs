@@ -5,7 +5,7 @@
 //   Node's zlib as the `gzip` tool would, and every scalar on screen is
 //   `forge calculate`'s (forge-wasm/expected.json);
 // - the link leaves the address bar once read, and a reload shows the model;
-// - a link over the person's own files asks first: Keep my files keeps them,
+// - a link, or ?example=, over the person's own files asks first: Keep my files keeps them,
 //   Open the link opens it; a link pasted into an open tab opens too;
 // - a broken link says what is wrong and keeps what was open; #an-sim is
 //   not a model and changes nothing;
@@ -165,13 +165,35 @@ if (!page.url().endsWith("#an-sim")) fail("#an-sim was taken out of the address 
 
 // Two files, the main one first, after a query that names an example: the
 // example opens first, as it ships, so the link opens over it without asking
-const two = await newPage(context);
+const fresh = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const two = await newPage(fresh);
 await two.goto(base + "?example=dcf" + links.bagel);
 await ready(two);
 if (await sheetTitle(two)) fail(`a link after ?example= asks "${await sheetTitle(two)}"`);
 await same(two, "the bagel's link of two files", "calculate bagel");
 await clean(two, "a link with a query");
 await two.close();
+
+// ?example= over files of the person's own asks first, as a link does
+// (the starter, from a link, is open and kept in this browser)
+const asking = await newPage(context);
+await asking.goto(base + "?example=dcf");
+await asking.locator("#example-keep").waitFor();
+if ((await sheetTitle(asking)) !== "Open the example?" || !/replaces model\.yaml/.test(await asking.locator("#sheet-body").innerText())) fail("?example= over the person's files does not ask, naming what it replaces");
+await asking.click("#example-keep");
+if ((await title(asking)) !== "model.yaml") fail("Keep my files does not keep the starter after ?example=");
+await asking.reload();
+await ready(asking);
+await same(asking, "the starter kept after ?example=", "calculate starter");
+await asking.goto(base + "?example=dcf");
+await asking.locator("#example-open").waitFor();
+before = await generation(asking);
+await asking.click("#example-open");
+await settle(asking, before);
+await ready(asking);
+await same(asking, "?example=dcf opened after asking", "calculate dcf");
+if ((await title(asking)) !== "Five-year DCF") fail(`?example=dcf opens as ${await title(asking)}`);
+await asking.close();
 
 // Files' Copy makes a link that opens the same model elsewhere
 const maker = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ["clipboard-read", "clipboard-write"] });

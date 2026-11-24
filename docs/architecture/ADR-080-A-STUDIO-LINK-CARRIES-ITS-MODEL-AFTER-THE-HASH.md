@@ -1,6 +1,6 @@
 # ADR-080: A Studio Link Carries Its Model After the #, and Nowhere Else
 
-**Status:** Proposed (2026-11-24), built with it; accepted by merging it
+**Status:** Accepted by the maintainer (2026-11-24); built
 **Date:** 2026-11-24
 **Decided by:** the maintainer, who asked for the roadmap item with an ADR first (A7-STUDIO-LINK) and accepts this by merging it; the analysis is Claude's, in a session configured for Opus 5.5
 **Closes:** roadmap A7-STUDIO-LINK
