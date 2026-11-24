@@ -364,13 +364,29 @@ thread_local! {
     static SCALAR_KEY: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
 }
 
+/// ` Did you mean 'x'?` when a scalar, by its full name or by the short name a
+/// formula may use, is close to `wanted`; nothing when none is
+fn name_hint(wanted: &str, ctx: &EvalContext) -> String {
+    let names: Vec<&str> = ctx
+        .scalars
+        .keys()
+        .chain(ctx.aliases.iter().flat_map(|a| a.keys()))
+        .map(String::as_str)
+        .collect();
+    crate::error::closest(wanted, &names)
+        .map(|c| format!(" Did you mean '{c}'?"))
+        .unwrap_or_default()
+}
+
 /// Evaluate a reference (scalar or table.column)
 fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value, EvalError> {
     match reference {
         Reference::Scalar(name) => {
-            let value = ctx
-                .get_scalar(name)
-                .ok_or_else(|| EvalError::new(format!("Unknown variable: {name}")))?;
+            let value = ctx.get_scalar(name).ok_or_else(|| {
+                let hint = name_hint(name, ctx);
+                let stop = if hint.is_empty() { "" } else { "." };
+                EvalError::new(format!("Unknown variable: {name}{stop}{hint}"))
+            })?;
 
             // In row-wise mode, if the value is an array, extract current row
             // (without copying the whole array first)
@@ -427,16 +443,10 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                     if ctx.tables.contains_key(table.as_str()) {
                         return EvalError::new(format!("Unknown column: {wanted}"));
                     }
-                    let names: Vec<&str> = ctx
-                        .scalars
-                        .keys()
-                        .chain(ctx.aliases.iter().flat_map(|a| a.keys()))
-                        .map(String::as_str)
-                        .collect();
-                    let hint = crate::error::closest(&wanted, &names)
-                        .map(|c| format!(" Did you mean '{c}'?"))
-                        .unwrap_or_default();
-                    EvalError::new(format!("Unknown name: {wanted}.{hint}"))
+                    EvalError::new(format!(
+                        "Unknown name: {wanted}.{}",
+                        name_hint(&wanted, ctx)
+                    ))
                 })?
             };
 
@@ -1238,6 +1248,34 @@ mod tests {
             "Unknown variable: nope"
         );
         ctx.aliases = Some(std::rc::Rc::new(scope::Aliases::default()));
+        assert_eq!(
+            eval("nope", &ctx).unwrap_err().message,
+            "Unknown variable: nope"
+        );
+    }
+
+    /// A misspelt short name, or the name of a scalar with a letter missing,
+    /// is answered with the name that is close to it; a name that is close to
+    /// none gets no hint
+    #[test]
+    fn a_misspelt_name_is_answered_with_the_close_one() {
+        let mut ctx = EvalContext::default();
+        ctx.scalars
+            .insert("shop.dozens_per_day".into(), Value::Number(10.0));
+        let mut own = NameMap::default();
+        own.insert("dozens_per_day".into(), "shop.dozens_per_day".to_string());
+        ctx.aliases = Some(std::rc::Rc::new(scope::Aliases {
+            own: std::rc::Rc::new(own),
+            unique: std::rc::Rc::default(),
+        }));
+        assert_eq!(
+            eval("dozen_per_day", &ctx).unwrap_err().message,
+            "Unknown variable: dozen_per_day. Did you mean 'dozens_per_day'?"
+        );
+        assert_eq!(
+            eval("dozens_per_dya", &ctx).unwrap_err().message,
+            "Unknown variable: dozens_per_dya. Did you mean 'dozens_per_day'?"
+        );
         assert_eq!(
             eval("nope", &ctx).unwrap_err().message,
             "Unknown variable: nope"
