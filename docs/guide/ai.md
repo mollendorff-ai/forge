@@ -6,7 +6,7 @@ An AI is good at writing a model and poor at arithmetic it does in its head. For
 2. [The MCP server in an AI client](#the-mcp-server-in-an-ai-client): the AI calls Forge's tools itself.
 3. [Rules for an agent in your model repository](#rules-for-an-agent-in-your-model-repository): what to put in `AGENTS.md` or `CLAUDE.md`.
 
-A chat that cannot run commands, or a phone with nothing installed, can still use [Forge Studio](https://forge.mollendorff.ai/): ask the AI for the YAML and open it there.
+A chat that cannot run commands, or a phone with nothing installed, can still use [Forge Studio](https://forge.mollendorff.ai/): ask the AI for the YAML and open it there. It can also hand the model over as a link that opens in Studio: `https://forge.mollendorff.ai/#name=model.yaml&yaml=` followed by the file's text, percent-encoded. The model is after the `#`, which a browser never sends to a server ([studio/README.md](../../studio/README.md#a-link-that-carries-a-model)).
 
 ## A chat that can run commands
 
