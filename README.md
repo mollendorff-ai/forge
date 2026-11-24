@@ -315,7 +315,7 @@ Forge's results are checked against engines it does not control, and none of the
 
 | Check | What it covers | Latest result |
 | --- | --- | --- |
-| Unit tests (this repo) | over 3,250 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
+| Unit tests (this repo) | over 3,300 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
 | [forge-e2e-gnumeric](validation/gnumeric) | 2,168 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 175 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,137 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); CI runs them on every pull request |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
 | [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R; games of many players and their dynamics with egttools, and again in R from the payoffs alone | 0 disagreements in 3,000 generated games, 372 tournament values and the named games (2026-11-20); games of many players and dynamics: 3,000 more games and every generation, 0 disagreements ([VALIDATION.md](VALIDATION.md), 2026-11-22) |

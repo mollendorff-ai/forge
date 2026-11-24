@@ -680,6 +680,18 @@ mod tests {
         assert_eq!(v.json_value(), serde_json::Value::Null);
     }
 
+    /// A scalar shows by its `format:` only once it has a value: a date by its
+    /// text, a number by the format, and one not calculated yet by nothing
+    #[test]
+    fn a_variable_is_formatted_only_once_it_has_a_value() {
+        let mut v = Variable::new("a.n".to_string(), Some(1234.5), None);
+        assert_eq!(v.formatted(), None, "no format, no formatted text");
+        v.metadata.format = Some("#,##0.00".to_string());
+        assert_eq!(v.formatted().as_deref(), Some("1,234.50"));
+        v.value = None;
+        assert_eq!(v.formatted(), None, "a format, and no value yet");
+    }
+
     // =========================================================================
     // Metadata Tests (v4.0)
     // =========================================================================
