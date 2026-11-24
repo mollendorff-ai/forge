@@ -194,7 +194,7 @@ getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] 
 chrono = { version = "0.4", features = ["serde", "wasmbind"] }
 # A workbook's creation time from the browser's clock (std's clock panics
 # there); only when Excel is built in (feature `excel`)
-rust_xlsxwriter = { version = "0.102", optional = true, features = ["wasm"] }
+rust_xlsxwriter = { version = "0.103", optional = true, features = ["wasm"] }
 
 # The validation suites against Gnumeric and R are workspace members in
 # validation/ (ADR-057)
