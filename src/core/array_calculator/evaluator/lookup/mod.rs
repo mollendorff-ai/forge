@@ -40,7 +40,7 @@ pub fn try_evaluate(
 
         "ROW" => reference::eval_row(args, ctx)?,
 
-        "COLUMN" => reference::eval_column(args, ctx),
+        "COLUMN" => reference::eval_column(args, ctx)?,
 
         "ROWS" => reference::eval_rows(args, ctx)?,
 

@@ -80,6 +80,13 @@ pub struct EvalContext {
     /// comes first, so a column or a LAMBDA parameter laid over the context
     /// hides a short name, as it hid one laid there.
     pub aliases: Option<std::rc::Rc<Aliases>>,
+    /// Each table's column numbers as `forge export` lays the table out, the
+    /// first column being 1 (column A): what COLUMN answers
+    pub column_numbers: std::rc::Rc<NameMap<NameMap<usize>>>,
+    /// The table whose formula is being evaluated, if it is a row formula's
+    pub formula_table: Option<String>,
+    /// The column number of the row formula being evaluated
+    pub formula_column: Option<usize>,
 }
 
 impl EvalContext {
@@ -97,7 +104,17 @@ impl EvalContext {
             whole_args: std::cell::RefCell::new(Vec::new()),
             hidden_row: std::cell::Cell::new(0),
             aliases: None,
+            column_numbers: std::rc::Rc::default(),
+            formula_table: None,
+            formula_column: None,
         }
+    }
+
+    /// The number of column `column` of table `table`, as the export lays
+    /// the table out (see [`EvalContext::column_numbers`]).
+    #[must_use]
+    pub fn number_of(&self, table: &str, column: &str) -> Option<usize> {
+        self.column_numbers.get(table)?.get(column).copied()
     }
 
     /// The row a row formula is being evaluated in: the current row, or an

@@ -169,6 +169,7 @@ fn rows_together(
     'rows: for row in 0..row_count {
         ctx.current_row = Some(row);
         for (column, place, formula, ast) in formulas {
+            ctx.formula_column = ctx.number_of(table_name, column);
             match evaluator::evaluate_cell(ast, formula, ctx) {
                 Ok(value) => {
                     // Nothing else holds the growing column once a row is
