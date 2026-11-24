@@ -307,7 +307,7 @@ mod tests {
             Vec::<String>::new()
         );
         // And how much of it that is: write the model, calculate, validate,
-        // edit, see it stale, calculate, see edit refuse a table's column,
+        // edit, see it stale, calculate, set a table's column (a dry run),
         // audit
         let doc = crate::read(SKILL);
         let (_dir, path) = crate::guide::page_folder();

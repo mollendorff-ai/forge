@@ -164,7 +164,7 @@ Each change has an `op` and a `path`, the name as formulas read it (`price`, `ye
 
 | `op` | Takes | Does |
 |------|-------|------|
-| `set_value` | `value` | An input's value: a number, or its text as YAML holds it (`1e-5`, a date `2026-01-31`). The rest of the line, a comment or the rest of a flow mapping, stays |
+| `set_value` | `value` | An input's value: a number, or its text as YAML holds it (`1e-5`, a date `2026-01-31`). The rest of the line, a comment or the rest of a flow mapping, stays. For a table's column of numbers or of dates, a list, one value for each row (`"value": [100, 120, 90]`): each row whose value changes is written, the others and the list's style and comments stay, and a list of another length is refused (a column's rows are not changed). A column of text, of true and false, or with an empty cell is refused |
 | `set_formula` | `formula` | A scalar's or a column's formula, one line starting with `=`, in the quotes the file already uses for it |
 | `add` | `value` or `formula`, and `unit`; `after` at the top level | An input or a formula at the end of its group, in the indentation of the keys there; a formula in a table is a column. At the top level it goes after the block of the name `after` |
 | `delete` | | An input, a formula or a column, with the lines under it and its comment on the line; a comment above it stays. The last name of a group is not deleted |

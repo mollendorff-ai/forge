@@ -119,14 +119,14 @@ $ forge calculate shop.yaml
 
 `forge edit --help` lists the other changes: a formula (`--formula 'year.margin==year.profit / year.revenue'`, two `=`), `--add`, `--delete`, `--rename` (and every name that reads it).
 
-`forge edit` does not yet change a value in a table's column, and says so:
+A table's column of numbers or dates takes a list, one value for each row; only the rows that change are written (`--dry-run` shows the file and writes nothing):
 
 ```text
-$ forge edit shop.yaml --set "products.price=[20, 45]"
-Error: Validation error: set_value products.price: it is a table's column of values, which edit does not change yet (shop.yaml). No file was changed
+$ forge edit shop.yaml --set "products.price=[20, 45]" --dry-run
+  price: [20, 45]
 ```
 
-Change that one line of the file yourself, and nothing else, then calculate and validate. An input the user will want to try other values of (a price, a volume) is easier kept as a scalar that the table reads (`inputs.latte_price`), which `forge edit --set` changes. For a what-if, change a copy of the file (`cp shop.yaml shop_latte.yaml`) unless the user asked to change the model, so that they keep both.
+Forge 10.0.0-rc.34 and older refuse that (`it is a table's column of values, which edit does not change yet`): with them, change that one line of the file yourself, and nothing else, then calculate and validate. For a what-if, change a copy of the file (`cp shop.yaml shop_plus_at_45.yaml`) unless the user asked to change the model, so that they keep both.
 
 ## 5. Check one result another way
 
@@ -155,7 +155,7 @@ End your answer with:
 - **A bare formula in a group of scalars is refused**: `'plan.revenue' is a formula in a group of scalars; write it as revenue: {formula: "=..."}`. A formula in a table is the bare string. Do not swap the two forms.
 - **A misspelt name fails with a suggestion**: `Unknown name: plan.unit. Did you mean 'plan.units'?` Fix the name; do not add an input to make the message go away.
 - **No `_forge_version`** fails with `Missing required field: _forge_version`, and lists the formats.
-- **`forge edit` refuses a table's column of values** (step 4): change that line by hand, or keep an input you will vary as a scalar.
+- **A table's column is set with a list**, one value for each row (step 4); edit does not add or remove rows. Releases up to 10.0.0-rc.34 refuse it: change that line by hand there.
 - **`forge calculate` rewrites the file.** Use `--dry-run` to look first; the `.bak` holds the file as it was.
 - **A model with `MC.` distributions** (`MC.Normal(100, 10)`) is for `forge simulate`: `forge calculate` and `forge validate` refuse it. `forge calculate --plan` calculates it at its plan.
 - **Paths after `install.sh --examples`** are under `forge-examples/` (`forge-examples/bagel/bagel.yaml`), not `examples/`.
