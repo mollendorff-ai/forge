@@ -47,5 +47,7 @@ games:
 results:
   tft_place_without_noise:
     formula: "=clean.rank.tft"
+    value: 1
   tft_place_with_noise:
     formula: "=noisy.rank.tft"
+    value: 3

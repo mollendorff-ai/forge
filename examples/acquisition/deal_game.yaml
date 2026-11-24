@@ -40,6 +40,7 @@ bids:
   # What one point of premium (0.01) costs a bidder, fees included
   cost_per_point:
     formula: "=@target.company.unaffected_price * @target.company.shares * (1 + @deal.financing.fees_rate) / 100"
+    value: 12.24
 
 thornvale:
   # Thornvale's synergies, net of their integration bill, as a value today:
@@ -51,12 +52,16 @@ thornvale:
 worth:
   valdane_at_30:
     formula: "=@deal.valuation.value_created - (bids.opening - @deal.offer.premium) * 100 * bids.cost_per_point"
+    value: 224.50793341829
   valdane_at_40:
     formula: "=@deal.valuation.value_created - (bids.knockout - @deal.offer.premium) * 100 * bids.cost_per_point"
+    value: 102.10793341829
   thornvale_at_30:
     formula: "=valdane_at_30 - @deal.valuation.synergies + thornvale.synergies"
+    value: 151.358157833863
   thornvale_at_40:
     formula: "=valdane_at_40 - @deal.valuation.synergies + thornvale.synergies"
+    value: 28.9581578338631
 
 games:
   sealed_bids:
@@ -74,12 +79,15 @@ games:
 contest:
   escalation_costs_each:
     formula: "=(worth.valdane_at_30 - worth.valdane_at_40) / 2"
+    value: 61.2
     notes: What each bidder expects to lose when both go to 40% rather than both staying at 30%
   outcomes:
     formula: "=sealed_bids.pure_equilibria"
+    value: 2
     notes: 2 when both 30% and both 40% are equilibria, 1 when only one is
   thornvale_never_high:
     formula: "=sealed_bids.dominated.thornvale.bid_40"
+    value: 0
     notes: 1 when 40% loses Thornvale money whatever Valdane bids
 
 scenarios:

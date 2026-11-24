@@ -43,21 +43,29 @@ months:
 year:
   revenue:
     formula: "=SUM(months.revenue)"
+    value: 386827.449537828
   profit:
     formula: "=SUM(months.profit)"
+    value: 786.320361712362
   margin:
     formula: "=profit / revenue"
+    value: 0.00203274189215848
     format: "0.0%"
   dozens_sold:
     formula: "=SUM(months.dozens)"
+    value: 24176.7155961142
   food_cost_share:
     formula: "=(SUM(months.flour) + SUM(months.sesame) + SUM(months.other_ingredients)) / revenue"
+    value: 0.160008333333333
   worst_month_profit:
     formula: "=MIN(months.profit)"
+    value: -7935.5334064
   npv_first_year:
     formula: "=NPV(assumptions.annual_discount_rate / 12, months.profit) - assumptions.oven_and_fit_out"
+    value: -95579.5187480991
   first_year_return:
     formula: "=profit / assumptions.oven_and_fit_out"
+    value: 0.00827705643907749
 
 scenarios:
   base:

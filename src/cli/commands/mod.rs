@@ -788,8 +788,9 @@ mod tests {
         }
 
         /// A formula never calculated has no stored value to check against,
-        /// and what cannot be read or calculated is an error, from the library
-        /// and from the command.
+        /// so the file fails until `forge calculate` stores it; what cannot
+        /// be read or calculated is an error, from the library and from the
+        /// command.
         #[test]
         fn validate_checks_what_is_stored_and_refuses_the_rest() {
             let dir = tempfile::tempdir().unwrap();
@@ -799,9 +800,17 @@ mod tests {
             );
             let result = validate_core(Path::new(&unstored)).unwrap();
             assert!(result.scalars_valid);
+            assert_eq!(result.uncalculated, ["s.y"]);
+            assert!(!result.passed);
+            let ran = forge(&["validate", &unstored]);
+            assert_eq!(ran.code, 1, "{ran:?}");
+            assert!(
+                ran.out.contains("1 formula(s) have no stored result"),
+                "{ran:?}"
+            );
+            assert_eq!(forge(&["calculate", &unstored]).code, 0);
             let ran = forge(&["validate", &unstored]);
             assert_eq!(ran.code, 0, "{ran:?}");
-            assert!(ran.out.contains("1 formula"), "{ran:?}");
             for (text, error) in [
                 (
                     "_forge_version: \"5.1.0\"\ns:\n  x: 0\n  y: {formula: \"=1 / x\"}\n",

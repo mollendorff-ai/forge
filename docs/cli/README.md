@@ -59,7 +59,7 @@ Commands:
   calculate      Calculate all formulas in a YAML file
   edit           Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, a game's strategies and players, comments kept
   audit          Show audit trail for a specific variable
-  validate       Validate formulas without calculating
+  validate       Check that every result is stored and up to date
   export         Export a model to an Excel .xlsx workbook
   import         Import an Excel .xlsx workbook as a Forge model
   watch          Watch YAML files and auto-calculate on changes
@@ -257,9 +257,11 @@ Options:
 ```
 Validate a model's stored results, and what it states it should give.
 
-Checks that the result stored next to each formula is what the formula
-calculates to, with the included files calculated first, and that each
-expectation (expect:) is met.
+Checks that each formula has its result stored next to it, that the result
+is what the formula calculates to, with the included files calculated
+first, and that each expectation (expect:) is met. Exits with 1 when one
+does not: a formula with no stored result, or one out of date, is named,
+and forge calculate stores them.
 
 CROSS-FILE REFERENCES:
   Formulas may read included files with @alias.name:

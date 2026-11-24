@@ -270,16 +270,30 @@ mod tests {
     }
 
     #[test]
-    fn a_formula_never_calculated_fails_the_next_step() {
+    fn a_formula_never_calculated_fails_validate() {
         let repo = Repository::with(&["bagel.yaml"]);
         let runs = repo.check();
-        assert_eq!(ended(&runs), (vec![VALIDATE, STORED], Some(1)));
-        let (validated, stored) = (&runs[0].ran.out, &runs[1].ran.out);
-        assert!(
-            validated.contains("2 passed, 0 failed out of 2 files"),
-            "{validated}"
-        );
+        assert_eq!(ended(&runs), (vec![VALIDATE], Some(1)));
+        let out = &runs[0].ran.out;
+        assert!(out.contains("1 passed, 1 failed out of 2 files"), "{out}");
+        let named =
+            "no stored result (ingredients.per_dozen, labour.loaded_wage): run forge calculate";
+        assert!(out.contains(named), "{out}");
+    }
+
+    /// The releases up to 10.0.0-rc.34 pass such a formula at `validate`;
+    /// the next step stops it there, and can go once `FORGE_VERSION` is a
+    /// release whose `validate` fails it.
+    #[test]
+    fn the_json_step_stops_a_formula_never_calculated_on_its_own() {
+        let repo = Repository::with(&["bagel.yaml"]);
+        let stored: Vec<Step> = steps(&read(WORKFLOW))
+            .into_iter()
+            .filter(|step| step.name == STORED)
+            .collect();
+        let runs = run_steps(&stored, &repo.models, &repo.bin, &repo.summary);
+        assert_eq!(ended(&runs), (vec![STORED], Some(1)));
         let error = "::error file=costs.yaml::no stored result for ingredients.per_dozen, labour.loaded_wage: run forge calculate costs.yaml";
-        assert!(stored.contains(error), "{stored}");
+        assert!(runs[0].ran.out.contains(error), "{}", runs[0].ran.out);
     }
 }

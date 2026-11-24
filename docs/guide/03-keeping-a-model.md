@@ -1,6 +1,6 @@
 # 3. Keeping a model
 
-A model is not written once. Prices change, a month's actuals come in, someone renames an input. This lesson is about changing a model the way it is kept: Forge writes the results into the file, `forge edit` makes the changes, `forge validate` tells you when a stored result is out of date, and `git` keeps the history.
+A model is not written once. Prices change, a month's actuals come in, someone renames an input. This lesson is about changing a model the way it is kept: Forge writes the results into the file, `forge edit` makes the changes, `forge validate` tells you when a stored result is out of date or missing, and `git` keeps the history.
 
 You need the two files of [lesson 2](02-a-first-model.md), `bagel.yaml` and `costs.yaml`, in the folder you work in.
 
@@ -76,12 +76,16 @@ labour:
 
 ## forge calculate writes the results
 
-The model reads, and nothing is calculated in it yet:
+`forge validate` checks that every formula has its result stored next to it, and that the result is what the formula gives. Nothing is calculated in the file yet, so it fails, and names the four formulas:
 
 ```text
 $ forge validate bagel.yaml
-✅ The formulas are valid.
-   4 formula(s) have no stored value yet; run 'forge calculate' to store them
+❌ 4 formula(s) have no stored result!
+   year.revenue
+   year.profit
+   year.margin
+   year.worst_month
+Error: Validation error: 4 formula(s) have no stored result (year.revenue, year.profit, year.margin, year.worst_month): run forge calculate
 ```
 
 So far every `forge calculate` had `--dry-run`. Without it, Forge writes each result into the file:
@@ -253,10 +257,11 @@ $ forge validate bagel.yaml
       Current:  41623.773208
       Expected: 26305.773208
       Diff:     15318.000000
-Error: Validation error: Stored values are out of date (the formulas are valid): run forge calculate
+   year.food_cost_share
+Error: Validation error: Stored values are out of date (the formulas are valid), and 1 formula(s) have no stored result (year.food_cost_share): run forge calculate
 ```
 
-The year's profit falls by `15318.000000`: two hours a day, 30 days a month, 12 months, at the loaded wage of 21.275, is 2 × 30 × 12 × 21.275 = 15,318. Then `forge calculate bagel.yaml` writes it, and `forge validate` passes again.
+The year's profit falls by `15318.000000`: two hours a day, 30 days a month, 12 months, at the loaded wage of 21.275, is 2 × 30 × 12 × 21.275 = 15,318. It names `year.food_cost_share` too: `forge edit --add` wrote the formula, and nothing has calculated it yet. Then `forge calculate bagel.yaml` writes both, and `forge validate` passes again.
 
 </details>
 

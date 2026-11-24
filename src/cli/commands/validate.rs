@@ -119,16 +119,17 @@ impl ModelToValidate {
         let calculated = ArrayCalculator::new(model.clone()).calculate_all()?;
         let mismatches = stale_values(model, &calculated);
         let mut result = ValidationResult {
-            tables_valid: true,
+            passed: false,
             scalars_valid: mismatches.is_empty(),
             table_count: model.tables.len(),
             scalar_count: model.scalars.len(),
             mismatches,
-            unstored: model
+            uncalculated: model
                 .scalars
-                .values()
-                .filter(|v| v.formula.is_some() && v.value.is_none())
-                .count(),
+                .iter()
+                .filter(|(_, v)| v.formula.is_some() && v.value.is_none())
+                .map(|(name, _)| name.clone())
+                .collect(),
             expectations_checked: 0,
             base_checked: 0,
             scenarios_checked: 0,
@@ -138,12 +139,14 @@ impl ModelToValidate {
         if expectations {
             check_expectations(model, &calculated, &mut result)?;
         }
+        result.passed =
+            result.scalars_valid && result.uncalculated.is_empty() && result.expectations_met;
         Ok(result)
     }
 }
 
 /// Each stored value that is not what its formula gives. A formula with no
-/// stored value has nothing to compare.
+/// stored value has nothing to compare; it is in `uncalculated`.
 fn stale_values(model: &ParsedModel, calculated: &ParsedModel) -> Vec<ValidationMismatch> {
     model
         .scalars
@@ -350,34 +353,71 @@ fn report_validation(c: &mut Console<'_>, result: &ValidationResult) -> ForgeRes
         .into_iter()
         .flatten()
         .collect();
-    if problems.is_empty() {
+    if result.passed {
         Ok(())
     } else {
         Err(ForgeError::Validation(problems.join("; and ")))
     }
 }
 
-/// Every stored value matches its formula, or each one that does not, with
-/// what it should be. The problem, when there is one.
+/// Every formula has its result stored and every stored result matches its
+/// formula, or each one that does not, with what it should be. The problem,
+/// when there is one.
 fn report_stored(c: &mut Console<'_>, result: &ValidationResult) -> Option<String> {
+    let mut problems = Vec::new();
     if result.mismatches.is_empty() {
         outln!(c, "{}", "✅ All tables are valid!".bold().green());
-        if result.unstored == 0 {
+        if result.uncalculated.is_empty() {
             outln!(
                 c,
                 "{}",
                 "✅ All scalar values match their formulas!".bold().green()
             );
-        } else {
-            outln!(c, "{}", "✅ The formulas are valid.".bold().green());
-            outln!(
-                c,
-                "   {} formula(s) have no stored value yet; run 'forge calculate' to store them",
-                result.unstored
-            );
+            return None;
         }
-        return None;
+    } else {
+        report_stale(c, result);
+        problems.push("Stored values are out of date (the formulas are valid)".to_string());
     }
+    if !result.uncalculated.is_empty() {
+        problems.push(report_uncalculated(c, &result.uncalculated));
+    }
+    outln!(
+        c,
+        "{}",
+        "💡 Run 'forge calculate' to update values".bold().yellow()
+    );
+    Some(format!("{}: run forge calculate", problems.join(", and ")))
+}
+
+/// The formulas with no stored result, one a line. The problem, in words.
+fn report_uncalculated(c: &mut Console<'_>, names: &[String]) -> String {
+    let problem = format!(
+        "{} formula(s) have no stored result ({})",
+        names.len(),
+        names.join(", ")
+    );
+    outln!(
+        c,
+        "{}",
+        format!("❌ {} formula(s) have no stored result!", names.len())
+            .bold()
+            .red()
+    );
+    outln!(
+        c,
+        "{}",
+        "   The formulas calculate; the file does not hold their results yet.\n".yellow()
+    );
+    for name in names {
+        outln!(c, "   {}", name.bright_blue().bold());
+    }
+    outln!(c);
+    problem
+}
+
+/// Each stored result that is not what its formula gives, with both numbers.
+fn report_stale(c: &mut Console<'_>, result: &ValidationResult) {
     outln!(
         c,
         "{}",
@@ -405,12 +445,6 @@ fn report_stored(c: &mut Console<'_>, result: &ValidationResult) -> Option<Strin
         outln!(c, "      Diff:     {}", format!("{:.6}", m.diff).yellow());
         outln!(c);
     }
-    outln!(
-        c,
-        "{}",
-        "💡 Run 'forge calculate' to update values".bold().yellow()
-    );
-    Some("Stored values are out of date (the formulas are valid): run forge calculate".to_string())
 }
 
 /// The expectations checked: all met, or each one that is not, under the
@@ -493,6 +527,7 @@ fn report_expectations(c: &mut Console<'_>, result: &ValidationResult) -> Option
 
 #[cfg(test)]
 mod tests {
+    use super::super::calculate_core;
     use super::*;
     use crate::cli::console::capture;
     use std::fs;
@@ -504,6 +539,107 @@ mod tests {
         let path = dir.join(name);
         fs::write(&path, text).unwrap();
         path
+    }
+
+    fn good_file(dir: &Path) -> PathBuf {
+        model(dir, "good.yaml", GOOD)
+    }
+
+    /// The models in `dir` and below it, in order of their paths.
+    fn yaml_files(dir: &Path) -> Vec<PathBuf> {
+        let mut out = Vec::new();
+        for entry in fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                out.extend(yaml_files(&path));
+            } else if path.extension().is_some_and(|e| e == "yaml") {
+                out.push(path);
+            }
+        }
+        out.sort();
+        out
+    }
+
+    fn copy_tree(from: &Path, to: &Path) {
+        fs::create_dir_all(to).unwrap();
+        for entry in fs::read_dir(from).unwrap() {
+            let path = entry.unwrap().path();
+            let target = to.join(path.file_name().unwrap());
+            if path.is_dir() {
+                copy_tree(&path, &target);
+            } else {
+                fs::copy(&path, &target).unwrap();
+            }
+        }
+    }
+
+    /// Lesson 2's files are as the lesson has the reader type them, before
+    /// anything is calculated; lesson 3 calculates them.
+    const WRITTEN_BY_HAND: [&str; 2] =
+        ["examples/guide/02-bagel.yaml", "examples/guide/costs.yaml"];
+
+    /// Every example passes `forge validate` as it is committed, and
+    /// `forge calculate` makes every one pass: no formula is left without a
+    /// result it can store, so the gate can always be met. An uncertain model
+    /// is refused by both, and sent to `forge simulate`.
+    #[test]
+    fn every_example_passes_and_calculate_makes_any_model_pass() {
+        let copy = tempfile::tempdir().unwrap();
+        copy_tree(Path::new("examples"), &copy.path().join("examples"));
+        let (mut checked, mut uncertain) = (0, 0);
+        let (mut failing, mut still_failing) = (Vec::new(), Vec::new());
+        for file in yaml_files(Path::new("examples")) {
+            let name = file.to_string_lossy().to_string();
+            let committed = match validate_core(&file) {
+                Ok(result) => result,
+                Err(e) => {
+                    let why = e.to_string();
+                    assert!(why.contains("forge simulate"), "{name}: {why}");
+                    uncertain += 1;
+                    continue;
+                },
+            };
+            if !committed.passed && !WRITTEN_BY_HAND.contains(&name.as_str()) {
+                failing.push(name.clone());
+            }
+            let copied = copy.path().join(&file);
+            calculate_core(&copied, false, None).unwrap();
+            let calculated = validate_core(&copied).unwrap();
+            if !calculated.passed {
+                still_failing.push((name, calculated.uncalculated));
+            }
+            checked += 1;
+        }
+        assert_eq!(failing, Vec::<String>::new(), "run forge calculate on each");
+        assert_eq!(still_failing, Vec::<(String, Vec<String>)>::new());
+        assert!(
+            checked >= 50 && uncertain >= 10,
+            "{checked} checked, {uncertain} uncertain"
+        );
+    }
+
+    #[test]
+    fn a_stale_result_and_a_missing_one_are_both_named() {
+        let dir = tempfile::tempdir().unwrap();
+        let text =
+            "_forge_version: \"5.1.0\"\na: 2\nout:\n  b: {formula: \"=a * 2\", value: 5}\n  \
+                    c: {formula: \"=a * 3\"}\n  d: {formula: \"=a * 4\"}\n";
+        let file = model(dir.path(), "m.yaml", text);
+        let found = validate_core(&file).unwrap();
+        assert_eq!(found.uncalculated, ["out.c", "out.d"]);
+        assert_eq!(found.mismatches.len(), 1);
+        assert!(!found.passed);
+        let (result, captured) = capture(|c| validate(c, &[file]));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Validation error: Stored values are out of date (the formulas are valid), and 2 \
+             formula(s) have no stored result (out.c, out.d): run forge calculate"
+        );
+        let out = &captured.out;
+        let stale_first =
+            out.find("value mismatches").unwrap() < out.find("no stored result").unwrap();
+        assert!(stale_first, "{out}");
+        assert_eq!(out.matches("💡 Run 'forge calculate'").count(), 1, "{out}");
     }
 
     #[test]
@@ -573,13 +709,19 @@ mod tests {
             "u.yaml",
             &GOOD.replace("value: 4", "value: null"),
         );
-        let (result, captured) = capture(|c| validate(c, &[unstored]));
-        result.unwrap();
-        assert!(
-            captured.out.contains("1 formula(s) have no stored value"),
-            "{}",
-            captured.out
+        let (result, captured) = capture(|c| validate(c, std::slice::from_ref(&unstored)));
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Validation error: 1 formula(s) have no stored result (outputs.b): run forge calculate"
         );
+        let shown = "❌ 1 formula(s) have no stored result!\n   The formulas calculate; the file \
+                     does not hold their results yet.\n\n   outputs.b\n\n💡 Run 'forge calculate'";
+        assert!(captured.out.contains(shown), "{}", captured.out);
+        let found = validate_core(&unstored).unwrap();
+        assert_eq!(found.uncalculated, ["outputs.b"]);
+        assert!(found.scalars_valid, "nothing stored is out of date");
+        assert!(!found.passed);
+        assert!(validate_core(&good_file(dir.path())).unwrap().passed);
 
         let empty = model(dir.path(), "e.yaml", "_forge_version: \"5.0.0\"\n");
         let (result, captured) = capture(|c| validate(c, &[empty]));
@@ -637,7 +779,7 @@ mod tests {
     /// scenarios that move them (ADR-074's first use).
     const STATED: &str = "_forge_version: \"5.6.0\"\nw: 0.6\nc: 0\n\
         payoffs: {T: 5, R: 3, P: 1, S: 0}\n\
-        kinship:\n  threshold: {formula: \"=(T - c - R) / (T - P)\"}\n\
+        kinship:\n  threshold: {formula: \"=(T - c - R) / (T - P)\", value: 0.5}\n\
         games:\n  dilemma:\n    players: [me, you]\n    strategies: [cooperate, defect]\n    symmetric: true\n    \
         payoffs:\n      cooperate: {cooperate: =R, defect: =S}\n      defect: {cooperate: =T - c, defect: =P - c}\n\
         expect:\n  kinship.threshold: 0.5\n  dilemma.equilibria: 1\n\

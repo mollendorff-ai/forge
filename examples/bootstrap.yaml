@@ -57,10 +57,12 @@ portfolio:
   # Annualized return (simple)
   annual_return:
     formula: "=0.0246 * 12"  # Sample mean (2.46%) * 12
+    value: 0.2952
 
   # Projected value after 1 year
   projected_value:
     formula: "=initial_value * (1 + annual_return)"
+    value: 1295200
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Expected Output:

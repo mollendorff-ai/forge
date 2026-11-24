@@ -994,23 +994,29 @@ mod tests {
         );
     }
 
+    /// An example committed with no results, and what `forge calculate`
+    /// writes into it
+    const UNCALCULATED: &str = "examples/guide/02-bagel.yaml";
+    const ITS_PROFIT: &str = "value: 22247.0576117754";
+
     #[test]
     fn the_sandbox_is_a_copy_a_command_can_change() {
         let (dir, path) = page_folder();
         assert_eq!(dir.path(), path);
-        let starter = path.join("examples/starter.yaml");
+        // Lesson 2's model is committed as the lesson types it, uncalculated
+        let lesson = path.join(UNCALCULATED);
         assert!(path.join("examples/bagel/bagel.yaml").is_file());
-        assert!(!std::fs::read_to_string(&starter)
+        assert!(!std::fs::read_to_string(&lesson)
             .unwrap()
-            .contains("value: 4800"));
+            .contains(ITS_PROFIT));
         let mut run = in_folder(&path);
-        let args = ["calculate", "examples/starter.yaml"].map(String::from);
+        let args = ["calculate", UNCALCULATED].map(String::from);
         assert!(run(&args).success());
-        assert!(std::fs::read_to_string(&starter)
+        assert!(std::fs::read_to_string(&lesson)
             .unwrap()
-            .contains("value: 4800"));
+            .contains(ITS_PROFIT));
         // The repository's copy is as it was
-        assert!(!crate::read("examples/starter.yaml").contains("value: 4800"));
+        assert!(!crate::read(UNCALCULATED).contains(ITS_PROFIT));
     }
 
     #[test]
@@ -1038,8 +1044,8 @@ mod tests {
 
     #[test]
     fn each_page_runs_in_a_copy_of_the_examples_and_the_wrong_ones_are_named() {
-        let good = "```text\n$ forge calculate examples/starter.yaml\n```\n\n\
-                    ```text\n$ forge calculate examples/starter.yaml --dry-run\n```\n\n\
+        let good = "```text\n$ forge calculate examples/guide/02-bagel.yaml\n```\n\n\
+                    ```text\n$ forge calculate examples/guide/02-bagel.yaml --dry-run\n```\n\n\
                     [glossary](GLOSSARY.md)\n";
         let bad = "```text\n$ forge validate examples/starter.yaml\nnot printed\n```\n";
         let pages = ["docs/good.md", "docs/bad.md"].map(String::from);
@@ -1051,7 +1057,7 @@ mod tests {
             "{wrong:?}"
         );
         // Neither page changed the repository's examples
-        assert!(!crate::read("examples/starter.yaml").contains("value: 4800"));
+        assert!(!crate::read(UNCALCULATED).contains(ITS_PROFIT));
     }
 
     #[test]

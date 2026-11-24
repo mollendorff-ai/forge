@@ -35,6 +35,8 @@ jobs:
       - name: Every stored result is what its formula gives
         run: forge validate *.yaml
 
+      # Up to 10.0.0-rc.34, forge validate passes a formula with no stored
+      # result; this step stops it, and can go with a later FORGE_VERSION
       - name: Every formula has its result stored
         run: |
           mkdir -p results

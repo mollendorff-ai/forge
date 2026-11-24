@@ -14,8 +14,8 @@ plan:
   price: 40
   units_per_month: 120
   monthly_costs: 3000
-  revenue: {formula: "=plan.price * plan.units_per_month"}
-  profit: {formula: "=plan.revenue - plan.monthly_costs"}
+  revenue: {formula: "=plan.price * plan.units_per_month", value: 4800}
+  profit: {formula: "=plan.revenue - plan.monthly_costs", value: 1800}
 
 # A table: columns of the same length, one row per item.
 # A column formula is a bare "=..." string, calculated row by row from the
@@ -32,5 +32,5 @@ products:
 
 # A scalar can reduce a column of a table, which it names with the table.
 totals:
-  revenue: {formula: "=SUM(products.revenue)"}
-  best_seller_units: {formula: "=MAX(products.units)"}
+  revenue: {formula: "=SUM(products.revenue)", value: 11200}
+  best_seller_units: {formula: "=MAX(products.units)", value: 200}

@@ -64,8 +64,10 @@ bayesian_network:
 loss:
   expected:
     formula: "=bayesian_network.any_year.yes * loan.exposure * (1 - loan.recovery)"
+    value: 58500
   in_a_bad_year:
     formula: "=bayesian_network.bad_year.yes * loan.exposure * (1 - loan.recovery)"
+    value: 103800
 
 # Bayes' rule by hand. P(default | economy) sums over revenue:
 #   good:    0.6 x 0.02 + 0.3 x 0.07 + 0.1 x 0.25 = 0.058
@@ -76,17 +78,23 @@ loss:
 by_hand:
   if_good:
     formula: "=0.6 * 0.02 + 0.3 * 0.07 + 0.1 * 0.25"
+    value: 0.058
   if_neutral:
     formula: "=0.3 * 0.02 + 0.5 * 0.07 + 0.2 * 0.25"
+    value: 0.091
   if_bad:
     formula: "=0.1 * 0.02 + 0.3 * 0.07 + 0.6 * 0.25"
+    value: 0.173
   default:
     formula: "=(1 - outlook.p_neutral - outlook.p_bad) * by_hand.if_good + outlook.p_neutral * by_hand.if_neutral + outlook.p_bad * by_hand.if_bad"
+    value: 0.0975
   bad_after_default:
     formula: "=outlook.p_bad * by_hand.if_bad / by_hand.default"
+    value: 0.354871794871795
   # Zero when the network and Bayes' rule agree
   gap:
     formula: "=ABS(bayesian_network.any_year.yes - by_hand.default) + ABS(bayesian_network.after_default.bad - by_hand.bad_after_default)"
+    value: 0
 
 # The file as written: 0.3 x 0.058 + 0.5 x 0.091 + 0.2 x 0.173 = 0.0975, so
 # the expected loss is 0.0975 x 1,000,000 x 0.6 = 58,500; a bad year's is

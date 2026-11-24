@@ -17,7 +17,7 @@ use crate::cli::{calculate_core, calculate_plan_core};
 impl ForgeMcpServer {
     #[tool(
         name = "forge_validate",
-        description = "Validate a Forge YAML model file for formula errors, circular dependencies, and type mismatches, and check each stored value against its formula. When the model states its results (expect:, format 5.6.0), it calculates the file and each scenario that has one, and lists every result that differs, with the scenario, the name and both numbers."
+        description = "Validate a Forge YAML model file for formula errors, circular dependencies, and type mismatches, and check each stored value against its formula. passed is true only when every formula has its result stored (uncalculated names those that do not: run forge_calculate), each matches its formula, and every expectation is met. When the model states its results (expect:, format 5.6.0), it calculates the file and each scenario that has one, and lists every result that differs, with the scenario, the name and both numbers."
     )]
     pub(super) fn validate(
         &self,
@@ -290,7 +290,7 @@ mod tests {
             verbose: false,
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
-        assert!(parsed.get("tables_valid").is_some());
+        assert!(parsed.get("passed").is_some());
         assert!(parsed.get("scalars_valid").is_some());
         assert!(parsed.get("table_count").is_some());
     }
@@ -754,7 +754,7 @@ scalars:
                 includes,
                 verbose: false,
             }))));
-            assert_eq!(result["tables_valid"], true, "inline {inline}");
+            assert_eq!(result["passed"], true, "inline {inline}");
             assert_eq!(result["scalars_valid"], true, "inline {inline}");
             assert_eq!(result["table_count"], 1, "inline {inline}");
             assert_eq!(result["scalar_count"], 19, "inline {inline}");

@@ -56,17 +56,23 @@ finance:
 capex:
   solar:
     formula: "=system.solar_mwp * costs.solar_per_mwp"
+    value: 3740000
   battery:
     formula: "=system.battery_mwh * costs.battery_per_mwh"
+    value: 3800000
   total:
     formula: "=solar + battery + costs.controls_and_grid"
+    value: 8140000
     format: "$#,##0"
   debt:
     formula: "=total * finance.debt_share"
+    value: 5698000
   equity:
     formula: "=total - debt"
+    value: 2442000
   debt_service:
     formula: "=PMT(finance.interest_rate, finance.tenor_years, -debt)"
+    value: 792618.523937195
     format: "$#,##0"
 
 # The island's power, year by year
@@ -111,44 +117,58 @@ money:
 verdict:
   project_npv:
     formula: "=NPV(finance.discount_rate, money.cfads) - capex.total"
+    value: 13161304.8634005
     format: "$#,##0"
   project_irr:
     formula: "=IRR(-capex.total, money.cfads)"
+    value: 0.230159911369547
     format: "0.0%"
   equity_irr:
     formula: "=IRR(-capex.equity, money.equity_cash)"
+    value: 0.410900686838677
     format: "0.0%"
   payback_year:
     formula: "=MINIFS(money.n, money.cumulative, \">=0\")"
+    value: 5
   min_dscr:
     formula: "=MINIFS(money.dscr, money.debt_service, \">0\")"
+    value: 1.96450114774681
     format: "0.00"
   min_dscr_year:
     formula: "=INDEX(money.n, MATCH(min_dscr, money.dscr, 0))"
+    value: 1
   first_year_renewable_share:
     formula: "=INDEX(energy.renewable_share, 1)"
+    value: 0.9
     format: "0.0%"
   last_year_renewable_share:
     formula: "=INDEX(energy.renewable_share, 20)"
+    value: 0.689559843186831
     format: "0.0%"
   solar_curtailed_share:
     formula: "=SUM(energy.curtailed) / SUM(energy.solar_mwh)"
+    value: 0.119894159565998
     format: "0.0%"
   co2_avoided_t:
     formula: "=SUM(energy.co2_avoided_t)"
+    value: 67755.2458929465
     format: "#,##0"
   # Cost of a MWh over 20 years, both ways, in today's money
   pv_mwh:
     formula: "=SUMPRODUCT(energy.demand_mwh, money.discount)"
+    value: 49517.0668449834
   lcoe_diesel:
     formula: "=SUMPRODUCT(money.baseline_cost, money.discount) / pv_mwh"
+    value: 575.856260102687
     format: "$#,##0"
   lcoe_microgrid:
     formula: "=(capex.total + SUMPRODUCT(money.project_opex + money.replacement, money.discount)) / pv_mwh"
+    value: 310.062954844869
     format: "$#,##0"
   # Negative: each tonne of CO2 avoided also saves money
   cost_per_tonne_avoided:
     formula: "=-project_npv / co2_avoided_t"
+    value: -194.247761777669
     format: "$#,##0.00"
 
 scenarios:

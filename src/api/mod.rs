@@ -72,8 +72,20 @@ mod tests {
         #[tokio::test]
         async fn test_validate_inline() {
             let out = post("/api/v1/validate", serde_json::json!({ "content": MODEL })).await;
-            assert_eq!(out["data"]["valid"], true, "{out}");
+            assert_eq!(out["data"]["valid"], false, "{out}");
+            assert_eq!(
+                out["data"]["result"]["uncalculated"],
+                serde_json::json!(["summary.total"])
+            );
             assert_eq!(out["data"]["result"]["scalar_count"], 1);
+            let calculated = MODEL.replace("value: null", "value: 30");
+            let out = post(
+                "/api/v1/validate",
+                serde_json::json!({ "content": calculated }),
+            )
+            .await;
+            assert_eq!(out["data"]["valid"], true, "{out}");
+            assert_eq!(out["data"]["result"]["passed"], true, "{out}");
         }
 
         #[tokio::test]
@@ -210,7 +222,12 @@ mod tests {
                 serde_json::json!({"file_path": "m.yaml"}),
             )
             .await;
-            assert_eq!(inside["data"]["valid"], true, "{inside}");
+            // Read: its one formula is named, not yet calculated
+            assert_eq!(
+                inside["data"]["result"]["uncalculated"],
+                serde_json::json!(["a.y"]),
+                "{inside}"
+            );
             for path in [
                 secret.join("s.yaml").display().to_string(),
                 "../secret/s.yaml".to_string(),
