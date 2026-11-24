@@ -6,6 +6,7 @@ use crate::core::array_calculator::evaluator::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::{evaluate_without_row, number_or};
+use crate::core::array_calculator::parser::Reference;
 use crate::core::precision;
 use num_traits::ToPrimitive;
 
@@ -158,13 +159,11 @@ pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
             ctx.row().map_or(1.0, |row| precision::count(row + 1)),
         ));
     };
-    let not_a_column =
-        || EvalError::new("#VALUE!: ROW needs a table column: only a column has rows");
     if !matches!(reference, Expr::Reference(_)) {
-        return Err(not_a_column());
+        return Err(not_a_column("ROW"));
     }
     let Value::Array(column) = evaluate_without_row(reference, ctx)? else {
-        return Err(not_a_column());
+        return Err(not_a_column("ROW"));
     };
     if let Some(row) = ctx.row() {
         // Read as the row formula reads it, so a shorter table is refused
@@ -181,11 +180,60 @@ pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 
 /// Evaluate COLUMN function
 /// COLUMN([reference])
-/// Returns the column number of a reference
-pub const fn eval_column(_args: &[Expr], _ctx: &EvalContext) -> Value {
-    // COLUMN() returns current column number
-    // Simplified implementation - always returns 1
-    Value::Number(1.0)
+///
+/// A column's number as `forge export` lays its table out: the table's
+/// columns in model order, the first being 1 (column A). `COLUMN()` is the
+/// row formula's own column; `COLUMN(column)` that column's, `t.b` or a bare
+/// name of the formula's table. A scalar has no column, as `ROW` of one has
+/// no row: `#VALUE!`.
+///
+/// # Errors
+///
+/// Returns `EvalError` outside a row formula without a reference, for a
+/// reference that is not a table column, or one that cannot be read.
+pub fn eval_column(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range("COLUMN", args, 0, 1)?;
+    let number = match args.first() {
+        None => ctx.formula_column.ok_or_else(|| {
+            EvalError::new(
+                "#VALUE!: COLUMN() is the column of a table's row formula: a scalar has no column",
+            )
+        })?,
+        Some(reference) => {
+            let Expr::Reference(name) = reference else {
+                return Err(not_a_column("COLUMN"));
+            };
+            // Read as any reference is, so a name that is unknown says so
+            evaluate_without_row(reference, ctx)?;
+            column_of(name, ctx).ok_or_else(|| not_a_column("COLUMN"))?
+        },
+    };
+    Ok(Value::Number(precision::count(number)))
+}
+
+/// The number of the table column `reference` names, if it names one: a bare
+/// name is a column of the row formula's table, and `group.name` a scalar
+/// when there is one, as the reference is read.
+fn column_of(reference: &Reference, ctx: &EvalContext) -> Option<usize> {
+    match reference {
+        Reference::Scalar(name) => ctx
+            .formula_table
+            .as_deref()
+            .and_then(|table| ctx.number_of(table, name)),
+        Reference::TableColumn { table, column } => {
+            if ctx.scalars.contains_key(&format!("{table}.{column}")) {
+                return None;
+            }
+            ctx.number_of(table, column)
+        },
+    }
+}
+
+/// The error of ROW or COLUMN given what is not a table column.
+fn not_a_column(function: &str) -> EvalError {
+    EvalError::new(format!(
+        "#VALUE!: {function} needs a table column: only a column has rows and a number"
+    ))
 }
 
 /// Evaluate ROWS function
@@ -263,7 +311,6 @@ mod tests {
     fn test_row_column() {
         let ctx = EvalContext::new();
         assert_eq!(eval("ROW()", &ctx).unwrap(), Value::Number(1.0));
-        assert_eq!(eval("COLUMN()", &ctx).unwrap(), Value::Number(1.0));
     }
 
     #[test]
@@ -508,32 +555,6 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("calc").unwrap().value.unwrap();
         assert_exact!(val, 10.0);
-    }
-
-    #[test]
-    fn test_column_function_basic() {
-        let mut model = ParsedModel::new();
-        model.add_scalar(
-            "col_num".to_string(),
-            Variable::new("col_num".to_string(), None, Some("=COLUMN()".to_string())),
-        );
-        let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Should calculate");
-        let val = result.scalars.get("col_num").unwrap().value.unwrap();
-        assert_exact!(val, 1.0);
-    }
-
-    #[test]
-    fn test_column_function_in_expression() {
-        let mut model = ParsedModel::new();
-        model.add_scalar(
-            "calc".to_string(),
-            Variable::new("calc".to_string(), None, Some("=COLUMN() + 5".to_string())),
-        );
-        let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Should calculate");
-        let val = result.scalars.get("calc").unwrap().value.unwrap();
-        assert_exact!(val, 6.0);
     }
 
     #[test]
@@ -977,14 +998,13 @@ mod tests {
         h::is_exactly_in("COLUMNS(t)", &h::sweep_table(), 4.0);
     }
 
-    /// The simplified COLUMN, absolute and relative parts of an
-    /// address, and a name that is no table has one column
+    /// Absolute and relative parts of an address, and a name that is no
+    /// table has one column
     #[test]
     fn rows_columns_and_addresses() {
         use crate::core::array_calculator::evaluator::tests as h;
         let mut ctx = EvalContext::new();
         ctx.scalars.insert("x".into(), Value::Number(3.0));
-        h::is_exactly_in("COLUMN()", &ctx, 1.0);
         h::is_exactly_in("COLUMNS(x)", &ctx, 1.0);
         assert_eq!(h::text("ADDRESS(2, 3, 3)"), "$C2");
     }
@@ -1020,5 +1040,103 @@ mod tests {
         }
         h::fails_in("ROW(t.nope)", &ctx, "Unknown column: t.nope");
         assert!(eval("ROW(t.a, 1)", &ctx).is_err());
+    }
+
+    /// A context of table `t`, columns `a` and `b` (1 and 2), evaluating a
+    /// row formula of `t` in column `column`, if any
+    fn columns_of_t(column: Option<usize>) -> EvalContext {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let mut ctx = h::table(&[
+            ("a", h::numbers(&[10.0, 20.0])),
+            ("b", h::numbers(&[1.0, 2.0])),
+        ]);
+        for (name, values) in [("a", [10.0, 20.0]), ("b", [1.0, 2.0])] {
+            ctx.scalars
+                .insert(name.into(), Value::Array(h::numbers(&values).into()));
+        }
+        ctx.scalars.insert("x".into(), Value::Number(3.0));
+        let numbers = [("a".to_string(), 1), ("b".to_string(), 2)];
+        ctx.column_numbers = std::rc::Rc::new(
+            std::iter::once(("t".to_string(), numbers.into_iter().collect())).collect(),
+        );
+        ctx.formula_table = Some("t".into());
+        ctx.formula_column = column;
+        ctx
+    }
+
+    /// COLUMN is the formula's own column, or the column named, numbered as
+    /// the table is laid out; what is not a table column has no number
+    #[test]
+    fn column_is_the_number_of_a_table_column() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = columns_of_t(Some(2)).with_row(1, 2);
+        h::is_exactly_in("COLUMN()", &ctx, 2.0);
+        h::is_exactly_in("COLUMN(a)", &ctx, 1.0);
+        h::is_exactly_in("COLUMN(t.b) * 10", &ctx, 20.0);
+        h::is_exactly_in("SUM(COLUMN(t.a), COLUMN())", &ctx, 3.0);
+        for formula in ["COLUMN(x)", "COLUMN(1 + 2)", "COLUMN(\"t.a\")"] {
+            h::fails_in(formula, &ctx, "#VALUE!: COLUMN needs a table column");
+        }
+        h::fails_in("COLUMN(nope)", &ctx, "Unknown variable: nope");
+        h::fails_in("COLUMN(t.nope)", &ctx, "Unknown column: t.nope");
+        assert!(eval("COLUMN(a, b)", &ctx).is_err());
+        // A scalar `t.a` is read before the column, and has no number
+        let mut shadowed = ctx;
+        shadowed.scalars.insert("t.a".into(), Value::Number(5.0));
+        h::fails_in("COLUMN(t.a)", &shadowed, "COLUMN needs a table column");
+        // Outside a row formula: no column of its own, and a bare name is no
+        // table's column, but a column named in full has its number
+        let mut scalar = columns_of_t(None);
+        h::fails_in(
+            "COLUMN()",
+            &scalar,
+            "#VALUE!: COLUMN() is the column of a table's row formula",
+        );
+        h::is_exactly_in("COLUMN(t.b)", &scalar, 2.0);
+        scalar.formula_table = None;
+        h::fails_in("COLUMN(a)", &scalar, "COLUMN needs a table column");
+    }
+
+    /// In a whole model: a row formula's COLUMN is the letter the export
+    /// writes its column in (A is 1), a formula column's and one calculated
+    /// row by row with PREV included; a scalar formula's `COLUMN()` is refused
+    #[test]
+    fn a_models_columns_are_numbered_as_the_export_lays_them_out() {
+        use calamine::{Reader, Xlsx};
+        let text = "_forge_version: \"5.4.0\"\nt:\n  x: [1, 2, 3]\n  y: \"=COLUMN() * 10\"\n  z: \"=COLUMN(x) + COLUMN(t.y) * x\"\n  w: \"=PREV(w, 0) + COLUMN()\"\ns:\n  n: {formula: \"=COLUMN(t.z)\"}\n";
+        let model = crate::parser::parse_model_text("m.yaml", text, &HashMap::new()).unwrap();
+        let result = ArrayCalculator::new(model).calculate_all().unwrap();
+        let column = |name: &str| result.tables["t"].columns[name].values.clone();
+        assert_eq!(column("y"), ColumnValue::Number(vec![20.0, 20.0, 20.0]));
+        // 1 + 2 times x
+        assert_eq!(column("z"), ColumnValue::Number(vec![3.0, 5.0, 7.0]));
+        // 4, then 4 more each row
+        assert_eq!(column("w"), ColumnValue::Number(vec![4.0, 8.0, 12.0]));
+        assert_exact!(result.scalars["s.n"].value.unwrap(), 3.0);
+        // The export writes x, y, z, w in columns A to D
+        let bytes = crate::excel::ExcelExporter::new(result)
+            .export_to_buffer()
+            .unwrap();
+        let mut book = Xlsx::new(std::io::Cursor::new(bytes)).unwrap();
+        let sheet = book.worksheet_range("t").unwrap();
+        let header: Vec<String> = sheet
+            .rows()
+            .next()
+            .unwrap()
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert_eq!(header, ["x", "y", "z", "w"]);
+
+        let scalar = "_forge_version: \"5.4.0\"\ns:\n  n: {formula: \"=COLUMN()\"}\n";
+        let model = crate::parser::parse_model_text("m.yaml", scalar, &HashMap::new()).unwrap();
+        let err = ArrayCalculator::new(model)
+            .calculate_all()
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("COLUMN() is the column of a table's row formula"),
+            "{err}"
+        );
     }
 }

@@ -21,6 +21,7 @@ use crate::types::{Column, ColumnValue, ParsedModel, Table};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use context::column_numbers;
 use errors::{failure_report, locate_error, not_a_number};
 use includes::IncludedTable;
 use names::Sections;
@@ -283,7 +284,7 @@ impl ArrayCalculator {
             .and_then(|()| self.check_network_results(&formula))
             .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
         let result = self
-            .evaluate_rowwise_formula_ast(table_name, &formula)
+            .evaluate_rowwise_formula_ast(table_name, col_name, &formula)
             .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
         // The evaluation kept the context, and the table is the one just read
         let ctx = self.ctx.as_mut().expect(KEPT);
@@ -348,6 +349,13 @@ impl ArrayCalculator {
                     .collect(),
             );
         }
+        ctx.column_numbers = std::rc::Rc::new(
+            self.model
+                .tables
+                .iter()
+                .map(|(name, table)| (name.clone(), column_numbers(table)))
+                .collect(),
+        );
         for (table_name, tbl) in &self.model.tables {
             let columns = tbl
                 .columns
@@ -445,6 +453,7 @@ impl ArrayCalculator {
     fn evaluate_rowwise_formula_ast(
         &mut self,
         table_name: &str,
+        col_name: &str,
         formula: &str,
     ) -> ForgeResult<ColumnValue> {
         let table = &self.model.tables[table_name];
@@ -458,6 +467,7 @@ impl ArrayCalculator {
             ));
         }
         self.evaluate_in_context(Some(table_name), None, |row_ctx| {
+            row_ctx.formula_column = row_ctx.number_of(table_name, col_name);
             Self::evaluate_rows(&ast, formula, row_ctx, row_count)
         })
         .map_err(|e| self.explain_included_mismatch(e, table_name))
