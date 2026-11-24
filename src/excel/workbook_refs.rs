@@ -21,7 +21,7 @@ mod local_names;
 mod previous_row;
 mod reverse;
 use local_names::Locals;
-pub use reverse::{ReverseRefs, SheetKind};
+pub use reverse::{Read, ReverseRefs, SheetKind};
 use std::fmt::Write as _;
 
 /// Sheet that holds scalars without a group.

@@ -18,6 +18,9 @@ pub(super) struct Sheet {
     pub(super) rows: Vec<u32>,
     /// A total row under a table (`layout::tidy`): its worksheet row and cells
     pub(super) total: Option<(u32, Vec<Data>)>,
+    /// Other sheets read its second column one cell at a time, never as a
+    /// range (`cells_read::mark`): a sheet of scalars, whatever its header
+    pub(super) read_one_at_a_time: bool,
 }
 
 impl Sheet {
@@ -40,7 +43,20 @@ impl Sheet {
             styles,
             rows,
             total: None,
+            read_one_at_a_time: false,
         }
+    }
+
+    /// Each formula of the sheet, with the worksheet row (1-based, as Excel
+    /// numbers it) of its cell.
+    pub(super) fn formula_cells(&self) -> impl Iterator<Item = (u32, &String)> {
+        self.formulas.iter().flat_map(|formulas| {
+            let r0 = formulas.start().map_or(0, |(r, _)| r);
+            formulas.used_cells().map(move |(row, _, formula)| {
+                let row = u32::try_from(row).unwrap_or(u32::MAX);
+                (r0.saturating_add(row).saturating_add(1), formula)
+            })
+        })
     }
 
     /// The position in the worksheet of the cell at a 0-based `row` and `col`
