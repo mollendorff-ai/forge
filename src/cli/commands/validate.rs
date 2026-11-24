@@ -586,8 +586,10 @@ mod tests {
     fn every_example_passes_and_calculate_makes_any_model_pass() {
         let copy = tempfile::tempdir().unwrap();
         copy_tree(Path::new("examples"), &copy.path().join("examples"));
-        let (mut checked, mut uncertain) = (0, 0);
-        let (mut failing, mut still_failing) = (Vec::new(), Vec::new());
+        // Each model: its name, whether it passes as committed (or is
+        // written by hand), and what validate says once it is calculated
+        let mut found = Vec::new();
+        let mut uncertain = 0;
         for file in yaml_files(Path::new("examples")) {
             let name = file.to_string_lossy().to_string();
             let committed = match validate_core(&file) {
@@ -599,19 +601,25 @@ mod tests {
                     continue;
                 },
             };
-            if !committed.passed && !WRITTEN_BY_HAND.contains(&name.as_str()) {
-                failing.push(name.clone());
-            }
             let copied = copy.path().join(&file);
             calculate_core(&copied, false, None).unwrap();
             let calculated = validate_core(&copied).unwrap();
-            if !calculated.passed {
-                still_failing.push((name, calculated.uncalculated));
-            }
-            checked += 1;
+            let passes = committed.passed || WRITTEN_BY_HAND.contains(&name.as_str());
+            found.push((name, passes, calculated));
         }
-        assert_eq!(failing, Vec::<String>::new(), "run forge calculate on each");
-        assert_eq!(still_failing, Vec::<(String, Vec<String>)>::new());
+        let failing: Vec<&str> = found
+            .iter()
+            .filter_map(|(name, passes, _)| (!passes).then_some(name.as_str()))
+            .collect();
+        assert_eq!(failing, Vec::<&str>::new(), "run forge calculate on each");
+        let still_failing: Vec<(&str, &[String])> = found
+            .iter()
+            .filter_map(|(name, _, after)| {
+                (!after.passed).then_some((name.as_str(), after.uncalculated.as_slice()))
+            })
+            .collect();
+        assert_eq!(still_failing, Vec::<(&str, &[String])>::new());
+        let checked = found.len();
         assert!(
             checked >= 50 && uncertain >= 10,
             "{checked} checked, {uncertain} uncertain"

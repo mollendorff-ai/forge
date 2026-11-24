@@ -1281,6 +1281,16 @@ mod command_output {
         let (result, captured) = capture(|c| calculate(c, &file, false, false, None, false));
         result.unwrap();
         assert!(captured.out.contains("is up to date"), "{}", captured.out);
+        let two = model(
+            dir.path(),
+            "two.yaml",
+            &format!("{GOOD}  c:\n    value: null\n    formula: \"=a * 3\"\n")
+                .replace("value: 4", "value: null"),
+        );
+        let (result, captured) = capture(|c| calculate(c, &two, false, false, None, false));
+        result.unwrap();
+        let out = &captured.out;
+        assert!(out.contains("💾 2 values updated in"), "{out}");
     }
 
     #[test]
