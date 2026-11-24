@@ -351,7 +351,7 @@ mod tests {
             for (path, want) in [
                 (
                     "/nonexistent/m.yaml",
-                    "IO error: No such file or directory (os error 2)",
+                    "IO error: /nonexistent/m.yaml: No such file or directory (os error 2)",
                 ),
                 (
                     &empty,

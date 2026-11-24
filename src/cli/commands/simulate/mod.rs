@@ -428,10 +428,14 @@ scenarios:
         );
         assert!(error("nm.yaml", "monte_carlo:\n  iterations: 5\n")
             .starts_with("Validation error: Missing required field: _forge_version"));
-        let gone = simulate_core(&dir.path().join("none.yaml"), SimulateOptions::default());
+        let none = dir.path().join("none.yaml");
+        let gone = simulate_core(&none, SimulateOptions::default());
         assert_eq!(
             gone.unwrap_err().to_string(),
-            "IO error: No such file or directory (os error 2)"
+            format!(
+                "IO error: {}: No such file or directory (os error 2)",
+                none.display()
+            )
         );
         let path = write(dir.path(), "m.yaml", SCENARIO_MODEL);
         let (mut config, model) = prepare(&path, SimulateOptions::default()).unwrap();

@@ -57,13 +57,28 @@ pub fn read_model_text(path: &Path) -> ForgeResult<String> {
             .map(|files| files.get(&normalize(path)).cloned())
     });
     match in_memory {
-        None => Ok(std::fs::read_to_string(path)?),
+        None => read_from_disk(path),
         Some(Some(text)) => Ok(text),
         Some(None) => Err(ForgeError::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             format!("{} is not among the files given", path.display()),
         ))),
     }
+}
+
+/// The text of a file on disk; the error names the file, as the system's
+/// message ("No such file or directory") does not.
+///
+/// # Errors
+///
+/// Returns an I/O error, of the kind the system gave, that names `path`.
+pub fn read_from_disk(path: &Path) -> ForgeResult<String> {
+    std::fs::read_to_string(path).map_err(|e| {
+        ForgeError::Io(std::io::Error::new(
+            e.kind(),
+            format!("{}: {e}", path.display()),
+        ))
+    })
 }
 
 /// Run `f` with the files in memory, if a call of [`with_files_in_memory`]

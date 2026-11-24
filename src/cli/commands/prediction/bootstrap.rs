@@ -258,7 +258,10 @@ bootstrap:
             bootstrap_core(&missing, None, None, None)
                 .unwrap_err()
                 .to_string(),
-            gone
+            format!(
+                "IO error: {}: No such file or directory (os error 2)",
+                missing.display()
+            )
         );
         let ok = model(dir.path(), "ok.yaml", SMALL);
         let nowhere = dir.path().join("nodir").join("out.yaml");
