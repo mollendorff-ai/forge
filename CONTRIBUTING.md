@@ -19,7 +19,7 @@ A clone builds and runs its format, lint and unit tests with Rust alone. The oth
 | --- | --- | --- |
 | Rust | Stable, with `rustfmt` and `clippy` (`rustup component add rustfmt clippy`). CI's stable is 1.100.0; the oldest Rust Forge builds with is 1.97 (`rust-version` in `Cargo.toml`, which `clippy.toml` repeats) | Building, `make lint`, `make format-check` |
 | Node 22 | `node` and `npm` | Forge Studio's tests and the diagram check run on Node 22; `markdownlint-cli2` is an npm package |
-| `markdownlint-cli2` | `npm install -g markdownlint-cli2` | `make validate-docs`, the last step of `make check` |
+| `markdownlint-cli2` | `npm install -g markdownlint-cli2` | `make validate-docs`, the last step of `make check` (and `make validate-docs-all`) |
 | Rust 1.100.0 with `llvm-tools-preview`, and `cargo-llvm-cov` | `rustup toolchain install 1.100.0 --component llvm-tools-preview`, `cargo install cargo-llvm-cov` | `make coverage` |
 | The `wasm32-unknown-unknown` target and `wasm-bindgen-cli` | `rustup target add wasm32-unknown-unknown`, `cargo install wasm-bindgen-cli --version <the wasm-bindgen version in Cargo.lock> --locked` | `forge-wasm` and Forge Studio |
 | Gnumeric | `sudo apt-get install -y gnumeric` (`brew install gnumeric` on macOS): `ssconvert` must be in `PATH` | `validation/gnumeric` |
@@ -36,7 +36,7 @@ cargo build --bin forge
 make check                # format, pedantic lint, unit tests, Markdown lint
 ```
 
-`make check` is the quick check while you work. Its last step, `make validate-docs`, runs `markdownlint-cli2` over every page, and many pages that were written before it existed fail it: CI does not run it. A page you write or change should lint clean by itself: `markdownlint-cli2 docs/MAINTAINING.md --config .markdownlint.json`. Before you open a pull request, run what CI runs (the jobs are in `.github/workflows/ci.yml`):
+`make check` is the quick check while you work. Its last step, `make validate-docs`, runs `markdownlint-cli2` on the Markdown files your change touches (not CHANGELOG.md, which every change touches and which has hundreds of old errors), so a page you write or change must lint clean, and a clone with no changes passes. `make validate-docs-all` lints every page; it fails on pages that were written before the lint existed, and CI runs neither.
 
 ```bash
 make test                       # every test of the main crate, and validation/repo
@@ -49,7 +49,7 @@ RUSTUP_TOOLCHAIN=1.100.0 make coverage   # 100%, measured with CI's toolchain
 ## Development
 
 ```bash
-make check          # Format + lint + unit tests, then Markdown lint
+make check          # Format + lint + unit tests, then Markdown lint of the pages you changed
 make test           # Run all tests
 make lint           # Clippy with pedantic lints
 make format         # Format the code
