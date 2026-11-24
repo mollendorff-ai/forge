@@ -177,6 +177,7 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
         | Op::DeleteStrategy
         | Op::AddPlayer
         | Op::DeletePlayer
+        | Op::SetHabit
         | Op::Insert => true,
         Op::SetValue => var.is_some_and(reads),
         Op::SetFormula => {
