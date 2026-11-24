@@ -103,9 +103,11 @@ model (MC.* inputs) with each uncertain input at its plan figure.")]
     #[command(
         long_about = "Validate a model's stored results, and what it states it should give.
 
-Checks that the result stored next to each formula is what the formula
-calculates to, with the included files calculated first, and that each
-expectation (expect:) is met.
+Checks that each formula has its result stored next to it, that the result
+is what the formula calculates to, with the included files calculated
+first, and that each expectation (expect:) is met. Exits with 1 when one
+does not: a formula with no stored result, or one out of date, is named,
+and forge calculate stores them.
 
 CROSS-FILE REFERENCES:
   Formulas may read included files with @alias.name:
@@ -132,7 +134,7 @@ BATCH VALIDATION:
   forge validate file1.yaml file2.yaml file3.yaml
   Validates multiple files in sequence, reporting all errors."
     )]
-    /// Validate formulas without calculating
+    /// Check that every result is stored and up to date
     Validate(ValidateArgs),
 
     #[command(

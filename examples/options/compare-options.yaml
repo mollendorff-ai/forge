@@ -21,12 +21,12 @@ maple_studio:
   transit: 97
   move_in: 900
   increase: 0.03
-  monthly: {formula: "=rent + utilities + internet + transit"}
-  first_year: {formula: "=monthly * 12 + move_in"}
-  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
-  left_each_month: {formula: "=budget.take_home - monthly"}
-  share_of_pay: {formula: "=monthly / budget.take_home"}
-  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+  monthly: {formula: "=rent + utilities + internet + transit", value: 1582}
+  first_year: {formula: "=monthly * 12 + move_in", value: 19884}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit", value: 1622.5}
+  left_each_month: {formula: "=budget.take_home - monthly", value: 3218}
+  share_of_pay: {formula: "=monthly / budget.take_home", value: 0.329583333333333}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly", value: 98}
 
 harbour_one_bed:
   rent: 1595
@@ -35,12 +35,12 @@ harbour_one_bed:
   transit: 0
   move_in: 1200
   increase: 0.025
-  monthly: {formula: "=rent + utilities + internet + transit"}
-  first_year: {formula: "=monthly * 12 + move_in"}
-  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
-  left_each_month: {formula: "=budget.take_home - monthly"}
-  share_of_pay: {formula: "=monthly / budget.take_home"}
-  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+  monthly: {formula: "=rent + utilities + internet + transit", value: 1650}
+  first_year: {formula: "=monthly * 12 + move_in", value: 21000}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit", value: 1689.875}
+  left_each_month: {formula: "=budget.take_home - monthly", value: 3150}
+  share_of_pay: {formula: "=monthly / budget.take_home", value: 0.34375}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly", value: 30}
 
 park_loft:
   rent: 1480
@@ -49,12 +49,12 @@ park_loft:
   transit: 97
   move_in: 650
   increase: 0.04
-  monthly: {formula: "=rent + utilities + internet + transit"}
-  first_year: {formula: "=monthly * 12 + move_in"}
-  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
-  left_each_month: {formula: "=budget.take_home - monthly"}
-  share_of_pay: {formula: "=monthly / budget.take_home"}
-  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+  monthly: {formula: "=rent + utilities + internet + transit", value: 1752}
+  first_year: {formula: "=monthly * 12 + move_in", value: 21674}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit", value: 1811.2}
+  left_each_month: {formula: "=budget.take_home - monthly", value: 3048}
+  share_of_pay: {formula: "=monthly / budget.take_home", value: 0.365}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly", value: -72}
 
 river_studio:
   rent: 1290
@@ -63,12 +63,12 @@ river_studio:
   transit: 97
   move_in: 1500
   increase: 0.035
-  monthly: {formula: "=rent + utilities + internet + transit"}
-  first_year: {formula: "=monthly * 12 + move_in"}
-  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
-  left_each_month: {formula: "=budget.take_home - monthly"}
-  share_of_pay: {formula: "=monthly / budget.take_home"}
-  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+  monthly: {formula: "=rent + utilities + internet + transit", value: 1542}
+  first_year: {formula: "=monthly * 12 + move_in", value: 20004}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit", value: 1587.15}
+  left_each_month: {formula: "=budget.take_home - monthly", value: 3258}
+  share_of_pay: {formula: "=monthly / budget.take_home", value: 0.32125}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly", value: 138}
 
 garden_one_bed:
   rent: 1525
@@ -77,14 +77,14 @@ garden_one_bed:
   transit: 0
   move_in: 400
   increase: 0.05
-  monthly: {formula: "=rent + utilities + internet + transit"}
-  first_year: {formula: "=monthly * 12 + move_in"}
-  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
-  left_each_month: {formula: "=budget.take_home - monthly"}
-  share_of_pay: {formula: "=monthly / budget.take_home"}
-  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+  monthly: {formula: "=rent + utilities + internet + transit", value: 1660}
+  first_year: {formula: "=monthly * 12 + move_in", value: 20320}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit", value: 1736.25}
+  left_each_month: {formula: "=budget.take_home - monthly", value: 3140}
+  share_of_pay: {formula: "=monthly / budget.take_home", value: 0.345833333333333}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly", value: 20}
 
 # Across the options: other keys, so forge report gives them their own table.
 summary:
-  lowest_monthly: {formula: "=MIN(maple_studio.monthly, harbour_one_bed.monthly, park_loft.monthly, river_studio.monthly, garden_one_bed.monthly)"}
-  lowest_first_year: {formula: "=MIN(maple_studio.first_year, harbour_one_bed.first_year, park_loft.first_year, river_studio.first_year, garden_one_bed.first_year)"}
+  lowest_monthly: {formula: "=MIN(maple_studio.monthly, harbour_one_bed.monthly, park_loft.monthly, river_studio.monthly, garden_one_bed.monthly)", value: 1542}
+  lowest_first_year: {formula: "=MIN(maple_studio.first_year, harbour_one_bed.first_year, park_loft.first_year, river_studio.first_year, garden_one_bed.first_year)", value: 19884}

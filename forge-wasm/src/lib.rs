@@ -711,6 +711,9 @@ mod tests {
             let checked = run("validate", &request(serde_json::json!({}))).unwrap();
             assert_eq!(checked["expectations_met"], false);
             assert_eq!(checked["expectation_differences"][0]["got"], 0.8);
+            // The engine's verdict, as the command line exits by it
+            assert_eq!(checked["uncalculated"], serde_json::json!(["out.twice"]));
+            assert_eq!(checked["passed"], false);
             let gate = run(
                 "validate",
                 &request(serde_json::json!({ "expectations": false })),

@@ -33,13 +33,17 @@ festival:
   match: 1                  # the borough's match: 2 doubles each fee
   days:
     formula: "=@plan.assumptions.open_days_per_month"
+    value: 30
   food_per_dozen:
     formula: "=12 / @plan.assumptions.bagels_per_kg_flour * @costs.ingredients.flour_per_kg + 12 * @plan.assumptions.sesame_grams_per_bagel / 1000 * @costs.ingredients.sesame_per_kg + @costs.ingredients.honey_water_per_dozen"
+    value: 2.56013333333333
   margin:
     formula: "=@plan.assumptions.price_per_dozen * (1 - @plan.assumptions.card_fee_rate) - food_per_dozen"
+    value: 13.0238666666667
   # What one fee paid in brings each of the five shops over the month
   share_of_a_fee:
     formula: "=lift_per_fee * match * days * margin / shops"
+    value: 625.1456
 
 games:
   street:
@@ -54,15 +58,19 @@ games:
 outcome:
   each_gets:
     formula: "=street.equilibrium_1.lune.payoff"
+    value: 0
     notes: What each shop gains in the equilibrium (0 while no one pays)
   if_all_paid:
     formula: "=festival.shops * festival.share_of_a_fee - festival.fee"
+    value: 2125.728
     notes: What each would gain if all five paid in (2,125.73 at a lift of 8)
   keeping_pays_more_by:
     formula: "=festival.fee - festival.share_of_a_fee"
+    value: 374.8544
     notes: What keeping the 1,000 gains a shop over paying, whatever the others do (374.85)
   lift_that_pays:
     formula: "=festival.fee * festival.shops / (festival.match * festival.days * festival.margin)"
+    value: 12.7970188064988
     notes: The lift per fee, in dozen a day, above which paying in pays a shop on its own (12.80)
 
 scenarios:

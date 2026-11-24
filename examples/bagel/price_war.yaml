@@ -43,21 +43,29 @@ market:
   cut_growth: 0.05          # two $14 shops sell 5% more than two $16 ones
   days:
     formula: "=@plan.assumptions.open_days_per_month"
+    value: 30
   food_per_dozen:
     formula: "=12 / @plan.assumptions.bagels_per_kg_flour * @costs.ingredients.flour_per_kg + 12 * @plan.assumptions.sesame_grams_per_bagel / 1000 * @costs.ingredients.sesame_per_kg + @costs.ingredients.honey_water_per_dozen"
+    value: 2.56013333333333
   margin_hold:
     formula: "=@plan.assumptions.price_per_dozen * (1 - @plan.assumptions.card_fee_rate) - food_per_dozen"
+    value: 13.0238666666667
   margin_cut:
     formula: "=cut_price * (1 - @plan.assumptions.card_fee_rate) - food_per_dozen"
+    value: 11.0758666666667
   # A month's margin: R both hold, T only I cut, S only the rival cuts, P both cut
   R:
     formula: "=0.5 * dozens_per_day * margin_hold * days"
+    value: 21489.38
   T:
     formula: "=undercut_share * dozens_per_day * margin_cut * days"
+    value: 25585.252
   S:
     formula: "=(1 - undercut_share) * dozens_per_day * margin_hold * days"
+    value: 12893.628
   P:
     formula: "=0.5 * dozens_per_day * (1 + cut_growth) * margin_cut * days"
+    value: 19188.939
 
 continuation: 0.95          # the chance that both shops are open next month
 
@@ -93,18 +101,23 @@ games:
 war:
   cost_per_month:
     formula: "=market.R - market.P"
+    value: 2300.441
     notes: What each shop gives up a month when both cut
   cutting_dominates:
     formula: "=price_war.dominated.lune.hold"
+    value: 1
     notes: 1 when cutting pays more whatever the rival does
   matching_holds_above:
     formula: "=MAX(0, (market.T - market.R) / (market.T - market.P))"
+    value: 0.640348900999685
     notes: The continuation above which grim trigger is stable against a discounter (0 when cutting does not pay)
   cutting_in_two_years:
     formula: "=price_war.dynamics.share.cut"
+    value: 0.991336378216362
     notes: The share of the city's shops at $14 after 24 months of copying whoever earns more
   city_margin_then:
     formula: "=price_war.dynamics.payoff"
+    value: 19189.979129373
     notes: What a shop earns a month on average then, against the city's mix
 
 scenarios:

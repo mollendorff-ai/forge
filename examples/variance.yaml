@@ -22,14 +22,17 @@ budget:
 
   gross_profit:
     formula: "=revenue - cogs"
+    value: 600000
 
   opex: 300000
 
   operating_income:
     formula: "=gross_profit - opex"
+    value: 300000
 
   margin:
     formula: "=operating_income / revenue"
+    value: 0.3
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Actual Data
@@ -41,14 +44,17 @@ actual:
 
   gross_profit:
     formula: "=revenue - cogs"
+    value: 530000
 
   opex: 280000
 
   operating_income:
     formula: "=gross_profit - opex"
+    value: 250000
 
   margin:
     formula: "=operating_income / revenue"
+    value: 0.263157894736842
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Variance Analysis
@@ -64,56 +70,69 @@ variance:
   # Revenue variance (positive = beat budget)
   revenue_var:
     formula: "=VARIANCE(actual.revenue, budget.revenue)"
+    value: -50000
     unit: "$"
 
   revenue_pct:
     formula: "=VARIANCE_PCT(actual.revenue, budget.revenue)"
+    value: -0.05
     unit: "%"
 
   revenue_status:
     formula: "=VARIANCE_STATUS(actual.revenue, budget.revenue, 0.05)"
+    value: 0
 
   # COGS variance (using "cost" type - under budget = favorable)
   cogs_var:
     formula: "=VARIANCE(actual.cogs, budget.cogs)"
+    value: 20000
     unit: "$"
 
   cogs_pct:
     formula: "=VARIANCE_PCT(actual.cogs, budget.cogs)"
+    value: 0.05
     unit: "%"
 
   # For costs, being OVER budget is unfavorable
   cogs_status:
     formula: '=VARIANCE_STATUS(actual.cogs, budget.cogs, "cost")'
+    value: -1
 
   # Gross profit variance
   gross_profit_var:
     formula: "=VARIANCE(actual.gross_profit, budget.gross_profit)"
+    value: -70000
     unit: "$"
 
   gross_profit_pct:
     formula: "=VARIANCE_PCT(actual.gross_profit, budget.gross_profit)"
+    value: -0.116666666666667
     unit: "%"
 
   # OpEx variance (cost type)
   opex_var:
     formula: "=VARIANCE(actual.opex, budget.opex)"
+    value: -20000
     unit: "$"
 
   opex_pct:
     formula: "=VARIANCE_PCT(actual.opex, budget.opex)"
+    value: -0.0666666666666667
     unit: "%"
 
   opex_status:
     formula: '=VARIANCE_STATUS(actual.opex, budget.opex, "cost")'
+    value: 1
 
   # Operating income variance
   operating_income_var:
     formula: "=VARIANCE(actual.operating_income, budget.operating_income)"
+    value: -50000
     unit: "$"
 
   operating_income_pct:
     formula: "=VARIANCE_PCT(actual.operating_income, budget.operating_income)"
+    value: -0.166666666666667
     unit: "%"
 
 # ─────────────────────────────────────────────────────────────────────────────

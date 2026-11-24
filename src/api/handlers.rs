@@ -211,6 +211,11 @@ fn validate_response(
         Ok(result) => {
             let message = if !result.scalars_valid {
                 "Some values differ from their formulas".to_string()
+            } else if !result.uncalculated.is_empty() {
+                format!(
+                    "{} formula(s) have no stored result: run forge calculate",
+                    result.uncalculated.len()
+                )
             } else if result.expectations_met {
                 "Validation successful".to_string()
             } else {
@@ -221,7 +226,7 @@ fn validate_response(
                 )
             };
             ValidateResponse {
-                valid: result.tables_valid && result.scalars_valid && result.expectations_met,
+                valid: result.passed,
                 file_path,
                 message,
                 result: Some(result),
@@ -801,7 +806,8 @@ mod tests {
     fn a_validate_response_counts_the_expectations() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("m.yaml");
-        let text = "_forge_version: \"5.6.0\"\nw: 0.6\nout:\n  twice: {formula: \"=w * 2\"}\n\
+        let text =
+            "_forge_version: \"5.6.0\"\nw: 0.6\nout:\n  twice: {formula: \"=w * 2\", value: 1.2}\n\
                     scenarios:\n  short:\n    scalars: {w: 0.4}\n    expect: {out.twice: 0.8}\n";
         let answer = |text: &str| {
             std::fs::write(&path, text).unwrap();
@@ -815,9 +821,15 @@ mod tests {
         assert_eq!(differ.message, "1 of 1 expected results differ");
         let d = &differ.result.unwrap().expectation_differences[0];
         assert_eq!((d.scenario.as_deref(), d.got), (Some("short"), Some(0.8)));
-        let stale = answer(&text.replace("=w * 2\"}", "=w * 2\", value: 3}"));
+        let stale = answer(&text.replace("value: 1.2", "value: 3"));
         assert!(!stale.valid);
         assert_eq!(stale.message, "Some values differ from their formulas");
+        let missing = answer(&text.replace(", value: 1.2", ""));
+        assert!(!missing.valid);
+        assert_eq!(
+            missing.message,
+            "1 formula(s) have no stored result: run forge calculate"
+        );
     }
 
     #[tokio::test]

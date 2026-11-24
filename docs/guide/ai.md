@@ -63,8 +63,8 @@ A model is a YAML file that Forge (https://github.com/mollendorff-ai/forge) calc
 1. Start a new model from `forge_examples name=starter`. `_forge_version` is the model's format ("5.1.0"), not Forge's version.
 2. In a group of scalars a formula is `{formula: "=price * 2"}`. In a table a column formula is a bare string, `"=price * 2"`. Do not swap them.
 3. Change a model with `forge_edit` (`forge edit` in a terminal), not by writing the file again. It keeps comments and layout, changes the one thing asked, and refuses a name that is not in the model.
-4. After a change, run `forge_validate`. A result that no longer matches its formula is a stale value, and it is an error.
-5. Results are written by `forge_calculate`, never typed. Commit a model only when `forge_validate` passes.
+4. After a change, run `forge_validate` and read `passed`. A result that no longer matches its formula is a stale value, a formula with no result is not calculated yet (`uncalculated` names it), and either fails.
+5. Results are written by `forge_calculate`, never typed. Commit a model only when `forge_validate` gives `passed: true`.
 6. A model with `MC.` distributions is run with `forge_simulate`. `forge_calculate` refuses it; `plan: true` calculates it at its plan.
 7. Check one result another way before reporting it: a hand calculation, or `forge_audit`, which shows the formula and the inputs behind it.
 8. Read and write files only in the folder the server names. A relative path is relative to it.
@@ -78,8 +78,8 @@ Each rule is something the server does, not a hope, and a test in `validation/re
 | 1 | `forge_examples` gives the starter model, with `_forge_version: "5.1.0"`, and `forge_calculate` calculates it as it is | `forge_examples`, `forge_calculate` |
 | 2 | A bare formula in a group is refused, with the form to write instead; a bare formula in a table is calculated | `forge_calculate` |
 | 3 | A misspelt name is refused ("it is not in the model") and no file changes; a right one changes one line and nothing else | `forge_edit` |
-| 4 | After an edit, `scalars_valid` is false and `mismatches` names `plan.revenue`, with the 5,400 it should be | `forge_calculate`, `forge_edit`, `forge_validate` |
-| 5 | After `forge_calculate`, `mismatches` is empty, nothing is unstored and the file holds `value: 5400` | `forge_edit`, `forge_calculate`, `forge_validate` |
+| 4 | After an edit, `passed` and `scalars_valid` are false and `mismatches` names `plan.revenue`, with the 5,400 it should be | `forge_calculate`, `forge_edit`, `forge_validate` |
+| 5 | After `forge_calculate`, `passed` is true, `mismatches` and `uncalculated` are empty, and the file holds `value: 5400` | `forge_edit`, `forge_calculate`, `forge_validate` |
 | 6 | `forge_calculate` refuses `bagel_simulate.yaml` and says to run `forge simulate`; with `plan` it gives the inputs at plan; `forge_simulate` draws | `forge_calculate`, `forge_simulate` |
 | 7 | `forge_audit` gives `plan.revenue` as `=plan.price * plan.units_per_month`, and 4800 is 40 × 120 | `forge_audit` |
 | 8 | A path outside the folder is refused, naming the folder | `forge_calculate` |

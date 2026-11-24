@@ -68,15 +68,19 @@ months:
 fy2027:
   revenue:
     formula: "=SUMIFS(months.revenue, months.fiscal_year, 2027)"
+    value: 987621.930676404
     format: "#,##0"
   budget:
     formula: "=SUM(budget.standard_units * budget.standard_price) + SUM(budget.premium_units * budget.premium_price)"
+    value: 960600
     format: "#,##0"
   variance:
     formula: "=revenue - budget"
+    value: 27021.9306764037
     format: "#,##0;(#,##0)"
   actual_so_far:
     formula: "=SUMIFS(months.revenue, months.is_actual, TRUE)"
+    value: 553505.6
     format: "#,##0"
 
 # The fiscal year 2027 by quarter, rolled up from the months (ADR-058): in
@@ -100,6 +104,7 @@ quarters:
 next_12_months:
   revenue:
     formula: "=SUMIFS(months.revenue, months.month, \">\" & inputs.last_actual, months.month, \"<=\" & EOMONTH(inputs.last_actual, 12))"
+    value: 1090944.3557895
     format: "#,##0"
 
 # Why the fiscal year 2027 differs from budget: volume, mix and price.
@@ -109,32 +114,46 @@ next_12_months:
 pvm:
   le_standard_units:
     formula: "=SUMIFS(months.standard_units, months.fiscal_year, 2027)"
+    value: 12680.2926931129
   le_premium_units:
     formula: "=SUMIFS(months.premium_units, months.fiscal_year, 2027)"
+    value: 2940.61728330685
   le_standard_revenue:
     formula: "=SUMPRODUCT(months.standard_units, months.standard_price, --(months.fiscal_year = 2027))"
+    value: 634879.37104045
   le_premium_revenue:
     formula: "=SUMPRODUCT(months.premium_units, months.premium_price, --(months.fiscal_year = 2027))"
+    value: 352742.559635954
   budget_standard_units:
     formula: "=SUM(budget.standard_units)"
+    value: 12660
   budget_premium_units:
     formula: "=SUM(budget.premium_units)"
+    value: 2730
   budget_standard_price:
     formula: "=SUM(budget.standard_units * budget.standard_price) / budget_standard_units"
+    value: 50
   budget_premium_price:
     formula: "=SUM(budget.premium_units * budget.premium_price) / budget_premium_units"
+    value: 120
   le_units:
     formula: "=le_standard_units + le_premium_units"
+    value: 15620.9099764198
   budget_units:
     formula: "=budget_standard_units + budget_premium_units"
+    value: 15390
   volume:
     formula: "=(le_units - budget_units) * (budget_standard_units * budget_standard_price + budget_premium_units * budget_premium_price) / budget_units"
+    value: 14412.7435574308
     format: "#,##0;(#,##0)"
   mix:
     formula: "=le_units * ((le_standard_units / le_units - budget_standard_units / budget_units) * budget_standard_price + (le_premium_units / le_units - budget_premium_units / budget_units) * budget_premium_price)"
+    value: 11875.965095039
     format: "#,##0;(#,##0)"
   price:
     formula: "=le_standard_revenue - le_standard_units * budget_standard_price + le_premium_revenue - le_premium_units * budget_premium_price"
+    value: 733.222023933951
     format: "#,##0;(#,##0)"
   check:
     formula: "=ROUND(volume + mix + price - fy2027.variance, 6)"
+    value: 0

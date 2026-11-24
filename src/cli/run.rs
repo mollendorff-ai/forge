@@ -976,7 +976,7 @@ results:
         // ── Validate ─────────────────────────────────────────────────────────────
 
         #[test]
-        fn validate_before_any_calculation_does_not_claim_values_match() {
+        fn validate_before_any_calculation_fails_and_says_to_calculate() {
             let dir = tempfile::tempdir().expect("temp dir");
             let file = write(
                 dir.path(),
@@ -985,9 +985,12 @@ results:
             );
             let out = forge(&["validate", &file]);
             let text = out.both();
-            assert!(out.success(), "{text}");
+            assert!(!out.success(), "{text}");
             assert!(!text.contains("match their formulas"), "{text}");
-            assert!(text.contains("forge calculate"), "{text}");
+            assert!(
+                text.contains("1 formula(s) have no stored result (b): run forge calculate"),
+                "{text}"
+            );
         }
 
         #[test]

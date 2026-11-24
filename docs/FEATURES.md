@@ -111,7 +111,7 @@ year:
     value: 67200
 ```
 
-Comments, quotes, blank lines, key order and inputs stay as you typed them, and a `.yaml.bak` keeps the previous file. If the results cannot be written without changing anything else, Forge leaves the file alone and says so. `--dry-run` shows the results without writing. A stored `value` can be out of date after you change an input, as with any saved result: run `forge calculate` again, and `forge validate` reports any value that no longer matches its formula.
+Comments, quotes, blank lines, key order and inputs stay as you typed them, and a `.yaml.bak` keeps the previous file. If the results cannot be written without changing anything else, Forge leaves the file alone and says so. `--dry-run` shows the results without writing. A stored `value` can be out of date after you change an input, as with any saved result: run `forge calculate` again, and `forge validate` reports any value that no longer matches its formula, and any formula with no value stored yet.
 
 **`forge edit` changes the model's text, and nothing else (ADR-075).** `--set year.price=17` sets an input, `--formula 'year.margin==year.profit / year.revenue'` a formula, `--add year.tax=0.15` or `--add 'year.net==year.profit * 0.85'` adds an input or a formula (a column, in a table) at the end of its group, in the indentation of the keys there, and `--delete year.old_fee` takes one out with the lines under it, leaving a comment above it. `@costs.rent` is changed in the file included as `costs`. `--rename year.price=unit_price` renames a name and every name that reads it; `--uncertain` and `--certain` make an input a distribution and back; and `--add-strategy sealed_bids.strategies.bid_50`, `--delete-strategy`, `--add-player` and `--delete-player` change a game's strategies and players, a new cell 0, `--set-habit rivalry.players.copycat=random` a tournament player's habit, and `--insert tournament=war` adds a game from a template (`forge templates` lists them) (`forge edit --help`). Every other byte stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else: otherwise no file is written, and the message says why. The MCP tool `forge_edit` takes the same changes as JSON. Results are not written by `edit`: `forge calculate` writes them.
 
@@ -385,8 +385,8 @@ Give `file_path` or `content`, not both. Include paths in inline content must be
 ```json
 {"success": true, "request_id": "c93c5b29-4564-4836-919d-ab5fd463a53b",
  "data": {"valid": true, "file_path": "model.yaml", "message": "Validation successful",
-          "result": {"tables_valid": true, "scalars_valid": true, "table_count": 0,
-                     "scalar_count": 3, "mismatches": []}}}
+          "result": {"passed": true, "scalars_valid": true, "table_count": 0,
+                     "scalar_count": 3, "mismatches": [], "uncalculated": []}}}
 ```
 
 `POST /api/v1/calculate`: every formula; without `"dry_run": true` the values are written into the file (for `content`, returned as `calculated_content`). `"scenario": "name"` applies a scenario's overrides first, including one for a value in an included file.

@@ -16,16 +16,23 @@ fn is_zero<T: Default + PartialEq>(value: &T) -> bool {
 /// Result of the validate command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationResult {
-    pub tables_valid: bool,
+    /// The file passes: every formula has its result stored, each stored
+    /// result is what its formula gives, and every expectation is met. The
+    /// command line, the MCP server, the REST API and Forge Studio all read
+    /// this one verdict.
+    #[serde(default)]
+    pub passed: bool,
     /// Every stored `value:` matches its formula
     pub scalars_valid: bool,
     pub table_count: usize,
     pub scalar_count: usize,
     /// The stored values that do not match their formula
     pub mismatches: Vec<ValidationMismatch>,
-    /// Formulas with no stored value yet (nothing to compare)
+    /// The formulas with no stored result yet, by name, in file order (as
+    /// `forge report` names them): the file is not what `forge calculate`
+    /// writes
     #[serde(default)]
-    pub unstored: usize,
+    pub uncalculated: Vec<String>,
     /// How many expectations (`expect:`, ADR-074) were checked, in the file
     /// as written and in the scenarios
     #[serde(default)]
