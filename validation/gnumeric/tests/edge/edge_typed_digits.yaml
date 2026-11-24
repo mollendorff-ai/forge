@@ -1,0 +1,83 @@
+# A number typed with more than 15 significant digits (T1-EXCEL-LITERAL-DIGITS,
+# 2026-11-24).
+#
+# Excel reads a number written in a formula, or turned from text by VALUE, to
+# its first 15 significant digits and drops the rest: 1234567890123456 is
+# 1234567890123450, not rounded to 1234567890123460. A value stored in the
+# workbook keeps every digit. Checked in Excel (iPhone app) on 2026-11-24, on
+# a workbook `forge export` wrote: each case here gives Excel's answer. Where
+# Excel would round, the cases ending in 6 would give 10; where it kept every
+# digit, 6 or 4. Gnumeric 1.12 and LibreOffice 24.2 keep every digit of a
+# number in a formula (6, 4), so the cases of the first kind are checked
+# against Forge only. Before, Forge kept every digit too, and `forge import`
+# rounded a value read from a workbook to 15 digits, so that
+# `=typed - 1234567890123450` gave 10 after an import, where Excel gives 6.
+#
+# d.typed, d.low and d.fraction are columns of values: 1234567890123456,
+# 1234567890123454 and 0.1234567890123456, read with INDEX (two rows:
+# Gnumeric 1.12 gives #REF! for INDEX of a one-cell range).
+
+_forge_version: "5.1.0"
+
+d:
+  typed: [1234567890123456, 1234567890123456]
+  low: [1234567890123454, 1234567890123454]
+  fraction: [0.1234567890123456, 0.1234567890123456]
+
+assumptions:
+  # ── A number written in a formula: 15 digits, the rest dropped ────────────
+  # Excel for iPhone gives 0 (2026-11-24); rounded it would be 10
+  test_typed_digits_whole_number:
+    value: null
+    formula: "=1234567890123456 - 1234567890123450"
+    expected: 0
+    gnumeric_skip: "Excel reads a number in a formula to 15 digits (0); Gnumeric 1.12 and LibreOffice 24.2 keep every digit (6)"
+  # Excel for iPhone gives 0 (2026-11-24)
+  test_typed_digits_whole_number_cut_down:
+    value: null
+    formula: "=1234567890123454 - 1234567890123450"
+    expected: 0
+    gnumeric_skip: "Excel reads a number in a formula to 15 digits (0); Gnumeric 1.12 and LibreOffice 24.2 keep every digit (4)"
+  # Excel for iPhone gives 0 (2026-11-24); rounded it would be 10
+  test_typed_digits_fraction:
+    value: null
+    formula: "=(0.1234567890123456 - 0.123456789012345) * 1E16"
+    expected: 0
+    gnumeric_skip: "Excel reads a number in a formula to 15 digits (0); Gnumeric 1.12 and LibreOffice 24.2 keep every digit (5.97)"
+  # Excel for iPhone gives 0 (2026-11-24); rounded it would be 10
+  test_typed_digits_exponent:
+    value: null
+    formula: "=(1.2345678901234567E20 - 1.23456789012345E20) / 1E5"
+    expected: 0
+    gnumeric_skip: "Excel reads a number in a formula to 15 digits (0); Gnumeric 1.12 and LibreOffice 24.2 keep every digit (6.7)"
+  # 1000000000000000.5 is read as 1000000000000000: Excel for iPhone gives 1
+  # (2026-11-18 and 2026-11-24), and shows the formula with that number
+  test_typed_digits_half_dropped:
+    value: null
+    formula: "=1E15 + 1 - 1000000000000000.5"
+    expected: 1
+    gnumeric_skip: "Excel reads a number in a formula to 15 digits (1); Gnumeric 1.12 keeps every digit (0.5), and LibreOffice 24.2 sets the near cancellation to 0"
+  # ── Text turned into a number: the same ───────────────────────────────────
+  # Excel for iPhone gives 0 (2026-11-24)
+  test_typed_digits_value_of_text:
+    value: null
+    formula: "=VALUE(\"1234567890123456\") - 1234567890123450"
+    expected: 0
+    gnumeric_skip: "Excel's VALUE reads 15 digits (0); Gnumeric 1.12 and LibreOffice 24.2 keep every digit (6)"
+  # ── A value stored in the workbook: every digit ───────────────────────────
+  # Excel for iPhone gives 6 (2026-11-24), though its formula bar shows
+  # 1234567890123450
+  test_typed_digits_stored_value:
+    value: null
+    formula: "=INDEX(d.typed, 1) - 1234567890123450"
+    expected: 6
+  # Excel for iPhone gives 4 (2026-11-24)
+  test_typed_digits_stored_value_cut_down:
+    value: null
+    formula: "=INDEX(d.low, 1) - 1234567890123450"
+    expected: 4
+  # Excel for iPhone gives 5.967449 (2026-11-24)
+  test_typed_digits_stored_fraction:
+    value: null
+    formula: "=(INDEX(d.fraction, 1) - 0.123456789012345) * 1E16"
+    expected: 5.967448757360216

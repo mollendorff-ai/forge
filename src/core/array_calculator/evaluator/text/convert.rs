@@ -108,8 +108,8 @@ fn read_number(text: &str) -> Option<f64> {
     let fraction = if fraction.is_empty() { "0" } else { fraction };
     // Digits, a point, digits and a whole exponent: always a number's text
     // (were it not, NaN, which is refused below)
-    let mut n: f64 = format!("{whole}.{fraction}e{exponent}")
-        .parse()
+    // To 15 significant digits, as Excel's VALUE reads it
+    let mut n: f64 = crate::core::precision::read_typed(&format!("{whole}.{fraction}e{exponent}"))
         .unwrap_or(f64::NAN);
     if percent {
         n /= 100.0;
@@ -340,6 +340,26 @@ mod tests {
             assert!((h::sweep_number("VALUE(\"12:30\")") - 12.5 / 24.0).abs() < 1e-15);
             for bad in ["inf", "nan", "1,2,3", "", "TRUE", "1.2.3"] {
                 h::sweep_fails(&format!("VALUE(\"{bad}\")"), "#VALUE!");
+            }
+        }
+
+        /// Excel reads a number typed in a formula, or turned from text, to
+        /// its first 15 significant digits and drops the rest (Excel for
+        /// iPhone, 2026-11-24, T1-EXCEL-LITERAL-DIGITS): rounding would give
+        /// 10 for the first and the third
+        #[test]
+        fn a_number_from_text_keeps_fifteen_digits_as_excel() {
+            for (formula, excel) in [
+                ("1234567890123456 - 1234567890123450", 0.0),
+                ("1234567890123454 - 1234567890123450", 0.0),
+                ("(0.1234567890123456 - 0.123456789012345) * 1E16", 0.0),
+                ("(1.2345678901234567E20 - 1.23456789012345E20) / 1E5", 0.0),
+                ("1E15 + 1 - 1000000000000000.5", 1.0),
+                ("VALUE(\"1234567890123456\") - 1234567890123450", 0.0),
+                ("VALUE(\"1,234,567,890,123,456\") - 1234567890123450", 0.0),
+                ("(\"1234567890123456\" + 0) - 1234567890123450", 0.0),
+            ] {
+                h::sweep_is_exactly(formula, excel);
             }
         }
     }

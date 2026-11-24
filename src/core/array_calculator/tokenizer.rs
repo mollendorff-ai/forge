@@ -304,8 +304,8 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        let number = num_str
-            .parse::<f64>()
+        // To 15 significant digits, as Excel reads a number typed in a formula
+        let number = crate::core::precision::read_typed(&num_str)
             .map_err(|_| TokenizeError::new(format!("Invalid number: {num_str}"), start_pos))?;
         // Past the largest double the text reads as infinity, which no cell
         // holds; Excel refuses such a number as the formula is entered
@@ -478,7 +478,8 @@ mod tests {
     }
 
     /// A number past the largest double is refused, not read as infinity;
-    /// the largest double itself is a number
+    /// the largest double itself is a number, read to 15 digits as Excel
+    /// reads one typed in a formula
     #[test]
     fn a_number_past_the_largest_double_is_refused() {
         for text in ["1E309", "1e+400", "2E308"] {
@@ -489,7 +490,7 @@ mod tests {
         }
         assert_eq!(
             tokenize("1.7976931348623157E308").unwrap(),
-            vec![Token::Number(f64::MAX)]
+            vec![Token::Number(1.797_693_134_862_31E308)]
         );
     }
 

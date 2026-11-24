@@ -536,6 +536,44 @@ g:
         assert_eq!(column(&imported, "moved", "b"), [4.0, 5.0]);
     }
 
+    /// A value read from a workbook keeps every digit, as Excel calculates
+    /// with it: `1234567890123456 - 1234567890123450` is 6 in Excel for
+    /// iPhone (2026-11-24), where the value rounded to 15 digits gave 10. A
+    /// formula's last result is written to 15 digits, as calculate writes it.
+    #[test]
+    fn import_keeps_every_digit_of_a_value() {
+        use rust_xlsxwriter::{Formula, Workbook};
+        let mut workbook = Workbook::new();
+        let sheet = workbook.add_worksheet().set_name("inputs").unwrap();
+        sheet.write_string(0, 0, "Name").unwrap();
+        sheet.write_string(0, 1, "Value").unwrap();
+        for (row, (name, value)) in [
+            ("id", 1_234_567_890_123_456.0),
+            ("price", 418.329_999_999_999_9),
+        ]
+        .iter()
+        .enumerate()
+        {
+            let row = u32::try_from(row).unwrap() + 1;
+            sheet.write_string(row, 0, *name).unwrap();
+            sheet.write_number(row, 1, *value).unwrap();
+        }
+        sheet.write_string(3, 0, "less").unwrap();
+        let formula = Formula::new("=B2-1234567890123450").set_result("6.000000000000001");
+        sheet.write_formula(3, 1, formula).unwrap();
+        let text = import_text_core(workbook.save_to_buffer().unwrap())
+            .unwrap()
+            .main;
+        assert!(text.contains("id: 1234567890123456.0"), "{text}");
+        assert!(text.contains("price: 418.3299999999999"), "{text}");
+        assert!(text.contains("value: 6\n"), "{text}");
+        let dir = tempfile::TempDir::new().unwrap();
+        let back = dir.path().join("back.yaml");
+        fs::write(&back, &text).unwrap();
+        let model = calculate(parser::parse_model(&back).unwrap()).unwrap();
+        assert_eq!(model.scalars["inputs.less"].value, Some(6.0));
+    }
+
     /// T2-INCLUDE-COLUMNS: a table of an included file is a sheet with its
     /// formulas, a formula that reads one of its columns reads that sheet
     /// (the same row in a row formula, the whole column in an aggregate), and

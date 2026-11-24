@@ -148,6 +148,39 @@ pub fn to_15_digits(value: f64) -> f64 {
     format!("{value:.14e}").parse().unwrap_or(value)
 }
 
+/// The number in `text` to its first 15 significant digits, the rest dropped.
+///
+/// It is how Excel reads a number typed in a formula or turned from text
+/// (`VALUE`), not rounded: `1234567890123456` is `1234567890123450`, and
+/// `0.1234567890123456` is `0.123456789012345` (Excel for iPhone,
+/// 2026-11-24). A value stored in a workbook keeps every digit, in Excel as
+/// in Forge; this is only for numbers read from text.
+///
+/// # Errors
+///
+/// Returns `f64`'s parse error when `text` is no number.
+pub fn read_typed(text: &str) -> Result<f64, std::num::ParseFloatError> {
+    let mut significant = 0;
+    let mut exponent = false;
+    let digits: String = text
+        .chars()
+        .map(|c| {
+            exponent = exponent || matches!(c, 'e' | 'E');
+            // Zeros before the first other digit do not count
+            if exponent || !c.is_ascii_digit() || significant == 0 && c == '0' {
+                return c;
+            }
+            significant += 1;
+            if significant > SIGNIFICANT_DIGITS {
+                '0'
+            } else {
+                c
+            }
+        })
+        .collect();
+    digits.parse()
+}
+
 /// An amount of money as the commands print it: `$61,500.00`.
 ///
 /// A loss is `-$117,000.00`. Two decimals, thousands separators, the sign in
@@ -491,6 +524,33 @@ mod tests {
         let tiny = f64::MIN_POSITIVE / 4.0;
         assert_exact!(final_sum(tiny, -tiny / 2.0, tiny / 2.0), tiny / 2.0);
         assert!(final_sum(f64::INFINITY, 1.0, f64::INFINITY).is_infinite());
+    }
+
+    /// A number read from text keeps its first 15 significant digits and
+    /// drops the rest, in the whole part, the fraction and before an
+    /// exponent, as Excel reads one typed in a formula (2026-11-24)
+    #[test]
+    fn a_number_read_from_text_keeps_fifteen_significant_digits() {
+        for (text, excel) in [
+            ("1234567890123456", 1_234_567_890_123_450.0),
+            ("1234567890123459.9", 1_234_567_890_123_450.0),
+            ("-1234567890123456", -1_234_567_890_123_450.0),
+            ("12345678901234567890", 12_345_678_901_234_500_000.0),
+            ("0.1234567890123456", 0.123_456_789_012_345),
+            // Zeros before the first other digit are not significant
+            ("0.000001234567890123456", 0.000_001_234_567_890_123_45),
+            ("1.2345678901234567E20", 1.234_567_890_123_45E20),
+            ("1.2345678901234567e-5", 1.234_567_890_123_45e-5),
+            // Fifteen digits or fewer are read as they are
+            ("123456789012345", 123_456_789_012_345.0),
+            ("0.1", 0.1),
+            ("1E15", 1e15),
+            ("007", 7.0),
+        ] {
+            assert_exact!(read_typed(text).unwrap(), excel);
+        }
+        assert!(read_typed("1.2.3").is_err());
+        assert!(read_typed("").is_err());
     }
 
     /// A count becomes the number IEEE 754 gives it, at every edge
