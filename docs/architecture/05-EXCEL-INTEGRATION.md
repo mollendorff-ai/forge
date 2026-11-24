@@ -7,7 +7,7 @@ How `forge export` writes a model as an `.xlsx` workbook with live formulas, and
 | Export | `src/excel/exporter.rs`, `src/excel/exporter/` | `rust_xlsxwriter` |
 | Import | `src/excel/importer/` | `calamine` |
 | Formula translation, both ways | `src/excel/workbook_refs.rs`, `src/excel/workbook_refs/` | Forge's own tokenizer |
-| The names Excel knows as functions | `EXCEL_FUNCTIONS` in `src/excel/formula_translator.rs` | |
+| The names Excel knows as functions | `EXCEL_FUNCTIONS` in `src/excel/excel_functions.rs` | |
 | The commands' cores | `src/cli/commands/excel_io/` (`export_core`, `export_buffer_core`, `export_bytes_core`, `import_core`, `import_text_core`) | |
 | What is carried and what is not, in the output | `src/cli/commands/carried.rs` | |
 

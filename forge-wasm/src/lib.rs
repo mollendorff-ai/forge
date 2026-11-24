@@ -982,6 +982,23 @@ mod tests {
         fn a_workbook_comes_back_through_import() {
             let exported = case("export bagel");
             assert!(exported["byte_count"].as_u64().unwrap() > 1000);
+            // What stays in the YAML file is said, as forge export says it
+            let said: Vec<&str> = exported["warnings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|w| w.as_str().unwrap())
+                .collect();
+            assert!(
+                said.iter()
+                    .any(|w| w.starts_with("better: (on 1 line(s)) not exported")),
+                "{said:?}"
+            );
+            assert!(
+                said.iter()
+                    .any(|w| w.starts_with("comments (") && w.contains("not exported")),
+                "{said:?}"
+            );
             let imported = run(
                 "import",
                 &serde_json::json!({"excel_base64": exported["excel_base64"], "name": "bagel.yaml"}),

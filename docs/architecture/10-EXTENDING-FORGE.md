@@ -26,7 +26,7 @@ flowchart TB
     f["NEWFUNC"] --> eval["evaluator/&lt;family&gt;:<br/>an arm in try_evaluate"]
     f --> reg["functions/definitions.rs:<br/>a FunctionDef"]
     f --> xl{"an Excel function?"}
-    xl -- yes --> trans["excel/formula_translator.rs:<br/>EXCEL_FUNCTIONS (sorted)"]
+    xl -- yes --> trans["excel/excel_functions.rs:<br/>EXCEL_FUNCTIONS (sorted)"]
     xl -- "no, Forge's own" --> own["excel/workbook_refs.rs:<br/>how it is written, or<br/>written as its value"]
     f --> rng{"takes a range?"}
     rng -- yes --> whole["core/array_calculator/whole_column.rs"]
@@ -36,7 +36,7 @@ flowchart TB
 
 1. **Evaluate it.** Add an arm to the `try_evaluate` of the family module it belongs to, under `src/core/array_calculator/evaluator/` (`math`, `text`, `financial`, ...). Check arguments with the shared helpers (`require_args` and others in `evaluator/mod.rs`). Follow Excel's result, including its errors and edge cases; where Excel and Gnumeric differ, Excel wins and the case says why.
 2. **List it.** Add a `FunctionDef` to `src/functions/definitions.rs` with its category, Excel-style syntax, a one-line description, and `scalar: true` if it works without a table. `every_listed_function_is_known_to_the_calculator` fails until steps 1 and 2 agree.
-3. **Export it.** An Excel function goes into `EXCEL_FUNCTIONS` in `src/excel/formula_translator.rs` (kept sorted; a test checks). A function Excel lacks is written as its value with a note, or translated in `src/excel/workbook_refs.rs` (as `VARIANCE` and the others in `FORGE_FUNCTIONS` are).
+3. **Export it.** An Excel function goes into `EXCEL_FUNCTIONS` in `src/excel/excel_functions.rs` (kept sorted; a test checks). A function Excel lacks is written as its value with a note, or translated in `src/excel/workbook_refs.rs` (as `VARIANCE` and the others in `FORGE_FUNCTIONS` are).
 4. **Ranges.** If an argument is a range in Excel (`SUMIFS`'s sum range), add it to `whole_column.rs` so a row formula reads the whole column there (ADR-058).
 5. **Test it.** Unit tests in the family module with exact expected values; cases in `validation/gnumeric/tests/functions/<family>.yaml` (each recalculated by Gnumeric or LibreOffice after `forge export`; a function that gives text is wrapped in `LEN`); R cases in `validation/r/` for statistics and finance where R has the function. `validation/repo/src/function_cases.rs` fails until some Gnumeric case or R formula calls the function (ADR-045), unless it is listed there with the reason no engine can check it. The cases are counted in the README, `VALIDATION.md` and `validation/gnumeric/README.md`; the Gnumeric crate's tests say what to write.
 6. **Count it.** The function count is written in the README, `docs/FUNCTIONS.md`, `docs/FEATURES.md`, `docs/MCP.md`, `src/main.rs`, `src/cli/args.rs`, `src/mcp/mod.rs`, `src/mcp/server.rs` and `Cargo.toml`; `validation/repo/src/doc_counts.rs` fails, naming each place, until they all say the registry's count. It also checks each category heading of `docs/FUNCTIONS.md` (`## Math (21 functions)`), so update those in the pull request; CI regenerates the whole page on `main` after the merge (`update-docs` in `ci.yml`). Update the comment at the top of `definitions.rs` too (no test reads it).

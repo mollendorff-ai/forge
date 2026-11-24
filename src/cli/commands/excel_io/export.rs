@@ -161,7 +161,8 @@ pub struct ExportBytes {
     pub bytes: Vec<u8>,
     pub table_count: usize,
     pub scalar_count: usize,
-    /// As `forge export`: the model does not calculate, a formula written as its value
+    /// As `forge export`: the model does not calculate, a formula written as its
+    /// value, and what stays only in the YAML file (analyses, `better:`, comments)
     pub warnings: Vec<String>,
 }
 
@@ -177,6 +178,7 @@ pub fn export_bytes_core(input: &Path) -> ForgeResult<ExportBytes> {
     let (bytes, written_as_values) = ExcelExporter::new(model).export_to_buffer_with_warnings()?;
     let mut warnings: Vec<String> = uncalculated.into_iter().collect();
     warnings.extend(written_as_values);
+    warnings.extend(crate::cli::commands::carried::yaml_only(input));
     Ok(ExportBytes {
         bytes,
         table_count,
@@ -508,6 +510,25 @@ r:
                 "{:?}",
                 made.warnings
             );
+        }
+
+        /// Studio's export says what stays in the YAML file, as the command does.
+        #[test]
+        fn the_workbook_in_memory_names_what_stays_in_the_yaml_file() {
+            let dir = tempfile::tempdir().unwrap();
+            let text =
+                format!("{MODEL}# assumptions\nmonte_carlo:\n  enabled: true\n  iterations: 100\n");
+            let input = write(dir.path(), "m.yaml", &text);
+            let made = export_bytes_core(&input).unwrap();
+            assert_eq!(
+                made.warnings,
+                [
+                    "monte_carlo: not exported; Excel has no equivalent, so run them from the YAML file",
+                    "comments (1 line(s) with #) not exported; they stay in the YAML file",
+                ]
+            );
+            let on_disk = export_core(&input, &dir.path().join("m.xlsx")).unwrap();
+            assert_eq!(made.warnings, on_disk.warnings);
         }
 
         #[test]

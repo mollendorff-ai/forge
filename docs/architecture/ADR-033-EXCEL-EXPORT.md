@@ -1,5 +1,7 @@
 # ADR-033: Excel Export Design
 
+> **Note (2026-11-24):** the `FormulaTranslator` below is gone. The export translates formulas token by token in `src/excel/workbook_refs.rs`, resolving names as the calculator does, Unicode names included; the regex translator matched ASCII names only and nothing called it. The names Excel knows as functions are `EXCEL_FUNCTIONS` in `src/excel/excel_functions.rs`.
+
 **Status:** Implemented
 **Target:** v1.0.0 Array Model → Excel .xlsx export
 **Library:** rust_xlsxwriter 0.90.2

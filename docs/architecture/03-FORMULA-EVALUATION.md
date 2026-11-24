@@ -121,7 +121,7 @@ The **function registry** (`src/functions/definitions.rs`) is a separate list of
 | Test | In | Checks |
 | --- | --- | --- |
 | `every_listed_function_is_known_to_the_calculator` | `src/functions/registry.rs` | each listed function is found by some `try_evaluate` |
-| `every_listed_excel_function_is_known_to_the_export` | `src/excel/formula_translator.rs` | each listed Excel function is in the export's list |
+| `every_listed_excel_function_is_known_to_the_export` | `src/excel/excel_functions.rs` | each listed Excel function is in the export's list |
 | `every_function_count_written_anywhere_is_the_registry_count` | `validation/repo/src/doc_counts.rs` | the count in the README and docs matches the registry |
 | the Gnumeric suite | `validation/gnumeric/` | each function's results match Gnumeric or LibreOffice |
 
