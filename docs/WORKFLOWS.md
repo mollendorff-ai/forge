@@ -2,7 +2,7 @@
 
 Forge calculates a financial model written as YAML. The same model, and the same binary, serve four ways of working, from one person in an editor to an AI pipeline that nobody watches. This page shows each one with a diagram and the commands it uses.
 
-**What is proven and what is not.** The commands on this page were run against Forge 10.0.0-rc.26 on 2026-11-15, and the chat workflow was run end to end by fresh agents ([PROMPTS.md](PROMPTS.md)). The pipeline without AI is architecture: every step in it is a Forge command that works, but no one has yet run a whole one in production. The pipeline with AI has run once, as Sentinel's first run on a real document (section 4).
+**What is proven and what is not.** The commands on this page were run against Forge 10.0.0-rc.26 on 2026-11-15, and the chat workflow was run end to end by fresh agents ([PROMPTS.md](PROMPTS.md)). The pipeline without AI is architecture: every step in it is a Forge command that works, but no one has yet run a whole one in production; its gate, a workflow that checks a repository of models on every pull request, has run green and red ([the guide's pipeline page](guide/pipeline.md)). The pipeline with AI has run once, as Sentinel's first run on a real document (section 4).
 
 ## The big picture
 
@@ -120,7 +120,7 @@ git commit -m "Month-end actuals"
 
 What makes Forge fit here:
 - **Exit codes:** `forge calculate` and `forge validate` exit with 1 when a formula fails, and name the formula and what depends on it. A failed `forge calculate` leaves the file as it was.
-- **A gate for stale files:** `forge validate` exits with 1 when the values stored in a file no longer match its formulas, as after an input was changed without recalculating. Run in CI, it refuses a model whose stored results are out of date. It does not yet refuse a file with no stored values at all, which passes (roadmap T1-AGENT-FRICTION).
+- **A gate for stale files:** `forge validate` exits with 1 when the values stored in a file no longer match its formulas, as after an input was changed without recalculating. Run in CI, it refuses a model whose stored results are out of date. A formula with no stored value passes it; `forge report --format json` lists those under `uncalculated`, and [the guide's workflow](guide/pipeline.md) fails on them.
 - **Output for programs:** `forge report --format json` or `--format csv`, and `forge variance -o variance.yaml` with each line's budget, actual, variance and whether it is good news.
 - **Know what each command reads:** `forge report` shows the values stored in the file and never recalculates, so run `forge calculate` first, as above; `forge variance` calculates both files itself. `forge variance` exits with 0 however many lines are over the threshold: a job that should stop on a large variance reads `exceeds_threshold` in `variance.yaml`.
 - **No runtime:** one binary, installed in seconds with `install.sh`, nothing else on the machine.

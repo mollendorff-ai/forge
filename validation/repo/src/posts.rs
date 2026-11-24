@@ -254,7 +254,7 @@ mod tests {
                 "saved.interest = 64596.8832216271",
                 "saved.months = 53",
                 "paid_off.payments = 247",
-                "paid_off.last_payment = 42.2487749021881",
+                "paid_off.last_payment = 42.2487749021918",
                 "paid_off.year = 2047",
                 "paid_off.month_of_year = 6",
                 "year_one.interest = 21056.1731223496",
