@@ -1,0 +1,61 @@
+# A repository of Forge models, checked on every pull request: copy this
+# file to .github/workflows/forge.yml. It fails when a stored result is out
+# of date, when a formula has no stored result, or when an expect: is not
+# met; it writes each model's results as JSON for the next program, and
+# shows them on the run's page. docs/guide/pipeline.md explains each step.
+name: Models
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # The release to install; raise it in a pull request of its own
+  FORGE_VERSION: v10.0.0-rc.34
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Forge
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/mollendorff-ai/forge/$FORGE_VERSION/install.sh" | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Every stored result is what its formula gives
+        run: forge validate *.yaml
+
+      - name: Every formula has its result stored
+        run: |
+          mkdir -p results
+          for model in *.yaml; do
+            forge report "$model" --format json > "results/${model%.yaml}.json"
+            if ! jq -e '.uncalculated == []' "results/${model%.yaml}.json" > /dev/null; then
+              echo "::error file=$model::no stored result for $(jq -r '.uncalculated | join(", ")' "results/${model%.yaml}.json"): run forge calculate $model"
+              exit 1
+            fi
+          done
+
+      - name: The results, on the run's page
+        run: |
+          for model in *.yaml; do
+            echo "### $model"
+            echo
+            forge report "$model" --format markdown
+            echo
+          done >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: results
+          path: results/
