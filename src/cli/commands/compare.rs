@@ -1064,7 +1064,7 @@ scenarios:
             for (args, want) in [
                 (
                     vec!["compare", "/nonexistent/m.yaml", "-s", "base"],
-                    "IO error: No such file or directory (os error 2)",
+                    "IO error: /nonexistent/m.yaml: No such file or directory (os error 2)",
                 ),
                 (
                     vec!["compare", path.as_str(), "-s", "nope"],
@@ -1098,7 +1098,7 @@ scenarios:
             };
             assert_eq!(
                 compare("/nonexistent/m.yaml"),
-                "IO error: No such file or directory (os error 2)"
+                "IO error: /nonexistent/m.yaml: No such file or directory (os error 2)"
             );
             let err = compare(&path);
             assert_eq!(

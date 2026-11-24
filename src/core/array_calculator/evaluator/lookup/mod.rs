@@ -38,7 +38,7 @@ pub fn try_evaluate(
 
         "ADDRESS" => reference::eval_address(args, ctx)?,
 
-        "ROW" => reference::eval_row(args, ctx),
+        "ROW" => reference::eval_row(args, ctx)?,
 
         "COLUMN" => reference::eval_column(args, ctx),
 

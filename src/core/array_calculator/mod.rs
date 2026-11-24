@@ -649,6 +649,9 @@ mod aggregation_classifier_tests {
             ("=x / SUM(x)", vec![0.5, -2.0 / 6.0, 5.0 / 6.0]),
             ("=SUMIF(x, \">0\", x)", vec![8.0, 8.0, 8.0]),
             ("=COUNTIF(x, \">\" & x) + 1", vec![2.0, 3.0, 1.0]),
+            // ROW(x) is the row x is read at, and 1, 2, 3 read whole
+            ("=ROW(x) * x", vec![3.0, -4.0, 15.0]),
+            ("=SUM(ROW(x))", vec![6.0, 6.0, 6.0]),
         ] {
             assert_eq!(
                 calculate_column(formula),

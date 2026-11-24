@@ -8,8 +8,7 @@
 //! - `MAXIFS(max_range`, `criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
 
 use super::super::{
-    collect_values_as_vec, evaluate, is_a_date, number_or_date, Criterion, EvalContext, EvalError,
-    Expr, Value,
+    collect_values_as_vec, is_a_date, number_or_date, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate MAXIFS function
@@ -20,20 +19,11 @@ pub fn eval_maxifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
         ));
     }
     let max_range = collect_values_as_vec(&args[0], ctx)?;
-    let mut matches = vec![true; max_range.len()];
-    for pair in args[1..].chunks(2) {
-        let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
-        let criteria = Criterion::new(&evaluate(&pair[1], ctx)?);
-        for (i, val) in criteria_range.iter().enumerate() {
-            if i < matches.len() && !criteria.matches(val) {
-                matches[i] = false;
-            }
-        }
-    }
+    let matches = super::matching_rows("MAXIFS", max_range.len(), &args[1..], ctx)?;
     let matching: Vec<(f64, bool)> = max_range
         .iter()
         .enumerate()
-        .filter(|(i, _)| *i < matches.len() && matches[*i])
+        .filter(|(i, _)| matches[*i])
         .filter_map(|(_, v)| Some((v.as_number()?, is_a_date(v))))
         .collect();
     // The result is a date when every number it chose from is one
@@ -59,20 +49,11 @@ pub fn eval_minifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
         ));
     }
     let min_range = collect_values_as_vec(&args[0], ctx)?;
-    let mut matches = vec![true; min_range.len()];
-    for pair in args[1..].chunks(2) {
-        let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
-        let criteria = Criterion::new(&evaluate(&pair[1], ctx)?);
-        for (i, val) in criteria_range.iter().enumerate() {
-            if i < matches.len() && !criteria.matches(val) {
-                matches[i] = false;
-            }
-        }
-    }
+    let matches = super::matching_rows("MINIFS", min_range.len(), &args[1..], ctx)?;
     let matching: Vec<(f64, bool)> = min_range
         .iter()
         .enumerate()
-        .filter(|(i, _)| *i < matches.len() && matches[*i])
+        .filter(|(i, _)| matches[*i])
         .filter_map(|(_, v)| Some((v.as_number()?, is_a_date(v))))
         .collect();
     // The result is a date when every number it chose from is one
@@ -375,8 +356,7 @@ mod tests {
     fn a_matching_text_is_no_extreme() {
         use crate::core::array_calculator::evaluator::tests as h;
         let ctx = h::table(&[
-            ("k", h::numbers(&[1.0, 2.0, 3.0])),
-            ("v", h::numbers(&[10.0, 20.0])),
+            ("k", h::numbers(&[1.0, 2.0])),
             ("m", vec![Value::Text("a".into()), Value::Number(4.0)]),
         ]);
         h::is_exactly_in("MAXIFS(t.m, t.k, \">0\")", &ctx, 4.0);
