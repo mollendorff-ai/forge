@@ -56,7 +56,7 @@ CI fixes the seed (`PROPTEST_RNG_SEED=1`), so a pull request sees the same cases
 
 | Gate | Enforced by | Notes |
 | --- | --- | --- |
-| 100% coverage: lines, functions, regions | CI job `coverage` (floors in `.github/workflows/ci.yml`, which only rise), `make coverage` (fails below 100) | Measured by `scripts/coverage.sh`: the tests, then the built program for `main` and MCP. No `cfg(coverage)` code, no `coverage(off)` |
+| 100% coverage: lines, functions, regions | CI job `coverage` (floors in `.github/workflows/ci.yml`, which only rise), `make coverage` (fails below 100) | Measured by `scripts/coverage.sh`: the tests, then the built program for `main` and MCP. Measured with Rust 1.100 or later, as CI's stable is (older toolchains count fewer regions inside macros and read 100% where CI does not): the script refuses an older `rustc`, and `RUSTUP_TOOLCHAIN=1.100.0 make coverage` picks one. No `cfg(coverage)` code, no `coverage(off)` |
 | Pedantic clippy on stable and on the oldest supported Rust | CI jobs `lint`, `msrv`, `core-browser`, `forge-wasm` | `pedantic`, `nursery` and `cargo` groups in every crate; no `allow` or `expect` attributes (a budget that only falls) |
 | Formatting | CI job `lint`, the pre-commit hook (`.cargo-husky/hooks/pre-commit`) | No `rustfmt::skip` |
 | No file over 1,500 lines, tests included | `no_skipping.rs` | Split by what the code does |
