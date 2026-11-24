@@ -13,11 +13,27 @@ The first visit opens with a short welcome card: what the page is, and for an ex
 - **YAML:** the model's text, with Forge's formula colours, and suggestions for the keys of the model format and for names and functions inside a formula. On a phone the edit is applied with a button; above 900 px the editor sits beside the cards and a number typed in one changes the other.
 - **Analyze:** goal seek, break-even, scenarios, a tornado, a simulation and budget against actual. **Tools:** the MCP server's tools, run on the open model.
 - **Help:** a "?" on each heading opens a few sentences, the terms the section uses, an example to open and the manual on GitHub at the release that is running; while a formula or a key is typed, the line under the suggestions gives Forge's syntax and description for it (ADR-077).
-- **Files:** the examples, opening and saving. A link can open one model of an example set: `?example=bagel` opens the bagel's plan, and `?example=bagel&model=price_war.yaml` its price war, as Files' Open button would (a file the set does not have opens the set's own model). Save opens the share sheet on an iPhone or iPad (Save to Files, iCloud Drive) for the model's YAML or its Excel workbook.
+- **Files:** the examples, opening and saving, and a link to the open model (below). A link can open one model of an example set: `?example=bagel` opens the bagel's plan, and `?example=bagel&model=price_war.yaml` its price war, as Files' Open button would (a file the set does not have opens the set's own model). Save opens the share sheet on an iPhone or iPad (Save to Files, iCloud Drive) for the model's YAML or its Excel workbook.
 
 ## Your model stays on your device
 
 There is no server doing the work: the page runs `forge-wasm` (ADR-055) in a background worker, and nothing you type is sent anywhere. There are no accounts, no cookies and no analytics. Your files are kept in the browser's storage on your device until you save them. GitHub Pages serves the page, so GitHub sees that it was downloaded, as with any website.
+
+The page's Content Security Policy (`index.html`, ADR-080) holds it to that: it runs only its own scripts and can make requests only to its own address, so nothing on the page could send a model elsewhere.
+
+## A link that carries a model
+
+A lesson, an AI's answer or a person can hand a model over with a link (ADR-080). The model goes after the `#`, which a browser never sends to a server, so it reaches the tab that opens the link and nothing else:
+
+```text
+https://forge.mollendorff.ai/#name=bagel.yaml&gzip=H4sI…&name=costs.yaml&yaml=…
+```
+
+- `yaml=` is a file's text, percent-encoded (`encodeURIComponent`), for a link written by hand or by an AI.
+- `gzip=` is the text gzipped, in base64url, about a third as long: `gzip -9c model.yaml | base64 | tr '+/' '-_' | tr -d '=\n'`. Files' Copy writes this form, for the main model and the files it includes.
+- `name=` names the next file; without it, a file is `model.yaml`. The first file is the main model.
+
+Studio removes the link from the address bar once it has read it, and keeps the model in the browser's storage, as a file opened from the device. When the open files are your own, or an example you have edited, it asks before the link replaces them. A link that cannot be read is named, with what is wrong, and what was open stays open. Anyone who has a link has its model, and a link opened stays in the browser's history like any address.
 
 It also works offline. Once Forge is running, the page keeps its own files on the device (`sw.js`), so Studio opens and calculates without a connection, and on an iPhone it can be added to the Home Screen (Share, Add to Home Screen) to open like an app. A new release replaces the files the next time Studio is opened after being closed, never half of each, so close it fully and open it again to get one.
 
@@ -32,6 +48,7 @@ Every number is Forge's. The page reads no YAML itself: a change on a card is wr
 | `forge.js`, `worker.js` | The only way to a number: `call(tool, request)` to forge-wasm, in a worker |
 | `text.js` | The editor's colours (and `esc`): colouring the YAML with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
 | `help.js`, `help.json` | The "?" on each heading and its sheet (the text is `help.json`; the manual is linked on GitHub at the running release's tag), and the line under the suggestions with Forge's own syntax and description of a function or a key (ADR-077) |
+| `link.js` | A link that carries a model after the # (ADR-080): reading one, making one, and asking before one replaces your files |
 | `tools.js` | The Tools view: the MCP server's tools, the request each is shown with, and an answer shown whole |
 | `games.js` | The game cards: payoff tables, equilibria, tournaments and dynamics, drawn from `game`'s answer (ADR-068, ADR-073) |
 | `analyses.js` | A decision tree, real options, a bootstrap and a Bayesian network drawn on the Model view from their tools' answers, each number with the place in the answer it comes from (ADR-077) |
@@ -83,9 +100,10 @@ All of these but `live.mjs` (run by `pages.yml` after a release) run in CI, in t
 | `analyses.mjs` | Every example file that is a decision tree, real options, a bootstrap or a Bayesian network opens on a card whose every number is its tool's, at the place in the answer the card names; on a network a state tapped is evidence, as the tool answers it, and tapped again is not; no card is wider than 390 px |
 | `help.mjs` | Every entry of `help.json` links a document of this repository and a heading in it, by GitHub's rule for anchors, and is opened by a "?" on some heading; a sheet links the manual at the running release's tag and opens its example; under a function or a key being typed, Forge's syntax and description |
 | `uncertain.mjs` | Every uncertain model of the example sets: every scalar on screen is `forge calculate --plan`'s natively and the pill says how many inputs are ranges; every number of every range, and each distribution's mean, is `forge simulate`'s natively with the model's own settings; each distribution card has Forge's kinds and parameter names. On the bagel, a typed input dims the range and the new one is simulate's, only the last of two quick changes is kept, a distribution's parameter and kind are written, and Analyze lists the outputs in the model's order (`expected.json` gives the native answers) |
+| `link.mjs` | A link that carries a model after the # (ADR-080): the mortgage, the bagel shop with its costs and the starter model open from links in both forms with every scalar `forge calculate`'s natively; the link leaves the address bar and a reload keeps the model; a link over your own files asks first; nine broken links each say what is wrong and keep what was open; Files' Copy makes a link that opens the same model in another browser; a link's HTML is drawn as text, the Content Security Policy stops an inline handler and a request to another server and blocks nothing else; and no request the server sees carries any part of a model |
 | `templates.mjs` | "Add a game" on the bagel: the templates offered are Forge's, each added under a name gives the games `game` answers for the files `edit` wrote and puts the model in a format with games, and a name in use is refused with Forge's message |
 | `gameedit.mjs` | A game edited on its card (inspection game, price war): the names "change this game" offers are Forge's; a strategy added, a player renamed, a strategy deleted and a tournament's player added give the cards of `game` for the files `edit` wrote; a change Forge refuses shows its message |
 | `sets.mjs` | A set of several models lists them as questions on the welcome card, each with the kind of model Forge's `model` says its file is; a question, a chip of the strip at the top of the Model view and Files open each model of every such set (ADR-077) |
 | `live.mjs` | After each release, the published page runs the release's Forge and the bagel example's `year.profit` is 786.32 |
 
-Run one with `node studio/tests/<name>.mjs studio-site` (after `npm install` here); `no-engine.mjs`, `format.mjs` and `highlight.mjs` need no built site. `screen.mjs` and `uncertain.mjs` also take `forge-wasm/expected.json`, `excel.mjs` and `save.mjs` the folder of workbooks `forge export` wrote (`forge-wasm/xlsx`), and `layout.mjs` a folder for its screenshots, as in `.github/workflows/ci.yml`.
+Run one with `node studio/tests/<name>.mjs studio-site` (after `npm install` here); `no-engine.mjs`, `format.mjs` and `highlight.mjs` need no built site. `screen.mjs`, `uncertain.mjs` and `link.mjs` also take `forge-wasm/expected.json`, `excel.mjs` and `save.mjs` the folder of workbooks `forge export` wrote (`forge-wasm/xlsx`), and `layout.mjs` a folder for its screenshots, as in `.github/workflows/ci.yml`.

@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Scripts, workers and requests only from this page's own address (ADR-080): a model from a link is drawn as text, and nothing on the page can reach another server -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Forge Studio</title>
 <meta name="description" content="Forge's YAML financial models on a phone: cards, scenarios, goal seek and simulation, calculated by Forge itself in the browser.">
 <meta name="theme-color" content="#FFFFFF">
