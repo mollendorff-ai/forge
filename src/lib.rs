@@ -443,12 +443,31 @@ mod tests {
             out
         }
 
-        /// The same to the 15 significant digits a workbook keeps.
-        fn close(a: Option<f64>, b: Option<f64>) -> bool {
+        /// The same to the 15 significant digits a workbook keeps, of the
+        /// result or, where terms cancel, of the terms (`scale`): each input
+        /// is kept to 15 digits, so a sum of terms thousands wide that comes to
+        /// tens is exact to 1e-14 of the terms, not of the sum.
+        fn close(a: Option<f64>, b: Option<f64>, scale: f64) -> bool {
             a.zip(b).map_or_else(
                 || a.is_none() && b.is_none(),
-                |(a, b)| (a - b).abs() <= 1e-14 * a.abs().max(b.abs()).max(1.0),
+                |(a, b)| (a - b).abs() <= 1e-14 * a.abs().max(b.abs()).max(scale).max(1.0),
             )
+        }
+
+        /// The size of what `name` adds up: `s.prod` is `s.x * s.y + s.total`.
+        fn terms(name: &str, values: &[(String, Option<f64>)]) -> f64 {
+            let read = |n: &str| {
+                values
+                    .iter()
+                    .find(|(v, _)| v == n)
+                    .and_then(|(_, v)| *v)
+                    .map_or(0.0, f64::abs)
+            };
+            if name == "s.prod" {
+                read("s.x") * read("s.y") + read("s.total")
+            } else {
+                0.0
+            }
         }
 
         proptest! {
@@ -513,7 +532,7 @@ mod tests {
                 let names = |v: &[(String, Option<f64>)]| v.iter().map(|(n, _)| n.clone()).collect::<Vec<_>>();
                 prop_assert_eq!(names(&b), names(&a));
                 for ((name, x), (_, y)) in b.iter().zip(&a) {
-                    prop_assert!(close(*x, *y), "{} was {:?}, is {:?} after the round trip", name, x, y);
+                    prop_assert!(close(*x, *y, terms(name, &b)), "{} was {:?}, is {:?} after the round trip", name, x, y);
                 }
             }
         }
