@@ -1168,24 +1168,53 @@ mod tests {
             }
         }
 
+        /// A distribution from -1e307 to 1e307, an output twice it and one ten
+        /// times it: squares of the first overflow, and the sum of the second
+        /// (roadmap T1-HUGE-STATS, ADR-079)
+        const HUGE: &str = "_forge_version: \"5.1.0\"\nmonte_carlo:\n  iterations: 200\n  seed: 1\n  \
+             outputs:\n    - variable: m.out\n      percentiles: [50]\n      expected_shortfall: [5]\n    \
+             - variable: m.big\nm:\n  x:\n    formula: \"=MC.Triangular(-1E+307, 0, 1E+307)\"\n  \
+             out:\n    formula: \"=x * 2\"\n  big:\n    formula: \"=x * 10\"\n";
+
         #[test]
         fn a_wide_but_finite_distribution_still_simulates() {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("m.yaml");
-            std::fs::write(&path, model("MC.Triangular(-1E+307, 0, 1E+307)")).unwrap();
+            std::fs::write(&path, HUGE).unwrap();
             let ran = forge(&["simulate", path.to_str().unwrap()]);
             assert_eq!(ran.code, 0, "{}", ran.err);
             let stdout = ran.out;
-            // The draws, the mean, the percentiles and the extremes are finite. The
-            // standard deviation of values near 1e307 overflows when squared, as for
-            // any output above about 1e154: roadmap T1-HUGE-STATS, not this item.
             assert!(!stdout.contains("NaN"), "{stdout}");
-            let infinite: Vec<&str> = stdout.lines().filter(|l| l.contains("inf")).collect();
-            assert_eq!(infinite.len(), 1, "{infinite:?}");
-            assert!(
-                infinite[0].trim_start().starts_with("Std Dev:"),
-                "{infinite:?}"
-            );
+            assert!(!stdout.contains("inf"), "{stdout}");
+            assert_eq!(stdout.matches("Std Dev:").count(), 2, "{stdout}");
+
+            let result =
+                crate::cli::simulate_core(&path, crate::cli::SimulateOptions::default()).unwrap();
+            let (out, big) = (&result.outputs["m.out"], &result.outputs["m.big"]);
+            // A triangle from -a to a has a standard deviation of a / sqrt(6)
+            for (output, a) in [(out, 2e307), (big, 1e308)] {
+                let sd = output.statistics.std_dev;
+                assert!((sd / (a / 6.0_f64.sqrt()) - 1.0).abs() < 0.02, "{sd}");
+                assert_eq!(output.statistics.variance, None);
+                assert!(output.statistics.mean.is_finite());
+                assert!(output.histogram.bin_edges.iter().all(|e| e.is_finite()));
+            }
+            // m.big is m.out five times over, draw by draw
+            let ratio = big.statistics.mean / out.statistics.mean;
+            assert!((ratio - 5.0).abs() < 1e-12, "{ratio}");
+            // The worst 5% of a triangle from -a to 0 to a average
+            // -a (1 - 2/3 sqrt(0.1)), with a = 2e307 here
+            let worst = out.expected_shortfall[0].1;
+            let expected = -2e307 * (2.0_f64 / 3.0).mul_add(-0.1_f64.sqrt(), 1.0);
+            assert!((worst / expected - 1.0).abs() < 0.03, "{worst}");
+        }
+
+        #[test]
+        fn forge_mcp_answers_the_spread_of_huge_values_with_numbers() {
+            let mut session = Session::start(None);
+            let answer = session.call(2, "forge_simulate", &serde_json::json!({"content": HUGE}));
+            assert!(answer.contains("\"isError\":false"), "{answer}");
+            assert!(!answer.contains("null"), "{answer}");
         }
 
         #[test]
