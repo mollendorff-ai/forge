@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **VALIDATION.md has its section 5 and its known limits again** (roadmap T1-LEFTOVERS-2026-11-22). The commit that added the dynamics of a symmetric game (2026-11-21) cut the end of the file: section 5, the six rounds of checks in real Excel that section 2 refers to, and the Known limits. Both are restored, section 5 before section 6, and the summary and docs/STABILITY.md count six rounds, the sixth (`XNPV` and `XIRR` with a date before the first, 2026-11-19) included.
 
 ### Removed
+- **`FormulaTranslator`, from the library.** `forge export` translates formulas with `workbook_refs`, token by token, resolving names as the calculator does; the old regex translator matched ASCII names only (Forge's names are Unicode: `hypothèses.coût_unitaire`, `假设.单价`) and was exported but called by nothing in Forge, its WebAssembly module or its validation crates. What the export did use of it, the names Excel knows as functions, is `src/excel/excel_functions.rs`, with its tests: the list is sorted, and every listed Excel function is in it. No output changes.
 - **The `cfg(coverage)` check-cfg in Cargo.toml and forge-wasm/Cargo.toml** (roadmap T1-LEFTOVERS-2026-11-22). No code has been compiled only for or only without the coverage run since ADR-006 was retired, so nothing used it.
 
 ## [10.0.0-rc.34] - 2026-11-22
