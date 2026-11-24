@@ -28,38 +28,79 @@ pub fn eval_if(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, Ev
 ///
 /// With no else branch a false element becomes Null, which aggregates skip,
 /// so `AVERAGE(IF(a > 1, a))` averages only the matching values.
+///
+/// Excel and `LibreOffice` give each element its own result, so an error in
+/// one element of a branch is an error only where that branch is chosen:
+/// `SUM(IF(a > 0, 10 / a, 0))` with a = 0, 1, 2 is 15, and a branch no
+/// element chooses is never an error. A branch that is an error as a whole
+/// is evaluated again for each element that chooses it, at that element's
+/// row (Forge gave the error, as it has no error inside an array).
 fn eval_if_array(
     conditions: &[Value],
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Value, EvalError> {
-    let when_true = evaluate(&args[1], ctx)?;
-    let when_false = match args.get(2) {
-        Some(arg) => evaluate(arg, ctx)?,
-        None => Value::Null,
-    };
+    let rows = conditions.len();
+    let when_true = evaluate(&args[1], ctx);
+    let when_false = args.get(2).map(|arg| (arg, evaluate(arg, ctx)));
+    let mut by_row = None;
     conditions
         .iter()
         .enumerate()
-        .map(|(i, condition)| {
-            let branch = if condition.is_truthy() {
-                &when_true
+        .map(|(row, condition)| {
+            let mut chosen = |arg, whole| chosen_element(arg, whole, row, rows, ctx, &mut by_row);
+            if condition.is_truthy() {
+                chosen(&args[1], &when_true)
+            } else if let Some((arg, whole)) = &when_false {
+                chosen(arg, whole)
             } else {
-                &when_false
-            };
-            match branch {
-                Value::Array(items) if items.len() == conditions.len() => Ok(items[i].clone()),
-                Value::Array(items) if items.len() == 1 => Ok(items[0].clone()),
-                Value::Array(items) => Err(EvalError::new(format!(
-                    "IF: condition has {} values but a result has {}",
-                    conditions.len(),
-                    items.len()
-                ))),
-                scalar => Ok(scalar.clone()),
+                Ok(Value::Null)
             }
         })
         .collect::<Result<Vec<_>, _>>()
         .map(|items| Value::Array(items.into()))
+}
+
+/// The element at `row` of the branch `arg`, whose value as a whole is
+/// `whole`: when that is an error, the branch at that row alone (in a context
+/// made once, in `by_row`), unless a row formula is already at one row
+fn chosen_element(
+    arg: &Expr,
+    whole: &Result<Value, EvalError>,
+    row: usize,
+    rows: usize,
+    ctx: &EvalContext,
+    by_row: &mut Option<EvalContext>,
+) -> Result<Value, EvalError> {
+    match whole {
+        Ok(value) => element(value, row, rows),
+        Err(error) if ctx.row().is_some() => Err(error.clone()),
+        Err(_) => {
+            let row_ctx = by_row.get_or_insert_with(|| {
+                let mut row_ctx = ctx.clone();
+                row_ctx.row_count = Some(rows);
+                row_ctx.hidden_row.set(0);
+                row_ctx.whole_args.borrow_mut().clear();
+                row_ctx
+            });
+            row_ctx.current_row = Some(row);
+            element(&evaluate(arg, row_ctx)?, row, rows)
+        },
+    }
+}
+
+/// The element at `row` of a branch's value: an array of one value per
+/// condition, one value for all, or a scalar
+fn element(branch: &Value, row: usize, rows: usize) -> Result<Value, EvalError> {
+    match branch {
+        Value::Array(items) if items.len() == rows => Ok(items[row].clone()),
+        Value::Array(items) if items.len() == 1 => Ok(items[0].clone()),
+        Value::Array(items) => Err(EvalError::new(format!(
+            "IF: condition has {rows} values but a result has {}",
+            items.len()
+        ))),
+        scalar => Ok(scalar.clone()),
+    }
 }
 
 /// Evaluate IFERROR function - returns fallback value on error
@@ -338,5 +379,26 @@ mod tests {
         h::fails_with("IF({1, 0}, 1/0, 2)", "Division by zero");
         h::fails_with("IF({1, 0}, 1, 1/0)", "Division by zero");
         h::fails_with("IFS(1/0, 1)", "Division by zero");
+    }
+
+    /// An array IF chooses each element's result, so an error in a branch
+    /// is an error only where that branch is chosen, as in Excel and
+    /// `LibreOffice`: with a = 0, 1, 2, `10 / a` is 10 and 5 in the rows that
+    /// choose it (15 by hand), and `1 / 0` that no row chooses is no error
+    #[test]
+    fn an_error_in_a_branch_counts_only_where_it_is_chosen() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("a", h::numbers(&[0.0, 1.0, 2.0]))]);
+        h::is_exactly_in("SUM(IF(t.a > 0, 10 / t.a, 0))", &ctx, 15.0);
+        h::is_exactly_in("SUM(IF(t.a = 0, 0, 10 / t.a))", &ctx, 15.0);
+        h::is_exactly_in("SUM(IF(t.a > 5, 1 / 0, 1))", &ctx, 3.0);
+        // A row that chooses the error is the error
+        h::fails_in("SUM(IF(t.a >= 0, 10 / t.a, 0))", &ctx, "Division by zero");
+        // In a row formula, a whole column read by SUM is read the same way
+        let row = ctx.with_row(0, 3);
+        h::is_exactly_in("SUM(IF(t.a > 0, 10 / t.a, 0))", &row, 15.0);
+        // An array condition in a row formula, outside a whole column: its
+        // branches are already at the formula's row, so their error stays
+        h::fails_in("IF({1, 0}, 1 / t.a, 2)", &row, "Division by zero");
     }
 }
