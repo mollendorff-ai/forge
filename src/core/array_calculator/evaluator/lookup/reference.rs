@@ -1080,6 +1080,14 @@ mod tests {
         h::fails_in("COLUMN(nope)", &ctx, "Unknown variable: nope");
         h::fails_in("COLUMN(t.nope)", &ctx, "Unknown column: t.nope");
         assert!(eval("COLUMN(a, b)", &ctx).is_err());
+        // A table the export does not lay out (an included file's) has no
+        // numbers
+        let mut unnumbered = ctx.clone();
+        unnumbered.tables.insert(
+            "u".into(),
+            std::iter::once(("c".to_string(), h::numbers(&[1.0, 2.0]).into())).collect(),
+        );
+        h::fails_in("COLUMN(u.c)", &unnumbered, "COLUMN needs a table column");
         // A scalar `t.a` is read before the column, and has no number
         let mut shadowed = ctx;
         shadowed.scalars.insert("t.a".into(), Value::Number(5.0));
