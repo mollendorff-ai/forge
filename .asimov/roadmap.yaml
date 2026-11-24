@@ -208,6 +208,14 @@ tier1:
   # binary as a reader does. The closed pipe is a step of the MCP Protocol
   # Test job. Both budgets in validation/repo/src/no_skipping.rs are 0.
 
+  # T1-NO-SKIPPING, lint attributes are done (2026-11-24): no allow or expect
+  # is left in any crate (budget 2 to 0). whole_column.rs is ADR-058's table
+  # as data (each group with a named rule, no match_same_arms), checked to
+  # answer as the match did for every function, argument count and
+  # position; the copula's loop in monte_carlo/engine.rs moves a cursor down
+  # each correlated column (no needless_range_loop), the draws of a seeded
+  # run the same to the bit. What is left of the item is the maintainer's
+  # four duplicate crate versions, each waiting on a release upstream.
   # T1-NO-SKIPPING, casts outside the calculator are done (2026-11-17): no
   # allow of cast_possible_truncation, cast_sign_loss or cast_possible_wrap is
   # left outside core/array_calculator and the validation suites. A float
