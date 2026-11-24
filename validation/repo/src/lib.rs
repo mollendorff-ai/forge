@@ -29,6 +29,7 @@ pub mod posts;
 pub mod readme_commands;
 pub mod roles;
 pub mod skill;
+pub mod studio_guide;
 pub mod workflows_doc;
 
 use std::path::{Path, PathBuf};
