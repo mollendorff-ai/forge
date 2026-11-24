@@ -321,11 +321,15 @@ tier1:
   # message in the browser. Four kinds of line that were jsonschema's words are
   # Forge's.
 
-  - id: T1-HUGE-STATS
-    title: "The summary statistics of a simulation overflow above about 1e154"
-    why: "Found 2026-11-16 while fixing T1-NONFINITE: MC.Triangular(-1E+307, 0, 1E+307) draws finite values and forge simulate prints a finite mean, median, extremes and percentiles, but Std Dev: inf, because Statistics::from_samples squares each deviation (src/monte_carlo/statistics.rs). Any output, from a distribution or a formula (x^200), with values above about 1.3e154 does the same; a sum of many values near 1e306 makes the mean inf too, and the histogram's max - min can overflow. The variance of values near 1e307 (about 1e613) cannot be a number at all"
-    how: "An ADR or a short decision first: refuse an output whose values cannot be summarized, or report the standard deviation by scaling (the largest deviation out, then back in) and the variance as too large to show. Keep the results of every model that calculates today the same to the last digit (compute the plain way first, as triangular_quantile does)"
-    acceptance: "forge simulate on MC.Triangular(-1E+307, 0, 1E+307) prints no inf and no NaN, or exits 1 saying why; the decision is written down; the refused_everywhere tests in src/monte_carlo/distributions.rs no longer allow the one inf line"
+  # T1-HUGE-STATS is done (2026-11-24, ADR-079): a simulation's mean,
+  # standard deviation, skewness, kurtosis, expected shortfall, input means
+  # and histogram are worked out again on samples divided by a power of two
+  # when the plain arithmetic overflows, so they are numbers whenever the
+  # samples are, and a model that summarizes today keeps every digit; the
+  # variance is None past the largest f64. MC.Triangular(-1E+307, 0, 1E+307)
+  # prints no inf (refused_everywhere in src/monte_carlo/distributions.rs).
+  # A wrong answer fixed (the maintainer agreed, 2026-11-24): the two weeks in
+  # docs/STABILITY.md start again from the release candidate that carries it.
 
   # T1-DISCRETE is done (2026-11-18): MC.Discrete takes two array constants,
   # the values and their probabilities, each a row or a column:
@@ -777,7 +781,7 @@ adoption:
     why: "Five readers (new user, AI agent or its user, pipeline builder, developer who embeds Forge, contributor or maintainer) and no map. FEATURES.md stays the reference and Studio's help anchors stay; new pages go in docs/guide/ (lessons built on examples/bagel and docs/posts), docs/EMBEDDING.md and docs/MAINTAINING.md, with a docs/README.md index"
     acceptance: "ADR-078 accepted by the maintainer, naming each page, its reader and the test that keeps it true"
     model: "Opus 5.5, high"
-    drafted: "2026-11-23: docs/architecture/ADR-078-A-WAY-IN-FOR-EACH-READER.md, proposed; accepted by merging it"
+    built: "2026-11-23: docs/architecture/ADR-078-A-WAY-IN-FOR-EACH-READER.md, accepted by the maintainer merging it (its status says so since 2026-11-24)"
   - id: A2-GUIDE-TESTS
     title: "The guide's commands and numbers run by validation/repo before any lesson is written"
     acceptance: "A page in docs/guide/ whose command prints other than the page shows, or whose number differs, fails the Repository checks job; at 100% coverage and pedantic clippy"

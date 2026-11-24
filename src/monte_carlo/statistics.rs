@@ -5,6 +5,14 @@
 //! - Summary statistics (mean, median, std dev, min, max)
 //! - Probability thresholds (P(X > target))
 //! - Histogram bin data
+//!
+//! Every figure is worked out the plain way first. When that overflows
+//! although every sample is a finite number (values above about 1e154, whose
+//! squares pass the largest `f64`, or a sum of many near 1e306), it is worked
+//! out again on the samples divided by a power of two, which is exact, and
+//! scaled back: the figure is then a number whenever the samples are, and a
+//! model that summarizes today keeps every digit (ADR-079, roadmap
+//! T1-HUGE-STATS). Only the variance can still be too large to be a number.
 
 use crate::core::precision;
 use num_traits::ToPrimitive;
@@ -21,8 +29,9 @@ pub struct Statistics {
     pub median: f64,
     /// Standard deviation
     pub std_dev: f64,
-    /// Variance
-    pub variance: f64,
+    /// Variance, or `None` when it is larger than the largest `f64`: the
+    /// variance of values near 1e307 is near 1e613 (ADR-079)
+    pub variance: Option<f64>,
     /// Minimum value
     pub min: f64,
     /// Maximum value
@@ -50,12 +59,24 @@ impl Statistics {
         let mut sorted = samples.to_vec();
         sorted.sort_by(f64::total_cmp);
 
-        // Basic statistics
-        let sum: f64 = samples.iter().sum();
-        let mean = sum / n;
-
-        let variance = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
-        let std_dev = variance.sqrt();
+        let mean = mean(samples);
+        // The mean square of the deviations, each divided by `unit`
+        let spread = |unit: f64| {
+            samples
+                .iter()
+                .map(|x| (x / unit - mean / unit).powi(2))
+                .sum::<f64>()
+                / n
+        };
+        let mut unit = 1.0;
+        let mut spread_in_units = spread(unit);
+        if overflowed(spread_in_units, samples) {
+            unit = power_of_two_below(samples);
+            spread_in_units = spread(unit);
+        }
+        let std_dev_in_units = spread_in_units.sqrt();
+        let std_dev = std_dev_in_units * unit;
+        let variance = Some(spread_in_units * unit * unit).filter(|v| v.is_finite());
 
         // Min/Max
         let min = sorted[0];
@@ -64,18 +85,11 @@ impl Statistics {
         // Median
         let median = percentile_sorted(&sorted, 50.0);
 
-        // Skewness and Kurtosis
-        let (skewness, kurtosis) = if std_dev > 0.0 {
-            let m3: f64 = samples
-                .iter()
-                .map(|x| ((x - mean) / std_dev).powi(3))
-                .sum::<f64>()
-                / n;
-            let m4: f64 = samples
-                .iter()
-                .map(|x| ((x - mean) / std_dev).powi(4))
-                .sum::<f64>()
-                / n;
+        // Skewness and Kurtosis, of deviations in the same units
+        let (skewness, kurtosis) = if std_dev_in_units > 0.0 {
+            let z = |x: &f64| (x / unit - mean / unit) / std_dev_in_units;
+            let m3: f64 = samples.iter().map(|x| z(x).powi(3)).sum::<f64>() / n;
+            let m4: f64 = samples.iter().map(|x| z(x).powi(4)).sum::<f64>() / n;
             (m3, m4 - 3.0) // Excess kurtosis (normal = 0)
         } else {
             (0.0, 0.0)
@@ -108,7 +122,7 @@ impl Statistics {
             mean: 0.0,
             median: 0.0,
             std_dev: 0.0,
-            variance: 0.0,
+            variance: Some(0.0),
             min: 0.0,
             max: 0.0,
             skewness: 0.0,
@@ -122,6 +136,38 @@ impl Statistics {
     pub fn percentile(&self, p: u8) -> Option<f64> {
         self.percentiles.get(&p).copied()
     }
+}
+
+/// The mean of `samples`, a number whenever they all are (ADR-079).
+///
+/// NaN for none, as 0 / 0. Summed plainly first; when the sum overflows
+/// although every sample is finite, summed again with each sample divided by
+/// a power of two.
+#[must_use]
+pub fn mean(samples: &[f64]) -> f64 {
+    let n = precision::count(samples.len());
+    let plain = samples.iter().sum::<f64>() / n;
+    if !overflowed(plain, samples) {
+        return plain;
+    }
+    let unit = power_of_two_below(samples);
+    samples.iter().map(|x| x / unit).sum::<f64>() / n * unit
+}
+
+/// Whether `figure` is not a number although every one of `samples` is: the
+/// arithmetic overflowed, and the samples can be scaled down
+fn overflowed(figure: f64, samples: &[f64]) -> bool {
+    !figure.is_finite() && samples.iter().all(|x| x.is_finite())
+}
+
+/// The power of two at or below the largest magnitude of `samples`, which
+/// are finite and not all near zero (their arithmetic overflowed). Dividing
+/// by it is exact and leaves every sample below 2 in magnitude.
+fn power_of_two_below(samples: &[f64]) -> f64 {
+    /// The exponent bits of an `f64`: with no mantissa, a power of two
+    const EXPONENT: u64 = 0x7ff0_0000_0000_0000;
+    let largest = samples.iter().fold(0.0_f64, |m, x| m.max(x.abs()));
+    f64::from_bits(largest.to_bits() & EXPONENT)
 }
 
 /// Calculate percentile from sorted array (linear interpolation). Both
@@ -194,18 +240,28 @@ impl Histogram {
             (min, max)
         };
 
-        let bin_width = (actual_max - actual_min) / precision::count(num_bins);
+        // A range wider than the largest `f64` (from below -9e307 to above
+        // 9e307) is cut in halves: halving is exact, so a range that fits is
+        // cut exactly as before (ADR-079)
+        let half = if (actual_max - actual_min).is_finite() {
+            1.0
+        } else {
+            0.5
+        };
+        let (low, high) = (actual_min * half, actual_max * half);
+        let bin_width = (high - low) / precision::count(num_bins);
 
         // Create bin edges
         let bin_edges: Vec<f64> = (0..=num_bins)
-            .map(|i| precision::count(i).mul_add(bin_width, actual_min))
+            .map(|i| precision::count(i).mul_add(bin_width, low) / half)
             .collect();
 
         // Count samples per bin
         let mut counts = vec![0usize; num_bins];
         for &sample in samples {
             // The largest sample falls on the last edge: it counts in the last bin
-            let bin = ((sample - actual_min) / bin_width)
+            let halved = sample * half;
+            let bin = ((halved - low) / bin_width)
                 .floor()
                 .to_usize()
                 .unwrap_or(0)
@@ -295,6 +351,104 @@ mod tests {
         let samples = [3.0, f64::NAN, 1.0, 2.0];
         let _ = Statistics::from_samples(&samples);
         let _ = calculate_percentiles(&samples, &[50, 90]);
+    }
+
+    /// The plain formulas, as `from_samples` computed them before ADR-079
+    fn plain(samples: &[f64]) -> (f64, f64, f64, f64, f64) {
+        let n = precision::count(samples.len());
+        let mean = samples.iter().sum::<f64>() / n;
+        let variance = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
+        let sd = variance.sqrt();
+        let m3 = samples
+            .iter()
+            .map(|x| ((x - mean) / sd).powi(3))
+            .sum::<f64>()
+            / n;
+        let m4 = samples
+            .iter()
+            .map(|x| ((x - mean) / sd).powi(4))
+            .sum::<f64>()
+            / n;
+        (mean, variance, sd, m3, m4 - 3.0)
+    }
+
+    /// A model that summarizes without overflow keeps every digit (ADR-079)
+    #[test]
+    fn figures_that_fit_are_the_plain_formulas_to_the_last_digit() {
+        let samples: Vec<f64> = (1..=997)
+            .map(|i| f64::from(i).sqrt().mul_add(1e150, -3e151))
+            .collect();
+        let stats = Statistics::from_samples(&samples);
+        let (mean, variance, sd, skewness, kurtosis) = plain(&samples);
+        assert_eq!(
+            (stats.mean, stats.variance, stats.std_dev),
+            (mean, Some(variance), sd)
+        );
+        assert_eq!((stats.skewness, stats.kurtosis), (skewness, kurtosis));
+    }
+
+    /// Values near 1e307 square past the largest `f64`: the standard
+    /// deviation, skewness and kurtosis are numbers, the variance is not
+    /// (roadmap T1-HUGE-STATS)
+    #[test]
+    fn the_spread_of_values_near_1e307_is_a_number_and_their_variance_none() {
+        let samples = [-1e307, 1e307, -1e307, 1e307];
+        assert!(
+            plain(&samples).2.is_infinite(),
+            "the plain formula overflows"
+        );
+        let stats = Statistics::from_samples(&samples);
+        assert_exact!(stats.mean, 0.0);
+        assert!(
+            (stats.std_dev / 1e307 - 1.0).abs() < 1e-15,
+            "{}",
+            stats.std_dev
+        );
+        assert_eq!(stats.variance, None);
+        // Two values, equally often: no skew, and an excess kurtosis of -2
+        assert_exact!(stats.skewness, 0.0);
+        assert!((stats.kurtosis + 2.0).abs() < 1e-15, "{}", stats.kurtosis);
+    }
+
+    /// A sum of values near 1e308 overflows; their mean does not
+    #[test]
+    fn the_mean_of_values_near_1e308_is_a_number() {
+        let samples = [1e308, 1.5e308, 1.7e308];
+        assert!(samples.iter().sum::<f64>().is_infinite());
+        let expected = 1.4e308;
+        assert!((mean(&samples) / expected - 1.0).abs() < 1e-15);
+        let stats = Statistics::from_samples(&samples);
+        assert_exact!(stats.mean, mean(&samples));
+        // Deviations of -0.4, 0.1 and 0.3 times 1e308 square past it too
+        let sd = (0.26_f64 / 3.0).sqrt() * 1e308;
+        assert!(
+            (stats.std_dev / sd - 1.0).abs() < 1e-15,
+            "{}",
+            stats.std_dev
+        );
+        assert_eq!(stats.variance, None);
+    }
+
+    /// A sample that is not a number is not scaled away
+    #[test]
+    fn samples_that_are_not_numbers_give_no_number() {
+        assert!(mean(&[]).is_nan());
+        assert!(mean(&[f64::INFINITY, 1.0]).is_infinite());
+        let stats = Statistics::from_samples(&[f64::INFINITY, 1.0]);
+        assert!(stats.std_dev.is_nan());
+        assert_eq!(stats.variance, None);
+        assert_eq!(Statistics::from_samples(&[2.0, 2.0]).variance, Some(0.0));
+    }
+
+    /// From -1e308 to 1e308 is wider than the largest `f64`: the histogram
+    /// is cut in halves, its edges and counts exact
+    #[test]
+    fn a_histogram_wider_than_the_largest_number_is_cut_in_halves() {
+        let hist = Histogram::from_samples(&[-1e308, 0.0, 1e308], 2);
+        assert_eq!(
+            (hist.bin_edges, hist.counts),
+            (vec![-1e308, 0.0, 1e308], vec![1, 2])
+        );
     }
 
     #[test]

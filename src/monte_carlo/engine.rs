@@ -180,7 +180,7 @@ fn expected_shortfall(samples: &[f64], percent: u8, higher_is_worse: bool) -> f6
         .to_usize()
         .unwrap_or(1);
     let worst = &sorted[..count.clamp(1, sorted.len())];
-    worst.iter().sum::<f64>() / precision::count(worst.len())
+    super::statistics::mean(worst)
 }
 
 /// Every input whose samples vary, ranked by the size of its rank
@@ -689,10 +689,10 @@ impl SimulationResult {
             .plan_inputs
             .iter()
             .map(|(name, plan)| {
-                let mean = self.input_samples.get(name).map(|s| {
-                    let n = precision::count(s.len());
-                    s.iter().sum::<f64>() / n
-                });
+                let mean = self
+                    .input_samples
+                    .get(name)
+                    .map(|s| super::statistics::mean(s));
                 (
                     name.clone(),
                     json!({"mean": mean, "plan": plan.value, "plan_from": plan.from}),
