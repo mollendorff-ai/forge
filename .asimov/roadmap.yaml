@@ -533,12 +533,16 @@ tier1:
   # 2,037,051 bytes gzipped before wasm-bindgen (+682 KB, under ADR-070's
   # ceiling).
 
-  - id: T1-IMPORT-OTHER-LANGUAGES
-    title: "forge import reads a sheet of scalars headed in French, Chinese or any language"
-    run_with: "Opus 5.5, medium effort: a heuristic in the importer, where a wrong guess makes a table of what were scalars"
-    why: "Found 2026-11-21. Forge's names are Unicode, and a model in French or Chinese calculates and survives export and import. But the rule that makes a sheet of labels a sheet of scalars (T1-EXAMPLE-EXCEL-ROUNDTRIP) looks for English words over the columns: Value, Unit, Notes, Comment. A French drivers sheet headed Hypothèse, Valeur, Unité comes in as a table; formulas that read its cells come in as values, with warnings. Not a wrong answer, but the import loses every formula that reads an assumption"
-    how: "A rule that does not depend on the language, by preference: a sheet whose cells other sheets read one at a time ($B$7) and never as a range is a sheet of scalars. Otherwise a short list of the header words in French (Valeur, Unité, Commentaire), the languages of the people Studio is for"
-    acceptance: "A French and a Chinese drivers sheet, written outside Forge, import as scalars and the formulas that read them stay formulas, asserted in inline tests; the rule is in docs/FEATURES.md"
+  # T1-IMPORT-OTHER-LANGUAGES is done (2026-11-24): a sheet of labels whose
+  # values the other sheets read one cell at a time (at least once, never as
+  # part of a range, never row by row beside their own rows unless the row is
+  # fixed, $B$7) is a sheet of scalars, whatever its header says
+  # (src/excel/importer/cells_read.rs). A French (Hypothèse, Valeur, Unité) and
+  # a Chinese (项目, 数值, 单位) drivers sheet import as scalars, and the
+  # formulas reading them stay formulas; the rule is in docs/FEATURES.md.
+  # Left as they were: a unit or notes column headed in another language is
+  # named in a warning, not kept, and a sheet of labels no other sheet reads,
+  # headed in another language, is still a table.
 
   # T1-INTERFACE-PARITY is done (2026-11-18): every one of the 20 MCP tools and
   # the 5 REST endpoints has an inline test that runs a story example and asserts
