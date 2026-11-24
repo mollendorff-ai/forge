@@ -139,7 +139,8 @@ scenarios, expectations, a simulation's outputs, a tornado's inputs, a game's
 results, in every file of the model), or make
 an input uncertain (a distribution, its value kept as the plan) and certain
 again, or add or delete a game's strategy or player (a new cell is 0; a new
-player comes last, with the last player's strategies), in the model or in a
+player comes last, with the last player's strategies), or change the habit a
+tournament's player plays, in the model or in a
 file it includes (@alias.name). Every byte outside
 the change stays as it was, comments and layout included. A change is made
 only when Forge reads the model back valid, with that change and nothing else;
@@ -151,7 +152,7 @@ A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
 made in this order: --changes, --set, --formula, --add, --delete, --rename,
 --uncertain, --certain, --add-strategy, --delete-strategy, --add-player,
---delete-player, --insert.
+--delete-player, --set-habit, --insert.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -168,6 +169,7 @@ EXAMPLES:
   forge edit inspection.yaml --add-strategy inspection.strategies.human.ignore
   forge edit price_war.yaml --add-player rivalry.players.copycat=tit_for_tat
   forge edit public-goods.yaml --delete-player pg.players.a5
+  forge edit price_war.yaml --set-habit rivalry.players.copycat=random
   forge edit bagel.yaml --insert game_of_two=duel          # forge templates lists them
   forge edit model.yaml --changes '[{\"op\": \"add\", \"path\": \"year.fee\", \"value\": 25, \"unit\": \"CAD\"}]'"
 )]
@@ -229,6 +231,11 @@ pub struct EditArgs {
     /// Delete a game's player, the payoffs of its first strategy kept
     #[arg(long = "delete-player", value_name = "PATH")]
     pub delete_player: Vec<String>,
+
+    /// Change the habit a tournament's player plays, PATH=HABIT
+    /// (`rivalry.players.copycat=tit_for_tat`)
+    #[arg(long = "set-habit", value_name = "PATH=HABIT")]
+    pub set_habit: Vec<String>,
 
     /// Add a game from a template (forge templates): TEMPLATE, or
     /// TEMPLATE=NAME for the game's name (`game_of_two=duel`)
@@ -344,7 +351,7 @@ impl EditArgs {
         if changes.is_empty() {
             return Err(ForgeError::Validation(
                 "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain, \
-                 --add-strategy, --delete-strategy, --add-player, --delete-player, --insert or --changes"
+                 --add-strategy, --delete-strategy, --add-player, --delete-player, --set-habit, --insert or --changes"
                     .into(),
             ));
         }
@@ -377,6 +384,17 @@ impl EditArgs {
                 .iter()
                 .map(|path| change(Op::DeletePlayer, path.clone())),
         );
+        for arg in &self.set_habit {
+            let (path, plays) = arg
+                .split_once('=')
+                .map_or((arg.as_str(), None), |(path, habit)| {
+                    (path, Some(habit.to_string()))
+                });
+            changes.push(Change {
+                plays,
+                ..change(Op::SetHabit, path.to_string())
+            });
+        }
         for arg in &self.insert {
             let (template, name) = arg
                 .split_once('=')
@@ -674,11 +692,18 @@ games:
             "duel.players.c=random",
             "--add-player",
             "pair.players.z",
+            "--set-habit",
+            "duel.players.b=grim_trigger",
             "--delete-player",
             "duel.players.a",
         ]);
         let both = ran.both();
         assert_eq!(ran.code, 0, "{both}");
+        assert!(
+            ran.out.contains("   set_habit duel.players.b\n"),
+            "{}",
+            ran.out
+        );
         assert!(
             ran.out.contains("   add_player duel.players.c\n"),
             "{}",
@@ -686,7 +711,7 @@ games:
         );
         let made = read(&dir, "game.yaml");
         assert!(
-            made.contains("players: {b: always_defect, c: random}"),
+            made.contains("players: {b: grim_trigger, c: random}"),
             "{made}"
         );
         assert!(
@@ -704,6 +729,8 @@ games:
             "pair.strategies.wait",
             "--delete-player",
             "pair.players.z",
+            "--set-habit",
+            "duel.players.b=always_defect",
         ]);
         let both = ran.both();
         assert_eq!(ran.code, 0, "{both}");
@@ -742,7 +769,7 @@ games:
         refused(
             &[],
             "name a change: --set, --formula, --add, --delete, --rename, --uncertain, --certain, \
-             --add-strategy, --delete-strategy, --add-player, --delete-player, --insert or --changes",
+             --add-strategy, --delete-strategy, --add-player, --delete-player, --set-habit, --insert or --changes",
         );
         refused(
             &["--uncertain", "=x"],

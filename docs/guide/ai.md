@@ -20,9 +20,12 @@ Whatever you ask, ask it to end with the YAML, every file in full with its name.
 
 | Client | How to add it |
 | --- | --- |
-| Claude Desktop | Settings, Developer, Edit Config, or edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows), and add the entry below |
+| Claude Desktop | The Claude menu in the menu bar, Settings, Developer, Edit Config, which opens `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS), `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/.config/Claude/claude_desktop_config.json` (Linux); add the entry below, then quit Claude Desktop completely and start it again |
 | Claude Code | `claude mcp add --transport stdio forge -- forge mcp` (for you, in this folder). The `--` is needed: it ends Claude's own options. `--scope project` writes `.mcp.json` in the project folder instead, to share with a team: the entry below, under `mcpServers`, and each person approves it the first time |
 | Gemini CLI | `~/.gemini/settings.json`, or `.gemini/settings.json` in a project, or `gemini mcp add`; the entry below, under `mcpServers`. Name the server without an underscore (`forge`) |
+| Cursor | `~/.cursor/mcp.json` for every project, or `.cursor/mcp.json` in a project; the entry below, under `mcpServers`, with `"type": "stdio"` added, which Cursor's field table marks as required |
+| VS Code (GitHub Copilot) | `~/.copilot/mcp-config.json` (or `$COPILOT_HOME/mcp-config.json`) for you, or `.mcp.json` at the workspace root to share; the entry below, under `mcpServers`, with `"type": "stdio"` added. Or Chat: Open Customizations, MCP Servers, Add Server, Command (stdio). `.vscode/mcp.json`, whose key is `servers`, is the older format, for the Local harness that VS Code is retiring |
+| Codex | `codex mcp add forge -- forge mcp --root /Users/you/models`, or in `~/.codex/config.toml` (or `.codex/config.toml` in a trusted project) a table `[mcp_servers.forge]` with `command = "forge"` and `args = ["mcp", "--root", "/Users/you/models"]` |
 | Any other client | The command is `forge` and its argument is `mcp`; it speaks JSON-RPC over standard input and output |
 
 The entry, where a client takes a JSON file:
@@ -40,7 +43,7 @@ The entry, where a client takes a JSON file:
 
 `--root` limits every file the AI can read or write to one folder: use it. A desktop app may start the server in `/` or your home folder, and a document the AI reads can tell it to do things; without `--root` it could read any model or workbook you can and write a file anywhere you can. [Keeping files inside one folder](../MCP.md#keeping-files-inside-one-folder) says what it covers and what it does not.
 
-These are the clients whose own documentation was read for this page, Claude Code's on 2026-11-23 and Gemini CLI's from its repository. Cursor, VS Code, Codex and others read the same command and arguments from their own settings; look up where in their documentation, as the places move.
+Each row comes from the client's own documentation, read on 2026-11-24 unless the date is given: Claude Desktop's from [Connect to local MCP servers](https://modelcontextprotocol.io/docs/develop/connect-local-servers), Claude Code's on 2026-11-23, Gemini CLI's from its repository, Cursor's from [Model Context Protocol](https://cursor.com/docs/context/mcp), VS Code's from [Add and use MCP servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers) (updated 2026-11-18) and its [MCP configuration reference](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration), and Codex's from [Model Context Protocol](https://learn.chatgpt.com/docs/extend/mcp?surface=cli). These places move; if a file is not where a row says, the client's page says where it went.
 
 ### What the AI does with it
 
@@ -50,7 +53,7 @@ An AI client with no access to your files, in a browser, cannot pass a `file_pat
 
 ## Rules for an agent in your model repository
 
-An AI that works in a repository of models, a coding agent or a chat with the files attached, does better with the rules written down once than with each of them told in each conversation. Most agents read a file named `AGENTS.md` in the repository's top folder, and Claude Code reads `CLAUDE.md`; either can hold this, and a `CLAUDE.md` can import `AGENTS.md` with the line `@AGENTS.md`. Copy this into it, and change the first line to name your models:
+An AI that works in a repository of models, a coding agent or a chat with the files attached, does better with the rules written down once than with each of them told in each conversation. Most agents read a file named `AGENTS.md` in the repository's top folder, and Claude Code reads `CLAUDE.md`; either can hold this, and a `CLAUDE.md` can import `AGENTS.md` with the line `@AGENTS.md`. `AGENTS.md` is plain Markdown with no required fields, and a subfolder can have one of its own: the one nearest the file being edited wins, and what you say in the chat wins over both ([agents.md](https://agents.md/), read on 2026-11-24). Copy this into it, and change the first line to name your models:
 
 ```markdown
 # Working on the financial models in this repository

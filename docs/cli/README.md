@@ -159,7 +159,8 @@ scenarios, expectations, a simulation's outputs, a tornado's inputs, a game's
 results, in every file of the model), or make
 an input uncertain (a distribution, its value kept as the plan) and certain
 again, or add or delete a game's strategy or player (a new cell is 0; a new
-player comes last, with the last player's strategies), in the model or in a
+player comes last, with the last player's strategies), or change the habit a
+tournament's player plays, in the model or in a
 file it includes (@alias.name). Every byte outside
 the change stays as it was, comments and layout included. A change is made
 only when Forge reads the model back valid, with that change and nothing else;
@@ -171,7 +172,7 @@ A name is written as formulas read it: price, year.price, a table's column
 months.sales, or @costs.rent in the file included as costs. The changes are
 made in this order: --changes, --set, --formula, --add, --delete, --rename,
 --uncertain, --certain, --add-strategy, --delete-strategy, --add-player,
---delete-player, --insert.
+--delete-player, --set-habit, --insert.
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
@@ -188,6 +189,7 @@ EXAMPLES:
   forge edit inspection.yaml --add-strategy inspection.strategies.human.ignore
   forge edit price_war.yaml --add-player rivalry.players.copycat=tit_for_tat
   forge edit public-goods.yaml --delete-player pg.players.a5
+  forge edit price_war.yaml --set-habit rivalry.players.copycat=random
   forge edit bagel.yaml --insert game_of_two=duel          # forge templates lists them
   forge edit model.yaml --changes '[{"op": "add", "path": "year.fee", "value": 25, "unit": "CAD"}]'
 
@@ -233,6 +235,9 @@ Options:
 
       --delete-player <PATH>
           Delete a game's player, the payoffs of its first strategy kept
+
+      --set-habit <PATH=HABIT>
+          Change the habit a tournament's player plays, PATH=HABIT (`rivalry.players.copycat=tit_for_tat`)
 
       --insert <TEMPLATE>
           Add a game from a template (forge templates): TEMPLATE, or TEMPLATE=NAME for the game's name (`game_of_two=duel`)

@@ -210,8 +210,17 @@ table.report td.neg { color: var(--ember) }
 .game-add .slide-row .sel, .game-add .slide-row .txt { flex: 1 1 120px; width: auto; min-width: 0 }
 .game-add .msg { margin-top: 8px }
 .game-edit { margin-top: 12px }
+.moves { margin-top: 12px }
+.moves summary, .inc-fold summary { cursor: pointer; color: var(--muted); font-size: 13px }
+.moves .stack { margin-top: 8px }
+.inc-fold { margin-top: 16px }
+.inc-fold > summary { padding: 8px 0 }
 .edit-btn.cell-edit { display: none; margin-top: 4px; max-width: 100%; overflow-wrap: anywhere; text-align: left }
 .game:has(.game-edit[open]) .edit-btn.cell-edit { display: inline-flex }
+.habit-edit { display: none; margin-top: 4px; width: auto; max-width: 100% }
+.game:has(.game-edit[open]) .habit-edit { display: block }
+.count-edit { display: none; margin-top: 8px }
+.game:has(.game-edit[open]) .count-edit { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline }
 .settings { display: none; margin-top: 8px }
 .game:has(.game-edit[open]) .settings { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
 .settings .sub { margin: 0; flex: 1 0 100% }

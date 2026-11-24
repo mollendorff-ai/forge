@@ -5,6 +5,7 @@
 
 import { esc } from "./text.js";
 import { fmt } from "./format.js";
+import { HABITS } from "./gameedit.js";
 
 const pct = (p) => fmt(p, "", "%");
 // The pure strategy a player plays in an equilibrium, or null in a mixed one
@@ -53,6 +54,10 @@ const settingsEdit = (r) => (r.settings && r.settings.length
   }).join("") + `</div>`
   : "");
 
+// A tournament's player's habit, to change with Forge's `edit` while the card
+// is open for changes (CSS)
+const habitEdit = (game, s) => `<select class="sel habit-edit" data-habitpath="${esc(`${game}.players.${s.player}`)}" data-was="${esc(s.plays)}" aria-label="What ${esc(s.player)} plays">${HABITS.map((h) => `<option value="${esc(h)}"${h === s.plays ? " selected" : ""}>${esc(h.replace(/_/g, " "))}</option>`).join("")}</select>`;
+
 export function tableCard(r) {
   const key = (list) => list.join("\u0001");
   const pure = new Set(r.equilibria.filter((e) => e.kind === "pure").map((e) => key(r.players.map((p) => pureOf(e.players[p])))));
@@ -85,6 +90,13 @@ export function tableCard(r) {
 
 // One player's payoff by its own strategy (rows) and by how the others split
 // (columns); a cell is marked when a player in it plays a pure equilibrium
+// A game of players alike writes one payoff for each strategy, over all its
+// columns: its own button for each, while the card is open for changes (CSS)
+const countEdit = (r, strategies, splits, pay) => `<div class="count-edit">` + strategies.map((s) => {
+  const w = r.cells.find((c) => c.strategies[0] === s)?.written?.[0];
+  return w ? `<span class="count-pay"><b>${esc(s)}</b> ${cellEdit(w, pay.get(`${s}|${splits[0].join(",")}`))}</span>` : "";
+}).join("") + `</div>`;
+
 function countTable(r, { strategies, splits, pay, counts }) {
   const others = r.players.length - 1;
   const marked = new Set();
@@ -99,7 +111,7 @@ function countTable(r, { strategies, splits, pay, counts }) {
       const k = `${s}|${x.join(",")}`, eq = marked.has(k);
       return `<td class="${eq ? "eq" : ""}" data-count="${esc(k)}" data-pay="${pay.get(k)}"${eq ? ' data-eq="1"' : ""}><span class="pay">${esc(fmt(pay.get(k)))}</span>${eq ? '<span class="eq-mark">equilibrium</span>' : ""}</td>`;
     }).join("")}</tr>`).join("") +
-    `</tbody></table></div><p class="note">What one player gets, by its own strategy (row) and ${two ? `by how many of the other ${others} play ${esc(strategies[0])} (column)` : `by how the other ${others} split (column)`}. Every player gets the same in its place; the ${r.cells.length} profiles are these ${strategies.length * splits.length} numbers.</p>`;
+    `</tbody></table></div>${countEdit(r, strategies, splits, pay)}<p class="note">What one player gets, by its own strategy (row) and ${two ? `by how many of the other ${others} play ${esc(strategies[0])} (column)` : `by how the other ${others} split (column)`}. Every player gets the same in its place; the ${r.cells.length} profiles are these ${strategies.length * splits.length} numbers.</p>`;
 }
 
 // The equilibria of a game of players alike: the pure ones by how many play
@@ -199,7 +211,7 @@ export function tournamentCard(r) {
   const length = r.rounds != null ? `${r.rounds} rounds a match` : `goes on after each round with chance ${fmt(r.continuation)}`;
   let h = `<div class="game-head"><b>${esc(r.game)}</b><span class="note">${esc(r.round)} played again and again: ${esc(length)}${r.noise ? `, a move flipped with chance ${esc(fmt(r.noise))}` : ""}${r.self_play ? ", each also against itself" : ""}</span><span data-help-slot="tournament"></span></div>`;
   h += `<div class="scroll-x"><table class="report ranking"><thead><tr><th scope="col">player</th><th scope="col">rank</th><th scope="col">a round</th><th scope="col">cooperates</th></tr></thead><tbody>` +
-    r.ranking.map((s) => `<tr data-standing="${esc(s.player)}" data-score="${s.score}"><th scope="row">${esc(s.player)}<span class="plays">${esc(s.plays.replace(/_/g, " "))}</span></th><td>${s.rank}</td><td>${esc(fmt(s.score))}</td><td>${esc(pct(s.cooperation))}</td></tr>`).join("") +
+    r.ranking.map((s) => `<tr data-standing="${esc(s.player)}" data-score="${s.score}"><th scope="row">${esc(s.player)}<span class="plays">${esc(s.plays.replace(/_/g, " "))}</span>${habitEdit(r.game, s)}</th><td>${s.rank}</td><td>${esc(fmt(s.score))}</td><td>${esc(pct(s.cooperation))}</td></tr>`).join("") +
     `</tbody></table></div>`;
   h += `<p class="note" data-stable>Collectively stable (nobody does better against it than it does against itself): ${r.stable.length ? esc(r.stable.join(", ")) : "none"}.</p>`;
   // In the ranking's order (the object's keys come back sorted)
