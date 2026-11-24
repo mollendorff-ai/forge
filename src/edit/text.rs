@@ -93,6 +93,50 @@ pub fn set_value(text: &str, names: &[&str], value: &str) -> Result<String, Stri
     Ok(file.to_string())
 }
 
+/// Set the values of a table's column, `values` the text of each row's, in
+/// order.
+///
+/// A row whose value reads the same (`3.00` for `3`) keeps its text; the
+/// others are written in the quotes the row already has. The list's style,
+/// flow or block, its comments and its layout stay.
+///
+/// # Errors
+///
+/// As [`set_value`], and when the column is not a list of plain values, one
+/// for each of `values`.
+pub fn set_column(text: &str, names: &[&str], values: &[String]) -> Result<String, String> {
+    let file = parse(text)?;
+    let (mapping, name) = place(&file, names)?;
+    let not_list = || format!("{name} is not written as a list of {} values", values.len());
+    let Some(YamlNode::Sequence(rows)) = mapping.get(name) else {
+        return Err(not_list());
+    };
+    let scalars: Vec<Scalar> = rows
+        .values()
+        .filter_map(|row| match row {
+            YamlNode::Scalar(scalar) => Some(scalar),
+            _ => None,
+        })
+        .collect();
+    if scalars.len() != values.len() || rows.len() != values.len() {
+        return Err(not_list());
+    }
+    for (scalar, value) in scalars.iter().zip(values) {
+        let was = scalar.as_string();
+        let same = was == *value
+            || matches!((was.parse::<f64>(), value.parse::<f64>()), (Ok(a), Ok(b)) if a.to_bits() == b.to_bits());
+        if !same {
+            let quote = scalar
+                .value()
+                .chars()
+                .next()
+                .filter(|c| *c == '"' || *c == '\'');
+            scalar.set_value(&quote.map_or_else(|| value.clone(), |q| format!("{q}{value}{q}")));
+        }
+    }
+    Ok(file.to_string())
+}
+
 /// Set a formula, in the quotes the file already uses for it.
 ///
 /// # Errors
@@ -546,6 +590,34 @@ months:
                 "{formula}"
             );
         }
+    }
+
+    #[test]
+    fn a_column_is_set_only_where_it_is_a_list_of_plain_values() {
+        let names = ["t", "x"];
+        let two = ["1".to_string(), "2".to_string()];
+        assert_eq!(
+            set_column("t:\n  x: [1, 3]\n", &names, &two),
+            Ok("t:\n  x: [1, 2]\n".to_string())
+        );
+        let refused = "x is not written as a list of 2 values";
+        for file in [
+            "t:\n  x: 5\n",
+            "t:\n  x: [1, [2]]\n",
+            "t:\n  x: [1, 2, 3]\n",
+            "t:\n  x: {a: 1}\n",
+        ] {
+            assert_eq!(
+                set_column(file, &names, &two),
+                Err(refused.to_string()),
+                "{file}"
+            );
+        }
+        assert!(set_column("t: [", &names, &two).is_err());
+        assert_eq!(
+            set_column("t: 5\n", &names, &two),
+            Err("t is not written as a group of names".to_string())
+        );
     }
 
     #[test]

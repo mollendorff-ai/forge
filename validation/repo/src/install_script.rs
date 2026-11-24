@@ -68,6 +68,29 @@ mod tests {
     }
 
     #[test]
+    fn the_skill_installs_what_the_readme_installs() {
+        let skill = read(crate::skill::SKILL);
+        let readme = read("README.md");
+        assert_eq!(
+            skill.matches(INSTALL_LINE).count(),
+            1,
+            "the skill gives the install line once"
+        );
+        assert!(skill.contains("this one is `mollendorff-ai/forge`"));
+        // Where the script puts the binary and the examples
+        let script = read("install.sh");
+        assert!(script.contains("install_dir=\"${FORGE_INSTALL_DIR:-$HOME/.local/bin}\""));
+        assert!(skill.contains("`~/.local/bin/forge`"));
+        assert!(script.contains("examples=\"forge-examples\""));
+        assert!(skill.contains("`./forge-examples/`"));
+        assert!(skill.contains("`forge-examples/bagel/bagel.yaml`"));
+        assert!(root().join("examples/bagel/bagel.yaml").exists());
+        // The fallback that builds it is the README's
+        let cargo = "cargo install mollendorff-forge --version '>=10.0.0-rc.1'";
+        assert!(skill.contains(cargo) && readme.contains(cargo), "{cargo}");
+    }
+
+    #[test]
     fn every_prompt_in_docs_installs_checks_and_ends_with_the_yaml() {
         let doc = read("docs/PROMPTS.md");
         let line = INSTALL_LINE;
