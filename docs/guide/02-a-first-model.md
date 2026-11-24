@@ -72,10 +72,10 @@ shop:
 
 ```text
 $ forge calculate bagel.yaml --dry-run
-Error: Formula evaluation error: shop.revenue_per_month: Unknown variable: dozen_per_day (formula: =price_per_dozen * dozen_per_day * open_days_per_month)
+Error: Formula evaluation error: shop.revenue_per_month: Unknown variable: dozen_per_day. Did you mean 'dozens_per_day'? (formula: =price_per_dozen * dozen_per_day * open_days_per_month)
 ```
 
-Nothing is calculated and nothing is written until the model reads. Put the formula back as it was before you go on.
+Forge names the close name it knows. A name that is close to none gets no suggestion, and then the typo is yours to find. Nothing is calculated and nothing is written until the model reads. Put the formula back as it was before you go on.
 
 ## A table of twelve months
 
