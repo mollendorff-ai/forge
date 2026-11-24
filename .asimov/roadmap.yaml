@@ -831,6 +831,8 @@ adoption:
     why: "studio/README.md is for people who build Studio; the in-app ? has fifteen entries and no walk through"
     acceptance: "Every screenshot made by studio/screenshots.mjs; every link to a heading that exists"
     model: "Sonnet 5.5, medium"
+    built: "2026-11-24: docs/guide/studio.md, a walk through the bagel shop view by view (Model, an input, a formula, Grid and YAML, Analyze, Tools, Files, the help), linked from the guide's README and lesson 1. Eight pictures made by studio/screenshots.mjs (docs/images/studio-guide-*.png, a phone-sized page, the price typed and put back); validation/repo's every_image_of_the_docs_is_made_by_the_screenshots_script fails on an image the script does not name; the guide's tests check every link and anchor, and run the page's forge tornado, edit and calculate. The page says where its pictures and numbers come from, as ADR-078 asks"
+    open: "A fresh reader's trial of the page (A10). The two screenshots of the main README (studio-phone.png, studio-desktop.png) were not taken again"
   - id: A9-ROLES
     title: "CONTRIBUTING.md, docs/MAINTAINING.md, docs/EMBEDDING.md and the library's docs.rs page"
     why: "CONTRIBUTING.md is 35 lines with no set-up (Rust version, the wasm target, Gnumeric, R, Node); nothing says how a release is made beyond release.yml; src/lib.rs still describes 'a YAML formula calculator with Excel-style arrays'"

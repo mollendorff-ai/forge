@@ -19,6 +19,7 @@ And for the other ways in:
 | --- | --- |
 | [Forge with an AI](ai.md) | A chat that runs commands, the MCP server in an AI client, and rules to put in `AGENTS.md` or `CLAUDE.md` for an agent that works on your models |
 | [Models checked on every pull request](pipeline.md) | A GitHub Actions workflow: `forge validate` as the gate, the exit codes, the results as JSON, and what a pull request shows; run green and red |
+| [Forge Studio: a walk through](studio.md) | The page in your browser, view by view, on the bagel shop: inputs, a formula, Grid and YAML, Analyze, Tools, Files and the help |
 
 ## Every page is checked
 

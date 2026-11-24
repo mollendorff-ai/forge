@@ -1065,4 +1065,27 @@ mod tests {
         assert!(repository_file("examples/starter.yaml").is_some_and(|s| s.contains("plan:")));
         assert_eq!(repository_file("examples/no-such-file.yaml"), None);
     }
+
+    /// "Every screenshot made by `studio/screenshots.mjs`" (roadmap
+    /// A8-STUDIO-GUIDE): an image in `docs/images` that the script does not
+    /// name cannot be made again after a release, so its pages go stale.
+    #[test]
+    fn every_image_of_the_docs_is_made_by_the_screenshots_script() {
+        let script = crate::read("studio/screenshots.mjs");
+        let mut images: Vec<String> = std::fs::read_dir(crate::root().join("docs/images"))
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        images.sort();
+        assert!(images.len() >= 10, "{images:?}");
+        let unmade: Vec<&String> = images
+            .iter()
+            .filter(|name| !script.contains(&format!("\"{name}\"")))
+            .collect();
+        assert!(
+            unmade.is_empty(),
+            "studio/screenshots.mjs does not make {unmade:?}"
+        );
+    }
 }

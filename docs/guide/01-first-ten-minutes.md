@@ -6,7 +6,7 @@ In this lesson you open a model of a bagel shop, calculate it, change its price 
 
 ## Without installing anything
 
-[Forge Studio](https://forge.mollendorff.ai/?example=bagel) is Forge in your browser tab, made for a phone as much as a laptop. That link opens the bagel shop: its inputs, its results, and the formula under each one. Drag the price and the year's profit moves. Nothing you type leaves the tab.
+[Forge Studio](https://forge.mollendorff.ai/?example=bagel) is Forge in your browser tab, made for a phone as much as a laptop. That link opens the bagel shop: its inputs, its results, and the formula under each one. Drag the price and the year's profit moves. Nothing you type leaves the tab. [Forge Studio: a walk through](studio.md) goes view by view.
 
 The rest of this guide uses the command line. To go on there, install Forge.
 
