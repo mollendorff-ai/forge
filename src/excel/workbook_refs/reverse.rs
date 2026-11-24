@@ -5,6 +5,8 @@ use super::{constants, local_names, Call, DIFFERENT_IN_EXCEL};
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
+mod column;
+
 /// What a sheet holds, read back from a workbook.
 #[derive(Debug, Clone)]
 pub enum SheetKind {
@@ -28,6 +30,10 @@ pub enum SheetKind {
         /// A total row under the table: its Excel row, and the group its
         /// cells are scalars of (`monthly_total.revenue`)
         total: Option<(u32, String)>,
+        /// Whether Excel's `COLUMN` of a cell of the sheet is the number
+        /// Forge gives its column: the table starts in column A, and every
+        /// column is a column of the model, in the order of the sheet
+        numbered: bool,
     },
     /// A scalar sheet (`Name` / `Value`): Excel row -> scalar path.
     ///
@@ -406,6 +412,13 @@ impl ReverseRefs {
                 continue;
             }
             track_call(&tokens, i, &mut calls)?;
+            // What `forge export` writes for Forge's COLUMN
+            if let Some((text, taken)) = self.column_back(current, &tokens[i..], sheet) {
+                out.push_str(&text);
+                skip = taken;
+                after_value = true;
+                continue;
+            }
             match token {
                 XlToken::Number(n) => out.push_str(n),
                 XlToken::Text(t) => {
@@ -600,6 +613,7 @@ impl ReverseRefs {
                 rows,
                 ends,
                 total,
+                ..
             } => {
                 // A cell of the total row is a scalar of its group
                 if let Some((_, group)) = total.as_ref().filter(|(r, _)| *r == first.row) {
@@ -734,6 +748,7 @@ mod tests {
                     rows: (2..2 + u32::try_from(refs.rows[table]).unwrap()).collect(),
                     ends: HashMap::new(),
                     total: None,
+                    numbered: true,
                 },
             );
         }
@@ -1021,6 +1036,7 @@ mod tests {
                 rows: vec![2, 3],
                 ends: HashMap::new(),
                 total,
+                numbered: true,
             };
         back.sheets
             .insert("inc.t".to_string(), table("t", Some("inc"), None));
@@ -1067,6 +1083,7 @@ mod tests {
             rows,
             ends,
             total: None,
+            numbered: true,
         };
         let refs = |kind: SheetKind| ReverseRefs {
             sheets: HashMap::from([

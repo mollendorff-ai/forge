@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc c593d6f8255648d7d9119192956ee3de1164ea3848c6bcdaf4a16c18932b7581 # shrinks to m = Model { x: -0.30000000000000004, y: 8183.78, a: [0.0, 0.0, 2405.35], b: [None, None, None], row_formula: "=IF(a > b, a, b)", formats: [None, Some("0.0%"), None, None] }
