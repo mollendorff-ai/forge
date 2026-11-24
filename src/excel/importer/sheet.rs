@@ -205,6 +205,18 @@ impl Sheet {
         let start = self.values.start().map_or(0, |(_, c)| c as usize);
         column_letter(start + col)
     }
+
+    /// Whether Excel numbers the table's columns as Forge does (`COLUMN`):
+    /// the table starts in column A and every column has a header and a
+    /// name of its own, so none is left out of the model or merged with
+    /// another.
+    pub(super) fn numbers_columns_as_excel(&self) -> bool {
+        let (_, width) = self.values.get_size();
+        let mut names = std::collections::HashSet::new();
+        self.letter(0) == "A"
+            && (0..width)
+                .all(|col| self.header(col).is_some() && names.insert(self.column_name(col)))
+    }
 }
 
 /// The cells, with a number that is not finite (NaN or an infinity) as Excel's
@@ -335,6 +347,25 @@ mod tests {
             }
         }
         Sheet::new("hand".to_string(), values, None, None)
+    }
+
+    /// Excel numbers a table's columns as Forge does only from column A,
+    /// every column with a header and a name of its own
+    #[test]
+    fn excel_numbers_the_columns_as_forge_does_from_a_with_every_header() {
+        let text = |t: &str| Data::String(t.to_string());
+        let one = Data::Float(1.0);
+        let headed = |a: Data, b: Data| by_hand(&[&[a, b], &[one.clone(), one.clone()]]);
+        assert!(headed(text("x"), Data::Float(2.0)).numbers_columns_as_excel());
+        // A column without a header is left out when it holds nothing
+        assert!(!headed(text("x"), Data::Empty).numbers_columns_as_excel());
+        // `a b` and `a_b` are both `a_b`
+        assert!(!headed(text("a b"), text("a_b")).numbers_columns_as_excel());
+        let mut book = Workbook::new();
+        let sheet = book.add_worksheet().set_name("t").unwrap();
+        sheet.write_string(0, 1, "x").unwrap();
+        sheet.write_number(1, 1, 1.0).unwrap();
+        assert!(!read(book)[0].numbers_columns_as_excel());
     }
 
     #[test]

@@ -185,6 +185,7 @@ mod tests {
                     rows: (2..=5).collect(),
                     ends: HashMap::new(),
                     total: None,
+                    numbered: false,
                 },
             )]),
             names: HashMap::new(),

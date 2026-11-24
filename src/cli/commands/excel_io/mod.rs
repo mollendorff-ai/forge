@@ -413,8 +413,9 @@ g:
 
     /// `forge import` took the formula of the first data row for the whole
     /// column, so a running balance (100, 150, 175) came back as `=amount`
-    /// (100, 50, 25), and Excel's `ROW()` and `COLUMN()` were read as
-    /// Forge's, which count differently.
+    /// (100, 50, 25), and Excel's `ROW()` was read as Forge's, which counts
+    /// differently. `COLUMN()` counts the same where the table starts in
+    /// column A.
     #[test]
     fn import_reads_every_row_of_a_formula_column() {
         use rust_xlsxwriter::{Formula, Workbook};
@@ -470,6 +471,7 @@ g:
         );
         assert!(text.contains("double: =amount * 2"), "{text}");
         assert!(text.contains("row: =(ROW() + 1) * amount"), "{text}");
+        assert!(text.contains("column: =COLUMN() + amount"), "{text}");
         let model = calculate(parser::parse_model(&back).unwrap()).unwrap();
         assert_eq!(column(&model, "ledger", "balance"), [100.0, 150.0, 175.0]);
         assert_eq!(column(&model, "ledger", "double"), [200.0, 100.0, 50.0]);
@@ -477,6 +479,61 @@ g:
         assert_eq!(column(&model, "ledger", "odd"), [100.0, 100.0, 75.0]);
         assert_eq!(column(&model, "ledger", "row"), [200.0, 150.0, 100.0]);
         assert_eq!(column(&model, "ledger", "column"), [106.0, 56.0, 31.0]);
+    }
+
+    /// `COLUMN` as `forge export` writes it comes back as Forge's, and
+    /// calculates the same; on a sheet whose table starts in column B,
+    /// Excel's `COLUMN()` counts from A, so its values are kept instead.
+    #[test]
+    fn column_comes_back_where_excel_counts_as_forge_does() {
+        use rust_xlsxwriter::{Formula, Workbook};
+        let dir = tempfile::TempDir::new().unwrap();
+        let model = dir.path().join("cols.yaml");
+        fs::write(
+            &model,
+            "_forge_version: \"5.1.0\"\nt:\n  x: [1, 2, 3]\n  n: \"=COLUMN() * 10 + x\"\n  z: \"=COLUMN(u.q)\"\nu:\n  p: [1, 2]\n  q: [3, 4]\ns:\n  c:\n    formula: \"=COLUMN(t.z)\"\n",
+        )
+        .unwrap();
+        let original = calculate(parser::parse_model(&model).unwrap()).unwrap();
+        assert_eq!(column(&original, "t", "n"), [21.0, 22.0, 23.0]);
+        let xlsx = dir.path().join("cols.xlsx");
+        let warnings = ExcelExporter::new(original)
+            .export_with_warnings(&xlsx)
+            .unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let back = dir.path().join("back.yaml");
+        import_core(&xlsx, &back, false, false).unwrap();
+        let text = fs::read_to_string(&back).unwrap();
+        for formula in ["n: =COLUMN() * 10 + x", "z: =COLUMN(u.q)", "=COLUMN(t.z)"] {
+            assert!(text.contains(formula), "{formula}: {text}");
+        }
+        let again = calculate(parser::parse_model(&back).unwrap()).unwrap();
+        assert_eq!(column(&again, "t", "n"), [21.0, 22.0, 23.0]);
+        assert_eq!(column(&again, "t", "z"), [2.0, 2.0, 2.0]);
+        assert_eq!(again.scalars["s.c"].value, Some(3.0));
+
+        let mut workbook = Workbook::new();
+        let sheet = workbook.add_worksheet().set_name("moved").unwrap();
+        sheet.write_string(0, 1, "a").unwrap();
+        sheet.write_string(0, 2, "b").unwrap();
+        for row in 1..=2_u32 {
+            sheet.write_number(row, 1, f64::from(row)).unwrap();
+            let formula =
+                Formula::new(format!("=COLUMN()+B{}", row + 1)).set_result((3 + row).to_string());
+            sheet.write_formula(row, 2, formula).unwrap();
+        }
+        let bytes = workbook.save_to_buffer().unwrap();
+        let (imported, warnings) = crate::excel::ExcelImporter::from_bytes(bytes)
+            .import_with_warnings()
+            .unwrap();
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.contains("moved.b") && w.contains("COLUMN works differently")),
+            "{warnings:?}"
+        );
+        assert!(imported.tables["moved"].row_formulas.is_empty());
+        assert_eq!(column(&imported, "moved", "b"), [4.0, 5.0]);
     }
 
     /// T2-INCLUDE-COLUMNS: a table of an included file is a sheet with its
