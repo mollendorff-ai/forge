@@ -90,6 +90,13 @@ export function tableCard(r) {
 
 // One player's payoff by its own strategy (rows) and by how the others split
 // (columns); a cell is marked when a player in it plays a pure equilibrium
+// A game of players alike writes one payoff for each strategy, over all its
+// columns: its own button for each, while the card is open for changes (CSS)
+const countEdit = (r, strategies, splits, pay) => `<div class="count-edit">` + strategies.map((s) => {
+  const w = r.cells.find((c) => c.strategies[0] === s)?.written?.[0];
+  return w ? `<span class="count-pay"><b>${esc(s)}</b> ${cellEdit(w, pay.get(`${s}|${splits[0].join(",")}`))}</span>` : "";
+}).join("") + `</div>`;
+
 function countTable(r, { strategies, splits, pay, counts }) {
   const others = r.players.length - 1;
   const marked = new Set();
@@ -104,7 +111,7 @@ function countTable(r, { strategies, splits, pay, counts }) {
       const k = `${s}|${x.join(",")}`, eq = marked.has(k);
       return `<td class="${eq ? "eq" : ""}" data-count="${esc(k)}" data-pay="${pay.get(k)}"${eq ? ' data-eq="1"' : ""}><span class="pay">${esc(fmt(pay.get(k)))}</span>${eq ? '<span class="eq-mark">equilibrium</span>' : ""}</td>`;
     }).join("")}</tr>`).join("") +
-    `</tbody></table></div><p class="note">What one player gets, by its own strategy (row) and ${two ? `by how many of the other ${others} play ${esc(strategies[0])} (column)` : `by how the other ${others} split (column)`}. Every player gets the same in its place; the ${r.cells.length} profiles are these ${strategies.length * splits.length} numbers.</p>`;
+    `</tbody></table></div>${countEdit(r, strategies, splits, pay)}<p class="note">What one player gets, by its own strategy (row) and ${two ? `by how many of the other ${others} play ${esc(strategies[0])} (column)` : `by how the other ${others} split (column)`}. Every player gets the same in its place; the ${r.cells.length} profiles are these ${strategies.length * splits.length} numbers.</p>`;
 }
 
 // The equilibria of a game of players alike: the pure ones by how many play

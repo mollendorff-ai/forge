@@ -214,6 +214,8 @@ table.report td.neg { color: var(--ember) }
 .game:has(.game-edit[open]) .edit-btn.cell-edit { display: inline-flex }
 .habit-edit { display: none; margin-top: 4px; width: auto; max-width: 100% }
 .game:has(.game-edit[open]) .habit-edit { display: block }
+.count-edit { display: none; margin-top: 8px }
+.game:has(.game-edit[open]) .count-edit { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline }
 .settings { display: none; margin-top: 8px }
 .game:has(.game-edit[open]) .settings { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
 .settings .sub { margin: 0; flex: 1 0 100% }

@@ -251,10 +251,47 @@ if (!noHabit.why) fail("Forge accepts a habit that does not take the player's ch
 else if ((await page.textContent('[data-game="axelrod"] [data-gmsg]')) !== noHabit.why) fail("the card does not say what Forge says of a habit that does not take the player's chance");
 if ((await page.inputValue(habitOf("axelrod", "rand"))) !== "random") fail("a refused habit stays chosen in the select");
 
+// A game of players alike writes one payoff for each strategy: one button each,
+// and a change moves every column of its row, as Forge's cells do
+await visit("games", "public-goods.yaml", "pg");
+const countOf = (key) => `[data-game="pg"] [data-count="${key}"]`;
+const countPay = async (changes, strategy, others) => {
+  const g = (await forge(changes)).games.find((x) => x.game === "pg");
+  return g.cells.find((c) => c.strategies[0] === strategy && c.strategies.slice(1).every((x) => x === others)).payoffs[0];
+};
+const pgButton = (strategy) => `[data-game="pg"] [data-cellpath="pg.payoffs.${strategy}"]`;
+if (await page.isVisible(pgButton("keep"))) fail("a count form's payoff button is shown although the card is not open for changes");
+await open("pg");
+if (!(await page.isVisible(pgButton("keep")))) fail("the count form's payoff has no button on a card open for changes");
+const pgChanges = [{ op: "set_formula", path: "pg.payoffs.keep", formula: "=endowment + 1" }];
+await page.click(pgButton("keep"));
+await page.fill('[data-cellform="pg.payoffs.keep"] input', "=endowment + 1");
+await page.click('[data-cellform="pg.payoffs.keep"] [data-cellsave]');
+await page.waitForFunction(() => document.querySelector('[data-game="pg"] [data-count="keep|4,0"]')?.dataset.pay === "11", null, { timeout: 60000 });
+await settled();
+if (Number(await page.getAttribute(countOf("keep|4,0"), "data-pay")) !== (await countPay(pgChanges, "keep", "contribute"))) fail("the count form's keep row is not Forge's after its formula was changed");
+if (Number(await page.getAttribute(countOf("keep|0,4"), "data-pay")) !== (await countPay(pgChanges, "keep", "keep"))) fail("the count form's keep row is not the same number in each column");
+pgChanges.push({ op: "set_value", path: "pg.payoffs.contribute", value: 3 });
+await open("pg");
+await page.click(pgButton("contribute"));
+await page.fill('[data-cellform="pg.payoffs.contribute"] input', "3");
+await page.click('[data-cellform="pg.payoffs.contribute"] [data-cellsave]');
+await page.waitForFunction(() => document.querySelector('[data-game="pg"] [data-count="contribute|4,0"]')?.dataset.pay === "3", null, { timeout: 60000 });
+await settled();
+if (Number(await page.getAttribute(countOf("contribute|0,4"), "data-pay")) !== (await countPay(pgChanges, "contribute", "keep"))) fail("the count form's contribute row is not Forge's after a number was set");
+await open("pg");
+await page.click(pgButton("keep"));
+await page.fill('[data-cellform="pg.payoffs.keep"] input', "=nothing_here");
+await page.click('[data-cellform="pg.payoffs.keep"] [data-cellsave]');
+await page.waitForSelector('[data-cellform="pg.payoffs.keep"] [data-cellmsg]:not([hidden])', { timeout: 60000 });
+const noPay = await forge([...pgChanges, { op: "set_formula", path: "pg.payoffs.keep", formula: "=nothing_here" }]);
+if (!noPay.why) fail("Forge accepts a count form's payoff that reads a name the model does not have");
+else if ((await page.textContent('[data-cellform="pg.payoffs.keep"] [data-cellmsg]')) !== noPay.why) fail("the card does not say what Forge says of the count form's payoff");
+
 await browser.close();
 if (!remote) server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff, a player's habit, a game's dynamics and a tournament's length and noise changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");
+console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff, a player's habit, a count form's payoffs, a game's dynamics and a tournament's length and noise changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");
