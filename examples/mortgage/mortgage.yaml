@@ -13,43 +13,58 @@ terms:
   # The monthly rate that compounds to the semi-annual rate
   monthly_rate:
     formula: "=(1 + loan.annual_rate / 2) ^ (1 / 6) - 1"
+    value: 0.00395240645504469
   months:
     formula: "=loan.amortization_years * 12"
+    value: 300
   payment:
     formula: "=-PMT(monthly_rate, months, loan.principal)"
+    value: 2563.68762956532
     unit: CAD
 
 as_agreed:
   total_paid:
     formula: "=terms.payment * terms.months"
+    value: 769106.288869595
   total_interest:
     formula: "=total_paid - loan.principal"
+    value: 319106.288869595
 
 with_extra:
   payment:
     formula: "=terms.payment + loan.extra_per_month"
+    value: 2863.68762956532
   # Fractional: the last payment is smaller
   months_exact:
     formula: "=NPER(terms.monthly_rate, -payment, loan.principal)"
+    value: 246.014724644156
   full_months:
     formula: "=INT(months_exact)"
+    value: 246
   # Balance left after the full payments, paid with interest a month later
   balance_after_full:
     formula: "=loan.principal * (1 + terms.monthly_rate) ^ full_months - payment * ((1 + terms.monthly_rate) ^ full_months - 1) / terms.monthly_rate"
+    value: 42.0824479609728
   last_payment:
     formula: "=balance_after_full * (1 + terms.monthly_rate)"
+    value: 42.2487748999378
   total_paid:
     formula: "=payment * full_months + last_payment"
+    value: 704509.405647968
   total_interest:
     formula: "=total_paid - loan.principal"
+    value: 254509.405647968
 
 saved:
   interest:
     formula: "=as_agreed.total_interest - with_extra.total_interest"
+    value: 64596.8832216271
   months:
     formula: "=terms.months - ROUNDUP(with_extra.months_exact, 0)"
+    value: 53
   years:
     formula: "=months / 12"
+    value: 4.41666666666667
 
 # The loan month by month with the extra payment: each month opens with
 # what the month before closed with. The last payment is what is left, and
@@ -67,24 +82,33 @@ schedule:
 year_one:
   interest:
     formula: "=SUMIFS(schedule.interest, schedule.number, \"<=12\")"
+    value: 21056.1731223496
   principal_paid:
     formula: "=SUMIFS(schedule.principal_paid, schedule.number, \"<=12\")"
+    value: 13308.0784324342
 
 paid_off:
   payments:
     formula: "=COUNTIF(schedule.payment, \">0\")"
+    value: 247
   last_payment:
     formula: "=INDEX(schedule.payment, payments)"
+    value: 42.2487749021918
   year:
     formula: "=YEAR(INDEX(schedule.month, payments))"
+    value: 2047
   month_of_year:
     formula: "=MONTH(INDEX(schedule.month, payments))"
+    value: 6
 
 # The schedule against the closed forms
 check:
   interest:
     formula: "=ROUND(SUM(schedule.interest) - with_extra.total_interest, 6)"
+    value: 0
   last_payment:
     formula: "=ROUND(paid_off.last_payment - with_extra.last_payment, 6)"
+    value: 0
   payments:
     formula: "=paid_off.payments - ROUNDUP(with_extra.months_exact, 0)"
+    value: 0

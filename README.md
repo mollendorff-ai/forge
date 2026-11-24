@@ -199,7 +199,7 @@ A spreadsheet calculates cells. The questions above need more than that, and For
 | Where did the budget go? | `forge variance`, `forge report` |
 | What price breaks even? Hits a target? | `forge break-even`, `forge goal-seek` |
 | Can my colleague open it in Excel? | `forge export` writes a workbook with live formulas; `forge import` reads one back |
-| Does the model still give the figures it states? | `forge validate`: each stored result against its formula, and the `expect:` of the file and of each scenario |
+| Does the model still give the figures it states? | `forge validate`: each formula with its result stored and up to date, and the `expect:` of the file and of each scenario |
 | Can an agent change the model without breaking it? | `forge edit`: set a value or a formula, add or delete, rename a name and every name that reads it, make an input uncertain or certain again; a change is kept only when the model reads back valid, comments and layout untouched |
 
 How each one is set up in YAML, with examples: [docs/FEATURES.md](docs/FEATURES.md). Every command is listed there too, and `forge examples` prints a runnable model for most of them.

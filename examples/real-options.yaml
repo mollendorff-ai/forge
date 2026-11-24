@@ -78,6 +78,7 @@ traditional_analysis:
 
   traditional_npv:
     formula: "=present_value - investment_cost"
+    value: 2000000
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Expected Output:

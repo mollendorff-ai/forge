@@ -711,6 +711,9 @@ mod tests {
             let checked = run("validate", &request(serde_json::json!({}))).unwrap();
             assert_eq!(checked["expectations_met"], false);
             assert_eq!(checked["expectation_differences"][0]["got"], 0.8);
+            // The engine's verdict, as the command line exits by it
+            assert_eq!(checked["uncalculated"], serde_json::json!(["out.twice"]));
+            assert_eq!(checked["passed"], false);
             let gate = run(
                 "validate",
                 &request(serde_json::json!({ "expectations": false })),
@@ -979,6 +982,23 @@ mod tests {
         fn a_workbook_comes_back_through_import() {
             let exported = case("export bagel");
             assert!(exported["byte_count"].as_u64().unwrap() > 1000);
+            // What stays in the YAML file is said, as forge export says it
+            let said: Vec<&str> = exported["warnings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|w| w.as_str().unwrap())
+                .collect();
+            assert!(
+                said.iter()
+                    .any(|w| w.starts_with("better: (on 1 line(s)) not exported")),
+                "{said:?}"
+            );
+            assert!(
+                said.iter()
+                    .any(|w| w.starts_with("comments (") && w.contains("not exported")),
+                "{said:?}"
+            );
             let imported = run(
                 "import",
                 &serde_json::json!({"excel_base64": exported["excel_base64"], "name": "bagel.yaml"}),

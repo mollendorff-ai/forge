@@ -257,6 +257,7 @@ mod tests {
         assert!(!s.call("forge_edit", &edit).failed);
         let stale = s.call("forge_validate", &file).json();
         assert_eq!(stale["scalars_valid"], false);
+        assert_eq!(stale["passed"], false);
         assert_eq!(stale["mismatches"][0]["name"], "plan.revenue");
         assert_eq!(stale["mismatches"][0]["expected_value"], json!(5400.0));
         assert!(read(dir, "examples/starter.yaml").contains("value: 4800"));
@@ -273,7 +274,8 @@ mod tests {
         let passed = s.call("forge_validate", &file).json();
         assert_eq!(passed["scalars_valid"], true);
         assert_eq!(passed["mismatches"], json!([]));
-        assert_eq!(passed["unstored"], 0);
+        assert_eq!(passed["uncalculated"], json!([]));
+        assert_eq!(passed["passed"], true);
         assert!(read(dir, "examples/starter.yaml").contains("value: 5400"));
     }
 

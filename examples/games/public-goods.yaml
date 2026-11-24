@@ -37,12 +37,15 @@ games:
 dilemma:
   all_keep:
     formula: "=pg.equilibrium_1.a1.payoff"
+    value: 10
     notes: What each gets in the equilibrium (10 while r is under 5)
   all_contribute:
     formula: "=r * endowment"
+    value: 16
     notes: What each would get if all five contributed (16 at r = 1.6)
   cost_of_keeping:
     formula: "=pg.even_mix.a1.contribute - pg.even_mix.a1.keep"
+    value: -6.8
     notes: What contributing gains a player against an even mix, 10 (r / 5 - 1), -6.8 at r = 1.6
 
 scenarios:

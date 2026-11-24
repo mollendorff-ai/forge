@@ -10,5 +10,6 @@ labour:
   payroll_load: 0.15
   loaded_wage:
     formula: "=wage_per_hour * (1 + payroll_load)"
+    value: 21.275
 fixed:
   maple_wood_per_month: 950

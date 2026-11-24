@@ -9,6 +9,7 @@ terms:
   # The fund runs ten years from its first close
   term_end:
     formula: "=DATE(YEAR(first_close) + 10, MONTH(first_close), DAY(first_close))"
+    value: 2030-03-02
     format: "d mmm yyyy"
   # The managers' share of the profit, once the investors have their money back
   carry_rate: {value: 0.20, format: "0%"}
@@ -71,23 +72,24 @@ ledger:
     format: "$#,##0"
 
 fund:
-  paid_in: {formula: "=SUM(deals.cost) + terms.committed * SUM(fees.rate)", format: "$#,##0"}
-  gross_proceeds: {formula: "=SUM(deals.proceeds)", format: "$#,##0"}
+  paid_in: {formula: "=SUM(deals.cost) + terms.committed * SUM(fees.rate)", format: "$#,##0", value: 36600000}
+  gross_proceeds: {formula: "=SUM(deals.proceeds)", format: "$#,##0", value: 68850000}
   # 20% of what the investors get back beyond what they paid in, fees included
-  carry: {formula: "=terms.carry_rate * MAX(0, gross_proceeds - paid_in)", format: "$#,##0"}
-  last_exit: {formula: "=MAX(deals.exit_date)", format: "d mmm yyyy"}
+  carry: {formula: "=terms.carry_rate * MAX(0, gross_proceeds - paid_in)", format: "$#,##0", value: 6450000}
+  last_exit: {formula: "=MAX(deals.exit_date)", format: "d mmm yyyy", value: 2029-09-08}
   # Exits after the fund's ten years, which need the investors to extend it
-  exits_after_term: {formula: "=COUNTIF(deals.exit_date, \">\" & terms.term_end)"}
+  exits_after_term: {formula: "=COUNTIF(deals.exit_date, \">\" & terms.term_end)", value: 0}
   # The return on the companies alone, and the investors' return after fees and carry
-  gross_irr: {formula: "=XIRR(ledger.gross, ledger.date)", format: "0.00%"}
-  net_irr: {formula: "=XIRR(ledger.net, ledger.date)", format: "0.00%"}
+  gross_irr: {formula: "=XIRR(ledger.gross, ledger.date)", format: "0.00%", value: 0.15675607686942}
+  net_irr: {formula: "=XIRR(ledger.net, ledger.date)", format: "0.00%", value: 0.108261445763612}
   # What the investors' cash flows are worth at the return they could earn elsewhere
-  net_value: {formula: "=XNPV(terms.investor_rate, ledger.net, ledger.date)", format: "$#,##0"}
+  net_value: {formula: "=XNPV(terms.investor_rate, ledger.net, ledger.date)", format: "$#,##0", value: -1599342.07163067}
   # Total value to paid-in: what came back for each dollar paid in
   tvpi:
     formula: "=LET(back, SUMIF(ledger.net, \">0\"), paid, -SUMIF(ledger.net, \"<0\"), back / paid)"
+    value: 1.70491803278689
     format: "0.00\"x\""
-  gross_multiple: {formula: "=gross_proceeds / SUM(deals.cost)", format: "0.00\"x\""}
+  gross_multiple: {formula: "=gross_proceeds / SUM(deals.cost)", format: "0.00\"x\"", value: 2.295}
 
 scenarios:
   base:

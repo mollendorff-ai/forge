@@ -40,6 +40,8 @@ games:
 kinship:
   threshold:
     formula: "=(T - c - R) / (T - P)"
+    value: 0.5
     notes: The continuation from which GrimTrigger is stable against AlwaysDefect
   grim_holds:
     formula: "=long_run.stable.grim"
+    value: 1

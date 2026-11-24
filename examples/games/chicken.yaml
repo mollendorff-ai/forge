@@ -29,10 +29,13 @@ games:
 kinship:
   coop_wins:
     formula: "=IF(chicken.even_mix.me.swerve > chicken.even_mix.me.straight, 1, 0)"
+    value: 0
   crossover_c:
     formula: "=c + chicken.even_mix.me.straight - chicken.even_mix.me.swerve"
+    value: 0.5
   swerve_share:
     formula: "=chicken.equilibrium_3.me.swerve"
+    value: 0.333333333333333
 
 scenarios:
   c1:

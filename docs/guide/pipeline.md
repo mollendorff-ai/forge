@@ -102,7 +102,7 @@ What a job reads is the exit code, which is the same for every command:
 | Exit code | What it means |
 | --- | --- |
 | 0 | It did what it was asked; for `forge validate`, every file passed |
-| 1 | It failed, and the last line it wrote to standard error starts with `Error:` and says why: a stored result out of date, a formula that fails, an `expect:` not met, a file that is not there |
+| 1 | It failed, and the last line it wrote to standard error starts with `Error:` and says why: a stored result out of date or missing, a formula that fails, an `expect:` not met, a file that is not there |
 | 2 | The command line is wrong (an option misspelt, a file not given); it says so and prints its usage |
 
 Now someone changes the price and opens a pull request without calculating:
@@ -130,9 +130,9 @@ $ forge calculate bagel.yaml
 💾 4 values updated in bagel.yaml
 ```
 
-## A formula with no result: the JSON
+## A formula with no result
 
-`forge validate` compares the results that are there. A formula with no result yet has nothing to compare, and passes, with a line that says so; that is how a model is written, a formula at a time, before it is first calculated. In a repository, though, a pull request that adds a formula and does not calculate it leaves a reviewer a formula with no number:
+A pull request that adds a formula and does not calculate it leaves a reviewer a formula with no number. `forge validate` fails it, as it fails a result out of date, and names the formula:
 
 ```text
 $ forge edit bagel.yaml --add "year.food_cost_share==SUM(months.ingredients) / revenue"
@@ -141,12 +141,17 @@ $ forge edit bagel.yaml --add "year.food_cost_share==SUM(months.ingredients) / r
 
 ```text
 $ forge validate bagel.yaml costs.yaml
-   1 formula(s) have no stored value yet; run 'forge calculate' to store them
-   ✅ bagel.yaml - OK
-   2 passed, 0 failed out of 2 files
+   year.food_cost_share
+   ❌ bagel.yaml - FAILED
+      Validation error: 1 formula(s) have no stored result (year.food_cost_share): run forge calculate
+   ✅ costs.yaml - OK
+   1 passed, 1 failed out of 2 files
+Error: Validation error: 1 file(s) failed validation
 ```
 
-`forge report` prints the results stored in a file, and never calculates. With `--format json` it is for a program: each group of results with its values, a value not yet calculated as `null`, and the formulas with no result under `uncalculated`:
+The releases up to 10.0.0-rc.34, the one this workflow installs, pass such a formula with a line that says so, and exit with 0. So the workflow has a step of its own for it, which can go once `FORGE_VERSION` names a release whose `forge validate` fails it (the [CHANGELOG](../../CHANGELOG.md) says which).
+
+That step reads `forge report`, which prints the results stored in a file and never calculates. With `--format json` it is for a program: each group of results with its values, a value not yet calculated as `null`, and the formulas with no result under `uncalculated`:
 
 ```text
 $ forge report bagel.yaml --format json
@@ -158,7 +163,7 @@ $ forge report bagel.yaml --format json
   ]
 ```
 
-So the workflow reads `uncalculated` with `jq` and fails when it is not empty. Calculated, it is:
+The step reads `uncalculated` with `jq` and fails when it is not empty. Calculated, it is:
 
 ```text
 $ forge calculate bagel.yaml
@@ -214,6 +219,8 @@ jobs:
       - name: Every stored result is what its formula gives
         run: forge validate *.yaml
 
+      # Up to 10.0.0-rc.34, forge validate passes a formula with no stored
+      # result; this step stops it, and can go with a later FORGE_VERSION
       - name: Every formula has its result stored
         run: |
           mkdir -p results
@@ -243,8 +250,8 @@ jobs:
 It runs on each pull request and on each push to `main`, with read-only access to the repository:
 
 1. **Install Forge**: `install.sh` downloads the release `FORGE_VERSION` names, checks it against the release's checksums, and puts `forge` in `~/.local/bin`. The version is pinned, so a new release of Forge changes nothing until a pull request raises it, and that pull request shows whether every model still passes.
-2. **Every stored result is what its formula gives**: `forge validate` on every `.yaml` file at the top of the repository. A result out of date, a formula that fails or an `expect:` not met exits with 1, and the run stops.
-3. **Every formula has its result stored**: `forge report --format json` for each model, into `results/`, and the run stops at the first file whose `uncalculated` is not empty, naming the file and the formulas on the pull request (the `::error` line is how a step annotates a file).
+2. **Every stored result is what its formula gives**: `forge validate` on every `.yaml` file at the top of the repository. A result out of date, a formula that fails or an `expect:` not met exits with 1, and the run stops; so does a formula with no result, in the releases after 10.0.0-rc.34.
+3. **Every formula has its result stored**: `forge report --format json` for each model, into `results/`, and the run stops at the first file whose `uncalculated` is not empty, naming the file and the formulas on the pull request (the `::error` line is how a step annotates a file). It is how 10.0.0-rc.34 stops a formula with no result.
 4. **The results, on the run's page**: `forge report --format markdown` for each model, in the run's summary, where a reviewer reads them without opening a file.
 5. **The JSON** is kept with the run as an artifact named `results`, for the next job or program.
 

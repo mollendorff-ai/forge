@@ -47,15 +47,19 @@ games:
 kinship:
   coop_wins:
     formula: "=IF(stag_hunt.even_mix.me.stag > stag_hunt.even_mix.me.hare, 1, 0)"
+    value: 0
     notes: 1 when stag pays more against an even mix (kinship's c0_coop_wins)
   crossover_c:
     formula: "=c + stag_hunt.even_mix.me.hare - stag_hunt.even_mix.me.stag"
+    value: 1
     notes: The cost at which stag and hare pay the same against an even mix
   stag_share:
     formula: "=stag_hunt.equilibrium_3.me.stag"
+    value: 0.75
     notes: How often each hunter goes for the stag in the mixed equilibrium
   stags_at_the_end:
     formula: "=stag_hunt.dynamics.share.stag"
+    value: 0.999999999999507
     notes: The share of stag hunters after 100 generations
 
 expect:                       # by hand, at c = 0
