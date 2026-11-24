@@ -462,14 +462,15 @@ format-check:
 # DOCUMENTATION VALIDATION TARGETS
 # ═══════════════════════════════════════════════════════════════════════════
 
-# The pages this change touches (against origin/main, or HEAD without it),
+# The pages this change touches (since its merge base with origin/main, or
+# HEAD without one),
 # changed or new, except CHANGELOG.md, which every change touches and whose
 # 300 old errors a change cannot be asked to fix: a page that was never linted does not fail a change that
 # leaves it alone. `make validate-docs-all` lints every page.
 validate-docs:
 	@echo "📝 Validating the markdown files this change touches..."
 	@if command -v markdownlint-cli2 >/dev/null 2>&1; then \
-		base=$$(git rev-parse --verify -q origin/main || echo HEAD); \
+		base=$$(git merge-base origin/main HEAD 2>/dev/null || echo HEAD); \
 		files=$$( (git diff --name-only --diff-filter=ACMR "$$base" -- '*.md'; \
 			git ls-files --others --exclude-standard -- '*.md') | grep -v '^CHANGELOG.md$$' | sort -u); \
 		if [ -z "$$files" ]; then echo "✅ No markdown file changed"; \
