@@ -6,7 +6,7 @@ use super::uncertain::Expect;
 use super::{Change, Kind, Op, Target, Value};
 use crate::core::ArrayCalculator;
 use crate::parser::parse_model_text;
-use crate::types::{ParsedModel, Variable};
+use crate::types::{ColumnValue, ParsedModel, Variable};
 use serde_json::Value as Json;
 use std::collections::HashMap;
 
@@ -73,6 +73,7 @@ pub(super) fn only(
     let mut was = snapshot(before);
     let mut now = snapshot(after);
     match (change.op, kind) {
+        (Op::SetValue, Kind::Values) => copy(&mut was, &now, &column(&["columns"])),
         (Op::SetValue, _) => copy(&mut was, &now, &scalar(Some("value"))),
         (Op::SetFormula, Kind::Formula) => copy(&mut was, &now, &scalar(Some("formula"))),
         (Op::SetFormula, _) => copy(&mut was, &now, &column(&["row_formulas"])),
@@ -164,6 +165,11 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
         let (table, column) = name.rsplit_once('.')?;
         model.tables.get(table)?.row_formulas.get(column)
     };
+    let values = || {
+        name.rsplit_once('.')
+            .and_then(|(table, column)| model.tables.get(table).and_then(|t| t.columns.get(column)))
+            .map(|c| &c.values)
+    };
     let reads = |v: &Variable| match &change.value {
         Some(Value::Number(n)) => v.value == Some(*n),
         _ => v.value.is_some(),
@@ -179,7 +185,10 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
         | Op::DeletePlayer
         | Op::SetHabit
         | Op::Insert => true,
-        Op::SetValue => var.is_some_and(reads),
+        Op::SetValue => match (&change.value, values()) {
+            (Some(Value::List(items)), Some(values)) => column_reads(values, items),
+            _ => var.is_some_and(reads),
+        },
         Op::SetFormula => {
             var.and_then(|v| v.formula.as_ref()).or_else(column) == change.formula.as_ref()
         },
@@ -191,6 +200,28 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
                     && (change.value.is_none() || reads(v))
             },
         ),
+    }
+}
+
+/// Whether a column holds the list a change gives: each number as given,
+/// each date as written; a row given as text that reads as a number, as
+/// that number
+fn column_reads(values: &ColumnValue, items: &[Value]) -> bool {
+    let number = |item: &Value| match item {
+        Value::Number(n) => Some(*n),
+        Value::Text(text) => text.parse().ok(),
+        Value::List(_) => None,
+    };
+    match values {
+        ColumnValue::Number(numbers) => numbers
+            .iter()
+            .zip(items)
+            .all(|(n, item)| number(item) == Some(*n)),
+        ColumnValue::Date(dates) => dates
+            .iter()
+            .zip(items)
+            .all(|(date, item)| matches!(item, Value::Text(text) if text == date)),
+        _ => false,
     }
 }
 
@@ -233,6 +264,21 @@ fn remove(json: &mut Json, paths: &[Vec<&str>]) {
 mod tests {
     use super::super::{locate, Change, Op, Value};
     use super::*;
+
+    #[test]
+    fn a_column_reads_as_asked_row_by_row() {
+        let numbers = ColumnValue::Number(vec![20.0, 45.0]);
+        let given = |items: &[Value]| column_reads(&numbers, items);
+        assert!(given(&[Value::Number(20.0), Value::Text("45".into())]));
+        assert!(!given(&[Value::Number(20.0), Value::Text("0x2d".into())]));
+        assert!(!given(&[Value::Number(20.0), Value::List(vec![])]));
+        let dates = ColumnValue::Date(vec!["2026-01-31".into()]);
+        assert!(column_reads(&dates, &[Value::Text("2026-01-31".into())]));
+        assert!(!column_reads(&dates, &[Value::Number(1.0)]));
+        // A column of another kind is never one edit wrote
+        let texts = ColumnValue::Text(vec!["a".into()]);
+        assert!(!column_reads(&texts, &[Value::Text("a".into())]));
+    }
 
     fn model(text: &str) -> Result<ParsedModel, String> {
         read(

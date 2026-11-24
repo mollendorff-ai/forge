@@ -314,7 +314,7 @@ pub(super) fn apply(
         };
         let value = match given {
             Some(crate::edit::Value::Number(n)) => Some(*n),
-            Some(crate::edit::Value::Text(_)) => None,
+            Some(crate::edit::Value::Text(_) | crate::edit::Value::List(_)) => None,
             None => plan.or(var.value),
         };
         let new = make_certain(
