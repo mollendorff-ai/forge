@@ -464,7 +464,7 @@ mod tests {
                     .map_or(0.0, f64::abs)
             };
             if name == "s.prod" {
-                read("s.x") * read("s.y") + read("s.total")
+                read("s.x").mul_add(read("s.y"), read("s.total"))
             } else {
                 0.0
             }
