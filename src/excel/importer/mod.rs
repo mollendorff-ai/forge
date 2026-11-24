@@ -13,6 +13,7 @@ use calamine::{open_workbook, Data, Reader, Xlsx};
 use std::io::{Cursor, Read, Seek};
 use std::path::Path;
 
+mod cells_read;
 mod layout;
 mod reserved;
 mod runs;
@@ -86,20 +87,26 @@ impl ExcelImporter {
     pub fn import_with_warnings(&self) -> ForgeResult<(ParsedModel, Vec<String>)> {
         let fail =
             |e: calamine::XlsxError| ForgeError::IO(format!("Failed to open Excel file: {e}"));
-        let (sheets, defined) = match &self.source {
+        let (mut sheets, defined) = match &self.source {
             Source::Path(path) => Self::sheets(open_workbook(path).map_err(fail)?),
             Source::Bytes(bytes) => {
                 Self::sheets(Xlsx::new(Cursor::new(bytes.as_slice())).map_err(fail)?)
             },
         };
 
-        let mut refs = Self::layout(&sheets);
         // A workbook's names stand for what they name (`_xlnm.` names are Excel's own)
-        refs.names = defined
+        let workbook_names: std::collections::HashMap<String, String> = defined
             .into_iter()
             .filter(|(name, _)| !name.starts_with("_xlnm."))
             .map(|(name, target)| (name.to_lowercase(), target))
             .collect();
+        let reader = ReverseRefs {
+            names: workbook_names.clone(),
+            ..ReverseRefs::default()
+        };
+        cells_read::mark(&mut sheets, &reader);
+        let mut refs = Self::layout(&sheets);
+        refs.names = workbook_names;
         let names = Self::names(&sheets, &refs);
         let read = (&refs, &names);
         let namespaces = Self::namespaces(&sheets);

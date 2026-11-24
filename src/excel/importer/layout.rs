@@ -87,13 +87,16 @@ impl Sheet {
     }
 
     /// A sheet of labels and values: text in the first column of every row
-    /// with something in it, and `Value`, or nothing, over the second. Its
-    /// labels are the names of scalars (`Opening volume` is `opening_volume`).
+    /// with something in it, and `Value`, or nothing, over the second, or
+    /// any header in any language when other sheets read its values one
+    /// cell at a time (`cells_read`). Its labels are the names of scalars
+    /// (`Opening volume` is `opening_volume`, `Coût fixe` `coût_fixe`).
     pub(super) fn is_label_sheet(&self) -> bool {
         let (height, width) = self.values.get_size();
         // A first row of a label and its value is read as the header
         // (`import_with_warnings` says so)
-        let value = self.holds_data(0)
+        let value = self.read_one_at_a_time
+            || self.holds_data(0)
             || self
                 .header(1)
                 .is_none_or(|h| h.eq_ignore_ascii_case("value"));

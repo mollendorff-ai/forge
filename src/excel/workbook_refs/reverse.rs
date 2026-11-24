@@ -78,14 +78,19 @@ enum XlToken {
     Constant(String),
 }
 
-/// A cell address: column letters and 1-based row.
+/// A cell address: column letters and 1-based row, and whether the row is
+/// fixed (`$7`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Cell {
     column: String,
     row: u32,
+    fixed_row: bool,
 }
 
 fn parse_cell(text: &str) -> Option<Cell> {
+    let fixed_row = text
+        .find(|c: char| c.is_ascii_digit())
+        .is_some_and(|digits| text[..digits].ends_with('$'));
     let t = text.replace('$', "");
     let split = t.find(|c: char| c.is_ascii_digit())?;
     let (column, row) = t.split_at(split);
@@ -95,6 +100,7 @@ fn parse_cell(text: &str) -> Option<Cell> {
     Some(Cell {
         column: column.to_string(),
         row: row.parse().ok()?,
+        fixed_row,
     })
 }
 
@@ -252,7 +258,40 @@ fn excel_tokens(formula: &str) -> Result<Vec<XlToken>, String> {
     Ok(tokens)
 }
 
+/// A cell or range an Excel formula reads: its sheet (`None` for the
+/// formula's own), the column and row of its first cell, whether that row is
+/// fixed (`$7`), and whether it is a range.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Read {
+    pub sheet: Option<String>,
+    pub column: String,
+    pub row: u32,
+    pub fixed_row: bool,
+    pub range: bool,
+}
+
 impl ReverseRefs {
+    /// The cells and ranges `formula` reads, the workbook's names read as
+    /// what they stand for. Nothing for a formula the translator cannot
+    /// read: it is imported as a value, with a warning, all the same.
+    #[must_use]
+    pub fn reads(&self, formula: &str) -> Vec<Read> {
+        excel_tokens(&self.expand_names(formula))
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|token| match token {
+                XlToken::Reference(sheet, first, last) => Some(Read {
+                    sheet,
+                    column: first.column,
+                    row: first.row,
+                    fixed_row: first.fixed_row,
+                    range: last.is_some(),
+                }),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Translate an Excel formula written in `sheet` back to Forge.
     ///
     /// `row` is the Excel row of a table formula (references to other rows
@@ -901,6 +940,34 @@ mod tests {
             back.to_forge("=1", "nosheet", 0),
             Err("unknown sheet 'nosheet'".to_string())
         );
+    }
+
+    /// What a formula reads: each cell and range, its sheet as written (quoted
+    /// or not), a workbook name as the cell it stands for; nothing for a
+    /// formula the translator cannot read
+    #[test]
+    fn reads_names_each_cell_and_range_a_formula_reads() {
+        let mut refs = ReverseRefs::default();
+        refs.names
+            .insert("prix".to_string(), "'Hypothèses'!$B$2".to_string());
+        let read = |sheet: Option<&str>, column: &str, row, fixed_row, range| Read {
+            sheet: sheet.map(str::to_string),
+            column: column.to_string(),
+            row,
+            fixed_row,
+            range,
+        };
+        assert_eq!(
+            refs.reads("=B2 * prix + SUM(假设!$B$2:$B$4) + Ventes!$C7 + Ventes!C$8"),
+            [
+                read(None, "B", 2, false, false),
+                read(Some("Hypothèses"), "B", 2, true, false),
+                read(Some("假设"), "B", 2, true, true),
+                read(Some("Ventes"), "C", 7, false, false),
+                read(Some("Ventes"), "C", 8, true, false),
+            ]
+        );
+        assert_eq!(refs.reads("=\"no closing quote"), []);
     }
 
     #[test]
