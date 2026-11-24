@@ -823,6 +823,8 @@ adoption:
     why: "A link opens only a bundled example today (?example=), so a lesson or an AI's answer cannot hand over its own YAML. The part after # is never sent to a server, so 'nothing you type leaves the tab' holds; an ADR first"
     acceptance: "ADR accepted; a studio test opens a link with a model in it and finds its results equal to forge calculate's; the privacy text in the README and studio/README.md still true"
     model: "Opus 5.5, high"
+    built: "2026-11-24: docs/architecture/ADR-080-A-STUDIO-LINK-CARRIES-ITS-MODEL-AFTER-THE-HASH.md (proposed, accepted by merging it). studio/link.js reads #name=…&yaml=… and #name=…&gzip=… (several files, the main one first) and Files' Copy writes the gzip= form; a link over your own files or an edited example asks first; a Content Security Policy in studio/index.html. studio/tests/link.mjs opens the mortgage, the bagel shop with its costs and the starter model from links and finds every scalar equal to forge calculate's, checks the broken links, the text a link carries and the policy, and fails if a request to the server carries part of a model. The README, studio/README.md and docs/guide/ai.md say what a link is"
+    found: "2026-11-24: a ?example= link replaced the files kept in the browser without asking (boot() opened the example instead of restoring); fixed the same day: it now asks first, as a #-link does (studio/tests/link.mjs)"
   - id: A8-STUDIO-GUIDE
     title: "A Studio user guide with screenshots"
     why: "studio/README.md is for people who build Studio; the in-app ? has fifteen entries and no walk through"

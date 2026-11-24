@@ -336,6 +336,10 @@ jobs:
         working-directory: studio
         run: node tests/uncertain.mjs ../studio-site ../forge-wasm/expected.json
 
+      - name: A link carries a model after the #, opens with forge calculate's numbers, and sends the server none of it
+        working-directory: studio
+        run: node tests/link.mjs ../studio-site ../forge-wasm/expected.json
+
       - name: Formulas edited on their cards change their one line, and Forge refuses invalid ones
         working-directory: studio
         run: node tests/formulas.mjs ../studio-site
