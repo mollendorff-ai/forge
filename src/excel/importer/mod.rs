@@ -429,6 +429,7 @@ impl ExcelImporter {
                         rows: sheet.data_rows(),
                         ends: sheet.column_ends(),
                         total: sheet.total_group(&name),
+                        numbered: sheet.numbers_columns_as_excel(),
                         name,
                     }
                 },
