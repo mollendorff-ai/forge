@@ -176,3 +176,28 @@ assumptions:
     value: null
     formula: "=ROUND(DDB(10000, 1000, 5, 5), 10)"
     expected: 296
+
+  # DDB with a period after 0 and before 1 is the first period, as Gnumeric
+  # 1.12.56 gives it (checked 2026-11-24). LibreOffice 24.2 answers Err:502
+  # and Excel was not available to check, so the case is Gnumeric's; with a
+  # life under 1 the first period takes all down to the salvage
+  test_ddb_period_under_one_is_the_first:
+    value: null
+    formula: "=ROUND(DDB(1000, 100, 10, 0.5), 10)"
+    expected: 200
+  test_ddb_period_under_one_before_a_long_life:
+    value: null
+    formula: "=ROUND(DDB(944326.664492, 910840.7, 21, 0.8, 3), 6)"
+    expected: 33485.964492
+  test_ddb_life_under_one_takes_all_to_the_salvage:
+    value: null
+    formula: "=ROUND(DDB(1000, 100, 0.5, 0.25), 10)"
+    expected: 900
+  test_ddb_life_under_one_with_salvage_above_cost:
+    value: null
+    formula: "=ROUND(DDB(100, 200, 0.5, 0.25), 10)"
+    expected: 0
+  test_ddb_fractional_life_and_period:
+    value: null
+    formula: "=ROUND(DDB(1000, 100, 3.5, 3.5), 10)"
+    expected: 20.2425109464
