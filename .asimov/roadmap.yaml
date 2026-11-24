@@ -540,9 +540,11 @@ tier1:
   # (src/excel/importer/cells_read.rs). A French (Hypothèse, Valeur, Unité) and
   # a Chinese (项目, 数值, 单位) drivers sheet import as scalars, and the
   # formulas reading them stay formulas; the rule is in docs/FEATURES.md.
-  # Left as they were: a unit or notes column headed in another language is
-  # named in a warning, not kept, and a sheet of labels no other sheet reads,
-  # headed in another language, is still a table.
+  # A unit or notes column headed in French, German, Spanish, Portuguese,
+  # Italian, Chinese or Japanese is kept too (2026-11-24, the word list in
+  # src/excel/importer/scalars.rs beside_values); any other header is named in
+  # a warning. Left as it was: a sheet of labels no other sheet reads, headed
+  # in another language, is still a table.
 
   # T1-INTERFACE-PARITY is done (2026-11-18): every one of the 20 MCP tools and
   # the 5 REST endpoints has an inline test that runs a story example and asserts
