@@ -36,6 +36,13 @@ grid:
   col_b: [15, 25, 35, 45, 55]
   col_c: [17, 27, 37, 47, 57]
 
+# COLUMN: a column's number as the export lays the table out (x in A, y in
+# B, z in C)
+numbered:
+  x: [1, 2, 3]
+  y: "=COLUMN() * 10"
+  z: "=COLUMN(x) + COLUMN(numbered.y) * x"
+
 assumptions:
   # ═══════════════════════════════════════════════════════════════════════════
   # CHOOSE - Select from list by index (REAL TESTS - ALREADY WORKING)
@@ -210,8 +217,19 @@ assumptions:
   column_count_grid:
     value: null
     formula: "=COLUMNS(grid)"                      # Count columns in grid table, Expected: 3
-  # NOTE: Direct COLUMN() testing requires cell references (e.g., COLUMN(C1))
-  # which may not be representable in YAML table format. Consider E2E Excel tests.
+  # COLUMN() in a row formula, and COLUMN of a column, as the table is laid out
+  column_of_the_row_formula:
+    value: null
+    formula: "=SUM(numbered.y)"                    # y is column B: 20 in each of 3 rows, Expected: 60
+    expected: 60
+  column_of_a_named_column:
+    value: null
+    formula: "=SUM(numbered.z)"                    # 1 + 2 * x for x = 1, 2, 3: 3 + 5 + 7, Expected: 15
+    expected: 15
+  column_of_a_table_column_in_a_scalar:
+    value: null
+    formula: "=COLUMN(numbered.z)"                 # z is column C, Expected: 3
+    expected: 3
 
   # ═══════════════════════════════════════════════════════════════════════════
   # ROWS - Count rows in array/range (REAL TESTS)
@@ -332,9 +350,8 @@ assumptions:
 #   YAML uses table arrays, not traditional cell grid. Using MATCH as proxy.
 #   RECOMMENDATION: Add separate Excel E2E tests for ROW(cell_reference)
 #
-# - COLUMN: ⚠ LIMITED - requires cell references (e.g., COLUMN(C1))
-#   YAML uses table arrays, not traditional cell grid. Using COLUMNS as proxy.
-#   RECOMMENDATION: Add separate Excel E2E tests for COLUMN(cell_reference)
+# - COLUMN: a table column's number, as the export lays the table out
+#   (numbered: COLUMN() in a row formula, COLUMN(x), COLUMN(numbered.z))
 #
 # - OFFSET: ⚠ LIMITED - requires base cell reference (e.g., OFFSET(A1, 2, 3))
 #   YAML uses table arrays without cell coordinates. Using INDEX with offsets as proxy.

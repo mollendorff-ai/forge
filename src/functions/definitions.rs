@@ -688,14 +688,14 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "ROW",
         category: Category::Lookup,
-        description: "Row number",
+        description: "Row number, a table's first row being 1: the formula's own, or the row a table column is read at",
         syntax: "=ROW(reference)",
         scalar: true,
     },
     FunctionDef {
         name: "COLUMN",
         category: Category::Lookup,
-        description: "Column number",
+        description: "Column number, as forge export lays the table out (A is 1): the row formula's own, or the table column named",
         syntax: "=COLUMN(reference)",
         scalar: true,
     },

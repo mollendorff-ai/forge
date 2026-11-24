@@ -26,6 +26,9 @@ yaml_serde = "0.10"
 # Temp files for XLSX/CSV
 tempfile = "3.23"
 
+# A table's columns in the order the file gives them: COLUMN numbers them
+indexmap = { version = "2", features = ["serde"] }
+
 # Error handling
 anyhow = "1.0"
 
