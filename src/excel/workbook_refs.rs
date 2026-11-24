@@ -15,6 +15,7 @@
 use crate::core::array_calculator::tokenizer::{tokenize, Token};
 use std::collections::HashMap;
 
+mod column;
 mod constants;
 pub mod dates;
 mod local_names;
@@ -32,7 +33,9 @@ pub const UNGROUPED_SHEET: &str = "Scalars";
 /// need not be (the export writes them where Excel's table is that too:
 /// [`WorkbookRefs::one_line_lookup`]), `ROW`/`COLUMN`/`OFFSET`/`INDIRECT`
 /// work on Forge names rather than sheet cells (`ROW()` alone is the table's
-/// row and is translated: `previous_row`), `NOW` returns text instead of a
+/// row and is translated: `previous_row`; `COLUMN` of a row formula or a
+/// table column is a column's number in both, and is translated: `column`),
+/// `NOW` returns text instead of a
 /// date serial, and `UNIQUE`/`SORT`/`FILTER`/`SEQUENCE` spill in Excel.
 /// `forge import` does not read a formula that uses one either: it would
 /// calculate something else in Forge.
@@ -688,8 +691,8 @@ impl WorkbookRefs {
     }
 
     /// A construct that is written out as a whole: one of Forge's own
-    /// functions, `LET` and `LAMBDA` called at once, `COUNTUNIQUE`, `PREV` or
-    /// `ROW()`. Its Excel text, and the index of the token after it; `None`
+    /// functions, `LET` and `LAMBDA` called at once, `COUNTUNIQUE`, `PREV`,
+    /// `ROW()` or `COLUMN`. Its Excel text, and the index of the token after it; `None`
     /// when the token starts none of them.
     fn translate_whole(
         &self,
@@ -735,6 +738,10 @@ impl WorkbookRefs {
                 let (text, end) =
                     self.translate_special(tokens, (word, i), ctx, calls, locals, has_range)?;
                 Ok(Some((text, end)))
+            },
+            // COLUMN: a column's number, as Forge numbers it (`column`)
+            Token::Identifier(word) if next_is_paren && word.eq_ignore_ascii_case("COLUMN") => {
+                Ok(Some(self.translate_column(tokens, i, ctx, locals)?))
             },
             // PREV and ROW(): the row above, and the table's row number
             Token::Identifier(word)
@@ -1272,7 +1279,7 @@ mod tests {
 
     #[test]
     fn functions_that_differ_in_excel_are_not_translated() {
-        for f in ["=NOW()", "=ROW(revenue)", "=COLUMN()"] {
+        for f in ["=NOW()", "=ROW(revenue)", "=OFFSET(revenue, 1, 0)"] {
             assert!(row(f).unwrap_err().contains("no Excel equivalent"), "{f}");
         }
         // COUNTUNIQUE has an Excel form only in a scalar (local_names)

@@ -168,8 +168,8 @@
 | `OFFSET` | Reference offset | `=OFFSET(ref, rows, cols, height, width)` |
 | `INDIRECT` | Reference from text | `=INDIRECT(ref_text)` |
 | `ADDRESS` | Cell address text | `=ADDRESS(row, col, abs_type, a1, sheet)` |
-| `ROW` | Row number | `=ROW(reference)` |
-| `COLUMN` | Column number | `=COLUMN(reference)` |
+| `ROW` | Row number, a table's first row being 1: the formula's own, or the row a table column is read at | `=ROW(reference)` |
+| `COLUMN` | Column number, as forge export lays the table out (A is 1): the row formula's own, or the table column named | `=COLUMN(reference)` |
 | `ROWS` | Number of rows | `=ROWS(array)` |
 | `COLUMNS` | Number of columns | `=COLUMNS(array)` |
 

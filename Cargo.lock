@@ -1243,6 +1243,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap",
+ "indexmap",
  "pretty_assertions",
  "serde",
  "tempfile",

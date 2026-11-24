@@ -37,8 +37,9 @@ pub struct IncludeSpec {
 pub enum Section {
     /// A group of scalar values with optional formulas.
     ScalarGroup(HashMap<String, Scalar>),
-    /// A table with columns of data.
-    Table(HashMap<String, TableColumn>),
+    /// A table with columns of data, in the order of the file: `COLUMN` is a
+    /// column's place in the table.
+    Table(indexmap::IndexMap<String, TableColumn>),
 }
 
 /// A scalar value with optional formula and expected value.
@@ -303,6 +304,25 @@ assumptions:
         };
         assert!(pass.is_pass());
         assert!(!pass.is_fail());
+    }
+
+    /// A table's columns come out in the order of the file: `COLUMN` numbers
+    /// them, and a name sorted or hashed would give another number.
+    #[test]
+    fn a_tables_columns_keep_the_order_of_the_file() {
+        let yaml = r#"
+_forge_version: "1.0.0"
+t:
+  zeta: [1, 2]
+  alpha: "=zeta * 2"
+  mid: ["b", "a"]
+  omega: [3, 4]
+"#;
+        let spec: TestSpec = yaml_serde::from_str(yaml).unwrap();
+        assert_eq!(
+            extract_table_data_yaml(&spec),
+            "t:\n  zeta: [1, 2]\n  alpha: \"=zeta * 2\"\n  mid: [\"b\", \"a\"]\n  omega: [3, 4]\n"
+        );
     }
 
     #[test]
