@@ -537,7 +537,10 @@ r:
             let dir = tempfile::tempdir().unwrap();
             let missing = dir.path().join("nowhere.yaml");
             let output = dir.path().join("m.xlsx");
-            let gone = "IO error: No such file or directory (os error 2)";
+            let gone = format!(
+                "IO error: {}: No such file or directory (os error 2)",
+                missing.display()
+            );
             assert_eq!(
                 export_core(&missing, &output).unwrap_err().to_string(),
                 gone
@@ -549,7 +552,7 @@ r:
                 args.extend([missing.to_str().unwrap(), output.to_str().unwrap()]);
                 let ran = forge(&args);
                 assert!(!ran.success());
-                assert!(ran.err.contains(gone), "{args:?}: {ran:?}");
+                assert!(ran.err.contains(&gone), "{args:?}: {ran:?}");
             }
         }
 

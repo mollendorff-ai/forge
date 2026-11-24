@@ -10,6 +10,23 @@
 #      scripts/coverage.sh --fail-under-lines 100 --fail-under-regions 100
 set -euo pipefail
 
+# The toolchain counts: Rust 1.100 and later count the regions inside macros
+# that older ones (1.97, the oldest supported) do not, so an older toolchain
+# reads 100% where CI's stable does not. CI measures with the latest stable;
+# this refuses to measure with anything older than 1.100, so that a local run
+# measures what CI measures. To pick one:
+#
+#   RUSTUP_TOOLCHAIN=1.100.0 scripts/coverage.sh ...
+#
+# (needs `rustup toolchain install 1.100.0 --component llvm-tools-preview`)
+min_minor=100
+minor=$(rustc --version | sed -E 's/^rustc 1\.([0-9]+)\..*/\1/')
+if ! [ "$minor" -ge "$min_minor" ] 2>/dev/null; then
+  echo "coverage needs Rust 1.$min_minor or later, as CI's stable is; this is $(rustc --version)." >&2
+  echo "Run it with RUSTUP_TOOLCHAIN=1.$min_minor.0 (or a later one) set." >&2
+  exit 1
+fi
+
 cargo llvm-cov clean --workspace
 cargo llvm-cov --no-report
 

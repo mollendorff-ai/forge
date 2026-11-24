@@ -43,20 +43,11 @@ pub fn eval_sumifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
         ));
     }
     let sum_range = collect_values_as_vec(&args[0], ctx)?;
-    let mut matches = vec![true; sum_range.len()];
-    for pair in args[1..].chunks(2) {
-        let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
-        let criteria = Criterion::new(&evaluate(&pair[1], ctx)?);
-        for (i, val) in criteria_range.iter().enumerate() {
-            if i < matches.len() && !criteria.matches(val) {
-                matches[i] = false;
-            }
-        }
-    }
+    let matches = super::matching_rows("SUMIFS", sum_range.len(), &args[1..], ctx)?;
     let total: f64 = sum_range
         .iter()
         .enumerate()
-        .filter(|(i, _)| *i < matches.len() && matches[*i])
+        .filter(|(i, _)| matches[*i])
         .filter_map(|(_, v)| v.as_number())
         .sum();
     Ok(Value::Number(total))
