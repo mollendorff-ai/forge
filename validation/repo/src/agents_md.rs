@@ -69,7 +69,8 @@ mod tests {
 
     #[test]
     fn a_rule_in_one_file_only_is_not_repeated() {
-        assert!(repeated_rules(&format!("{RULE}\n"), "@AGENTS.md\n").is_empty());
+        let repeated = repeated_rules(&format!("{RULE}\n"), "@AGENTS.md\n");
+        assert_eq!(repeated, Vec::<String>::new());
     }
 
     #[test]
