@@ -147,26 +147,20 @@ fn cumulative_args(
     Ok((rate, nper.trunc(), pv, start, end, kind))
 }
 
-/// Depreciation of one whole period by the declining balance, as `DDB` gives it
+/// Depreciation of one period by the declining balance, as `DDB` gives it:
+/// what the asset loses in period `period`, down to its salvage. A period
+/// loses the worth before it times the rate, w - w (1 - rate), taken as that
+/// product: the difference lost every digit once `1 - rate` rounded to 1,
+/// and past 2^53 periods `period - 1` is `period`.
 pub(super) fn declining(cost: f64, salvage: f64, life: f64, period: f64, factor: f64) -> f64 {
-    let mut rate = factor / life;
-    let before = if rate >= 1.0 {
-        rate = 1.0;
-        if same(period, 1.0) {
-            cost
-        } else {
-            0.0
-        }
+    let asset = Declining::new(cost, salvage, life, factor);
+    let before = asset.worth(period - 1.0);
+    let lost = if asset.worth(period) >= salvage {
+        before * asset.rate
     } else {
-        cost * (1.0 - rate).powf(period - 1.0)
-    };
-    let after = cost * (1.0 - rate).powf(period);
-    let depreciation = if after < salvage {
         before - salvage
-    } else {
-        before - after
     };
-    depreciation.max(0.0)
+    lost.max(0.0)
 }
 
 /// An asset written down by a declining balance: each period it loses
@@ -581,6 +575,32 @@ mod tests {
         );
     }
 
+    /// Each period of a declining balance loses the worth times the rate,
+    /// taken as -expm1(ln(1 - rate)), not as the difference of two worths:
+    /// at a rate below about 1E-16 a period `1 - rate` rounded to 1 and DDB
+    /// gave 0, and at 1E-10 the difference kept six digits. Exact values
+    /// from mpmath (60 digits), the rate as the double `factor / life`.
+    #[test]
+    fn a_tiny_declining_rate_loses_the_worth_times_the_rate() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        for (formula, exact) in [
+            // 1000 * 2E-17
+            ("DDB(1000, 100, 1E+17, 1)", 2e-14),
+            // 1000 * e^-1 * 2E-17, still above the salvage
+            ("DDB(1000, 100, 1E+17, 5E+16)", 7.357_588_823_428_847e-15),
+            // 1000 * 1E-10, and e^-1 of it half way through the life
+            ("DDB(1000, 0, 2E+10, 1)", 1.000_000_000_000_000_1e-7),
+            ("DDB(1000, 0, 2E+10, 1E+10)", 3.678_794_411_898_363e-8),
+            // an ordinary rate keeps its answer
+            ("DDB(1000, 100, 10, 3)", 128.0),
+        ] {
+            let got = h::number(formula);
+            assert!(close(got, exact, 1e-14), "{formula}: {got}, not {exact}");
+        }
+        // Once the worth is below the salvage nothing more is lost
+        h::is_exactly("DDB(1000, 500, 1E+17, 4E+16)", 0.0);
+    }
+
     /// The principal of the first payment, made at the start, is the whole
     /// payment (`LibreOffice`: -123.337690443292 for both). PMT and CUMPRINC
     /// compute it in different ways, which agree to the last bit but one.
@@ -710,6 +730,30 @@ mod tests {
         assert_eq!(checked, 7 * 5 * 4 * 2 * 2);
     }
 
+    /// One period of the declining balance as it was computed before
+    /// [`declining`] took its loss from [`Declining`]: two worths by powers of
+    /// `1 - rate`, subtracted (`LibreOffice`'s `ScGetDDB`)
+    fn declining_by_powers(cost: f64, salvage: f64, life: f64, period: f64, factor: f64) -> f64 {
+        let mut rate = factor / life;
+        let before = if rate >= 1.0 {
+            rate = 1.0;
+            if same(period, 1.0) {
+                cost
+            } else {
+                0.0
+            }
+        } else {
+            cost * (1.0 - rate).powf(period - 1.0)
+        };
+        let after = cost * (1.0 - rate).powf(period);
+        let depreciation = if after < salvage {
+            before - salvage
+        } else {
+            before - after
+        };
+        depreciation.max(0.0)
+    }
+
     /// VDB as it was computed before the closed form, one period at a time
     /// (`LibreOffice`'s `ScVDB`), for lives short enough to walk
     fn walked(
@@ -732,7 +776,7 @@ mod tests {
                 if period < first + 1.0 {
                     continue;
                 }
-                let mut term = declining(cost, salvage, life, period, factor);
+                let mut term = declining_by_powers(cost, salvage, life, period, factor);
                 if same(period, first + 1.0) {
                     term *= end.min(first + 1.0) - start;
                 } else if same(period, last) {
@@ -750,7 +794,7 @@ mod tests {
             for step in steps(whole) {
                 let period = f64::from(step);
                 let mut term = straight_line.unwrap_or_else(|| {
-                    let fall = declining(cost, salvage, life, period, factor);
+                    let fall = declining_by_powers(cost, salvage, life, period, factor);
                     let level = left / (remaining_life - (period - 1.0));
                     if level > fall {
                         straight_line = Some(level);
