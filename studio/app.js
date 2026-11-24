@@ -259,11 +259,13 @@ function groupsOf(scalars) {
 }
 const unitOf = (s) => (s.unit ? ` <span class="unit">${esc(s.unit)}</span>` : "");
 
-function scalarCards(list) {
+// `idp`: the start of each field's id, so that a card drawn twice (in a
+// game's "what moves it" too) keeps ids of its own
+function scalarCards(list, idp = "in-") {
   let h = "";
   for (const s of list.filter((x) => x.formula == null && x.date)) {
     // A date: typed as 2026-10-31, with no slider (ADR-060)
-    const id = "in-" + s.path.replace(/[^A-Za-z0-9_-]/g, "_");
+    const id = idp + s.path.replace(/[^A-Za-z0-9_-]/g, "_");
     h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${s.path.startsWith("@") ? "" : ` data-scalar="${esc(s.path)}"`}>
       <div class="inp-head"><label class="inp-name" for="${id}">${esc(leaf(s.path))}</label><span class="inp-hint" data-hint></span>
       <input class="field" id="${id}" data-input="${esc(s.path)}" data-date="1" inputmode="numeric" autocomplete="off" placeholder="yyyy-mm-dd" value="${esc(s.value ?? "")}"></div>
@@ -273,7 +275,7 @@ function scalarCards(list) {
   }
   for (const s of list.filter((x) => x.formula == null && !x.date)) {
     const r = sliderRange(s.value, leaf(s.path), s.unit);
-    const id = "in-" + s.path.replace(/[^A-Za-z0-9_-]/g, "_");
+    const id = idp + s.path.replace(/[^A-Za-z0-9_-]/g, "_");
     h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${s.path.startsWith("@") ? "" : ` data-scalar="${esc(s.path)}"`}>
       <div class="inp-head"><label class="inp-name" for="${id}">${esc(leaf(s.path))}${unitOf(s)}</label><span class="inp-hint" data-hint></span>
       <input class="field" id="${id}" data-input="${esc(s.path)}" inputmode="decimal" autocomplete="off" value="${s.value ?? ""}"></div>
@@ -284,7 +286,7 @@ function scalarCards(list) {
   }
   for (const s of list.filter((x) => x.formula != null)) {
     const d = distributionOf(s.formula);
-    if (d) { h += distCard(s, d, distributionsOf(functionList), { name: leaf(s.path), unit: unitOf(s), deleteButton: deleteButton(s.path, true), editButton: editButton(s.path) }); continue; }
+    if (d) { h += distCard(s, d, distributionsOf(functionList), { name: leaf(s.path), unit: unitOf(s), deleteButton: deleteButton(s.path, true), editButton: editButton(s.path), idp: idp.replace(/^in-/, "dp-") }); continue; }
     const calculated = !s.path.startsWith("@");
     h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${calculated ? ` data-scalar="${esc(s.path)}"` : ""}><div class="res-top"><div class="res-name">${esc(leaf(s.path))}${unitOf(s)}</div>${deleteButton(s.path, true)}</div>
       <div class="res-val" data-val>${calculated ? "" : '<span class="note">used by the model</span>'}</div>
@@ -361,12 +363,17 @@ function renderModel() {
     h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${helpSlot(list)}${addButton(null, g, list)}</div>${addSlot(null, g)}<div class="card stack">${scalarCards(list)}</div>`;
   }
   h += tableCards(S.structure.tables);
+  // An included file's groups are folded under one line (ADR-076 decision 5):
+  // the model shown is the one open, not the files it reads
   for (const inc of S.structure.includes) {
     const badge = `<span class="inc">@${esc(inc.as)} · ${esc(inc.file)}</span>`;
-    for (const [g, list] of groupsOf(inc.scalars)) {
+    const groups = groupsOf(inc.scalars);
+    const count = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`;
+    h += `<details class="inc-fold" data-incfold="${esc(inc.as)}"${S.open.has("inc:" + inc.as) ? " open" : ""}><summary>from ${esc(inc.file)}: ${[count(groups.size, "group"), ...(inc.tables.length ? [count(inc.tables.length, "table")] : [])].join(", ")}</summary>`;
+    for (const [g, list] of groups) {
       h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${badge}${helpSlot(list)}${addButton(inc.as, g, list)}</div>${addSlot(inc.as, g)}<div class="card stack">${scalarCards(list)}</div>`;
     }
-    h += tableCards(inc.tables, badge);
+    h += tableCards(inc.tables, badge) + `</details>`;
   }
   v.innerHTML = h;
   S.prev = {};
@@ -415,6 +422,8 @@ function updateValues() {
     const info = S.scenarios && S.scenarios.scenarios.find((s) => s.name === S.scenario);
     d.textContent = S.scenario === null ? "The plan as written in the file." : info && info.description ? info.description : "";
   }
+  // The games first: a game's "what moves it" has input cards of its own
+  drawGames();
   const byPath = new Map(allScalars().map((s) => [s.path, s]));
   for (const card of $$("#view-model [data-path]")) {
     const path = card.dataset.path, s = byPath.get(path), v = valueOf(path);
@@ -458,7 +467,6 @@ function updateValues() {
       list.innerHTML = vals.map((x, i) => `<span><i>${esc(labels[i] ?? i + 1)}</i>${esc(fmtAt(x, card.dataset.card))}</span>`).join("");
     }
   }
-  drawGames();
   drawBands($("#view-model"), S.band && S.band.answer, shortAt, S.open);
   for (const slot of $$("#view-model [data-analysis]")) {
     const answer = S.answers[slot.dataset.analysis];
@@ -476,15 +484,30 @@ function gameCards() {
   const names = S.structure.games || [];
   if (!names.length && !templates.length) return "";
   return `<div class="eyebrow" id="games"><h2>games</h2><span class="tag">${names.length ? "forge game · moves with the inputs" : "none yet"}</span><span data-help-slot="games"></span></div>` +
-    names.map((n) => `<div class="card row game" data-game="${esc(n)}"><p class="note">Forge is working out ${esc(n)}…</p></div>`).join("") + templateCard(templates);
+    names.map((n) => `<div class="card row game" data-game="${esc(n)}"><div data-gamebody><p class="note">Forge is working out ${esc(n)}…</p></div><div data-moves></div></div>`).join("") + templateCard(templates);
 }
 function drawGames() {
   for (const card of $$("#view-model [data-game]")) {
     const r = S.games && !S.games.error ? S.games.find((g) => g.game === card.dataset.game) : null;
-    card.innerHTML = (r ? (r.kind === "tournament" ? tournamentCard(r) : tableCard(r))
+    $("[data-gamebody]", card).innerHTML = (r ? (r.kind === "tournament" ? tournamentCard(r) : tableCard(r))
       : `<div class="msg bad">${esc(S.games && S.games.error ? S.games.error : S.error || "Not calculated")}</div>`) + resultsList(card.dataset.game) + (r ? gameEditor(r, S.open.has("gedit:" + r.game)) : "");
+    drawMoves(card, r);
     pulse(card, "game:" + card.dataset.game, JSON.stringify(r));
   }
+}
+// What moves a game (ADR-076 decision 5): the input cards of the inputs
+// Forge says its numbers read, here and in their own group alike. Drawn again
+// only when the list changes, so that a field being typed in stays.
+function drawMoves(card, r) {
+  const slot = $("[data-moves]", card), byPath = new Map(allScalars().map((s) => [s.path, s]));
+  const shown = (r && r.inputs ? r.inputs : []).map((p) => byPath.get(p)).filter(Boolean);
+  const key = shown.map((s) => s.path).join(" ");
+  if (slot.dataset.list === key) return;
+  slot.dataset.list = key;
+  const g = card.dataset.game;
+  slot.innerHTML = shown.length ? `<details class="moves" data-movesof="${esc(g)}"${S.open.has("shut-moves:" + g) ? "" : " open"}><summary>what moves it: ${shown.length} input${shown.length === 1 ? "" : "s"}</summary><div class="stack">${scalarCards(shown, `mv-${g.replace(/[^A-Za-z0-9_-]/g, "_")}-`)}</div></details>` : "";
+  // data-scalar names the one card of each scalar that the screen tests read
+  for (const copy of $$("[data-scalar]", slot)) copy.removeAttribute("data-scalar");
 }
 // The game's results as `calculate` answers them, under the names a formula
 // reads them by (stag_hunt.even_mix.me.stag), each with its value in full
@@ -524,9 +547,11 @@ $("#view-model").addEventListener("pointermove", pathHover);
 $("#view-model").addEventListener("pointerdown", pathHover);
 // A game's list of results stays open or shut while the games are drawn again
 $("#view-model").addEventListener("toggle", (e) => {
-  const d = e.target.closest && e.target.closest("[data-results], [data-gedit], details[data-band]");
+  const d = e.target.closest && e.target.closest("[data-results], [data-gedit], details[data-band], [data-movesof], [data-incfold]");
   if (!d) return;
-  const k = d.dataset.results ? "results:" + d.dataset.results : d.dataset.gedit ? "gedit:" + d.dataset.gedit : "band:" + d.dataset.band;
+  // What moves a game is open until it is shut; an included file, shut until opened
+  if (d.dataset.movesof) { if (d.open) S.open.delete("shut-moves:" + d.dataset.movesof); else S.open.add("shut-moves:" + d.dataset.movesof); return; }
+  const k = d.dataset.results ? "results:" + d.dataset.results : d.dataset.gedit ? "gedit:" + d.dataset.gedit : d.dataset.incfold ? "inc:" + d.dataset.incfold : "band:" + d.dataset.band;
   if (d.open) S.open.add(k); else S.open.delete(k);
 }, true);
 $("#view-model").addEventListener("input", (e) => {

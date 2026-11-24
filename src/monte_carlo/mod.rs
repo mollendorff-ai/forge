@@ -45,6 +45,17 @@ pub use sampler::{Sampler, SamplingMethod};
 pub use sensitivity::SensitivityAnalysis;
 pub use statistics::Statistics;
 
+/// Whether a formula is a distribution, as the simulation reads one: an
+/// uncertain input
+#[must_use]
+pub fn is_distribution(formula: &str) -> bool {
+    let formula = formula.trim();
+    formula
+        .strip_prefix('=')
+        .unwrap_or(formula)
+        .starts_with("MC.")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

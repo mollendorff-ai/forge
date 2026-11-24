@@ -5,6 +5,7 @@ mod formats;
 mod games;
 mod graph;
 mod includes;
+mod inputs;
 mod names;
 mod network;
 mod order;

@@ -71,7 +71,15 @@ function onlyParentheses(before, after) {
   return after[p] === "(" && after[after.length - 1 - q] === ")" && after.slice(p + 1, after.length - 1 - q) === before.slice(p, before.length - q);
 }
 
+// An included file's cards are folded under one line (ADR-076): opened
+// first, as a person would, for a path in it (@costs.labour.loaded_wage)
+async function unfold(page, path) {
+  const ns = /^@([^.]+)\./.exec(path);
+  if (ns) await page.$eval(`[data-incfold="${ns[1]}"]`, (d) => { d.open = true; });
+}
+
 async function openEditor(page, f) {
+  await unfold(page, f.path);
   if (f.column) {
     const col = page.locator(`[data-col="${f.path}"]`);
     if ((await col.getAttribute("aria-expanded")) !== "true") await col.click();

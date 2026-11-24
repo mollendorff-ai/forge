@@ -85,6 +85,14 @@ function openCell(button) {
 // A button pressed: `edit(changes)` answers why not, or null; why not is shown
 // in the card, as Forge words it
 export function listenGameEdits(view, edit) {
+  view.addEventListener("change", async (e) => {
+    const pick = e.target.closest("[data-habitpath]");
+    if (!pick) return;
+    const msg = pick.closest("[data-game]").querySelector("[data-gmsg]");
+    pick.disabled = true;
+    const why = await edit([{ op: "set_habit", path: pick.dataset.habitpath, plays: pick.value }]);
+    if (why) { msg.hidden = false; msg.textContent = why; pick.value = pick.dataset.was; pick.disabled = false; }
+  });
   view.addEventListener("click", async (e) => {
     const cell = e.target.closest("[data-cellpath]");
     if (cell) { openCell(cell); return; }

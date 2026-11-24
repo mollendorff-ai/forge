@@ -101,6 +101,12 @@ pub struct TableReport {
     /// from a model
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub settings: Vec<Written>,
+    /// The inputs that move the game (ADR-076 decision 5, "what moves
+    /// it"): every scalar without a formula that its numbers read, through
+    /// the formulas on the way, an included file's as `@alias.name`; empty
+    /// where the report is not worked out from a model
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub inputs: Vec<String>,
     /// The shares of the strategies, generation by generation, when the
     /// game has a `dynamics:` key (ADR-073)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -214,6 +220,7 @@ pub fn analyse(game: &str, table: &Table, symmetric: bool) -> TableReport {
             })
             .collect(),
         settings: Vec::new(),
+        inputs: Vec::new(),
         dynamics: None,
     }
 }

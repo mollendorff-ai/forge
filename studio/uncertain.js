@@ -64,10 +64,10 @@ const same = (a, b) => a.toLowerCase() === b.toLowerCase();
 
 // The card of an input that is a distribution: its plan (filled in by the
 // page as for a result), its kind and one field per parameter
-export function distCard(s, d, dists, { name, unit, deleteButton, editButton }) {
+export function distCard(s, d, dists, { name, unit, deleteButton, editButton, idp = "dp-" }) {
   const known = dists.find((x) => same(x.name, d.kind));
   const params = known ? known.params : d.args.map((_, i) => `argument ${i + 1}`);
-  const id = (i) => `dp-${s.path.replace(/[^A-Za-z0-9_-]/g, "_")}-${i}`;
+  const id = (i) => `${idp}${s.path.replace(/[^A-Za-z0-9_-]/g, "_")}-${i}`;
   return `<div class="row dist" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${s.path.startsWith("@") ? "" : ` data-scalar="${esc(s.path)}"`} data-dist="${esc(s.path)}">
     <div class="res-top"><div class="res-name">${esc(name)}${unit}</div><span class="tag">a range</span>${deleteButton}</div>
     <div class="dist-plan"><span class="lab">plan</span><span class="res-val" data-val></span><span class="note" data-dist-mean></span></div>
