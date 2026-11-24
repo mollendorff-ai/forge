@@ -3,8 +3,9 @@
 An AI is good at writing a model and poor at arithmetic it does in its head. Forge is the other way round: the AI writes the YAML, Forge calculates it, and the same file gives the same numbers whoever opens it next. This page is for someone who works with an AI, in three ways, from the least to set up to the most:
 
 1. [A chat that can run commands](#a-chat-that-can-run-commands): paste one prompt.
-2. [The MCP server in an AI client](#the-mcp-server-in-an-ai-client): the AI calls Forge's tools itself.
-3. [Rules for an agent in your model repository](#rules-for-an-agent-in-your-model-repository): what to put in `AGENTS.md` or `CLAUDE.md`.
+2. [The Forge skill](#the-forge-skill): add it once, and an agent that loads skills knows how to model with Forge whenever a task calls for it.
+3. [The MCP server in an AI client](#the-mcp-server-in-an-ai-client): the AI calls Forge's tools itself.
+4. [Rules for an agent in your model repository](#rules-for-an-agent-in-your-model-repository): what to put in `AGENTS.md` or `CLAUDE.md`.
 
 A chat that cannot run commands, or a phone with nothing installed, can still use [Forge Studio](https://forge.mollendorff.ai/): ask the AI for the YAML and open it there.
 
@@ -13,6 +14,18 @@ A chat that cannot run commands, or a phone with nothing installed, can still us
 If the AI has a code sandbox, it needs no setup but one prompt. The [README](../../README.md#try-it-with-your-ai) has it: it names Forge exactly, installs the release binary and its examples with one line, runs the bagel shop of [lesson 1](01-first-ten-minutes.md), and asks the AI to check one result another way and to say so if it cannot run commands. [PROMPTS.md](../PROMPTS.md) has seven more, each run by a fresh agent before it went in: build a model from a description, bring a workbook in from Excel and back, budget against actual, what if, risk and decisions, games, and the price war of [lesson 6](06-what-will-they-do.md). The page ends with what to keep in a prompt of your own.
 
 Whatever you ask, ask it to end with the YAML, every file in full with its name. That is what you keep: it opens in Studio, goes into Excel with `forge export`, and is the model the next person calculates.
+
+## The Forge skill
+
+[`skills/forge-modelling/SKILL.md`](../../skills/forge-modelling/SKILL.md) is an [Agent Skill](https://agentskills.io/specification): a folder with one Markdown file, whose name and description an agent reads when it starts and whose steps it reads when a task needs them. It carries what a prompt of [PROMPTS.md](../PROMPTS.md#writing-your-own) carries, so you need not paste it each time: the install line, the two ways a formula is written (`{formula: "=..."}` in a group of scalars, a bare `"=..."` in a table), calculate before validate, `forge validate` as the verdict (its exit status, or `passed` from `forge_validate`), `forge edit` for a change, one result checked by hand, and the YAML at the end. It works in a shell or with the MCP server's tools, and says what to do with neither.
+
+| Client | Where the folder goes |
+| --- | --- |
+| Claude Code | `.claude/skills/forge-modelling/` in a project, to share it with the repository, or `~/.claude/skills/forge-modelling/` for every project on your computer |
+| Claude (claude.ai and the desktop app) | Zip the folder, then Customize, Skills, "+", Create skill, Upload a skill. On an individual plan, code execution must be on first (Settings, Capabilities) |
+| Other clients that read skills | `.agents/skills/forge-modelling/` in a project or `~/.agents/skills/forge-modelling/`, where many of them look, or the folder the client's own page names |
+
+Claude Code's row is from [its skills page](https://code.claude.com/docs/en/skills) and Claude's from [Using skills in Claude](https://support.claude.com/en/articles/12512180-using-skills-in-claude), both read on 2026-11-24; the `.agents/skills/` folders are the convention the Agent Skills site's [guide for clients](https://agentskills.io/client-implementation/adding-skills-support) describes, read from its source the same day. A test in `validation/repo` (`skill`) checks the file against the specification's rules, runs each `forge` command it shows and compares what is printed, and makes each call of its table of MCP tools against `forge mcp`.
 
 ## The MCP server in an AI client
 
@@ -89,6 +102,6 @@ The rules are short on purpose: the server tells a client most of them when it c
 
 ## What this page does not do
 
-It does not say whether a Markdown index of the documentation for AI crawlers (`llms.txt`) helps an agent: that is tested, not assumed, by roadmap item A14. And it does not cover Cursor, VS Code or Codex setup, because their documentation could not be read when it was written (A5 in the roadmap says so); the command and arguments above are the same.
+It does not say whether a Markdown index of the documentation for AI crawlers (`llms.txt`) helps an agent: that is tested, not assumed, by roadmap item A14.
 
 Next: [the guide's index](README.md), and [WORKFLOWS.md](../WORKFLOWS.md) for ways of working with these tools in a team.
