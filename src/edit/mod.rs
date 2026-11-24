@@ -10,6 +10,7 @@
 //! Studio (forge-wasm's `edit`) share it.
 
 mod check;
+mod column;
 mod games;
 mod insert;
 mod rename;
@@ -98,13 +99,18 @@ impl Op {
 }
 
 /// A value to write: a number, or its text as YAML holds it (`1e-5`,
-/// `0x10`, a date `2026-01-31`)
+/// `0x10`, a date `2026-01-31`); or, for a table's column of values, a list
+/// of them, one for each row (`[20, 45]`)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "cli", derive(schemars::JsonSchema))]
-#[serde(untagged)]
+#[serde(
+    untagged,
+    expecting = "a value: a number, its text (a date 2026-01-31), or for a table's column a list of them, one for each row"
+)]
 pub enum Value {
     Number(f64),
     Text(String),
+    List(Vec<Self>),
 }
 
 /// One change to a model
@@ -337,8 +343,9 @@ fn write(text: &str, target: &Target<'_>, kind: Kind, change: &Change) -> Result
         (Op::Delete, k) if k != Kind::Absent => text::delete(text, &names),
         (Op::Add, _) => Err("it is already in the model".into()),
         (_, Kind::Absent) => Err("it is not in the model".into()),
+        (Op::SetValue, Kind::Values) => column::set(text, target, &names, change),
         (_, Kind::Values) => {
-            Err("it is a table's column of values, which edit does not change yet".into())
+            Err("it is a table's column of values: change it with set_value and a list".into())
         },
         (Op::SetValue, _) => {
             Err("it is a formula, not an input: change it with set_formula".into())
@@ -436,6 +443,7 @@ fn value_text(value: Option<&Value>) -> Result<String, String> {
         Value::Text(text) => Err(format!(
             "{text:?} is not written as a number or a date (2026-01-31)"
         )),
+        Value::List(_) => Err("a list of values is for a table's column; this takes one".into()),
     }
 }
 
@@ -708,7 +716,11 @@ months:
         );
         refused(
             value(Op::SetValue, "months.month", Value::Number(1.0)),
-            "it is a table's column of values, which edit does not change yet",
+            "it is a table's column of 3 rows: its value is a list, one for each row",
+        );
+        refused(
+            formula_of(Op::SetFormula, "months.month", "=1"),
+            "it is a table's column of values: change it with set_value and a list",
         );
         refused(
             formula_of(Op::SetFormula, "months.nothing", "=1"),
