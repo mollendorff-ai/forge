@@ -178,9 +178,11 @@ assumptions:
     expected: 296
 
   # DDB with a period after 0 and before 1 is the first period, as Gnumeric
-  # 1.12.56 gives it (checked 2026-11-24). LibreOffice 24.2 answers Err:502
-  # and Excel was not available to check, so the case is Gnumeric's; with a
-  # life under 1 the first period takes all down to the salvage
+  # 1.12.56 gives it, and with a life under 1 the first period takes all down
+  # to the salvage. Excel for iOS gives the same on all five cases below
+  # (2026-11-24; DDB(1000, 100, 10, 0.5) is $200.00, and the others agree with
+  # the values here to 0.000001). LibreOffice 24.2 answers Err:502 for a
+  # period under 1, so it is the one that differs
   test_ddb_period_under_one_is_the_first:
     value: null
     formula: "=ROUND(DDB(1000, 100, 10, 0.5), 10)"
