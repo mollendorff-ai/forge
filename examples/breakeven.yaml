@@ -37,15 +37,18 @@ product:
 
   total_variable_cost:
     formula: "=hosting_cost + support_cost + payment_processing"
+    value: 28
     unit: "$/month"
 
   # Contribution per unit
   contribution_margin:
     formula: "=price_per_unit - total_variable_cost"
+    value: 72
     unit: "$/month"
 
   contribution_margin_ratio:
     formula: "=contribution_margin / price_per_unit"
+    value: 0.72
     unit: "%"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -64,6 +67,7 @@ fixed_costs:
 
   total:
     formula: "=salaries + office + software + marketing + other"
+    value: 70000
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Break-Even Analysis
@@ -73,17 +77,20 @@ breakeven:
   # Returns: Number of units needed to cover fixed costs
   units_required:
     formula: "=BREAKEVEN_UNITS(fixed_costs.total, product.price_per_unit, product.total_variable_cost)"
+    value: 972.222222222222
     unit: "subscribers"
 
   # BREAKEVEN_REVENUE(fixed_costs, contribution_margin_ratio)
   # Returns: Revenue needed to cover fixed costs
   revenue_required:
     formula: "=BREAKEVEN_REVENUE(fixed_costs.total, product.contribution_margin_ratio)"
+    value: 97222.2222222222
     unit: "$"
 
   # Verification: units * price should equal revenue
   verification:
     formula: "=units_required * product.price_per_unit"
+    value: 97222.2222222222
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Scenario Analysis: What if we change pricing?
@@ -110,12 +117,15 @@ scenarios:
 pricing_scenarios:
   current_breakeven:
     formula: "=BREAKEVEN_UNITS(70000, 100, 28)"
+    value: 972.222222222222
 
   premium_breakeven:
     formula: "=BREAKEVEN_UNITS(70000, 150, 28)"
+    value: 573.770491803279
 
   budget_breakeven:
     formula: "=BREAKEVEN_UNITS(70000, 50, 28)"
+    value: 3181.81818181818
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Margin of Safety
@@ -125,12 +135,15 @@ current_operations:
 
   actual_revenue:
     formula: "=actual_subscribers * product.price_per_unit"
+    value: 120000
 
   margin_of_safety_units:
     formula: "=actual_subscribers - breakeven.units_required"
+    value: 227.777777777778
 
   margin_of_safety_pct:
     formula: "=margin_of_safety_units / actual_subscribers"
+    value: 0.189814814814815
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Expected Output:

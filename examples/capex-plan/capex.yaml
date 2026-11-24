@@ -21,42 +21,57 @@ revenue:
 bank:
   monthly_rate:
     formula: "=loan.annual_rate / 12"
+    value: 0.00541666666666667
   months:
     formula: "=loan.years * 12"
+    value: 60
   payment:
     formula: "=-PMT(monthly_rate, months, loan.amount)"
+    value: 2347.93778624743
   year2_interest:
     formula: "=-CUMIPMT(monthly_rate, months, loan.amount, 13, 24, 0)"
+    value: 5775.92829115075
   year2_principal:
     formula: "=-CUMPRINC(monthly_rate, months, loan.amount, 13, 24, 0)"
+    value: 22399.3251438184
   # Interest plus principal of year 2 is twelve payments
   check:
     formula: "=year2_interest + year2_principal - payment * 12"
+    value: 0
 
 # Depreciation of year 3, by three methods
 writedown:
   straight_line:
     formula: "=SLN(machine.cost, machine.salvage, machine.life_years)"
+    value: 13500
   sum_of_years:
     formula: "=SYD(machine.cost, machine.salvage, machine.life_years, 3)"
+    value: 18000
   double_declining:
     formula: "=VDB(machine.cost, machine.salvage, machine.life_years, 2, 3)"
+    value: 16875
   # A tax table typed into the formula as an array constant: the IRS's
   # 7-year MACRS rates in percent (Publication 946, table A-1, half-year
   # convention). Year 3 is the third item. Tax depreciation ignores salvage.
   tax_macrs:
     formula: "=machine.cost * INDEX({14.29; 24.49; 17.49; 12.49; 8.93; 8.92; 8.93; 4.46}, 3) / 100"
+    value: 20988
   # Over the whole life every method writes off cost less salvage
   total:
     formula: "=VDB(machine.cost, machine.salvage, machine.life_years, 0, machine.life_years)"
+    value: 108000
 
 growth:
   # Revenue growth a year, first to last year
   cagr:
     formula: "=RRI(4, INDEX(revenue.amount, 1), INDEX(revenue.amount, 5))"
+    value: 0.126393199277902
   slope:
     formula: "=SLOPE(revenue.amount, revenue.year)"
+    value: 6300
   year6:
     formula: "=FORECAST.LINEAR(6, revenue.amount, revenue.year)"
+    value: 72300
   fit:
     formula: "=RSQ(revenue.amount, revenue.year)"
+    value: 0.992994746059545

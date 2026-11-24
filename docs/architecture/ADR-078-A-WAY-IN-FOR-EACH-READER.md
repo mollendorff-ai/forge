@@ -1,6 +1,6 @@
 # ADR-078: A Way In for Each Reader
 
-**Status:** Proposed (2026-11-23)
+**Status:** Accepted (2026-11-23), by the maintainer merging it (pull request #382)
 **Date:** 2026-11-23
 **Decided by:** the maintainer, who asked (2026-11-23) to make Forge easy, trustworthy and fun to adopt for new users, developers, maintainers and AI agents, and who accepts this by merging it. The review and the design are Claude's, in a session configured for Opus 5.5
 **For:** roadmap A1-DOCS-MAP, and the order of A2 to A10. It supersedes, for documentation only, "adoption is not a goal" (2026-11-16)

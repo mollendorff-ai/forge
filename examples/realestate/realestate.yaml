@@ -43,17 +43,21 @@ loan:
   amortization_years: 30
   amount:
     formula: "=deal.price * ltv"
+    value: 2990000
     format: "$#,##0"
   # Paid once a year, to keep the table yearly
   payment:
     formula: "=PMT(interest_rate, amortization_years, -amount)"
+    value: 217220.245355241
     format: "$#,##0"
   # Still owed when the building is sold
   balance_at_sale:
     formula: "=amount * (1 + interest_rate) ^ deal.hold_years - payment * ((1 + interest_rate) ^ deal.hold_years - 1) / interest_rate"
+    value: 2491499.10130203
     format: "$#,##0"
   equity:
     formula: "=deal.price * (1 + deal.closing_costs) - amount"
+    value: 1679000
     format: "$#,##0"
 
 # The building, year by year
@@ -78,12 +82,15 @@ sale:
   # Year 11's income, capitalised at the exit rate
   price:
     formula: "=INDEX(years.noi, deal.hold_years + 1) / market.exit_cap_rate"
+    value: 6323411.48999221
     format: "$#,##0"
   net_proceeds:
     formula: "=price * (1 - market.selling_costs)"
+    value: 6196943.26019236
     format: "$#,##0"
   to_equity:
     formula: "=net_proceeds - loan.balance_at_sale"
+    value: 3705444.15889033
     format: "$#,##0"
 
 valuation:
@@ -91,37 +98,47 @@ valuation:
   # building is worth to a buyer who pays cash
   dcf:
     formula: "=SUMPRODUCT(years.cash, years.discount) + sale.net_proceeds / (1 + deal.discount_rate) ^ deal.hold_years"
+    value: 4824715.31405986
     format: "$#,##0"
   # What the building is worth less what it costs to buy
   npv:
     formula: "=dcf - deal.price * (1 + deal.closing_costs)"
+    value: 155715.314059858
     format: "$#,##0"
   going_in_cap_rate:
     formula: "=INDEX(years.noi, 1) / deal.price"
+    value: 0.0575265391304348
     format: "0.00%"
   price_per_unit:
     formula: "=deal.price / building.units"
+    value: 191666.666666667
     format: "$#,##0"
   # Of the value, the share that is the sale in year 10
   sale_share_of_value:
     formula: "=sale.net_proceeds / (1 + deal.discount_rate) ^ deal.hold_years / dcf"
+    value: 0.594933291874589
     format: "0.0%"
 
 returns:
   unlevered_irr:
     formula: "=IRR(-deal.price * (1 + deal.closing_costs), years.cash + IF(years.n = deal.hold_years, sale.net_proceeds, 0))"
+    value: 0.084433061538374
     format: "0.00%"
   equity_irr:
     formula: "=IRR(-loan.equity, years.cash - years.debt_service + IF(years.n = deal.hold_years, sale.to_equity, 0))"
+    value: 0.113651791079177
     format: "0.00%"
   equity_multiple:
     formula: "=(SUM(years.cash) - SUM(years.debt_service) + sale.to_equity) / loan.equity"
+    value: 2.6832870638485
     format: "0.00"
   first_year_cash_on_cash:
     formula: "=(INDEX(years.cash, 1) - loan.payment) / loan.equity"
+    value: 0.0232292046722804
     format: "0.0%"
   min_dscr:
     formula: "=MINIFS(years.dscr, years.debt_service, \">0\")"
+    value: 1.21822015055382
     format: "0.00"
 
 scenarios:

@@ -33,23 +33,29 @@ offer:
   premium: {value: 0.30, format: "0%"}
   price_per_share:
     formula: "=@target.company.unaffected_price * (1 + premium)"
+    value: 31.2
     format: "$#,##0.00"
   equity_value:
     formula: "=price_per_share * @target.company.shares"
+    value: 1560
     format: "$#,##0"
   # The debt comes with the company
   enterprise_value:
     formula: "=equity_value + @target.company.net_debt"
+    value: 1660
     format: "$#,##0"
   ev_to_ebitda:
     formula: "=enterprise_value / @target.company.ebitda"
+    value: 10.375
     format: "0.0\"x\""
   price_to_earnings:
     formula: "=equity_value / @target.company.net_income_next_year"
+    value: 20
     format: "0.0\"x\""
   # What Quillon's shareholders get above what the market said their shares were worth
   premium_paid:
     formula: "=equity_value - @target.company.unaffected_price * @target.company.shares"
+    value: 360
     format: "$#,##0"
 
 financing:
@@ -60,23 +66,28 @@ financing:
   fees_rate: {value: 0.02, format: "0.0%"}
   fees:
     formula: "=offer.equity_value * fees_rate"
+    value: 31.2
     format: "$#,##0"
   # The cash part and the fees, all borrowed
   new_debt:
     formula: "=offer.equity_value * cash_share + fees"
+    value: 967.2
     format: "$#,##0"
   # The share part, at Valdane's share price
   new_shares:
     formula: "=offer.equity_value * (1 - cash_share) / @buyer.company.share_price"
+    value: 15.6
     format: "#,##0.0"
   # Of the combined company, the share Quillon's shareholders end up owning
   quillon_holders_own:
     formula: "=new_shares / (@buyer.company.shares + new_shares)"
+    value: 0.0723562152133581
     format: "0.0%"
   # Net debt over EBITDA on the day of closing; the rating agencies are
   # comfortable up to 2.5
   leverage_at_close:
     formula: "=(@buyer.company.net_debt + @target.company.net_debt + new_debt) / (@buyer.company.ebitda + @target.company.ebitda)"
+    value: 2.04252252252252
     format: "0.00\"x\""
 
 synergies:
@@ -136,52 +147,62 @@ valuation:
   # Year 5's cash growing for ever, as a value at the end of year 5
   terminal_multiple:
     formula: "=(1 + case.terminal_growth) / (case.discount_rate - case.terminal_growth)"
+    value: 18.6363636363636
     format: "0.0"
   # What Quillon is worth on its own, with its debt
   standalone:
     better: higher
     formula: "=SUMPRODUCT(cash.target_cash, cash.discount) + INDEX(cash.target_cash, 5) * terminal_multiple * INDEX(cash.discount, 5)"
+    value: 1312.55815783386
     format: "$#,##0"
   # What the synergies are worth, net of the integration bill
   synergies:
     better: higher
     formula: "=SUMPRODUCT(cash.synergy_cash, cash.discount) + INDEX(cash.synergy_cash, 5) * terminal_multiple * INDEX(cash.discount, 5)"
+    value: 603.149775584427
     format: "$#,##0"
   # Everything Valdane pays: the shares, the debt it takes on and the fees
   price_paid:
     formula: "=offer.enterprise_value + financing.fees"
+    value: 1691.2
     format: "$#,##0"
   # The question: is Quillon, with the synergies, worth more than it costs?
   value_created:
     formula: "=standalone + synergies - price_paid"
+    value: 224.50793341829
     format: "$#,##0"
     better: higher
   # Value created a Valdane share, counting the new ones
   value_created_per_share:
     better: higher
     formula: "=value_created / (@buyer.company.shares + financing.new_shares)"
+    value: 1.04131694535385
     format: "$#,##0.00"
   # How many times the synergies cover the premium
   synergy_cover:
     formula: "=synergies / offer.premium_paid"
+    value: 1.67541604329007
     format: "0.00\"x\""
   # Of the synergies' value, the share that comes after year 5
   synergies_after_year_5:
     formula: "=INDEX(cash.synergy_cash, 5) * terminal_multiple * INDEX(cash.discount, 5) / synergies"
+    value: 0.914758565665896
     format: "0%"
   deal_irr:
     better: higher
     formula: "=IRR(-price_paid, cash.target_cash + cash.synergy_cash + IF(cash.n = 5, (INDEX(cash.target_cash, 5) + INDEX(cash.synergy_cash, 5)) * terminal_multiple, 0))"
+    value: 0.108933596430456
     format: "0.00%"
 
 eps:
-  year_1_accretion: {formula: "=INDEX(earnings.accretion, 1)", format: "0.0%", better: higher}
-  year_3_accretion: {formula: "=INDEX(earnings.accretion, 3)", format: "0.0%", better: higher}
-  year_5_accretion: {formula: "=INDEX(earnings.accretion, 5)", format: "0.0%", better: higher}
-  year_1_adjusted_accretion: {formula: "=INDEX(earnings.adjusted_accretion, 1)", format: "0.0%", better: higher}
+  year_1_accretion: {formula: "=INDEX(earnings.accretion, 1)", format: "0.0%", better: higher, value: -0.119899743114029}
+  year_3_accretion: {formula: "=INDEX(earnings.accretion, 3)", format: "0.0%", better: higher, value: -0.0114336586639795}
+  year_5_accretion: {formula: "=INDEX(earnings.accretion, 5)", format: "0.0%", better: higher, value: 0.0283110790780217}
+  year_1_adjusted_accretion: {formula: "=INDEX(earnings.adjusted_accretion, 1)", format: "0.0%", better: higher, value: 0.000515555872698581}
   # The first year the deal adds to reported earnings a share; 0 if none does
   first_accretive_year:
     formula: "=MINIFS(earnings.n, earnings.accretion, \">0\")"
+    value: 4
 
 scenarios:
   base:

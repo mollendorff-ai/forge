@@ -31,13 +31,13 @@ blocks:
     format: "$#,##0"
 
 season:
-  tonnes: {formula: "=SUM(blocks.tonnes)", format: "#,##0.0"}
-  revenue: {formula: "=SUM(blocks.revenue)", format: "$#,##0"}
-  growing: {formula: "=SUM(blocks.hectares) * @costs.vineyard.per_hectare", format: "$#,##0"}
-  picking: {formula: "=tonnes * @costs.harvest.picking_per_tonne", format: "$#,##0"}
-  fixed: {formula: "=@costs.fixed.overhead + @costs.fixed.loan_payment", format: "$#,##0"}
-  profit: {formula: "=revenue - growing - picking - fixed", format: "$#,##0"}
-  margin: {formula: "=profit / revenue", format: "0.0%"}
+  tonnes: {formula: "=SUM(blocks.tonnes)", format: "#,##0.0", value: 167}
+  revenue: {formula: "=SUM(blocks.revenue)", format: "$#,##0", value: 355200}
+  growing: {formula: "=SUM(blocks.hectares) * @costs.vineyard.per_hectare", format: "$#,##0", value: 168000}
+  picking: {formula: "=tonnes * @costs.harvest.picking_per_tonne", format: "$#,##0", value: 30060}
+  fixed: {formula: "=@costs.fixed.overhead + @costs.fixed.loan_payment", format: "$#,##0", value: 85000}
+  profit: {formula: "=revenue - growing - picking - fixed", format: "$#,##0", value: 72140}
+  margin: {formula: "=profit / revenue", format: "0.0%", value: 0.203096846846847}
 
 scenarios:
   base:

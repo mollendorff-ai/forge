@@ -29,11 +29,16 @@ months:
 year:
   sales:
     formula: "=SUM(months.sales)"
+    value: 229045.229770974
   profit:
     formula: "=SUM(months.profit)"
+    value: 18846.2332671647
   closing_cash:
     formula: "=INDEX(months.cash, 12)"
+    value: 30846.2332671647
   lowest_cash:
     formula: "=MIN(months.cash)"
+    value: 10309.52
   months_at_a_loss:
     formula: "=COUNTIF(months.profit, \"<0\")"
+    value: 2

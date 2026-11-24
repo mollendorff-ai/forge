@@ -10,6 +10,7 @@ income:
   side_work: 400
   total:
     formula: "=salary + side_work"
+    value: 5600
 
 expenses:
   rent: 1650
@@ -21,11 +22,14 @@ expenses:
   subscriptions: 60
   total:
     formula: "=rent + groceries + transport + utilities + phone_internet + eating_out + subscriptions"
+    value: 3100
 
 result:
   left_over:
     formula: "=income.total - expenses.total"
+    value: 2500
     better: higher
   savings_rate:
     formula: "=left_over / income.total"
+    value: 0.446428571428571
     better: higher

@@ -25,15 +25,21 @@ forecast:
 valuation:
   forecast_years:
     formula: "=SUM(forecast.present_value)"
+    value: 1866331.17906541
   # Cash flows after year 5, growing for ever, valued at the end of year 5
   terminal_value:
     formula: "=INDEX(forecast.free_cash_flow, 5) * (1 + assumptions.terminal_growth) / (assumptions.wacc - assumptions.terminal_growth)"
+    value: 8368580.10133555
   terminal_value_today:
     formula: "=terminal_value * INDEX(forecast.discount_factor, 5)"
+    value: 5315953.59949563
   enterprise_value:
     formula: "=forecast_years + terminal_value_today"
+    value: 7182284.77856104
   equity_value:
     formula: "=enterprise_value - assumptions.net_debt"
+    value: 5682284.77856104
   # The same five years with NPV
   check:
     formula: "=ROUND(ABS(NPV(assumptions.wacc, forecast.free_cash_flow) - forecast_years), 6)"
+    value: 0
