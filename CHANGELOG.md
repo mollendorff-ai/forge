@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The guide's AI page says how to add Forge's MCP server to Cursor, VS Code and Codex** (roadmap A5-GUIDE-AI). [`docs/guide/ai.md`](docs/guide/ai.md) now has a row for each, from the client's current documentation (the file, the key, and `"type": "stdio"` where it is required), Claude Desktop's Linux file, and the pages it was read from with their dates. It also says what agents.md says of nested `AGENTS.md` files: the nearest wins.
 - **Forge Studio changes a value, a formula, an added or a deleted element with Forge's `edit`** (ADR-075 step 7, roadmap S-EDIT). Studio's own line-by-line YAML editing (`studio/text.js`) is gone: an input typed on a card, a formula, "Add" and "Delete" send `set_value`, `set_formula`, `add` and `delete` to forge-wasm's `edit`, which writes the same bytes (the cases of the old `studio/tests/text.mjs` are held by the tests of `src/edit/text.rs`), keeps a change only when Forge reads the model back with exactly it, and shows its message when it does not. A name added on a card may now be in any alphabet. `studio/text.js` keeps the editor\'s colours. The README's screenshots are made again from the bagel's uncertain model (`studio/screenshots.mjs`).
 
 ### Added
