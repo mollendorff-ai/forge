@@ -680,28 +680,6 @@ mod tests {
         assert_eq!(v.json_value(), serde_json::Value::Null);
     }
 
-    /// A scalar shows as its `format:` says: a number as a number, a date as a
-    /// date; none with no format, and none with no value to show
-    #[test]
-    fn a_scalar_is_formatted_by_its_format_and_not_without_a_value() {
-        let with = |value: Option<f64>, is_date: bool, format: Option<&str>| {
-            let mut v = Variable::new("a.s".to_string(), value, None);
-            v.is_date = is_date;
-            v.metadata.format = format.map(str::to_string);
-            v.formatted()
-        };
-        assert_eq!(
-            with(Some(0.5), false, Some("0.0%")).as_deref(),
-            Some("50.0%")
-        );
-        assert_eq!(
-            with(Some(46_000.0), true, Some("yyyy-mm-dd")).as_deref(),
-            Some("2025-12-09")
-        );
-        assert_eq!(with(Some(0.5), false, None), None);
-        assert_eq!(with(None, false, Some("0.0%")), None);
-    }
-
     // =========================================================================
     // Metadata Tests (v4.0)
     // =========================================================================
@@ -792,6 +770,35 @@ mod tests {
         assert_eq!(var.value, Some(100.0));
         assert!(var.formula.is_none());
         assert!(var.metadata.is_empty());
+    }
+
+    /// A value is shown as its `format:` says (ADR-061), a date by its text,
+    /// and a formula with no result, or a variable with no format, has none
+    #[test]
+    fn a_variable_is_formatted_as_its_format_says() {
+        let metadata = |format: &str| Metadata {
+            format: Some(format.to_string()),
+            ..Default::default()
+        };
+        let number = Variable::with_metadata("a.n".to_string(), Some(12.5), None, metadata("0.00"));
+        assert_eq!(number.formatted().as_deref(), Some("12.50"));
+        let mut date = Variable::with_metadata(
+            "a.d".to_string(),
+            Some(46_000.0),
+            None,
+            metadata("yyyy-mm-dd"),
+        );
+        date.is_date = true;
+        assert_eq!(date.formatted().as_deref(), Some("2025-12-09"));
+        let no_result = Variable::with_metadata(
+            "a.f".to_string(),
+            None,
+            Some("=1+1".to_string()),
+            metadata("0.00"),
+        );
+        assert_eq!(no_result.formatted(), None);
+        let no_format = Variable::new("a.p".to_string(), Some(1.0), None);
+        assert_eq!(no_format.formatted(), None);
     }
 
     #[test]

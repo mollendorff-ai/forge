@@ -149,16 +149,12 @@ msg = await del(page, "assumptions.price_per_dozen");
 if (!msg) fail("an input other formulas use was deleted");
 await unchanged("deleting an input other formulas use");
 msg = await del(page, "year.first_year_return");
-// the whole entry goes (its key, its formula and the result stored under it),
-// and nothing else
+// its three lines go (the key, its formula and its stored result), and nothing else
 const gone = original.split("\n");
-const entry = gone.findIndex((l) => l === "  first_year_return:");
-let entryEnd = entry + 1;
-while (gone[entryEnd].startsWith("    ")) entryEnd++;
-gone.splice(entry, entryEnd - entry);
+gone.splice(gone.findIndex((l) => l === "  first_year_return:"), 3);
 const want = gone.join("\n");
 if (msg) fail(`year.first_year_return was not deleted: ${msg}`);
-else if ((await filesOf(page, bagel))["bagel.yaml"] !== want) fail("deleting year.first_year_return changed more than its entry");
+else if ((await filesOf(page, bagel))["bagel.yaml"] !== want) fail("deleting year.first_year_return changed more than its lines");
 else deleted++;
 await page.close();
 
