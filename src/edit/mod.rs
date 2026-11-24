@@ -66,6 +66,9 @@ pub enum Op {
     /// A game's player, and the payoffs of its strategies but the first; or
     /// a tournament's
     DeletePlayer,
+    /// A tournament's player (`rivalry.players.copycat`) plays another habit
+    /// (`plays`: `tit_for_tat`, `random`, ...)
+    SetHabit,
     /// A template's block, a game, added to `games:` (`path`: the template,
     /// from the `templates` tool; `new_name`: the name its game gets, or a
     /// free one)
@@ -88,6 +91,7 @@ impl Op {
             Self::DeleteStrategy => "delete_strategy",
             Self::AddPlayer => "add_player",
             Self::DeletePlayer => "delete_player",
+            Self::SetHabit => "set_habit",
             Self::Insert => "insert",
         }
     }
@@ -110,7 +114,7 @@ pub enum Value {
 pub struct Change {
     /// `set_value`, `set_formula`, `add`, `delete`, `rename`,
     /// `make_uncertain`, `make_certain`, `add_strategy`, `delete_strategy`,
-    /// `add_player` or `delete_player`
+    /// `add_player`, `delete_player` or `set_habit`
     pub op: Op,
     /// The name as formulas read it: `price`, `year.price`, a table's column
     /// `months.sales`, or `@costs.rent` in the file included as `costs`; for
@@ -143,8 +147,8 @@ pub struct Change {
     /// The name it gets, one word: `cost` for `year.price` (`rename`), or a template's game (`insert`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub new_name: Option<String>,
-    /// The habit a tournament's new player plays: `tit_for_tat`,
-    /// `always_defect`, ... (`add_player`)
+    /// The habit a tournament's player plays: `tit_for_tat`,
+    /// `always_defect`, ... (`add_player`, `set_habit`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plays: Option<String>,
 }
@@ -271,6 +275,9 @@ fn apply(files: &mut HashMap<String, String>, main: &str, change: &Change) -> Re
     {
         return games::set_cell(files, main, &before, &target, change);
     }
+    if change.op == Op::SetHabit {
+        return games::set_habit(files, main, &before, &target, change);
+    }
     if matches!(
         change.op,
         Op::AddStrategy | Op::DeleteStrategy | Op::AddPlayer | Op::DeletePlayer
@@ -306,7 +313,7 @@ fn fields(change: &Change) -> Result<(), String> {
         Op::Add => &["value", "formula", "unit", "after"],
         Op::Delete | Op::AddStrategy | Op::DeleteStrategy | Op::DeletePlayer => &[],
         Op::Rename | Op::Insert => &["new_name"],
-        Op::AddPlayer => &["plays"],
+        Op::AddPlayer | Op::SetHabit => &["plays"],
     };
     given
         .iter()

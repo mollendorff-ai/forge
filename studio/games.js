@@ -5,6 +5,7 @@
 
 import { esc } from "./text.js";
 import { fmt } from "./format.js";
+import { HABITS } from "./gameedit.js";
 
 const pct = (p) => fmt(p, "", "%");
 // The pure strategy a player plays in an equilibrium, or null in a mixed one
@@ -52,6 +53,10 @@ const settingsEdit = (r) => (r.settings && r.settings.length
     return `<button type="button" class="edit-btn" data-cellpath="${esc(w.path)}" data-cellwas="${esc(w.formula ?? w.number)}" aria-label="Change ${esc(w.path)}">${esc(label)}: ${esc(text)}</button>`;
   }).join("") + `</div>`
   : "");
+
+// A tournament's player's habit, to change with Forge's `edit` while the card
+// is open for changes (CSS)
+const habitEdit = (game, s) => `<select class="sel habit-edit" data-habitpath="${esc(`${game}.players.${s.player}`)}" data-was="${esc(s.plays)}" aria-label="What ${esc(s.player)} plays">${HABITS.map((h) => `<option value="${esc(h)}"${h === s.plays ? " selected" : ""}>${esc(h.replace(/_/g, " "))}</option>`).join("")}</select>`;
 
 export function tableCard(r) {
   const key = (list) => list.join("\u0001");
@@ -199,7 +204,7 @@ export function tournamentCard(r) {
   const length = r.rounds != null ? `${r.rounds} rounds a match` : `goes on after each round with chance ${fmt(r.continuation)}`;
   let h = `<div class="game-head"><b>${esc(r.game)}</b><span class="note">${esc(r.round)} played again and again: ${esc(length)}${r.noise ? `, a move flipped with chance ${esc(fmt(r.noise))}` : ""}${r.self_play ? ", each also against itself" : ""}</span><span data-help-slot="tournament"></span></div>`;
   h += `<div class="scroll-x"><table class="report ranking"><thead><tr><th scope="col">player</th><th scope="col">rank</th><th scope="col">a round</th><th scope="col">cooperates</th></tr></thead><tbody>` +
-    r.ranking.map((s) => `<tr data-standing="${esc(s.player)}" data-score="${s.score}"><th scope="row">${esc(s.player)}<span class="plays">${esc(s.plays.replace(/_/g, " "))}</span></th><td>${s.rank}</td><td>${esc(fmt(s.score))}</td><td>${esc(pct(s.cooperation))}</td></tr>`).join("") +
+    r.ranking.map((s) => `<tr data-standing="${esc(s.player)}" data-score="${s.score}"><th scope="row">${esc(s.player)}<span class="plays">${esc(s.plays.replace(/_/g, " "))}</span>${habitEdit(r.game, s)}</th><td>${s.rank}</td><td>${esc(fmt(s.score))}</td><td>${esc(pct(s.cooperation))}</td></tr>`).join("") +
     `</tbody></table></div>`;
   h += `<p class="note" data-stable>Collectively stable (nobody does better against it than it does against itself): ${r.stable.length ? esc(r.stable.join(", ")) : "none"}.</p>`;
   // In the ranking's order (the object's keys come back sorted)

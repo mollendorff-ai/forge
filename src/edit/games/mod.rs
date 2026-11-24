@@ -1,4 +1,5 @@
 //! `add_strategy`, `delete_strategy`, `add_player` and `delete_player`
+//! (and `set_habit`, in [`habit`])
 //! (ADR-075, decision 2 and step 5; ADR-076, decision 5).
 //!
 //! A change names a game's strategy as `sealed_bids.strategies.bid_50` (every
@@ -11,9 +12,11 @@
 //! game as asked and nothing else changed.
 
 mod cell;
+mod habit;
 mod write;
 
 pub(super) use cell::{apply as set_cell, game_of};
+pub(super) use habit::apply as set_habit;
 
 use super::{check, is_name, Change, Op, Target};
 use crate::games::model::Cell;
@@ -165,7 +168,7 @@ fn plan_of<'m>(
 }
 
 /// The nine habits, as a model names them
-fn habits() -> String {
+pub(super) fn habits() -> String {
     Plays::ALL.map(Plays::name).join(", ")
 }
 
@@ -421,6 +424,20 @@ pub(super) fn apply(
     let (name, game) = plan_of(target.model, &target.name, change)?;
     let text = write::write(&files[&target.file], &name, &game)
         .map_err(|why| format!("{why} ({})", target.file))?;
+    confirm(files, main, before, target, &name, game.after(), text)
+}
+
+/// `text` as the target's file, kept in `files` only when Forge reads the
+/// model back valid with `game` as the game `name` and nothing else changed
+pub(super) fn confirm(
+    files: &mut HashMap<String, String>,
+    main: &str,
+    before: &ParsedModel,
+    target: &Target<'_>,
+    name: &str,
+    game: Game,
+    text: String,
+) -> Result<(), String> {
     let mut changed = files.clone();
     changed.insert(target.file.clone(), text);
     let after_model = check::read(&changed, main)
@@ -428,7 +445,7 @@ pub(super) fn apply(
         .map_err(|e| format!("Forge refuses the model with this change: {e}"))?;
     let mut want = before.clone();
     let model = included(&mut want, &target.aliases);
-    model.games.insert(name, game.after());
+    model.games.insert(name.to_string(), game);
     let mut was = check::snapshot(&want);
     let mut now = check::snapshot(&after_model);
     bare(&mut was);

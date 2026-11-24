@@ -230,10 +230,31 @@ const noStart = await forge([...cellChanges, { op: "set_value", path: START, val
 if (!noStart.why) fail("Forge accepts start shares that do not add up");
 else if ((await page.textContent(`[data-cellform="${START}"] [data-cellmsg]`)) !== noStart.why) fail("the card does not say what Forge says of start shares that do not add up");
 
+// A tournament's player's habit: a select on its row while the card is open
+// for changes; a habit Forge refuses (a chance the new habit does not take) is
+// said as Forge words it, and the select goes back
+const habitOf = (game, player) => `[data-game="${game}"] [data-habitpath="${game}.players.${player}"]`;
+await page.evaluate(() => { document.querySelector('[data-gedit="rivalry"]').open = false; });
+if (await page.isVisible(habitOf("rivalry", "steady"))) fail("a habit's select is shown although the card is not open for changes");
+await open("rivalry");
+await page.selectOption(habitOf("rivalry", "steady"), "random");
+cellChanges.push({ op: "set_habit", path: "rivalry.players.steady", plays: "random" });
+await page.waitForFunction(() => /random/.test(document.querySelector('[data-game="rivalry"] [data-standing="steady"] .plays')?.textContent ?? ""), null, { timeout: 60000 });
+await settled();
+await matches("habit", cellChanges);
+await visit("games", "axelrod.yaml", "axelrod");
+await open("axelrod");
+await page.selectOption(habitOf("axelrod", "rand"), "tit_for_tat");
+const noHabit = await forge([{ op: "set_habit", path: "axelrod.players.rand", plays: "tit_for_tat" }]);
+await page.waitForSelector('[data-game="axelrod"] [data-gmsg]:not([hidden])', { timeout: 60000 });
+if (!noHabit.why) fail("Forge accepts a habit that does not take the player's chance");
+else if ((await page.textContent('[data-game="axelrod"] [data-gmsg]')) !== noHabit.why) fail("the card does not say what Forge says of a habit that does not take the player's chance");
+if ((await page.inputValue(habitOf("axelrod", "rand"))) !== "random") fail("a refused habit stays chosen in the select");
+
 await browser.close();
 if (!remote) server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff, a game's dynamics and a tournament's length and noise changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");
+console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff, a player's habit, a game's dynamics and a tournament's length and noise changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");
