@@ -12,12 +12,13 @@
 //!   wrote.
 //!   A command may fail only when the page shows its `Error:` line, so a
 //!   lesson can teach what Forge says when it refuses a model.
-//! - **Files.** A `yaml` block whose first line is `# examples/….yaml` is that
-//!   file, the rest of the block line for line, so the model a lesson shows is
-//!   one the tests run and Studio opens. A block headed by another file
-//!   (`# bagel.yaml`) is one the reader writes: it is written into the folder
-//!   the commands run in before the commands after it, and must also be the
-//!   file of `examples/` its header names, if it names one
+//! - **Files.** A `yaml` block whose first line is `# examples/….yaml` (or
+//!   `….yml`, a workflow) is that file, the rest of the block line for line,
+//!   so the model a lesson shows is one the tests run and Studio opens. A
+//!   block headed by another file (`# bagel.yaml`) is one the reader writes:
+//!   it is written into the folder the commands run in before the commands
+//!   after it, and must also be the file of `examples/` its header names, if
+//!   it names one
 //!   (`# bagel.yaml, as examples/guide/02-bagel.yaml has it`). A block headed
 //!   `# bagel.yaml, after forge calculate`, or `# examples/….yaml, part of it`,
 //!   is lines of the file, one after another, as the commands above it left it.
@@ -146,9 +147,14 @@ pub enum Shown {
     After(String),
 }
 
-/// A path that is a `.yaml` file of the repository's `examples/`.
+/// Whether `name` is a YAML file: a model (`.yaml`) or a workflow (`.yml`).
+fn is_yaml(name: &str) -> bool {
+    has_extension(name, "yaml") || has_extension(name, "yml")
+}
+
+/// A path that is a YAML file of the repository's `examples/`.
 fn is_example(path: &str) -> bool {
-    path.starts_with("examples/") && has_extension(path, "yaml")
+    path.starts_with("examples/") && is_yaml(path)
 }
 
 /// What `header`, the first line of a `yaml` block, says the block is: None
@@ -161,7 +167,7 @@ pub fn shown(header: &str) -> Option<Shown> {
         .map(|w| w.trim_matches(|c: char| matches!(c, ',' | ';' | ':' | '(' | ')')))
         .collect();
     let path = (*words.first()?).to_string();
-    if !has_extension(&path, "yaml") {
+    if !is_yaml(&path) {
         return None;
     }
     if words.contains(&"after") || words.contains(&"part") {
@@ -748,6 +754,11 @@ mod tests {
             shown("# examples/guide/a.yaml"),
             example("examples/guide/a.yaml")
         );
+        assert_eq!(
+            shown("# examples/pipeline/forge.yml"),
+            example("examples/pipeline/forge.yml")
+        );
+        assert_eq!(shown("# examples/pipeline/README.md"), None);
         assert_eq!(
             shown("# bagel.yaml"),
             Some(Shown::Written("bagel.yaml".to_string(), None))
