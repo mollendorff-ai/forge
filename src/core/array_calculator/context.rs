@@ -5,6 +5,17 @@ use super::{column_values, evaluator, ArrayCalculator};
 use crate::types::Table;
 use std::rc::Rc;
 
+/// The number of each column of `table`, as the export lays it out: in model
+/// order ([`Table::column_names`]), the first being 1 (column A).
+pub(super) fn column_numbers(table: &Table) -> evaluator::NameMap<usize> {
+    table
+        .column_names()
+        .into_iter()
+        .zip(1..)
+        .map(|(name, number)| (name.clone(), number))
+        .collect()
+}
+
 /// The shared context with a formula's names laid over it, and what to put
 /// back when the formula is done.
 pub(super) struct LaidContext {
@@ -41,6 +52,9 @@ impl ArrayCalculator {
             }
         }
         let aliases = ctx.aliases.replace(Rc::clone(&short_names.aliases));
+        // A row formula sets its column; any other formula has none
+        ctx.formula_table = table.map(str::to_string);
+        ctx.formula_column = None;
         let table = table.and_then(|name| self.model.tables.get(name));
         if let Some(table) = table {
             for (col_name, col) in &table.columns {
