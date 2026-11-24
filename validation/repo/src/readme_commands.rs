@@ -126,6 +126,38 @@ mod tests {
         assert!(lines_checked >= 15, "only {lines_checked} lines checked");
     }
 
+    /// A development command the README says runs "as CI runs it" is a command
+    /// CI runs, word for word (roadmap A0-DOC-ERRORS): the README once showed a
+    /// lint weaker than CI's, so a change could pass it and fail CI.
+    #[test]
+    fn the_readmes_development_commands_are_cis() {
+        let readme = crate::read("README.md");
+        let ci = crate::read(".github/workflows/ci.yml");
+        let ran: Vec<&str> = ci
+            .lines()
+            .map(|l| l.trim().trim_start_matches("run: "))
+            .collect();
+        let claimed: Vec<&str> = readme
+            .lines()
+            .filter(|l| l.contains("# ") && l.contains("as CI runs it"))
+            .map(|l| l.split(" # ").next().unwrap_or_default().trim())
+            .collect();
+        assert!(
+            claimed.contains(&"cargo clippy --locked --all-targets -- -D warnings"),
+            "the README shows no lint as CI runs it: {claimed:?}"
+        );
+        assert!(
+            claimed.contains(&"cargo fmt --all -- --check"),
+            "the README shows no format check as CI runs it: {claimed:?}"
+        );
+        for command in claimed {
+            assert!(
+                ran.contains(&command),
+                "the README says `{command}` is run as CI runs it; ci.yml does not run it"
+            );
+        }
+    }
+
     /// Every release archive the README names is one the release workflow builds
     /// (T2-LINUX-INSTALL), so the install lines cannot point at a file that no
     /// release has.
