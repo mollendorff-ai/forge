@@ -387,7 +387,10 @@ mod tests {
                     "s.x",
                     (0.0, 2.0)
                 ),
-                "IO error: No such file or directory (os error 2)"
+                format!(
+                    "IO error: {}: No such file or directory (os error 2)",
+                    path.with_file_name("none.yaml").display()
+                )
             );
         }
 

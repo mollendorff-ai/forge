@@ -937,7 +937,7 @@ items:
                 report_core(nowhere, &ReportOptions::default())
                     .unwrap_err()
                     .to_string(),
-                "IO error: No such file or directory (os error 2)"
+                "IO error: no-such-folder/m.yaml: No such file or directory (os error 2)"
             );
         }
 

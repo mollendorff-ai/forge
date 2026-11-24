@@ -29,16 +29,7 @@ pub fn eval_countifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
         ));
     }
     let first_range = collect_values_as_vec(&args[0], ctx)?;
-    let mut matches = vec![true; first_range.len()];
-    for pair in args.chunks(2) {
-        let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
-        let criteria = Criterion::new(&evaluate(&pair[1], ctx)?);
-        for (i, val) in criteria_range.iter().enumerate() {
-            if i < matches.len() && !criteria.matches(val) {
-                matches[i] = false;
-            }
-        }
-    }
+    let matches = super::matching_rows("COUNTIFS", first_range.len(), args, ctx)?;
     let count = matches.iter().filter(|&&m| m).count();
     Ok(Value::Number(precision::count(count)))
 }

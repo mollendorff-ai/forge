@@ -514,7 +514,7 @@ fn eval_ddb(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
     let life = evaluate(&args[2], ctx)?
         .as_cell_number()
         .ok_or_else(|| EvalError::new("DDB requires life"))?;
-    let period = evaluate(&args[3], ctx)?
+    let mut period = evaluate(&args[3], ctx)?
         .as_cell_number()
         .ok_or_else(|| EvalError::new("DDB requires period"))?;
     let factor = if args.len() > 4 {
@@ -529,8 +529,20 @@ fn eval_ddb(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
     // Excel: a period before the first or after the life is #NUM!
     if period <= 0.0 || period > life {
         return Err(EvalError::new(format!(
-            "#NUM!: DDB period must be from 1 to the life ({life}), got {period}"
+            "#NUM!: DDB period must be above 0 and at most the life ({life}), got {period}"
         )));
+    }
+
+    // A period after 0 but before 1 is the first period, as Gnumeric's
+    // `gnumeric_ddb` reads it (LibreOffice's `ScDDB` gives an error), and
+    // with a life under 1 that first period takes all down to the salvage
+    // (Forge gave 63053.12 for DDB(944326.664492, 910840.7, 21, 0.8, 3),
+    // reading 0.8 as it is; Gnumeric gives 33485.96)
+    if period < 1.0 {
+        if life < 1.0 {
+            return Ok(Value::Number((cost - salvage).max(0.0)));
+        }
+        period = 1.0;
     }
 
     // The closed form VDB uses, as both engines do: a fractional
@@ -939,6 +951,24 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if n >= 0.0));
     }
 
+    /// A period after 0 and before 1 is the first period, as in Gnumeric's
+    /// `gnumeric_ddb` (by hand from its steps: the first period takes cost
+    /// times factor over life, at most down to the salvage), and with a life
+    /// under 1 it takes all down to the salvage
+    #[test]
+    fn ddb_reads_a_period_under_one_as_the_first() {
+        use super::super::tests::{is_exactly, near, number};
+        // 944326.664492 / 7 is more than the 33485.964492 above the salvage
+        assert!(near(
+            number("DDB(944326.664492, 910840.7, 21, 0.8, 3)"),
+            33_485.964_492
+        ));
+        // 1000 * 2 / 10
+        is_exactly("DDB(1000, 100, 10, 0.5)", 200.0);
+        is_exactly("DDB(1000, 100, 0.5, 0.25)", 900.0);
+        is_exactly("DDB(100, 200, 0.5, 0.25)", 0.0);
+    }
+
     #[test]
     fn test_mirr_positive_flows_only() {
         let ctx = EvalContext::new();
@@ -1340,7 +1370,7 @@ mod tests {
         fails_with("IRR({-100, 50, -100})", "IRR did not converge");
         fails_with(
             "DDB(10000, 1000, 5, 6)",
-            "#NUM!: DDB period must be from 1 to the life",
+            "#NUM!: DDB period must be above 0 and at most the life",
         );
         fails_with(
             "PPMT(0.05, 11, 10, 1000)",

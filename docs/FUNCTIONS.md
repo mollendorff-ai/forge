@@ -168,7 +168,7 @@
 | `OFFSET` | Reference offset | `=OFFSET(ref, rows, cols, height, width)` |
 | `INDIRECT` | Reference from text | `=INDIRECT(ref_text)` |
 | `ADDRESS` | Cell address text | `=ADDRESS(row, col, abs_type, a1, sheet)` |
-| `ROW` | Row number | `=ROW(reference)` |
+| `ROW` | Row number, a table's first row being 1: the formula's own row, or the row a table column is read at (1 to its length when read whole) | `=ROW(reference)` |
 | `COLUMN` | Column number | `=COLUMN(reference)` |
 | `ROWS` | Number of rows | `=ROWS(array)` |
 | `COLUMNS` | Number of columns | `=COLUMNS(array)` |
