@@ -13,44 +13,124 @@
 use super::parser::{Expr, Reference};
 use std::collections::HashSet;
 
+/// Which arguments of a function are whole columns, by what they mean.
+#[derive(Clone, Copy)]
+enum Whole {
+    /// The argument, when it is the only one: with several, `=MAX(0, ebit)`
+    /// works row by row
+    Alone,
+    /// Every argument
+    Every,
+    /// The arguments at these positions (0-based)
+    At(&'static [usize]),
+    /// The first, then every other from the second: a sum range, then pairs
+    /// of criteria range and criterion
+    FirstAndRanges,
+    /// Every other from the first: pairs of criteria range and criterion
+    Ranges,
+}
+
+impl Whole {
+    fn holds(self, arg_count: usize, position: usize) -> bool {
+        match self {
+            Self::Alone => arg_count == 1,
+            Self::Every => true,
+            Self::At(positions) => positions.contains(&position),
+            Self::FirstAndRanges => position == 0 || !position.is_multiple_of(2),
+            Self::Ranges => position.is_multiple_of(2),
+        }
+    }
+}
+
+/// ADR-058's table: each group of functions and which of their arguments are
+/// whole columns. A function not here reads the row's value everywhere.
+const TABLE: &[(&[&str], Whole)] = &[
+    (
+        &[
+            "SUM",
+            "AVERAGE",
+            "AVG",
+            "MAX",
+            "MIN",
+            "COUNT",
+            "MEDIAN",
+            "MODE",
+            "MODE.SNGL",
+            "GEOMEAN",
+        ],
+        Whole::Alone,
+    ),
+    // range, criterion, [sum range]
+    (&["SUMIF", "COUNTIF", "AVERAGEIF"], Whole::At(&[0, 2])),
+    (
+        &["SUMIFS", "AVERAGEIFS", "MAXIFS", "MINIFS"],
+        Whole::FirstAndRanges,
+    ),
+    (&["COUNTIFS"], Whole::Ranges),
+    (&["COUNTBLANK"], Whole::At(&[0])),
+    (
+        &[
+            "SUMPRODUCT",
+            "VAR",
+            "VAR.S",
+            "VAR.P",
+            "STDEV",
+            "STDEV.S",
+            "STDEV.P",
+        ],
+        Whole::Every,
+    ),
+    // the values, then k or the quartile (a different one in each row)
+    (
+        &[
+            "PERCENTILE",
+            "PERCENTILE.INC",
+            "PERCENTILE.EXC",
+            "QUARTILE",
+            "QUARTILE.INC",
+            "QUARTILE.EXC",
+        ],
+        Whole::At(&[0]),
+    ),
+    (
+        &[
+            "CORREL",
+            "SLOPE",
+            "INTERCEPT",
+            "RSQ",
+            "COVARIANCE.S",
+            "COVARIANCE.P",
+        ],
+        Whole::At(&[0, 1]),
+    ),
+    // x, then the known y and x values
+    (&["FORECAST", "FORECAST.LINEAR"], Whole::At(&[1, 2])),
+    // the lookups that always read whole columns
+    (&["INDEX", "ROWS"], Whole::At(&[0])),
+    (&["MATCH", "XMATCH", "VLOOKUP", "HLOOKUP"], Whole::At(&[1])),
+    (&["XLOOKUP"], Whole::At(&[1, 2])),
+];
+
+/// The row of [`TABLE`] for `function` (upper case), if it has one.
+fn whole(function: &str) -> Option<Whole> {
+    TABLE
+        .iter()
+        .find(|(names, _)| names.contains(&function))
+        .map(|&(_, whole)| whole)
+}
+
 /// Whether argument `position` (0-based) of `function` (upper case), called
 /// with `arg_count` arguments, is read as a whole column in a row formula.
 #[must_use]
-// Grouped as ADR-058's table is, by what the arguments mean
-#[allow(clippy::match_same_arms)]
 pub fn is_whole_column(function: &str, arg_count: usize, position: usize) -> bool {
-    match function {
-        // With several arguments these work row by row: `=MAX(0, ebit)`
-        "SUM" | "AVERAGE" | "AVG" | "MAX" | "MIN" | "COUNT" | "MEDIAN" | "MODE" | "MODE.SNGL"
-        | "GEOMEAN" => arg_count == 1,
-        // range, criterion, [sum range]
-        "SUMIF" | "COUNTIF" | "AVERAGEIF" => position == 0 || position == 2,
-        // sum range, then pairs of criteria range and criterion
-        "SUMIFS" | "AVERAGEIFS" | "MAXIFS" | "MINIFS" => {
-            position == 0 || !position.is_multiple_of(2)
-        },
-        // pairs of criteria range and criterion
-        "COUNTIFS" => position.is_multiple_of(2),
-        "COUNTBLANK" => position == 0,
-        "SUMPRODUCT" | "VAR" | "VAR.S" | "VAR.P" | "STDEV" | "STDEV.S" | "STDEV.P" => true,
-        // the values, then k or the quartile (a different one in each row)
-        "PERCENTILE" | "PERCENTILE.INC" | "PERCENTILE.EXC" | "QUARTILE" | "QUARTILE.INC"
-        | "QUARTILE.EXC" => position == 0,
-        "CORREL" | "SLOPE" | "INTERCEPT" | "RSQ" | "COVARIANCE.S" | "COVARIANCE.P" => position <= 1,
-        // x, then the known y and x values
-        "FORECAST" | "FORECAST.LINEAR" => position == 1 || position == 2,
-        // the lookups that always read whole columns
-        "INDEX" | "ROWS" => position == 0,
-        "MATCH" | "XMATCH" | "VLOOKUP" | "HLOOKUP" => position == 1,
-        "XLOOKUP" => position == 1 || position == 2,
-        _ => false,
-    }
+    whole(function).is_some_and(|whole| whole.holds(arg_count, position))
 }
 
 /// Whether some argument of `function` is a whole column with `arg_count` arguments.
 #[must_use]
 pub fn has_whole_column(function: &str, arg_count: usize) -> bool {
-    (0..arg_count).any(|position| is_whole_column(function, arg_count, position))
+    whole(function)
+        .is_some_and(|whole| (0..arg_count).any(|position| whole.holds(arg_count, position)))
 }
 
 /// The names a formula reads as whole columns: `revenue` and `months.revenue`
@@ -120,6 +200,105 @@ mod tests {
         assert!(!is_whole_column("PERCENTILE.INC", 2, 1));
         assert!(!is_whole_column("FORECAST", 3, 0));
         assert!(is_whole_column("FORECAST", 3, 2));
+    }
+
+    /// Every registered function, called with 1 to 7 arguments: the
+    /// positions read whole, one group per argument count. Written from the
+    /// `match` this table replaced, which gave the same answers for every
+    /// function, argument count and position; a function not listed reads
+    /// the row's value everywhere.
+    #[test]
+    fn every_function_reads_whole_what_adr_058_says() {
+        let expected = "\
+            AVERAGE 0 - - - - - -\n\
+            AVERAGEIF 0 0 02 02 02 02 02\n\
+            AVERAGEIFS 0 01 01 013 013 0135 0135\n\
+            AVG 0 - - - - - -\n\
+            CORREL 0 01 01 01 01 01 01\n\
+            COUNT 0 - - - - - -\n\
+            COUNTBLANK 0 0 0 0 0 0 0\n\
+            COUNTIF 0 0 02 02 02 02 02\n\
+            COUNTIFS 0 0 02 02 024 024 0246\n\
+            COVARIANCE.P 0 01 01 01 01 01 01\n\
+            COVARIANCE.S 0 01 01 01 01 01 01\n\
+            FORECAST - 1 12 12 12 12 12\n\
+            FORECAST.LINEAR - 1 12 12 12 12 12\n\
+            GEOMEAN 0 - - - - - -\n\
+            HLOOKUP - 1 1 1 1 1 1\n\
+            INDEX 0 0 0 0 0 0 0\n\
+            INTERCEPT 0 01 01 01 01 01 01\n\
+            MATCH - 1 1 1 1 1 1\n\
+            MAX 0 - - - - - -\n\
+            MAXIFS 0 01 01 013 013 0135 0135\n\
+            MEDIAN 0 - - - - - -\n\
+            MIN 0 - - - - - -\n\
+            MINIFS 0 01 01 013 013 0135 0135\n\
+            MODE 0 - - - - - -\n\
+            MODE.SNGL 0 - - - - - -\n\
+            PERCENTILE 0 0 0 0 0 0 0\n\
+            PERCENTILE.EXC 0 0 0 0 0 0 0\n\
+            PERCENTILE.INC 0 0 0 0 0 0 0\n\
+            QUARTILE 0 0 0 0 0 0 0\n\
+            QUARTILE.EXC 0 0 0 0 0 0 0\n\
+            QUARTILE.INC 0 0 0 0 0 0 0\n\
+            ROWS 0 0 0 0 0 0 0\n\
+            RSQ 0 01 01 01 01 01 01\n\
+            SLOPE 0 01 01 01 01 01 01\n\
+            STDEV 0 01 012 0123 01234 012345 0123456\n\
+            STDEV.P 0 01 012 0123 01234 012345 0123456\n\
+            STDEV.S 0 01 012 0123 01234 012345 0123456\n\
+            SUM 0 - - - - - -\n\
+            SUMIF 0 0 02 02 02 02 02\n\
+            SUMIFS 0 01 01 013 013 0135 0135\n\
+            SUMPRODUCT 0 01 012 0123 01234 012345 0123456\n\
+            VAR 0 01 012 0123 01234 012345 0123456\n\
+            VAR.P 0 01 012 0123 01234 012345 0123456\n\
+            VAR.S 0 01 012 0123 01234 012345 0123456\n\
+            VLOOKUP - 1 1 1 1 1 1\n\
+            XLOOKUP - 1 12 12 12 12 12\n\
+            XMATCH - 1 1 1 1 1 1\n";
+        let mut names: Vec<&str> = crate::functions::all_functions().map(|f| f.name).collect();
+        names.sort_unstable();
+        let mut got = String::new();
+        for name in names {
+            let groups: Vec<String> = (1..=7)
+                .map(|count| {
+                    let whole: String = (0..count)
+                        .filter(|&position| is_whole_column(name, count, position))
+                        .map(|position| position.to_string())
+                        .collect();
+                    assert_eq!(super::has_whole_column(name, count), !whole.is_empty());
+                    if whole.is_empty() {
+                        "-".to_string()
+                    } else {
+                        whole
+                    }
+                })
+                .collect();
+            if groups.iter().any(|group| group != "-") {
+                got.extend([name, " ", &groups.join(" "), "\n"]);
+            }
+        }
+        assert_eq!(got, expected);
+    }
+
+    /// Each name in the table is a registered function, in one group only,
+    /// so none is misspelt or shadowed by an earlier group
+    #[test]
+    fn the_table_names_each_registered_function_once() {
+        let names: Vec<&str> = super::TABLE
+            .iter()
+            .flat_map(|(names, _)| names.iter().copied())
+            .collect();
+        for name in &names {
+            assert!(crate::functions::find_function(name).is_some(), "{name}");
+            assert_eq!(
+                names.iter().filter(|other| *other == name).count(),
+                1,
+                "{name}"
+            );
+        }
+        assert_eq!(names.len(), 47);
     }
 
     #[test]

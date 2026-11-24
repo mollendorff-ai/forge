@@ -510,30 +510,39 @@ impl MonteCarloEngine {
             })
             .collect::<Result<Vec<_>, String>>()?;
         let matrix = CorrelationMatrix::new(&pairs)?;
-        let columns: Vec<usize> = matrix
+
+        // One cursor down the column of each of the matrix's variables, in
+        // the matrix's order; each step takes one draw from every column
+        let mut by_name: HashMap<&str, std::slice::IterMut<'_, f64>> = names
+            .iter()
+            .map(String::as_str)
+            .zip(uniforms.iter_mut().map(|column| column.iter_mut()))
+            .collect();
+        let mut cursors: Vec<std::slice::IterMut<'_, f64>> = matrix
             .variables
             .iter()
             .map(|var| {
-                names
-                    .iter()
-                    .position(|name| name == var)
-                    .expect("the matrix's variables are names of distributions")
+                by_name
+                    .remove(var.as_str())
+                    .expect("the matrix's variables are names of distributions, each once")
             })
             .collect();
 
-        let n = uniforms.first().map_or(0, Vec::len);
-        let mut scores = vec![0.0; columns.len()];
-        // Row `i` is spread across several columns, so an index is clearer than iterators
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..n {
-            for (score, &column) in scores.iter_mut().zip(&columns) {
-                *score = standard_normal_quantile(uniforms[column][i]);
+        let mut scores = vec![0.0; cursors.len()];
+        // The columns are as long as each other, so all end at the same row
+        while let Some(draws) = cursors
+            .iter_mut()
+            .map(Iterator::next)
+            .collect::<Option<Vec<&mut f64>>>()
+        {
+            for (score, draw) in scores.iter_mut().zip(&draws) {
+                *score = standard_normal_quantile(**draw);
             }
             let correlated = matrix
                 .correlate(&scores)
                 .expect("one score for each variable of the matrix, which has its factor");
-            for (value, &column) in correlated.iter().zip(&columns) {
-                uniforms[column][i] = standard_normal_cdf(*value);
+            for (draw, value) in draws.into_iter().zip(correlated) {
+                *draw = standard_normal_cdf(value);
             }
         }
         Ok(())
@@ -1087,6 +1096,66 @@ mod tests {
                     .to_string()
             )
         );
+    }
+
+    /// The correlated draws of a seeded run, to the bit: four inputs, three of
+    /// them correlated (`a`, `c` and `d`, not side by side among the names)
+    /// and `b` left as drawn. Each column's bits are folded into one number;
+    /// the folds were taken from the run before the loop over the draws was
+    /// rewritten, so a rewrite that moves any draw by one bit fails.
+    #[test]
+    fn a_seeded_correlated_run_gives_the_same_draws_to_the_bit() {
+        let mut seeded = config(vec![output("a")]);
+        seeded.iterations = 500;
+        seeded.seed = Some(2026);
+        seeded.sampling = "latin_hypercube".to_string();
+        seeded.correlations = [("a", "c", 0.7), ("c", "d", -0.4), ("a", "d", 0.2)]
+            .map(
+                |(first, second, coefficient)| crate::monte_carlo::config::CorrelationConfig {
+                    variables: vec![first.to_string(), second.to_string()],
+                    coefficient,
+                },
+            )
+            .to_vec();
+        let mut engine = MonteCarloEngine::new(seeded).unwrap();
+        engine.add_distribution("a", Distribution::normal(100.0, 15.0).unwrap());
+        engine.add_distribution("b", Distribution::uniform(0.0, 1.0).unwrap());
+        engine.add_distribution("c", Distribution::triangular(1.0, 2.0, 4.0).unwrap());
+        engine.add_distribution("d", Distribution::lognormal(50.0, 10.0).unwrap());
+        let result = engine.run().unwrap();
+        let fold = |name: &str| {
+            result.input_samples[name]
+                .iter()
+                .fold(0_u64, |hash, x| hash.rotate_left(7) ^ x.to_bits())
+        };
+        assert_eq!(
+            ["a", "b", "c", "d"].map(fold),
+            [
+                0x0c9b_33c7_4009_cfee,
+                0xc4a0_f629_5c08_9e0b,
+                0x864a_22a9_b03a_b6aa,
+                0xe851_4dba_d25f_2758,
+            ]
+        );
+        assert_eq!(
+            ["a", "b", "c", "d"].map(|name| result.input_samples[name][0].to_bits()),
+            [
+                0x4055_ac89_f6de_8a9e,
+                0x3fe0_8556_ef84_613c,
+                0x3ffb_9888_a2c9_defe,
+                0x404c_a13d_0c73_3451,
+            ]
+        );
+        // And the draws are correlated as configured, which the bits alone do not say
+        let rank = |first: &str, second: &str| {
+            super::super::sensitivity::spearman_correlation(
+                &result.input_samples[first],
+                &result.input_samples[second],
+            )
+        };
+        assert!((rank("a", "c") - 0.7).abs() < 0.05, "{}", rank("a", "c"));
+        assert!((rank("c", "d") + 0.4).abs() < 0.05, "{}", rank("c", "d"));
+        assert!(rank("a", "b").abs() < 0.1, "{}", rank("a", "b"));
     }
 
     /// Inputs that move the output as strongly, one each way, are in name order
