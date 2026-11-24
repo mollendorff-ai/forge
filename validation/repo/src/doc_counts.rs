@@ -124,6 +124,7 @@ mod tests {
             "docs/FUNCTIONS.md",
             "docs/FEATURES.md",
             "docs/MCP.md",
+            "src/lib.rs",
             "src/main.rs",
             "src/cli/args.rs",
             "src/mcp/mod.rs",
