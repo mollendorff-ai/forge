@@ -107,6 +107,7 @@ mod tests {
             "=COLUMN(1 + 2)",
             "=COLUMN(x, y)",
             "=COLUMN(t.nope)",
+            "=COLUMN(nope.x)",
             "=COLUMN(p)",
         ] {
             assert!(row(f).unwrap_err().contains(refused), "{f}");
