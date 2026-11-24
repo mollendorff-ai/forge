@@ -161,22 +161,41 @@ fn annuity_fv(rate: f64, nper: f64, pmt: f64, pv: f64, due: f64) -> f64 {
     -pv.mul_add(growth, pmt * due.mul_add(rate, 1.0) * grown / rate)
 }
 
-/// Present value of a future value and a level payment (Excel `PV`).
+/// Present value of a future value and a level payment (Excel `PV`),
+/// divided by the growth as [`annuity_pmt`] is where that can overflow.
 fn annuity_pv(rate: f64, nper: f64, pmt: f64, fv: f64, due: f64) -> f64 {
     if rate == 0.0 {
         return -pmt.mul_add(nper, fv);
     }
+    let exponent = nper * rate.ln_1p();
+    let timing = due.mul_add(rate, 1.0);
+    if exponent > 0.0 {
+        // Divided above and below by the growth, which can overflow
+        let shrunk = -(-exponent).exp_m1();
+        return -(pmt * timing).mul_add(shrunk / rate, fv * (-exponent).exp());
+    }
     let (growth, grown) = growth(rate, nper);
-    -(pmt * due.mul_add(rate, 1.0)).mul_add(grown / rate, fv) / growth
+    -(pmt * timing).mul_add(grown / rate, fv) / growth
 }
 
 /// Level payment that turns `pv` into `fv` over `nper` periods (Excel `PMT`).
+///
+/// Where the growth (1 + rate)^nper is above 1, the sum is divided above and
+/// below by it: over enough periods it overflows (1.05^20,000 is about
+/// 1E+423), and the payment would be infinity over infinity, where it is
+/// the interest on `pv`. Below 1 it cannot overflow, and is used as it is.
 pub(super) fn annuity_pmt(rate: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f64 {
     if rate == 0.0 {
         return -(pv + fv) / nper;
     }
+    let exponent = nper * rate.ln_1p();
+    let timing = due.mul_add(rate, 1.0);
+    if exponent > 0.0 {
+        let shrunk = -(-exponent).exp_m1();
+        return -fv.mul_add((-exponent).exp(), pv) * rate / (shrunk * timing);
+    }
     let (growth, grown) = growth(rate, nper);
-    -pv.mul_add(growth, fv) * rate / (grown * due.mul_add(rate, 1.0))
+    -pv.mul_add(growth, fv) * rate / (grown * timing)
 }
 
 /// Interest part of the payment in period `per` (Excel `IPMT`).
@@ -697,6 +716,55 @@ mod tests {
         // PMT for $100,000 loan at 5% for 30 years
         let pmt = eval("PMT(0.05/12, 360, 100000)", &ctx).unwrap();
         assert!(matches!(pmt, Value::Number(n) if (n + 536.82).abs() < 0.01));
+    }
+
+    /// A growth past the largest double (1.05^20,000 is about 1E+423) gave
+    /// #NUM!: the payment was infinity over infinity. Over that many periods
+    /// a loan's payment is its interest, and the worth of a payment is a
+    /// perpetuity's. Exact values from mpmath (60 digits): -50.0000000000000028,
+    /// -47.6190476190476216 and 1999.99999999999989, each within a rounding
+    /// of the double here; an amount due at the end is too small to count.
+    #[test]
+    fn a_growth_past_the_largest_double_gives_the_perpetuity() {
+        use super::super::tests::number;
+        for (formula, exact) in [
+            ("PMT(0.05, 20000, 1000)", -50.0),
+            ("PMT(0.05, 1E+20, 1000)", -50.0),
+            ("PMT(0.05, 1E+20, 1000, 500)", -50.0),
+            ("PMT(0.05, 20000, 1000, 1E+300)", -50.0),
+            // paid at the start, so one period sooner: 50 / 1.05
+            ("PMT(0.05, 1E+20, 1000, 0, 1)", -47.619_047_619_047_62),
+            ("PV(0.05, 1E+20, -100)", 2000.0),
+            ("PV(0.05, 20000, -100, 1000)", 2000.0),
+            ("PV(0.05, 1E+20, -100, 0, 1)", 2100.0),
+            // the first payment is all interest
+            ("IPMT(0.05, 1, 1E+20, 1000)", -50.0),
+        ] {
+            let got = number(formula);
+            assert!(
+                (got - exact).abs() <= 4.0 * f64::EPSILON * exact.abs(),
+                "{formula}: {got}, not {exact}"
+            );
+        }
+        // and none of it is principal, to within a rounding of the payment
+        let principal = number("PPMT(0.05, 1, 1E+20, 1000)");
+        assert!(principal.abs() <= 4.0 * f64::EPSILON * 50.0, "{principal}");
+        // A growth that shrinks keeps the form it had: over 20,000 periods at
+        // -5% the loan is all but gone and the payment is 5% of what is due
+        assert!(super::super::tests::near(
+            number("PMT(-0.05, 20000, 1000, 5)"),
+            -0.25
+        ));
+        // and so does a present value at a negative rate or over periods
+        // counted back (mpmath: 1340.36514023018617 and -1257.78925355488283)
+        assert!(super::super::tests::near(
+            number("PV(-0.05, 10, -100)"),
+            1_340.365_140_230_186_2
+        ));
+        assert!(super::super::tests::near(
+            number("PV(0.05, -10, -100)"),
+            -1_257.789_253_554_882_9
+        ));
     }
 
     #[test]
