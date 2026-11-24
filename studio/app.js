@@ -13,6 +13,7 @@ import { kindOf, questionsCard, setStrip, drawKinds } from "./sets.js";
 import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js";
 import { toolArgs, toolsHtml, answerHtml } from "./tools.js";
 import { helpButton, helpBody, suggestionStrip } from "./help.js";
+import { isModelLink, listenLinks, linkCard, toBase64, fromBase64 } from "./link.js";
 import { bandScheduler, listenDistributions, uncertainCount, uncertainText, uncertainNote, scenarioWhy, distributionOf, distributionsOf, distCard, drawBands } from "./uncertain.js";
 import { scopeOf, namesFor, gameResults, functionsOf, suggest, apply, schemaOf, suggestKeys, formulaContext, suggestInFormula } from "./suggest.js";
 
@@ -130,6 +131,21 @@ function openSet(id, model) {
   if (model && model !== set.main && Object.hasOwn(set.files, model)) { S.main = model; S.title = model; }
   forget();
 }
+// ---------- a link that carries a model after the # (ADR-080, link.js) ----------
+// What a link or ?example= would replace, kept only in this browser
+const ownFiles = () => Object.keys(S.files).filter((f) => !setOf() || S.files[f] !== setOf().files[f]);
+const links = listenLinks({
+  replaced: ownFiles, sheet: openSheet,
+  example: (id) => (S.sets.find((x) => x.id === id) || S.sets[0] || { title: id }).title,
+  openExample: (id, model) => { openSet(id, model); return shown(); },
+  open: (link, now) => {
+    Object.assign(S, { set: null, files: link.files, main: link.main, title: link.main, kinds: {} });
+    forget();
+    return now ? shown() : save();
+  },
+  model: () => ({ files: S.files, order: modelFiles() }),
+});
+async function shown() { save(); show("model"); window.scrollTo(0, 0); await load(); }
 function forget() {
   S.scenario = null; S.open = new Set(); S.prev = {}; S.yamlFile = S.main; S.analyze = {}; S.tools = {}; S.answers = {}; S.bnNodes = null; S.evidence = {};
 }
@@ -242,7 +258,7 @@ document.addEventListener("click", async (e) => {
   const q = e.target.closest("[data-help]");
   if (q && HELP) { openSheet(HELP[q.dataset.help].title, helpBody(HELP[q.dataset.help], S.version)); return; }
   const ex = e.target.closest("#sheet [data-example]");
-  if (ex) { $("#sheet").hidden = true; openSet(ex.dataset.example, ex.dataset.exampleModel); save(); show("model"); window.scrollTo(0, 0); await load(); }
+  if (ex) { $("#sheet").hidden = true; openSet(ex.dataset.example, ex.dataset.exampleModel); await shown(); }
 });
 $("#sheet").addEventListener("click", (e) => { if (e.target.id === "sheet") $("#sheet").hidden = true; });
 $("#title-btn").addEventListener("click", () => show("files"));
@@ -1262,6 +1278,7 @@ function renderFiles() {
     <div class="eyebrow"><h2>save</h2><span class="tag">files, icloud drive</span></div>
     <div class="card row form"><div class="file"><div><b>${esc(modelFiles().join(" + "))}</b><p class="note">On an iPhone or iPad, Save opens the share sheet: choose Save to Files, then iCloud Drive and a folder. Elsewhere the files are downloaded.</p></div>
       <button class="btn primary" type="button" id="save-yaml">Save</button></div><div id="save-msg"></div></div>
+    ${linkCard(modelFiles())}
     <div class="eyebrow"><h2>this model's files</h2><span class="tag">${Object.keys(S.files).length}</span></div>
     <div class="card stack">${Object.keys(S.files).map((f) => `<div class="row file"><div><b>${esc(f)}</b><p class="note">${f === S.main ? "Main model" : included.has(f) ? "Included by the main model" : "Another model"}${questionOf(f) ? `: ${esc(questionOf(f))} <span class="kind small" data-kind-of="${esc(f)}" data-kind="${esc(S.kinds[f] || "")}">${esc(S.kinds[f] || "")}</span>` : ""}</p></div>
       ${f !== S.main && !included.has(f) ? `<button class="btn" type="button" data-main="${esc(f)}">Open</button>` : ""}<button class="btn" type="button" data-dl="${esc(f)}">Download</button></div>`).join("")}</div>
@@ -1276,6 +1293,7 @@ function renderFiles() {
     ${welcomeSeen ? `<div class="btns"><button class="btn" type="button" id="welcome-again">Show the welcome tips again</button></div>` : ""}`;
   // Made now, so that a tap on Save can open the share sheet at once (below)
   if (S.structure) prepareWorkbook().catch(() => {});
+  links.prepare().catch(() => {});
 }
 const vf = $("#view-files");
 vf.addEventListener("click", async (e) => {
@@ -1317,13 +1335,7 @@ async function saveFiles(list) {
 }
 
 // ---------- Excel (roadmap S8): forge export and forge import, in the browser ----------
-// A workbook crosses to and from forge-wasm as base64, as in the MCP tool
-const toBase64 = (bytes) => {
-  let text = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(text);
-};
-const fromBase64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+// A workbook crosses to and from forge-wasm as base64, as in the MCP tool (toBase64 and fromBase64, link.js)
 const warningList = (title, warnings) => (warnings.length ? `<div class="msg" style="margin-top:8px"><b>${esc(title)}</b><ul>${warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : "");
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 // The workbook of the files as they are now, made once per change
@@ -1357,17 +1369,16 @@ vf.addEventListener("change", async (e) => {
       const name = workbook.name.replace(/\.xlsx$/i, ".yaml");
       const r = await call("import", { excel_base64: toBase64(new Uint8Array(await workbook.arrayBuffer())), name });
       Object.assign(S, { set: null, files: r.files, main: r.main, title: workbook.name });
-      forget(); save(); show("model"); await load();
+      forget(); await shown();
       if (r.warnings.length) openSheet("Imported, with warnings", warningList("forge import says:", r.warnings));
     } catch (err) { fail(box, err); }
     return;
   }
-  const files = {};
+  const files = {}, names = [...e.target.files].map((f) => f.name);
   for (const f of e.target.files) files[f.name] = await f.text();
-  const names = Object.keys(files);
   const main = names.find((n) => /^\s*_includes\s*:/m.test(files[n])) || names[0];
   Object.assign(S, { set: null, files, main, title: main });
-  forget(); save(); show("model"); await load();
+  forget(); await shown();
 });
 
 // ---------- routing and layout ----------
@@ -1449,6 +1460,7 @@ divider.addEventListener("keydown", (e) => {
 });
 
 // ---------- start ----------
+let askedExample = null;
 async function boot() {
   try {
     S.sets = await (await fetch("examples.json")).json();
@@ -1459,9 +1471,10 @@ async function boot() {
   try {
     useFormulaRules(await (await fetch("formula-rules.json")).json());
   } catch (e) { /* formulas stay plain in the editor; the cards do not need the colours */ }
-  const params = new URLSearchParams(location.search);
-  const asked = params.get("example");
-  if (asked || !restore()) { if (S.sets.length) openSet(asked || S.sets[0].id, asked ? params.get("model") : null); }
+  const params = new URLSearchParams(location.search), asked = params.get("example"), restored = restore();
+  if (asked && restored && ownFiles().length) askedExample = [asked, params.get("model")]; // asks first (link.js)
+  else if (asked || !restored) { if (S.sets.length) openSet(asked || S.sets[0].id, asked ? params.get("model") : null); }
+  if (isModelLink(location.hash)) await links.open(location.hash, false);
   S.yamlFile = S.main;
   arrange();
   show("model");
@@ -1472,6 +1485,7 @@ async function boot() {
   }
   templates = await call("templates", {}).catch(() => []);
   await load();
+  if (askedExample) links.askExample(...askedExample);
   loadFunctions();
   keepOffline();
 }

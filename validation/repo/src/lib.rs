@@ -27,6 +27,8 @@ pub mod no_skipping;
 pub mod pipeline;
 pub mod posts;
 pub mod readme_commands;
+pub mod roles;
+pub mod skill;
 pub mod workflows_doc;
 
 use std::path::{Path, PathBuf};

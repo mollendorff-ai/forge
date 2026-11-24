@@ -141,18 +141,16 @@ mod tests {
             formula(&model, "ventes", "chiffre_d_affaires"),
             "=volume * hypothèses.prix_unitaire"
         );
-        // No formula came in as a value; the unit's column is named, as any
-        // column beside the values but a unit or notes in English
-        assert!(
-            warnings.iter().all(|w| !w.contains("imported as")),
-            "{warnings:?}"
-        );
+        // No formula came in as a value, and the unit's column, headed in
+        // French, is kept with the units
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(price.metadata.unit.as_deref(), Some("€"));
         assert_eq!(
-            warnings,
-            [
-                "Hypothèses: column C (Unité) is not imported: beside a value, a unit (Unit) and \
-              notes (Notes or Comment) are kept"
-            ]
+            model.scalars["hypothèses.volume_mensuel"]
+                .metadata
+                .unit
+                .as_deref(),
+            Some("unités")
         );
     }
 
@@ -174,8 +172,13 @@ mod tests {
             "=B#*假设!$B$2",
             (400.0, 5000.0),
         );
-        let (model, _) = import(book);
+        let (model, warnings) = import(book);
 
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(
+            model.scalars["假设.单价"].metadata.unit.as_deref(),
+            Some("元")
+        );
         assert_eq!(model.scalars["假设.单价"].value, Some(12.5));
         assert_eq!(model.scalars["假设.月销量"].value, Some(400.0));
         assert_eq!(formula(&model, "销售", "销量"), "=假设.月销量");

@@ -132,7 +132,8 @@ pub fn edit(
 #[derive(clap::Args)]
 #[command(
     about = "Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, a game's strategies and players, comments kept",
-    long_about = "Change a model's text: set an input's value or a formula, add or delete an
+    long_about = "Change a model's text: set an input's value, a table's column of numbers
+or dates (a list, one value for each row), or a formula, add or delete an
 input, a formula or a table's column, or rename a scalar, a group, a table, a
 column, a game, a player or a strategy and every name that reads it (formulas,
 scenarios, expectations, a simulation's outputs, a tornado's inputs, a game's
@@ -156,6 +157,7 @@ made in this order: --changes, --set, --formula, --add, --delete, --rename,
 
 EXAMPLES:
   forge edit model.yaml --set year.price=17
+  forge edit model.yaml --set 'months.sales=[100, 120, 90]'   # Each row's value
   forge edit model.yaml --formula 'year.margin==year.profit / year.revenue'
   forge edit model.yaml --add year.tax=0.15 --add 'year.net==year.profit * 0.85'
   forge edit model.yaml --add fee=25 --after rate          # At the top level
@@ -177,7 +179,8 @@ pub struct EditArgs {
     /// The model file
     pub file: PathBuf,
 
-    /// Set an input: PATH=VALUE (a number, or a date 2026-01-31)
+    /// Set an input: PATH=VALUE (a number, or a date 2026-01-31), or a
+    /// table's column of values: PATH=[VALUE, ...], one for each row
     #[arg(long = "set", value_name = "PATH=VALUE")]
     pub set: Vec<String>,
 
@@ -251,6 +254,26 @@ pub struct EditArgs {
     pub dry_run: bool,
 }
 
+/// What `--set` writes: a value, or a list of them for a table's column
+/// (`[20, 45]`, each value as written)
+fn set_value_of(text: &str) -> Value {
+    text.strip_prefix('[')
+        .and_then(|rest| rest.strip_suffix(']'))
+        .map_or_else(
+            || Value::Text(text.to_string()),
+            |items| {
+                Value::List(
+                    items
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|item| !item.is_empty())
+                        .map(|item| Value::Text(item.to_string()))
+                        .collect(),
+                )
+            },
+        )
+}
+
 impl EditArgs {
     /// The changes the flags name, in the order of the help
     ///
@@ -283,7 +306,7 @@ impl EditArgs {
         for arg in &self.set {
             let (path, v) = pair("set", arg)?;
             changes.push(Change {
-                value: Some(Value::Text(v)),
+                value: Some(set_value_of(&v)),
                 ..change(Op::SetValue, path)
             });
         }
@@ -423,6 +446,7 @@ impl EditArgs {
 #[cfg(test)]
 mod tests {
     use crate::cli::forge;
+    use crate::edit::Value;
 
     const MODEL: &str = "_forge_version: \"5.1.0\"
 _includes:
@@ -740,6 +764,33 @@ games:
                 "{a: tit_for_tat, b: always_defect}",
                 "{b: always_defect, c: random}"
             )
+        );
+    }
+
+    #[test]
+    fn a_list_after_set_is_a_columns_values() {
+        assert_eq!(super::set_value_of("16"), Value::Text("16".into()));
+        assert_eq!(
+            super::set_value_of("[20, 45 ,2026-01-31]"),
+            Value::List(vec![
+                Value::Text("20".into()),
+                Value::Text("45".into()),
+                Value::Text("2026-01-31".into())
+            ])
+        );
+        assert_eq!(super::set_value_of("[]"), Value::List(vec![]));
+        assert_eq!(super::set_value_of("[20"), Value::Text("[20".into()));
+        // On the command line
+        let dir = tempfile::tempdir().unwrap();
+        let model = dir.path().join("t.yaml");
+        let text =
+            "_forge_version: \"5.1.0\"\nt:\n  price: [20, 40]   # each\n  double: \"=price * 2\"\n";
+        std::fs::write(&model, text).unwrap();
+        let ran = forge(&["edit", model.to_str().unwrap(), "--set", "t.price=[20, 45]"]);
+        assert_eq!(ran.code, 0, "{}", ran.err);
+        assert_eq!(
+            std::fs::read_to_string(&model).unwrap(),
+            text.replace("[20, 40]", "[20, 45]")
         );
     }
 

@@ -1,7 +1,7 @@
 # Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed build-all uninstall install install-forge cross-forge lint lint-fix format format-check test test-unit test-repo test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
+.PHONY: help build build-static build-compressed build-all uninstall install install-forge cross-forge lint lint-fix format format-check test test-unit test-repo test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-docs-all validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OS AND ARCHITECTURE DETECTION
@@ -115,7 +115,8 @@ help:
 	@echo "Documentation:"
 	@echo "  make docs-cli           - Generate CLI reference from --help (auto)"
 	@echo "  make docs-cli-check     - Verify CLI docs are up to date (CI)"
-	@echo "  make validate-docs      - Validate markdown files (markdownlint-cli2)"
+	@echo "  make validate-docs      - Lint the markdown files this change touches (markdownlint-cli2)"
+	@echo "  make validate-docs-all  - Lint every markdown file (fails on pages that predate it)"
 	@echo "  make validate-yaml      - Validate YAML files (yamllint)"
 	@echo "  make validate-all       - Run ALL validators (docs + yaml)"
 	@echo ""
@@ -461,8 +462,27 @@ format-check:
 # DOCUMENTATION VALIDATION TARGETS
 # ═══════════════════════════════════════════════════════════════════════════
 
+# The pages this change touches (since its merge base with origin/main, or
+# HEAD without one),
+# changed or new, except CHANGELOG.md, which every change touches and whose
+# 300 old errors a change cannot be asked to fix: a page that was never linted does not fail a change that
+# leaves it alone. `make validate-docs-all` lints every page.
 validate-docs:
-	@echo "📝 Validating markdown files..."
+	@echo "📝 Validating the markdown files this change touches..."
+	@if command -v markdownlint-cli2 >/dev/null 2>&1; then \
+		base=$$(git merge-base origin/main HEAD 2>/dev/null || echo HEAD); \
+		files=$$( (git diff --name-only --diff-filter=ACMR "$$base" -- '*.md'; \
+			git ls-files --others --exclude-standard -- '*.md') | grep -v '^CHANGELOG.md$$' | sort -u); \
+		if [ -z "$$files" ]; then echo "✅ No markdown file changed"; \
+		else echo "$$files" | xargs markdownlint-cli2 --config .markdownlint.json && \
+			echo "✅ Markdown validation passed"; fi; \
+	else \
+		echo "❌ markdownlint-cli2 not found. Run: npm install -g markdownlint-cli2"; \
+		exit 1; \
+	fi
+
+validate-docs-all:
+	@echo "📝 Validating every markdown file..."
 	@if command -v markdownlint-cli2 >/dev/null 2>&1; then \
 		markdownlint-cli2 '**/*.md' --config .markdownlint.json && \
 		echo "✅ Markdown validation passed"; \

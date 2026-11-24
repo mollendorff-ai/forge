@@ -105,7 +105,9 @@ impl ExcelImporter {
 
     /// The columns beside the values of a sheet of scalars that are kept: a
     /// unit (`true`) or notes, by their header (`Unit`, `Notes` or
-    /// `Comment`). Any other column with something in it is named in a
+    /// `Comment`, or the word for them in French, German, Spanish, Portuguese,
+    /// Italian, Chinese or Japanese: `Unité`, `Einheit`, `单位`, `Remarque`,
+    /// `備考`). Any other column with something in it is named in a
     /// warning; the `Formula` column of older workbooks is read as a formula.
     fn beside_values(sheet: &Sheet, warnings: &mut Vec<String>) -> Vec<(usize, bool)> {
         let (height, width) = sheet.values.get_size();
@@ -113,12 +115,22 @@ impl ExcelImporter {
         for col in 2..width {
             let header = sheet.header(col).unwrap_or_default().to_lowercase();
             match header.as_str() {
-                "unit" | "units" => kept.push((col, true)),
-                "notes" | "note" | "comment" | "comments" => kept.push((col, false)),
+                "unit" | "units" | "unité" | "unités" | "einheit" | "einheiten" | "unidad"
+                | "unidades" | "unidade" | "unità" | "单位" | "単位" => kept.push((col, true)),
+                "notes" | "note" | "comment" | "comments" | "remarque" | "remarques"
+                | "commentaire" | "commentaires" | "notiz" | "notizen" | "anmerkung"
+                | "anmerkungen" | "bemerkung" | "bemerkungen" | "kommentar" | "kommentare"
+                | "nota" | "notas" | "comentario" | "comentarios" | "observaciones"
+                | "comentário" | "comentários" | "observações" | "commento" | "commenti"
+                | "备注" | "注释" | "说明" | "備考" | "メモ" | "注記" | "コメント" =>
+                {
+                    kept.push((col, false));
+                },
                 "formula" => {},
                 _ if (1..height).any(|row| sheet.filled(row, col)) => warnings.push(format!(
                     "{}: column {} ({}) is not imported: beside a value, a unit (Unit) and \
-                     notes (Notes or Comment) are kept",
+                     notes (Notes or Comment, or the word for them in French, German, Spanish, \
+                     Portuguese, Italian, Chinese or Japanese) are kept",
                     sheet.name,
                     sheet.letter(col),
                     sheet.header(col).unwrap_or_default()
@@ -255,5 +267,58 @@ mod tests {
         let next = &model.scalars["next"];
         assert_eq!(next.formula.as_deref(), Some("=EDATE(@costs.opened, 1)"));
         assert_eq!(next.metadata.format.as_deref(), Some("d mmm yyyy"));
+    }
+
+    /// A drivers sheet whose headers are in `unit` and `notes`'s language
+    fn drivers(unit: &str, notes: &str) -> (ParsedModel, Vec<String>) {
+        let mut book = Workbook::new();
+        let s = scalar_sheet(&mut book, "Scalars");
+        s.write_string(0, 2, unit).unwrap();
+        s.write_string(0, 3, notes).unwrap();
+        s.write_string(1, 0, "prix").unwrap();
+        s.write_number(1, 1, 12.5).unwrap();
+        s.write_string(1, 2, "EUR").unwrap();
+        s.write_string(1, 3, "hors taxes").unwrap();
+        import(book)
+    }
+
+    #[test]
+    fn a_unit_and_notes_column_headed_in_another_language_is_kept() {
+        for (unit, notes) in [
+            ("Unité", "Remarques"),
+            ("Einheit", "Anmerkung"),
+            ("Unidad", "Observaciones"),
+            ("Unidade", "Comentários"),
+            ("Unità", "Commento"),
+            ("单位", "备注"),
+            ("単位", "備考"),
+            ("UNITÉS", "Notizen"),
+        ] {
+            let (model, warnings) = drivers(unit, notes);
+            assert!(warnings.is_empty(), "{unit}/{notes}: {warnings:?}");
+            let price = &model.scalars["prix"];
+            assert_eq!(price.metadata.unit.as_deref(), Some("EUR"), "{unit}");
+            assert_eq!(
+                price.metadata.notes.as_deref(),
+                Some("hors taxes"),
+                "{notes}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_column_with_another_header_is_still_named_in_a_warning() {
+        let (model, warnings) = drivers("Source", "Remarques");
+        assert_eq!(model.scalars["prix"].metadata.unit, None);
+        assert_eq!(
+            model.scalars["prix"].metadata.notes.as_deref(),
+            Some("hors taxes")
+        );
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].starts_with("Scalars: column C (Source) is not imported"),
+            "{warnings:?}"
+        );
+        assert!(warnings[0].contains("Chinese or Japanese"), "{warnings:?}");
     }
 }

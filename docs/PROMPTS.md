@@ -290,3 +290,5 @@ What makes these prompts work, and what to keep in one of your own:
 4. **Ask for one result checked another way.** The AI's own code, a hand calculation, a copy of the model with one input changed. Comparing with Forge's own documentation checks only that Forge ran.
 5. **End with the YAML.** Every file, in full, with its name. That is what you keep: it opens in Studio, goes into Excel with `forge export`, and is the same model whoever calculates it next.
 6. **Tell it what to do if it cannot run commands.** Otherwise an AI without a sandbox may describe results it never computed.
+
+An agent that loads [Agent Skills](https://agentskills.io/specification) can carry all six in [the Forge skill](../skills/forge-modelling/SKILL.md), added once instead of pasted each time; [the guide's AI page](guide/ai.md#the-forge-skill) says where it goes.

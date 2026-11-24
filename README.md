@@ -56,7 +56,7 @@ Each, with its diagram and commands: [docs/WORKFLOWS.md](docs/WORKFLOWS.md). The
 
 Studio is Forge compiled to WebAssembly and run in your browser tab. Open an example, or your own YAML or Excel file, and the model shows as cards: drag an input, the results move. Edit a formula with suggestions for names and functions, see the whole model as a grid, apply a scenario, run goal seek, a tornado or a Monte Carlo simulation, and save the workbook `forge export` writes.
 
-- **Your model stays on your device.** There is no server doing the math, no account, no cookies and no analytics. GitHub Pages serves the page, so GitHub sees that someone downloaded it, as with any website; after that, nothing you type leaves the tab. Your files are kept in your browser's storage, on your device.
+- **Your model stays on your device.** There is no server doing the math, no account, no cookies and no analytics. GitHub Pages serves the page, so GitHub sees that someone downloaded it, as with any website; after that, nothing you type leaves the tab. Your files are kept in your browser's storage, on your device. A link can carry a model to Studio, after the `#`, the part of an address that a browser never sends to a server (ADR-080). A link you make holds your model wherever you paste it.
 - **It works offline.** Add it to your Home Screen and it opens and calculates with no connection: on a plane, in a tunnel, in a meeting room with bad Wi-Fi.
 - **The numbers are Forge's.** The page calculates nothing itself; it asks the same engine as the command line, and CI checks that the WebAssembly answers equal the native ones, case by case.
 
