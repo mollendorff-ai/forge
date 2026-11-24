@@ -1,34 +1,72 @@
-//! Forge - YAML formula calculator with Excel-style arrays
+//! Forge: financial models as YAML, calculated with Excel's formulas.
 //!
-//! This library provides functionality to parse YAML files containing formulas,
-//! calculate them in dependency order, and update values.
+//! A model is a text file of inputs, tables and formulas. Forge reads it,
+//! works out every formula in dependency order and gives the numbers back,
+//! and the same engine answers a command line, an MCP server for AI agents,
+//! a REST API and a browser (`forge-wasm`). This crate is that engine as a
+//! library, with the 203 functions Forge's own formulas can use, the analyses
+//! (Monte Carlo, scenarios, break-even and goal seek, decision trees, real
+//! options, tornado, bootstrap, Bayesian networks, games) and Excel export
+//! and import.
+//!
+//! A reader who wants to use Forge rather than build on it starts at the
+//! [README](https://github.com/mollendorff-ai/forge#readme); one who embeds
+//! it, at [docs/EMBEDDING.md](https://github.com/mollendorff-ai/forge/blob/main/docs/EMBEDDING.md).
+//!
+//! # A model in memory
+//!
+//! [`parser::parse_model_text`] reads a model from a string, reading nothing
+//! from the file system, and [`core::ArrayCalculator`] calculates it:
+//!
+//! ```
+//! use std::collections::HashMap;
+//!
+//! use mollendorff_forge::core::ArrayCalculator;
+//! use mollendorff_forge::parser::parse_model_text;
+//!
+//! let text = r#"
+//! _forge_version: "5.1.0"
+//! plan:
+//!   price: 40
+//!   units: 120
+//!   revenue: {formula: "=plan.price * plan.units"}
+//! sales:
+//!   units: [10, 20, 30]
+//!   revenue: "=units * plan.price"
+//! "#;
+//!
+//! let model = parse_model_text("plan.yaml", text, &HashMap::new())?;
+//! let calculated = ArrayCalculator::new(model).calculate_all()?;
+//!
+//! assert_eq!(calculated.scalars["plan.revenue"].value, Some(4800.0));
+//! # Ok::<(), mollendorff_forge::ForgeError>(())
+//! ```
+//!
+//! A file on disk is read with [`parser::parse_model`]. A model with
+//! `_includes` needs the text of each included file in the map, by the path
+//! the model writes.
 //!
 //! # Features
 //!
-//! - Excel-style formulas in YAML files (SUM, AVERAGE, IF, etc.)
-//! - Array model for Excel-compatible column-based data
-//! - JSON Schema validation
-//! - Type-safe homogeneous arrays (Number, Text, Date, Boolean)
-//! - Excel import/export
-//! - Multi-document YAML support
+//! - `cli` (default): the command line, the MCP server and the REST API, and
+//!   `excel`.
+//! - `excel`: [`excel`], the workbook export and import.
+//! - With `default-features = false` the crate is the parser, the
+//!   calculator, the analysis engines and the commands' `*_core` functions,
+//!   which build for `wasm32-unknown-unknown`.
 //!
-//! # Example
+//! # Where to look
 //!
-//! ```no_run
-//! use mollendorff_forge::parser::parse_model;
-//! use mollendorff_forge::core::ArrayCalculator;
-//! use std::path::Path;
-//!
-//! let path = Path::new("model.yaml");
-//! let model = parse_model(path)?;
-//!
-//! println!("Tables: {}", model.tables.len());
-//! println!("Scalars: {}", model.scalars.len());
-//!
-//! let calculator = ArrayCalculator::new(model);
-//! let result = calculator.calculate_all()?;
-//! # Ok::<(), mollendorff_forge::error::ForgeError>(())
-//! ```
+//! | Module | What it holds |
+//! | --- | --- |
+//! | [`parser`] | Reading a model, from a file or from memory |
+//! | [`core`] | The calculator: formulas, dependency order, the functions' evaluation |
+//! | [`types`] | `ParsedModel`, its tables and scalars |
+//! | [`functions`] | The registry of the functions, with their syntax and descriptions |
+//! | [`edit`] | Changing a model's text and keeping its comments |
+//! | [`writer`] | Writing results back into a model's file |
+//! | [`monte_carlo`], [`scenarios`], [`tornado`], [`decision_trees`], [`real_options`], [`bootstrap`], [`bayesian`], [`games`] | The analyses |
+//! | [`cli`] | The commands: each has a `*_core` function that returns a result and prints nothing |
 
 /// `assert_eq!` for two numbers that must be exactly equal: the same bits,
 /// so a result off in its last digit, or `-0.0` for `0.0`, fails. A test
