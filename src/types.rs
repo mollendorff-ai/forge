@@ -680,6 +680,28 @@ mod tests {
         assert_eq!(v.json_value(), serde_json::Value::Null);
     }
 
+    /// A scalar shows as its `format:` says: a number as a number, a date as a
+    /// date; none with no format, and none with no value to show
+    #[test]
+    fn a_scalar_is_formatted_by_its_format_and_not_without_a_value() {
+        let with = |value: Option<f64>, is_date: bool, format: Option<&str>| {
+            let mut v = Variable::new("a.s".to_string(), value, None);
+            v.is_date = is_date;
+            v.metadata.format = format.map(str::to_string);
+            v.formatted()
+        };
+        assert_eq!(
+            with(Some(0.5), false, Some("0.0%")).as_deref(),
+            Some("50.0%")
+        );
+        assert_eq!(
+            with(Some(46_000.0), true, Some("yyyy-mm-dd")).as_deref(),
+            Some("2025-12-09")
+        );
+        assert_eq!(with(Some(0.5), false, None), None);
+        assert_eq!(with(None, false, Some("0.0%")), None);
+    }
+
     // =========================================================================
     // Metadata Tests (v4.0)
     // =========================================================================
