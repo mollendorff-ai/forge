@@ -10,7 +10,9 @@
 // - a payoff's formula under its value while the card is open for changes,
 //   changed to a formula and to a number, a refused one shown as Forge words it;
 // - a change Forge refuses (a strategy of the game a tournament plays) is
-//   shown in the card with Forge's own message, and nothing changes.
+//   shown in the card with Forge's own message, and nothing changes;
+// - what moves a game: the inputs `game` answers, as input cards on the card,
+//   one typed there moving the game as Forge says; an included file folded.
 //
 //   node studio/tests/gameedit.mjs <built Studio dir or address>
 
@@ -230,10 +232,106 @@ const noStart = await forge([...cellChanges, { op: "set_value", path: START, val
 if (!noStart.why) fail("Forge accepts start shares that do not add up");
 else if ((await page.textContent(`[data-cellform="${START}"] [data-cellmsg]`)) !== noStart.why) fail("the card does not say what Forge says of start shares that do not add up");
 
+// A tournament's player's habit: a select on its row while the card is open
+// for changes; a habit Forge refuses (a chance the new habit does not take) is
+// said as Forge words it, and the select goes back
+const habitOf = (game, player) => `[data-game="${game}"] [data-habitpath="${game}.players.${player}"]`;
+await page.evaluate(() => { document.querySelector('[data-gedit="rivalry"]').open = false; });
+if (await page.isVisible(habitOf("rivalry", "steady"))) fail("a habit's select is shown although the card is not open for changes");
+await open("rivalry");
+await page.selectOption(habitOf("rivalry", "steady"), "random");
+cellChanges.push({ op: "set_habit", path: "rivalry.players.steady", plays: "random" });
+await page.waitForFunction(() => /random/.test(document.querySelector('[data-game="rivalry"] [data-standing="steady"] .plays')?.textContent ?? ""), null, { timeout: 60000 });
+await settled();
+await matches("habit", cellChanges);
+await visit("games", "axelrod.yaml", "axelrod");
+await open("axelrod");
+await page.selectOption(habitOf("axelrod", "rand"), "tit_for_tat");
+const noHabit = await forge([{ op: "set_habit", path: "axelrod.players.rand", plays: "tit_for_tat" }]);
+await page.waitForSelector('[data-game="axelrod"] [data-gmsg]:not([hidden])', { timeout: 60000 });
+if (!noHabit.why) fail("Forge accepts a habit that does not take the player's chance");
+else if ((await page.textContent('[data-game="axelrod"] [data-gmsg]')) !== noHabit.why) fail("the card does not say what Forge says of a habit that does not take the player's chance");
+if ((await page.inputValue(habitOf("axelrod", "rand"))) !== "random") fail("a refused habit stays chosen in the select");
+
+// A game of players alike writes one payoff for each strategy: one button each,
+// and a change moves every column of its row, as Forge's cells do
+await visit("games", "public-goods.yaml", "pg");
+const countOf = (key) => `[data-game="pg"] [data-count="${key}"]`;
+const countPay = async (changes, strategy, others) => {
+  const g = (await forge(changes)).games.find((x) => x.game === "pg");
+  return g.cells.find((c) => c.strategies[0] === strategy && c.strategies.slice(1).every((x) => x === others)).payoffs[0];
+};
+const pgButton = (strategy) => `[data-game="pg"] [data-cellpath="pg.payoffs.${strategy}"]`;
+if (await page.isVisible(pgButton("keep"))) fail("a count form's payoff button is shown although the card is not open for changes");
+await open("pg");
+if (!(await page.isVisible(pgButton("keep")))) fail("the count form's payoff has no button on a card open for changes");
+const pgChanges = [{ op: "set_formula", path: "pg.payoffs.keep", formula: "=endowment + 1" }];
+await page.click(pgButton("keep"));
+await page.fill('[data-cellform="pg.payoffs.keep"] input', "=endowment + 1");
+await page.click('[data-cellform="pg.payoffs.keep"] [data-cellsave]');
+await page.waitForFunction(() => document.querySelector('[data-game="pg"] [data-count="keep|4,0"]')?.dataset.pay === "11", null, { timeout: 60000 });
+await settled();
+if (Number(await page.getAttribute(countOf("keep|4,0"), "data-pay")) !== (await countPay(pgChanges, "keep", "contribute"))) fail("the count form's keep row is not Forge's after its formula was changed");
+if (Number(await page.getAttribute(countOf("keep|0,4"), "data-pay")) !== (await countPay(pgChanges, "keep", "keep"))) fail("the count form's keep row is not the same number in each column");
+pgChanges.push({ op: "set_value", path: "pg.payoffs.contribute", value: 3 });
+await open("pg");
+await page.click(pgButton("contribute"));
+await page.fill('[data-cellform="pg.payoffs.contribute"] input', "3");
+await page.click('[data-cellform="pg.payoffs.contribute"] [data-cellsave]');
+await page.waitForFunction(() => document.querySelector('[data-game="pg"] [data-count="contribute|4,0"]')?.dataset.pay === "3", null, { timeout: 60000 });
+await settled();
+if (Number(await page.getAttribute(countOf("contribute|0,4"), "data-pay")) !== (await countPay(pgChanges, "contribute", "keep"))) fail("the count form's contribute row is not Forge's after a number was set");
+await open("pg");
+await page.click(pgButton("keep"));
+await page.fill('[data-cellform="pg.payoffs.keep"] input', "=nothing_here");
+await page.click('[data-cellform="pg.payoffs.keep"] [data-cellsave]');
+await page.waitForSelector('[data-cellform="pg.payoffs.keep"] [data-cellmsg]:not([hidden])', { timeout: 60000 });
+const noPay = await forge([...pgChanges, { op: "set_formula", path: "pg.payoffs.keep", formula: "=nothing_here" }]);
+if (!noPay.why) fail("Forge accepts a count form's payoff that reads a name the model does not have");
+else if ((await page.textContent('[data-cellform="pg.payoffs.keep"] [data-cellmsg]')) !== noPay.why) fail("the card does not say what Forge says of the count form's payoff");
+
+// What moves a game: the input cards of the inputs `game` answers, in its
+// order, open on the card; one typed there is Forge's `edit` and moves the
+// game as Forge says, an included file's included. The included files' own
+// groups are folded under one line.
+await visit("bagel", "price_war.yaml", "price_war");
+const said = (await forge([])).games;
+for (const g of ["price_war", "rivalry"]) {
+  const want = said.find((x) => x.game === g).inputs;
+  const got = await page.$$eval(`[data-game="${g}"] [data-movesof] [data-path]`, (cards) => cards.map((c) => c.dataset.path));
+  if (!want || !want.length) fail(`Forge names no input that moves ${g}`);
+  else if (got.join(",") !== want.join(",")) fail(`${g}'s "what moves it" has ${got}, Forge says ${want}`);
+  if (!(await page.isVisible(`[data-game="${g}"] [data-movesof]`))) fail(`${g}'s "what moves it" is not shown`);
+}
+if (!said.find((x) => x.game === "price_war").inputs.includes("@plan.assumptions.price_per_dozen")) fail("Forge does not follow the price war into bagel.yaml");
+for (const [as, file] of [["plan", "bagel.yaml"], ["costs", "costs.yaml"]]) {
+  const fold = `[data-incfold="${as}"]`;
+  if (!(await page.$(fold))) { fail(`${file} is not folded`); continue; }
+  if (await page.$eval(fold, (d) => d.open)) fail(`${file} is open although the model shown is price_war.yaml`);
+  if (!/^from [\w.-]+\.yaml: \d+ groups?(, \d+ tables?)?$/.test((await page.textContent(`${fold} > summary`)).trim())) fail(`${file}'s fold says "${await page.textContent(`${fold} > summary`)}"`);
+}
+const plainPrice = '[data-incfold="plan"] [data-input="@plan.assumptions.price_per_dozen"]';
+if (await page.isVisible(plainPrice)) fail("an included file's input is shown although its file is folded");
+const moveField = (g, p) => `[data-game="${g}"] [data-movesof] [data-input="${p}"]`;
+const movesChanges = [{ op: "set_value", path: "market.cut_price", value: 13 }];
+await page.fill(moveField("price_war", "market.cut_price"), "13");
+await page.waitForFunction(() => document.body.dataset.state !== "loading", null, { timeout: 60000 });
+await page.waitForTimeout(400);
+await settled();
+await matches("an input typed in what moves it", movesChanges);
+if ((await page.inputValue('[data-scalar="market.cut_price"] [data-input]')) !== "13") fail("the input's own card does not show what was typed in the game's");
+movesChanges.push({ op: "set_value", path: "@plan.assumptions.price_per_dozen", value: 17 });
+await page.fill(moveField("price_war", "@plan.assumptions.price_per_dozen"), "17");
+await page.waitForTimeout(400);
+await settled();
+await matches("an included input typed in what moves it", movesChanges);
+await page.click('[data-incfold="plan"] > summary');
+if ((await page.inputValue(plainPrice)) !== "17") fail("the included input's own card does not show what was typed in the game's");
+
 await browser.close();
 if (!remote) server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff, a game's dynamics and a tournament's length and noise changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");
+console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff, a player's habit, a count form's payoffs, an input in what moves a game, a game's dynamics and a tournament's length and noise changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");

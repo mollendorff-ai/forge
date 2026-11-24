@@ -48,6 +48,12 @@ pub struct TournamentReport {
     /// worked out from a model
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub settings: Vec<Written>,
+    /// The inputs that move the game (ADR-076 decision 5, "what moves
+    /// it"): every scalar without a formula that its numbers read, through
+    /// the formulas on the way, an included file's as `@alias.name`; empty
+    /// where the report is not worked out from a model
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub inputs: Vec<String>,
 }
 
 /// Play every match of `tournament`, with its numbers worked out and its
@@ -127,6 +133,7 @@ pub fn standings(tournament: &Tournament, round: &Table, worked: &Worked) -> Tou
             .collect(),
         stable,
         settings: Vec::new(),
+        inputs: Vec::new(),
     }
 }
 
