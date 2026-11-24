@@ -10,7 +10,9 @@
 // - a payoff's formula under its value while the card is open for changes,
 //   changed to a formula and to a number, a refused one shown as Forge words it;
 // - a change Forge refuses (a strategy of the game a tournament plays) is
-//   shown in the card with Forge's own message, and nothing changes.
+//   shown in the card with Forge's own message, and nothing changes;
+// - what moves a game: the inputs `game` answers, as input cards on the card,
+//   one typed there moving the game as Forge says; an included file folded.
 //
 //   node studio/tests/gameedit.mjs <built Studio dir or address>
 
@@ -288,10 +290,48 @@ const noPay = await forge([...pgChanges, { op: "set_formula", path: "pg.payoffs.
 if (!noPay.why) fail("Forge accepts a count form's payoff that reads a name the model does not have");
 else if ((await page.textContent('[data-cellform="pg.payoffs.keep"] [data-cellmsg]')) !== noPay.why) fail("the card does not say what Forge says of the count form's payoff");
 
+// What moves a game: the input cards of the inputs `game` answers, in its
+// order, open on the card; one typed there is Forge's `edit` and moves the
+// game as Forge says, an included file's included. The included files' own
+// groups are folded under one line.
+await visit("bagel", "price_war.yaml", "price_war");
+const said = (await forge([])).games;
+for (const g of ["price_war", "rivalry"]) {
+  const want = said.find((x) => x.game === g).inputs;
+  const got = await page.$$eval(`[data-game="${g}"] [data-movesof] [data-path]`, (cards) => cards.map((c) => c.dataset.path));
+  if (!want || !want.length) fail(`Forge names no input that moves ${g}`);
+  else if (got.join(",") !== want.join(",")) fail(`${g}'s "what moves it" has ${got}, Forge says ${want}`);
+  if (!(await page.isVisible(`[data-game="${g}"] [data-movesof]`))) fail(`${g}'s "what moves it" is not shown`);
+}
+if (!said.find((x) => x.game === "price_war").inputs.includes("@plan.assumptions.price_per_dozen")) fail("Forge does not follow the price war into bagel.yaml");
+for (const [as, file] of [["plan", "bagel.yaml"], ["costs", "costs.yaml"]]) {
+  const fold = `[data-incfold="${as}"]`;
+  if (!(await page.$(fold))) { fail(`${file} is not folded`); continue; }
+  if (await page.$eval(fold, (d) => d.open)) fail(`${file} is open although the model shown is price_war.yaml`);
+  if (!/^from [\w.-]+\.yaml: \d+ groups?(, \d+ tables?)?$/.test((await page.textContent(`${fold} > summary`)).trim())) fail(`${file}'s fold says "${await page.textContent(`${fold} > summary`)}"`);
+}
+const plainPrice = '[data-incfold="plan"] [data-input="@plan.assumptions.price_per_dozen"]';
+if (await page.isVisible(plainPrice)) fail("an included file's input is shown although its file is folded");
+const moveField = (g, p) => `[data-game="${g}"] [data-movesof] [data-input="${p}"]`;
+const movesChanges = [{ op: "set_value", path: "market.cut_price", value: 13 }];
+await page.fill(moveField("price_war", "market.cut_price"), "13");
+await page.waitForFunction(() => document.body.dataset.state !== "loading", null, { timeout: 60000 });
+await page.waitForTimeout(400);
+await settled();
+await matches("an input typed in what moves it", movesChanges);
+if ((await page.inputValue('[data-scalar="market.cut_price"] [data-input]')) !== "13") fail("the input's own card does not show what was typed in the game's");
+movesChanges.push({ op: "set_value", path: "@plan.assumptions.price_per_dozen", value: 17 });
+await page.fill(moveField("price_war", "@plan.assumptions.price_per_dozen"), "17");
+await page.waitForTimeout(400);
+await settled();
+await matches("an included input typed in what moves it", movesChanges);
+await page.click('[data-incfold="plan"] > summary');
+if ((await page.inputValue(plainPrice)) !== "17") fail("the included input's own card does not show what was typed in the game's");
+
 await browser.close();
 if (!remote) server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff, a player's habit, a count form's payoffs, a game's dynamics and a tournament's length and noise changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");
+console.log("Game edit: a strategy added and deleted, a player renamed, a tournament's player added and a payoff, a player's habit, a count form's payoffs, an input in what moves a game, a game's dynamics and a tournament's length and noise changed (a formula, a number) are Forge's games for the files `edit` wrote, and a refused change shows Forge's message.");

@@ -14,18 +14,10 @@ use super::{check, formula, js_number, value_text, Change, Op, Target};
 use crate::core::array_calculator::references::{Named, Place, Reader};
 use crate::core::array_calculator::tokenizer;
 use crate::monte_carlo::engine::plan_of;
+use crate::monte_carlo::is_distribution;
 use crate::types::ParsedModel;
 use std::collections::{HashMap, HashSet};
 use yaml_edit::{MappingEntry, YamlFile, YamlNode};
-
-/// Whether a formula is a distribution, as the simulation reads one
-fn is_distribution(formula: &str) -> bool {
-    let formula = formula.trim();
-    formula
-        .strip_prefix('=')
-        .unwrap_or(formula)
-        .starts_with("MC.")
-}
 
 /// The distribution an input gets when none is asked for: a triangle from
 /// 80% to 120% of the value, the value its mode (and its plan)

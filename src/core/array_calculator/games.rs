@@ -80,7 +80,15 @@ impl ArrayCalculator {
             .games
             .keys()
             .filter(|game| asked(game))
-            .map(|game| self.game_reports[game].clone())
+            .map(|game| {
+                let mut report = self.game_reports[game].clone();
+                let inputs = self.inputs_of(game);
+                match &mut report {
+                    GameReport::Table(r) => r.inputs = inputs,
+                    GameReport::Tournament(r) => r.inputs = inputs,
+                }
+                report
+            })
             .collect())
     }
 
@@ -823,6 +831,9 @@ flags:
             ]
         );
         assert_eq!(settings[0]["number"], 200.0);
+        // What moves each game: the tournament's round's inputs, then its own
+        assert_eq!(json[0]["inputs"], serde_json::json!(["c", "w"]));
+        assert_eq!(json[1]["inputs"], serde_json::json!(["c"]));
         // Each payoff of a table says where `edit` finds it, and its formula
         // when it is one (the dilemma is symmetric: a cell is the row's)
         let cells = json[1]["cells"].as_array().unwrap();

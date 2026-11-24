@@ -44,9 +44,17 @@ async function filesOf(page, set) {
 }
 const q = (s) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
+// An included file's cards are folded under one line (ADR-076): opened
+// first, as a person would, for a path in it (@costs.labour.loaded_wage)
+async function unfold(page, path) {
+  const ns = /^@([^.]+)\./.exec(path);
+  if (ns) await page.$eval(`[data-incfold="${ns[1]}"]`, (d) => { d.open = true; });
+}
+
 // Fill the Add form of `key` and press Check and add; answers the message
 // shown, or null when the element was added
 async function add(page, key, kind, name, value) {
+  await unfold(page, key);
   await page.click(`[data-add="${q(key)}"]`);
   const slot = page.locator(`[data-addslot="${q(key)}"]`);
   if (kind === "formula") await slot.locator('[data-akind="formula"]').click();
@@ -64,6 +72,7 @@ async function add(page, key, kind, name, value) {
 }
 // Delete `path` on its card; answers Forge's message, or null when deleted
 async function del(page, path) {
+  await unfold(page, path);
   const button = page.locator(`[data-del="${q(path)}"]`);
   if (!(await button.count())) return `no Delete button for ${path}`;
   if (!(await button.isVisible())) await page.click(`[data-col="${q(path)}"]`);
