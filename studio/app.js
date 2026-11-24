@@ -1344,7 +1344,7 @@ async function exportWorkbook() {
     if (!w) { busy(box, "Forge is writing the workbook…"); w = await prepareWorkbook(); }
     const how = await saveFiles([{ name: w.name, data: w.bytes, type: XLSX }]);
     const { r } = w;
-    box.innerHTML = (how === "cancelled" ? "" : `<p class="note" style="margin-top:8px">${esc(w.name)}: ${r.table_count} tables, ${r.scalar_count} scalars, ${(r.byte_count / 1024).toFixed(0)} KB${how === "downloaded" ? ", downloaded" : ""}.</p>`) + warningList("Written as values, because Excel cannot express them:", r.warnings);
+    box.innerHTML = (how === "cancelled" ? "" : `<p class="note" style="margin-top:8px">${esc(w.name)}: ${r.table_count} tables, ${r.scalar_count} scalars, ${(r.byte_count / 1024).toFixed(0)} KB${how === "downloaded" ? ", downloaded" : ""}.</p>`) + warningList("forge export says:", r.warnings);
   } catch (err) { fail(box, err); }
 }
 vf.addEventListener("change", async (e) => {
