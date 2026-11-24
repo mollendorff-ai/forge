@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Forge Studio's export says what stays in the YAML file, as `forge export` does.** The analysis sections (`monte_carlo`, `tornado`, `decision_tree`, `real_options`, `bootstrap`, `bayesian_network`), `better:` and comments are named as not exported in Studio's export panel too, under "forge export says:" (it said "Written as values", which was wrong for these and for scenarios). The in-memory export (`export_bytes_core`) now gives the same warnings as the file and buffer exports.
 - **Forge Studio changes a value, a formula, an added or a deleted element with Forge's `edit`** (ADR-075 step 7, roadmap S-EDIT). Studio's own line-by-line YAML editing (`studio/text.js`) is gone: an input typed on a card, a formula, "Add" and "Delete" send `set_value`, `set_formula`, `add` and `delete` to forge-wasm's `edit`, which writes the same bytes (the cases of the old `studio/tests/text.mjs` are held by the tests of `src/edit/text.rs`), keeps a change only when Forge reads the model back with exactly it, and shows its message when it does not. A name added on a card may now be in any alphabet. `studio/text.js` keeps the editor\'s colours. The README's screenshots are made again from the bagel's uncertain model (`studio/screenshots.mjs`).
 
 ### Added
