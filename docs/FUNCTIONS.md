@@ -169,7 +169,7 @@
 | `INDIRECT` | Reference from text | `=INDIRECT(ref_text)` |
 | `ADDRESS` | Cell address text | `=ADDRESS(row, col, abs_type, a1, sheet)` |
 | `ROW` | Row number | `=ROW(reference)` |
-| `COLUMN` | Column number | `=COLUMN(reference)` |
+| `COLUMN` | Column number, as `forge export` lays the table out (its first column, in column A, is 1): a row formula's own column, or the table column named | `=COLUMN(reference)` |
 | `ROWS` | Number of rows | `=ROWS(array)` |
 | `COLUMNS` | Number of columns | `=COLUMNS(array)` |
 
