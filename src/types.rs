@@ -666,6 +666,22 @@ mod tests {
         assert_eq!(ColumnValue::Number(vec![1.0]).texts(), None);
     }
 
+    /// A number, a date and a result not calculated yet, each as its
+    /// `format:` shows it, and none without one
+    #[test]
+    fn a_value_is_shown_as_its_format_says() {
+        let mut v = Variable::new("a.rate".to_string(), Some(0.125), None);
+        assert_eq!(v.formatted(), None, "no format, nothing to show");
+        v.metadata.format = Some("0.0%".to_string());
+        assert_eq!(v.formatted().as_deref(), Some("12.5%"));
+        v.value = None;
+        assert_eq!(v.formatted(), None, "nothing is stored to show yet");
+        v.value = Some(46_000.0);
+        v.is_date = true;
+        v.metadata.format = Some("yyyy".to_string());
+        assert_eq!(v.formatted().as_deref(), Some("2025"));
+    }
+
     #[test]
     fn blanks_read_as_zero_and_a_variable_gives_its_json() {
         let blanks = ColumnValue::Blanks(vec![Some(1.5), None]);
