@@ -50,8 +50,8 @@ impl Value {
         match self {
             Self::Number(n) => Some(*n),
             Self::Text(s) => {
-                // First try direct numeric parse
-                if let Ok(n) = s.parse::<f64>() {
+                // First a number, to 15 digits as Excel reads text
+                if let Ok(n) = crate::core::precision::read_typed(s) {
                     return Some(n);
                 }
                 // Then a date (YYYY-MM-DD), as its day number

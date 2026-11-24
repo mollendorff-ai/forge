@@ -693,7 +693,9 @@ pub(crate) fn number_or_date(number: f64, is_date: bool) -> Value {
 /// number, or a date as its day number.
 fn criterion_number(text: &str) -> Option<f64> {
     let text = text.trim();
-    text.parse::<f64>().ok().or_else(|| date_serial(text))
+    crate::core::precision::read_typed(text)
+        .ok()
+        .or_else(|| date_serial(text))
 }
 
 /// Collect all values from an expression as a Vec<Value>

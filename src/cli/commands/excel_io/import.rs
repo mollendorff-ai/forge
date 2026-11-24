@@ -105,7 +105,10 @@ fn tables_to_value(
     map
 }
 
-/// A number as YAML: `16`, not `16.0`, when it is a whole number.
+/// A number as YAML: `16`, not `16.0`, when it is a whole number. A value
+/// read from a workbook keeps every digit, as Excel calculates with it:
+/// `1234567890123456` stays that, where 15 digits would be
+/// `1234567890123460` (T1-EXCEL-LITERAL-DIGITS).
 fn number(n: f64) -> yaml_serde::Value {
     match n.to_i64() {
         Some(whole) if n.fract() == 0.0 && n.abs() < 1e15 => {
@@ -148,7 +151,9 @@ fn scalars_to_value(
             (Some(formula), value) => {
                 let mut entry = Mapping::new();
                 entry.insert(Value::from("formula"), Value::from(formula.clone()));
+                // The last result, to 15 digits as `forge calculate` writes it
                 if let Some(value) = value {
+                    let value = crate::core::precision::to_15_digits(value);
                     entry.insert(Value::from("value"), number(value));
                 }
                 if let Some(format) = format {
@@ -361,10 +366,9 @@ fn import_format(model: &crate::types::ParsedModel) -> &'static str {
     }
 }
 
-/// A model's YAML text: its values, rounded to 15 digits. Values read from a
-/// workbook always serialize.
+/// A model's YAML text. Values read from a workbook always serialize.
 fn yaml_of<T: serde::Serialize>(value: &T) -> String {
-    yaml_serde::to_string(&crate::core::precision::Rounded(value)).expect("model values serialize")
+    yaml_serde::to_string(value).expect("model values serialize")
 }
 
 /// Refuse a model, or an included file's model, in which a name is both a table

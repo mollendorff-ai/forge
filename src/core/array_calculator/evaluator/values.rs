@@ -123,16 +123,22 @@ mod tests {
         use crate::core::array_calculator::evaluator::tests as h;
         use crate::core::array_calculator::evaluator::{EvalContext, Value};
 
+        /// A calculated number keeps 17 digits and its text rounds them to
+        /// 15; a number typed with more is cut to 15 first, as Excel reads it
         #[test]
         fn a_number_as_text_rounds_its_shortest_form() {
             let ctx = EvalContext::new();
             assert_eq!(
-                h::eval("CONCAT(-985667.1985084685)", &ctx),
+                h::eval("CONCAT(-985667.198508468 - 0.0000000005)", &ctx),
                 Ok(Value::Text("-985667.198508469".to_string()))
             );
             assert_eq!(
-                h::eval("CONCAT(9.99999999999999999)", &ctx),
+                h::eval("CONCAT(10 - 2E-15)", &ctx),
                 Ok(Value::Text("10".to_string()))
+            );
+            assert_eq!(
+                h::eval("CONCAT(9.99999999999999999)", &ctx),
+                Ok(Value::Text("9.99999999999999".to_string()))
             );
         }
     }

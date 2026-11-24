@@ -352,11 +352,13 @@ tier1:
   # - and SUM's last addition are 0 below 8 units in the last place of the
   # larger operand. The same sheets found the item below.
 
-  - id: T1-EXCEL-LITERAL-DIGITS
-    title: "Decide whether a number typed in a formula keeps more than 15 significant digits"
-    why: "Excel for iPhone showed =1E15+1-1000000000000000.5 as =1000000000000000+1-1000000000000000 and gave 1 (2026-11-18): Excel cuts a typed number to 15 significant digits when the formula is entered. Forge keeps every digit and gives 0 (0.5, 4 units in the last place, then ADR-066). A model rarely types 16 digits, so the two agree on everything else checked"
-    how: "Check in Excel where the cut applies (a number in a formula, a typed value in a cell, a value read from a workbook), and whether it rounds or truncates; then follow it in the parser and the importer, or write it down in VALIDATION.md"
-    acceptance: "Excel's answers for at least 5 placements are in an edge case file; the difference is fixed test-first or written down"
+  # T1-EXCEL-LITERAL-DIGITS is done (2026-11-24): Excel for iPhone reads a
+  # number in a formula and VALUE of text to their first 15 significant
+  # digits, the rest dropped (=1234567890123456 - 1234567890123450 is 0, not
+  # 10), and keeps every digit of a value stored in a workbook. Forge follows
+  # it (core::precision::read_typed), and forge import keeps every digit of a
+  # value it reads, where it rounded it to 15. Nine cases with Excel's
+  # answers: validation/gnumeric/tests/edge/edge_typed_digits.yaml.
 
   # Found 2026-11-21 building kinship-protocol's v0.6.0 models on rc.31;
   # both reproduce on main (66f7fed).
