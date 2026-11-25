@@ -1,4 +1,10 @@
 {
-  "rule": "Analyze all tasks before starting. Use agents for parallel analysis if needed. Plan and run autonomously until the job is done, using roadmap.yaml to track progress. If analysis indicates you can work in parallel without conflicts, use agents to prevent running out of context window tokens. Do not stop to ask the user - if blocked or uncertain, WebSearch for the best solution, document decisions in an ADR if needed, and continue autonomously.",
-  "compaction_reminder": "REMEMBER THIS AFTER COMPACT, THIS IS IMPORTANT: IF YOU'RE RUNNING IN AUTONOMOUS MODE, OR ASIMOV MODE, CONTINUE THE WORK UNTIL IT'S ALL COMPLETED, DON'T STOP!"
+  "rule": "If roadmap status is 'autonomous': NEVER stop. Use ref fetch for research, create ADRs for decisions. When deliverables complete: set status to released, update roadmap.yaml (move current to previous), append release to CHANGELOG.md (a project with lanes says in the lane rule who writes it), then discuss what's next from backlog with the user.",
+  "compaction_reminder": "Autonomous mode: continue until roadmap deliverables complete. On completion: released, CHANGELOG, promote from backlog.",
+  "autonomous": {
+    "trigger": "roadmap.current.status == 'autonomous'",
+    "stop": "never",
+    "decide": "ref fetch + ADR",
+    "complete": "status: released → CHANGELOG.md (per the lane rule, if any) → promote from backlog"
+  }
 }
