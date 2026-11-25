@@ -16,6 +16,12 @@ backlog:
     acceptance: "Each step is the one the engine lane ran for the next release, or corrected; roles.rs passes; the maintainer's review is dated here"
     model: "Sonnet 5.5, medium: steps checked against a real release"
 
+  - id: AR-CONTRIBUTING-TRIAL
+    title: "What a fresh contributor found in CONTRIBUTING.md"
+    why: "Filed by the manual lane from A10's trial (2026-11-25): a fresh agent cloned main and followed CONTRIBUTING.md through make check (6.5 minutes), a small change and a commit. Nothing blocked. (1) Nothing says git commit runs a pre-commit hook of 4 to 8 minutes (only docs/SESSIONS.md, which a person is not sent to): the commit sat silent for almost 5 minutes. (2) The Rust row says 1.97 or later and that CI's stable is 1.100.0; that 1.100 is needed only for coverage has to be inferred. (3) The changelog fragment's name needs a lane (changelog.d/README.md), and the lanes are explained only in AGENTS.md: which lane an outside contributor writes is a guess. (4) No branch, fork or pull request steps, and no word on whether a pull request needs an issue first"
+    acceptance: "Each of the four is answered on the page, or the decision that it should not be; roles.rs passes"
+    model: "Sonnet 5.5, low: four sentences on one page"
+
 done:
   - id: AR-PAGES-CURRENT
     title: "The architecture pages say what the code does after ADR-078 to ADR-080 and the lanes"

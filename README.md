@@ -298,11 +298,11 @@ Forge's results are checked against engines it does not control, and none of the
 
 | Check | What it covers | Checked on every pull request by |
 | --- | --- | --- |
-| Unit tests (this repo) | over 3,350 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | CI's Test job, on every pull request and every merge to `main` (the CI badge above) |
+| Unit tests (this repo) | Black-Scholes and binomial option prices checked against QuantLib reference values, among the rest | CI's Test job, on every pull request and every merge to `main` (the CI badge above) |
 | [forge-e2e-gnumeric](validation/gnumeric) | 2,182 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the cases Gnumeric cannot read), and Forge after export and import all match the expected value. With them, 2,700 generated cases, arguments drawn from a seed toward the edges, compared with Gnumeric and LibreOffice ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)) | The Validation workflow's Gnumeric job, on every pull request that changes the engine or a suite; every week with 27,000 new generated cases |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | The Validation workflow's R job, on the same pull requests and every week |
 | [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R; games of many players and their dynamics with egttools, and again in R from the payoffs alone | The Validation workflow's games job, on the same pull requests and every week |
-| [validation/repo](validation/repo) | The documentation: every `$ forge` command in this README and in the guide runs and prints what the page shows, and the counts of functions, tools and tests in the docs are the code's | CI's Repository checks job, on every pull request |
+| [validation/repo](validation/repo) | The documentation: every `$ forge` command in this README and in the guide runs and prints what the page shows, and the counts of functions and tools in the docs are the code's | CI's Repository checks job, on every pull request |
 
 Clippy runs in pedantic mode and CI fails on a warning.
 

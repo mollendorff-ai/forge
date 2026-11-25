@@ -104,17 +104,10 @@ pub fn numbers_before(text: &str, word: &str) -> Vec<u64> {
     out
 }
 
-/// 1850 as `1,850`
-#[must_use]
-pub fn group(n: u64) -> String {
-    format!("{},{:03}", n / 1000, n % 1000)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::read;
-    use std::path::Path;
 
     #[test]
     fn every_function_count_written_anywhere_is_the_registry_count() {
@@ -208,69 +201,10 @@ mod tests {
         );
     }
 
-    /// The `#[test]` functions in this repository's Rust files (a `proptest!`
-    /// block counts its tests by their `fn`).
-    fn tests_in_the_code() -> u64 {
-        fn walk(dir: &Path, count: &mut u64) {
-            let Ok(entries) = std::fs::read_dir(dir) else {
-                return;
-            };
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    walk(&path, count);
-                } else if path.extension().is_some_and(|e| e == "rs") {
-                    let text = std::fs::read_to_string(&path).unwrap_or_default();
-                    *count += text
-                        .lines()
-                        .filter(|l| {
-                            let l = l.trim_start();
-                            l.starts_with("#[test]") || l.starts_with("#[tokio::test")
-                        })
-                        .count() as u64;
-                }
-            }
-        }
-        let root = crate::root();
-        let mut count = 0;
-        // The main crate's tests, and these checks of the repository
-        walk(&root.join("src"), &mut count);
-        walk(&root.join("validation/repo/src"), &mut count);
-        count
-    }
-
-    #[test]
-    fn the_test_count_in_the_docs_is_a_round_figure_just_under_the_real_one() {
-        // The exact number changes with every pull request; the docs say "over
-        // 1,850 tests", in steps of 50, and this fails when that is no longer so.
-        let actual = tests_in_the_code();
-        let floor = actual / 50 * 50;
-        let mut wrong = Vec::new();
-        for path in ["README.md", "VALIDATION.md"] {
-            let text = read(path);
-            let said = numbers_before(&text, " tests and 2 doctests");
-            assert!(!said.is_empty(), "{path} must say `N tests and 2 doctests`");
-            for n in said {
-                if n != floor {
-                    wrong.push(format!("{path}: says {n}"));
-                }
-            }
-            assert!(
-                text.contains(&format!("over {} tests and 2 doctests", group(floor))),
-                "{path} must say `over {} tests and 2 doctests`",
-                group(floor)
-            );
-        }
-        assert!(
-            wrong.is_empty(),
-            "the code has {actual} tests; write `over {}`: {wrong:#?}",
-            group(floor)
-        );
-    }
-
     /// Words and counts an evaluation found stale (2026-11-15): Forge's own docs
     /// make no unmeasured claim of maturity, say how many times Excel was
-    /// checked, and give no dated unit-test count that the next commit outdates.
+    /// checked, and give no unit-test count at all: a test count says nothing about
+    /// quality and went stale with every merge (roadmap E-DOC-COUNTS).
     #[test]
     fn the_docs_keep_no_stale_wording() {
         let mut wrong = Vec::new();
@@ -303,8 +237,11 @@ mod tests {
             .lines()
             .find(|l| l.starts_with("| Unit tests"))
             .expect("README has a unit-test row");
-        if row.contains(" pass, 0 fail (") {
-            wrong.push("README.md: the unit-test row gives a dated count".into());
+        if row.contains(" pass, 0 fail (") || row.contains(" tests and ") {
+            wrong.push("README.md: the unit-test row gives a count".into());
+        }
+        if read("VALIDATION.md").contains(" tests and 2 doctests") {
+            wrong.push("VALIDATION.md: the unit-test row gives a count".into());
         }
         assert!(wrong.is_empty(), "{wrong:#?}");
     }
