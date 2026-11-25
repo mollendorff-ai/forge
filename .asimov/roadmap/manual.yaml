@@ -15,6 +15,12 @@ backlog:
     how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
     acceptance: "readme_commands.rs passes; four trial reports name no step that failed, or each is a roadmap item"
     model: "Opus 5.5, high for the README; Sonnet 5.5, medium for the trials"
+  - id: A15-MAINTAINER-STEPS
+    title: "Index Forge at DeepWiki and Context7, then read what each says"
+    why: "A15 added llms.txt, context7.json and .devin/wiki.json, but DeepWiki has never indexed the repository and Context7 has no entry for it (2026-11-25); only the maintainer can add it, and Context7 wants a free API key"
+    how: "The maintainer: index the repository at deepwiki.com/mollendorff-ai/forge and add it at context7.com/add-library (a free key from its dashboard lifts the anonymous quota). Then an agent reads each service's answer about Forge (and GitMCP's again, its index was old) and corrects the config files where one is wrong or thin"
+    acceptance: "DeepWiki and Context7 answer from the current pages (the guide, the skill, 23 MCP tools), and the answers are recorded in this item's built: line"
+    model: "Sonnet 5.5, low"
   - id: T2-FIRST-USER
     title: "Watch one real person build a model with Forge"
     why: "Every bug found on 2026-11-07 came from building a model, and fresh agents have found the rest (T1-AGENT-FRICTION). A person who did not write Forge has not been watched yet. This is to find where a model goes wrong or a command confuses, not to test demand: adoption is not a goal (2026-11-16)"
