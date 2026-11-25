@@ -24,8 +24,11 @@
   "MD032": true,
   "MD033": {
     "allowed_elements": [
+      "a",
       "br",
       "details",
+      "img",
+      "p",
       "summary",
       "sub",
       "sup"
