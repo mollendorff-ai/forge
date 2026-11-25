@@ -284,7 +284,7 @@ mod tests {
                 "--vary",
                 "loan.extra_per_month",
             ],
-            &["loan.extra_per_month = 397.04 → saved.interest = 80,000.00"],
+            &["loan.extra_per_month = 397.04 (397.044207903935) → saved.interest = 80,000.00"],
             &["397.04", "97.04", "15,403.12"],
         );
         // 80,000 less the 64,596.88 saved by 300 a month

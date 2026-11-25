@@ -119,10 +119,10 @@ Models of the kind people have. Every number below is what the command prints, a
 
 ```text
 $ forge goal-seek examples/mortgage/mortgage.yaml --target saved.interest --value 80000 --vary loan.extra_per_month
-   loan.extra_per_month = 397.04 → saved.interest = 80,000.00
+   loan.extra_per_month = 397.04 (397.044207903935) → saved.interest = 80,000.00
 ```
 
-A month-by-month loop in Python, solved with SciPy, gives 397.044208 (the command prints two decimals; the test compares the full value). The model holds that loop too, as a table of 300 months in which each month opens with what the month before closed with (`opening: "=PREV(closing, loan.principal)"`): it is paid off with payment 247, in June 2047, and its interest equals the closed form's. [`examples/periods`](examples/periods/README.md) has a monthly plan and a five-year valuation written the same way.
+A month-by-month loop in Python, solved with SciPy, gives 397.044208 (the command prints two decimals and, in brackets, every digit it keeps). The model holds that loop too, as a table of 300 months in which each month opens with what the month before closed with (`opening: "=PREV(closing, loan.principal)"`): it is paid off with payment 247, in June 2047, and its interest equals the closed form's. [`examples/periods`](examples/periods/README.md) has a monthly plan and a five-year valuation written the same way.
 
 **What price gives a new bagel shop an 80% chance of making money in its first year?** [`examples/bagel`](examples/bagel/README.md) has twelve months of seasonal demand, five cost lines, and supplier prices kept in an included file. In the simulation, opening demand, staffing, the flour price and the wage are uncertain.
 

@@ -67,11 +67,11 @@ At 16 a dozen the shop barely makes money. What price makes the year's profit ex
 
 ```text
 $ forge break-even examples/bagel/bagel.yaml --output-var year.profit --vary assumptions.price_per_dozen
-   assumptions.price_per_dozen = 15.97 → year.profit = -0.000063
+   assumptions.price_per_dozen = 15.97 (15.966607933396) → year.profit = -0.000063
    ✅ Within tolerance
 ```
 
-Forge calculates the model again and again with other prices, narrowing in until the profit is zero to within 0.0001, and leaves the file as it was. 15.97 is the price to two decimals; the profit there is zero to the cent.
+Forge calculates the model again and again with other prices, narrowing in until the profit is zero to within 0.0001, and leaves the file as it was. 15.97 is the price to two decimals, and in brackets every digit Forge keeps: the profit is zero at 15.966607933396, and 79.88 at 15.97, so put the long one in the model to check it.
 
 ## Goal seek: the input that gives a result you name
 
@@ -79,7 +79,7 @@ Break-even is goal seek with a goal of zero. Name another goal: how few staff ho
 
 ```text
 $ forge goal-seek examples/bagel/bagel.yaml --target year.profit --value 60000 --vary assumptions.staff_hours_per_day
-   assumptions.staff_hours_per_day = 24.27 → year.profit = 60,000.00
+   assumptions.staff_hours_per_day = 24.27 (24.2687453046069) → year.profit = 60,000.00
 ```
 
 From 32 hours a day to 24.27: a quarter fewer, which says more about the plan's staffing than about the target.
@@ -132,7 +132,7 @@ The plan opens at 55 dozen a day. How many does the shop need on its first day f
 
 ```text
 $ forge break-even examples/bagel/bagel.yaml --output-var year.profit --vary assumptions.opening_dozens_per_day
-   assumptions.opening_dozens_per_day = 54.86 → year.profit = 0.000001
+   assumptions.opening_dozens_per_day = 54.86 (54.8626511689632) → year.profit = 0.000001
 ```
 
 `54.86` dozen a day: the plan is a seventh of a dozen above breaking even. A plan that close to zero is one to ask "how likely?" of, which is the next lesson.
