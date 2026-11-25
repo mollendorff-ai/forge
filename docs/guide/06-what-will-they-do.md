@@ -83,7 +83,7 @@ rivalry: a tournament of price_war
    Collectively stable (no player does better against it than it does against itself): matcher, grudge, discounter
 ```
 
-The shop that always cuts scores most on average, 21,065.19 a month, but it gets there by taking the shop that always holds. The matcher (charge what the rival charged last month) and the grudge (hold until the first cut, then cut for good) score 20,966.34, and are **collectively stable**: a street of matchers is not invaded by a discounter, which earns more in the first month and the low price after. [Tournaments](../FEATURES.md#tournaments) says how a tournament is written.
+The shop that always cuts scores most on average, 21,065.19 a month, but it gets there by taking the shop that always holds. The matcher (charge what the rival charged last month) and the grudge (hold until the first cut, then cut for good) score 20,966.34, and are **collectively stable**: a street of matchers is not invaded by a discounter, which earns more in the first month and the low price after. Forge names the discounter as collectively stable too: on a street of discounters no other shop earns more than they do against each other, the trap of the month played once. [Tournaments](../FEATURES.md#tournaments) says how a tournament is written.
 
 ## Across the city
 

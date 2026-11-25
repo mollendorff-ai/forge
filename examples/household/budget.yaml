@@ -1,6 +1,6 @@
 _forge_version: "5.1.0"
 # A household's monthly budget for October (all figures made up).
-# Compare the two with:
+# Compare the two, in the examples folder (forge-examples after the install):
 #   forge variance household/budget.yaml household/actual.yaml --threshold 10
 # Anything under income is better higher and anything under expenses better
 # lower, so no item needs a better: of its own; what is left over says so.

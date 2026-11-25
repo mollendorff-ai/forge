@@ -59,9 +59,9 @@ impl ScalarOverride {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScenarioConfig {
-    /// Map of scenario name to definition
+    /// Scenario name to definition, in the file's order
     #[serde(default)]
-    pub scenarios: BTreeMap<String, ScenarioDefinition>,
+    pub scenarios: indexmap::IndexMap<String, ScenarioDefinition>,
     /// The scenarios of the model that have no probability, in the file's
     /// order: not weighted, and named in the results (ADR-067)
     #[serde(skip)]
@@ -71,9 +71,9 @@ pub struct ScenarioConfig {
 impl ScenarioConfig {
     /// Create a new empty configuration
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            scenarios: BTreeMap::new(),
+            scenarios: indexmap::IndexMap::new(),
             unweighted: Vec::new(),
         }
     }
@@ -276,14 +276,15 @@ mod tests {
         assert_eq!(date.as_formula(), None);
     }
 
-    /// A configuration lists its scenarios in name order and finds each by name.
+    /// A configuration lists its scenarios in the order they were added (the
+    /// file's) and finds each by name.
     #[test]
     fn scenarios_are_listed_and_found_by_name() {
         use super::{ScenarioConfig, ScenarioDefinition};
         let mut config = ScenarioConfig::new();
         config.add_scenario("b", ScenarioDefinition::new(0.4));
         config.add_scenario("a", ScenarioDefinition::new(0.6));
-        assert_eq!(config.scenario_names(), ["a", "b"]);
+        assert_eq!(config.scenario_names(), ["b", "a"]);
         assert!(config.has_scenario("a"));
         assert!(!config.has_scenario("c"));
         assert!((config.get_scenario("b").unwrap().probability - 0.4).abs() < 1e-15);
