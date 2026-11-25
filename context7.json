@@ -1,0 +1,13 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "Forge",
+  "description": "Financial models as plain text: YAML models calculated by one Rust engine, as a command line, an MCP server for AI agents, and a browser app.",
+  "folders": ["docs/guide", "docs", "skills", "examples"],
+  "excludeFolders": ["docs/architecture", "docs/posts", "docs/images", "target"],
+  "excludeFiles": ["CHANGELOG.md", "CHANGELOG_ARCHIVE.md", "SESSIONS.md", "MAINTAINING.md"],
+  "rules": [
+    "Start from docs/guide/ and skills/forge-modelling/SKILL.md; the other pages are reference.",
+    "Change a model with `forge edit`, then run `forge calculate` and `forge validate`; the exit status of `forge validate` is the verdict.",
+    "Forge gives the arithmetic; write the YAML and let the command calculate, never compute a result by hand."
+  ]
+}
