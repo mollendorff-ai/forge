@@ -5,36 +5,16 @@
 # for another lane goes at the end of that lane's backlog.
 # Items done before the split (2026-11-25) are in ../roadmap.yaml.
 
-current:
-  id: E-LANES
-  title: "Four lanes, each with its own roadmap, and changelog entries as fragments"
-  status: in_progress
-  why: "Four sessions work on Forge at once and shared one roadmap and one [Unreleased] section: the same items sat in several handoffs (#430 was built twice), and every pull request collided in CHANGELOG.md and roadmap.yaml (2026-11-25)"
-  deliverables:
-    - "lanes: in .asimov/project.yaml (engine, manual, features, architecture), valid under asimov 3.6.0"
-    - "every open item in exactly one lane's file; ids unique across .asimov/roadmap.yaml and .asimov/roadmap/ (validation/repo lanes.rs)"
-    - "a change's changelog entry is a fragment in changelog.d/, collected by scriv at a release; [Unreleased] holds only scriv's marker (validation/repo lanes.rs)"
-    - "AGENTS.md says what each lane owns; docs/SESSIONS.md holds the lessons the handoffs repeated; the handoff skill writes a lane's delta only"
-  model: "Opus 5.5, medium: the process every session follows"
+current: {}
 
 previous: {}
 
 backlog:
-  - id: T1-COVERAGE-GATE
-    title: "100% coverage: lines, functions and regions, with nothing skipped"
-    why: "ADR-004 requires 100%, but its 2026-11-08 note made it a goal; P-COV100 was parked for the same reason, now overruled by the maintainer (2026-11-16: no exceptions, no skipping). Measured on PR #257's head (2026-11-16): lines 88.04%, functions 84.46%, regions 86.31%. Since then the Coverage job fails below floors in ci.yml (88.0, 84.4 and 86.3 at first; 88.9, 85.4 and 87.3 since PR #258; 89.6, 86.1 and 88.1 since PR #259), which only rise, and make coverage fails below 100"
-    how: "List each uncovered line by file (cargo llvm-cov --ignore-filename-regex 'tests/' --summary-only, then --show-missing-lines). Cover each with a test that asserts a result. A line no test can reach is a defensive branch that cannot happen: remove it, or make the type rule it out; never exclude it from the count. Raise the floors in ci.yml with each merge that raises coverage"
-    acceptance: "The floors in ci.yml are 100 for lines, functions and regions, and the Coverage job passes on main; validation/repo/src/no_skipping.rs counts no coverage-only code and no ignored test"
   - id: E-DOC-COUNTS
     title: "The test count in README.md and VALIDATION.md checked when a release is made, not on every merge"
     why: "doc_counts fails main whenever another lane's merge crosses a step of 50 ('over 3,350 tests'); main was red after #428 for that. The figure belongs to the release"
     acceptance: "doc_counts' test-count check runs in the release's checks only (or the figure is dropped, the maintainer's choice); no other lane's merge can turn main red with it"
     model: "Sonnet 5.5, low: one check moves"
-  - id: E-CI-DOCS-PATHS
-    title: "A pull request that changes only pages runs the page checks"
-    why: "CI's path filter has no docs/**, README.md or *.md, so A8's and A9's pull requests ran only the Mermaid check (found in A14's trial, 2026-11-25)"
-    acceptance: "docs/**, *.md and skills/** are in the filter of the job that runs validation/repo; a page-only pull request shows it ran"
-    model: "Sonnet 5.5, low: a filter, held by workflows.rs"
   - id: T1-NO-SKIPPING
     title: "No way round the three rules, in every crate"
     why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs: 218 lint allow or expect attributes, 16 lints allowed in Cargo.toml files, 31 places of code compiled only for or only without coverage, 2 ignored tests. Counted again 2026-11-24: every budget in no_skipping.rs is 0 except the crates clippy.toml allows in two versions (4: syn, getrandom, r-efi, hashbrown), each held by a library the maintainer decided to keep (ADR-072, ADR-075). None can be lowered today: tracing-attributes 0.1.31, zeroize_derive 1.5.0 and strum_macros 0.28 are the latest releases and are on syn 2; ahash 0.8.13 and jsonschema 0.63.1 still bring getrandom 0.3 (tried 2026-11-24, nothing removed); yaml-edit 0.3.6 is the latest and its rowan 0.16 is on hashbrown 0.14"
@@ -84,4 +64,26 @@ backlog:
     how: "Settings, Pages in mollendorff-ai.github.io: remove the custom domain, save, add mollendorff.ai again, wait for the certificate, tick Enforce HTTPS. Then open mollendorff.com and mollendorff.ca on the phone and see where they land (EasyDNS forwards if they do not reach mollendorff.ai)"
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
 
-done: []
+done:
+  - id: E-LANES
+    title: "Four lanes, each with its own roadmap, and changelog entries as fragments"
+    why: "Four sessions work on Forge at once and shared one roadmap and one [Unreleased] section: the same items sat in several handoffs (#430 was built twice), and every pull request collided in CHANGELOG.md and roadmap.yaml (2026-11-25)"
+    deliverables:
+    - "lanes: in .asimov/project.yaml (engine, manual, features, architecture), valid under asimov 3.6.0"
+    - "every open item in exactly one lane's file; ids unique across .asimov/roadmap.yaml and .asimov/roadmap/ (validation/repo lanes.rs)"
+    - "a change's changelog entry is a fragment in changelog.d/, collected by scriv at a release; [Unreleased] holds only scriv's marker (validation/repo lanes.rs)"
+    - "AGENTS.md says what each lane owns; docs/SESSIONS.md holds the lessons the handoffs repeated; the handoff skill writes a lane's delta only"
+    model: "Opus 5.5, medium: the process every session follows"
+    built: "2026-11-25, #435: lanes: in .asimov/project.yaml, a roadmap for each lane, changelog entries as fragments in changelog.d/ (scriv), docs/SESSIONS.md, and validation/repo lanes.rs holding it. asimov 3.6.0 (mollendorff-ai/asimov v3.6.0) reads the lanes"
+  - id: T1-COVERAGE-GATE
+    title: "100% coverage: lines, functions and regions, with nothing skipped"
+    why: "ADR-004 requires 100%, but its 2026-11-08 note made it a goal; P-COV100 was parked for the same reason, now overruled by the maintainer (2026-11-16: no exceptions, no skipping). Measured on PR #257's head (2026-11-16): lines 88.04%, functions 84.46%, regions 86.31%. Since then the Coverage job fails below floors in ci.yml (88.0, 84.4 and 86.3 at first; 88.9, 85.4 and 87.3 since PR #258; 89.6, 86.1 and 88.1 since PR #259), which only rise, and make coverage fails below 100"
+    how: "List each uncovered line by file (cargo llvm-cov --ignore-filename-regex 'tests/' --summary-only, then --show-missing-lines). Cover each with a test that asserts a result. A line no test can reach is a defensive branch that cannot happen: remove it, or make the type rule it out; never exclude it from the count. Raise the floors in ci.yml with each merge that raises coverage"
+    acceptance: "The floors in ci.yml are 100 for lines, functions and regions, and the Coverage job passes on main; validation/repo/src/no_skipping.rs counts no coverage-only code and no ignored test"
+    built: "2026-11-25. The floors in ci.yml are 100 for lines, functions and regions (since 2026-11-23, rc.35), make coverage fails below 100, and no_skipping.rs counts no coverage-only code and no ignored test. CI's Coverage job passes on main"
+  - id: E-CI-DOCS-PATHS
+    title: "A pull request that changes only pages runs the page checks"
+    why: "CI's path filter has no docs/**, README.md or *.md, so A8's and A9's pull requests ran only the Mermaid check (found in A14's trial, 2026-11-25)"
+    acceptance: "docs/**, *.md and skills/** are in the filter of the job that runs validation/repo; a page-only pull request shows it ran"
+    model: "Sonnet 5.5, low: a filter, held by workflows.rs"
+    built: "2026-11-25. docs/**, **/*.md and skills/** are in the push and pull_request filters of ci.yml, which starts the Repository checks job; validation/repo workflows_doc.rs holds them"

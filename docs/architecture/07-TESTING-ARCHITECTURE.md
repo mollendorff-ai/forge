@@ -20,7 +20,7 @@ flowchart TB
         games["validation/games<br/>vs Gambit, axelrod, egttools, R"]
     end
     subgraph claims["Forge's own claims"]
-        repo["validation/repo<br/>README commands, doc counts, doc examples,<br/>posts, install.sh, conventions,<br/>these architecture pages"]
+        repo["validation/repo<br/>README commands, doc counts, doc examples,<br/>posts, the guide, install.sh, lanes,<br/>conventions, these architecture pages"]
     end
     subgraph browser["The browser"]
         wasmcmp["forge-wasm cases<br/>WebAssembly vs native, in Node"]
@@ -104,6 +104,12 @@ An expected value is never changed silently: a pull request that changes or remo
 | `workflows_doc.rs` | `docs/WORKFLOWS.md` names only commands the binary has, and links only to pages that exist |
 | `install_script.rs` | `install.sh` downloads what the release workflow publishes |
 | `conventions.rs` | The conventions in `.asimov/project.yaml` that a test can check |
+| `guide.rs`, `studio_guide.rs`, `pipeline.rs` | `docs/guide/`: every `$ forge` block runs and prints what the page shows, a YAML block headed by a file name equals that file, every link and anchor resolves, every `<details>` answer is a number the page's commands print (ADR-078); Studio's pictures come from `studio/screenshots.mjs`; the pipeline's workflow runs step by step |
+| `docs_index.rs` | `docs/README.md` names each reader's first page and every page of `docs/`, and the README's table links to it |
+| `roles.rs` | `CONTRIBUTING.md`, `docs/MAINTAINING.md` and `docs/EMBEDDING.md`: each version, job and target they state is the one in the file that has it; the REST example runs against a real `forge serve` |
+| `agent_rules.rs`, `agents_md.rs`, `skill.rs` | The rules the guide gives an agent hold against `forge mcp`; `AGENTS.md` holds the rules and `CLAUDE.md` only imports them; the modelling skill's steps happen |
+| `lanes.rs` | Each lane in `.asimov/project.yaml` has its roadmap, and a change's changelog entry is a fragment in `changelog.d/` |
+| `function_cases.rs` | Every function Forge lists has a case that checks it against another engine |
 | `architecture_docs.rs` | These architecture pages: every link resolves, every path they name exists, every ADR is in the index, with the status the ADR states |
 | `no_skipping.rs` | The budgets above |
 
@@ -118,7 +124,7 @@ flowchart LR
     native --> screen["studio/tests/*.mjs<br/>in Chromium: every number on screen<br/>is the native answer"]
 ```
 
-CI's `forge-wasm` job lints and tests forge-wasm natively, builds the module, checks its size against ADR-070's budget, compares every case's WebAssembly answer with the native one, builds Studio and runs its tests (the page holds no calculation code, every scalar and grid cell is Forge's, edits change one line, offline works, the layout fits a 320 px screen, ...). [studio/README.md](../../studio/README.md#how-it-is-checked) lists each test.
+CI's `forge-wasm` job lints and tests forge-wasm natively, builds the module, checks its size against ADR-070's budget, compares every case's WebAssembly answer with the native one, builds Studio and runs its tests (the page holds no calculation code, every scalar and grid cell is Forge's, edits change one line, offline works, the layout fits a 320 px screen, a link's model is read and none of it reaches the server, ...). [studio/README.md](../../studio/README.md#how-it-is-checked) lists each test.
 
 ## Which workflow runs what
 

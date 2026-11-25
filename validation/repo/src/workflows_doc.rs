@@ -66,4 +66,18 @@ mod tests {
             "the diagrams are Mermaid, which GitHub draws"
         );
     }
+
+    #[test]
+    fn a_page_only_change_runs_the_repository_checks() {
+        // push and pull_request each list the paths that start CI
+        let ci = read(".github/workflows/ci.yml");
+        let head = ci.split("\nconcurrency:").next().unwrap_or_default();
+        for path in ["docs/**", "**/*.md", "skills/**"] {
+            assert_eq!(
+                head.matches(&format!("      - '{path}'\n")).count(),
+                2,
+                "{path} is in the filter of both push and pull_request"
+            );
+        }
+    }
 }

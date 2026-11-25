@@ -15,6 +15,9 @@ on:
       - 'studio/**'
       - 'validation/**'
       - '.github/workflows/*.yml'
+      - 'docs/**'
+      - '**/*.md'
+      - 'skills/**'
   pull_request:
     branches: [ main ]
     paths:
@@ -29,6 +32,9 @@ on:
       - 'studio/**'
       - 'validation/**'
       - '.github/workflows/*.yml'
+      - 'docs/**'
+      - '**/*.md'
+      - 'skills/**'
 
 # A pull request's newer push cancels its older run. Every other run (a push
 # to main) has a group of its own, so that one that hangs cannot hold up the
