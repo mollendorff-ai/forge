@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::{extract::State, response::IntoResponse, Json};
+use rmcp::schemars::{self, JsonSchema};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -60,7 +61,7 @@ pub struct EndpointInfo {
 
 /// GET / - Root info
 pub async fn root(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let response = RootResponse {
+    let mut response = RootResponse {
         name: "Forge API Server".to_string(),
         version: state.version.clone(),
         description: "HTTP API for YAML formula calculations".to_string(),
@@ -100,8 +101,31 @@ pub async fn root(State(state): State<Arc<AppState>>) -> impl IntoResponse {
                 method: "POST".to_string(),
                 description: "Import Excel to YAML".to_string(),
             },
+            EndpointInfo {
+                path: "/api/v1/openapi.json".to_string(),
+                method: "GET".to_string(),
+                description: "The OpenAPI 3.1 document of these endpoints".to_string(),
+            },
         ],
     };
+    // Every other MCP tool (ADR-081), described by its first sentence
+    response.endpoints.extend(
+        super::tools::served(&crate::mcp::ForgeMcpServer::new())
+            .iter()
+            .map(|tool| EndpointInfo {
+                path: super::tools::path_of(&tool.name),
+                method: "POST".to_string(),
+                description: tool
+                    .description
+                    .as_deref()
+                    .unwrap_or_default()
+                    .split(". ")
+                    .next()
+                    .unwrap_or_default()
+                    .trim_end_matches('.')
+                    .to_string(),
+            }),
+    );
     Json(ApiResponse::ok(response))
 }
 
@@ -137,13 +161,20 @@ pub async fn version(State(state): State<Arc<AppState>>) -> impl IntoResponse {
             "audit".to_string(),
             "export".to_string(),
             "import".to_string(),
-        ],
+        ]
+        .into_iter()
+        .chain(
+            super::tools::served(&crate::mcp::ForgeMcpServer::new())
+                .iter()
+                .map(|tool| tool.name.trim_start_matches("forge_").replace('_', "-")),
+        )
+        .collect(),
     }))
 }
 
 /// Where a request gets its model from: a file on the machine running Forge,
 /// or the YAML itself (with the text of any included files).
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, JsonSchema)]
 pub struct ModelSource {
     /// Path to a model on the machine running Forge
     pub file_path: Option<String>,
@@ -170,7 +201,7 @@ impl ModelSource {
 }
 
 /// Validate request
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 pub struct ValidateRequest {
     #[serde(flatten)]
     pub source: ModelSource,
@@ -242,10 +273,11 @@ fn validate_response(
 }
 
 /// Calculate request
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 pub struct CalculateRequest {
     #[serde(flatten)]
     pub source: ModelSource,
+    /// Calculate without writing the file
     #[serde(default)]
     pub dry_run: bool,
     /// Scenario to apply
@@ -320,10 +352,11 @@ pub async fn calculate(
 }
 
 /// Audit request
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 pub struct AuditRequest {
     #[serde(flatten)]
     pub source: ModelSource,
+    /// The variable to audit (`plan.profit`)
     pub variable: String,
 }
 
@@ -370,9 +403,11 @@ pub async fn audit(
 }
 
 /// Export request
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 pub struct ExportRequest {
+    /// The model to export
     pub yaml_path: String,
+    /// The workbook to write
     pub excel_path: String,
 }
 
@@ -419,9 +454,11 @@ pub async fn export(
 }
 
 /// Import request
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 pub struct ImportRequest {
+    /// The workbook to read
     pub excel_path: String,
+    /// The model to write
     pub yaml_path: String,
 }
 

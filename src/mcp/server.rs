@@ -4,6 +4,7 @@
 //! Uses the rmcp SDK for Model Context Protocol over stdin/stdout.
 
 use rmcp::handler::server::router::tool::ToolRouter;
+use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
     CacheScope, ListToolsResult, PaginatedRequestParams, ProtocolVersion, ResultType,
     ServerCapabilities, ServerConfig,
@@ -52,6 +53,63 @@ impl ForgeMcpServer {
         self.root
             .as_ref()
             .map_or_else(|| Ok(path.into()), |root| root.file(path))
+    }
+}
+
+impl ForgeMcpServer {
+    /// The tools, as `tools/list` answers them: name, description and input
+    /// schema, from each tool's `#[tool]` attribute and request type
+    #[must_use]
+    pub fn tools(&self) -> Vec<rmcp::model::Tool> {
+        self.tool_router.list_all()
+    }
+
+    /// Run the tool `name` with `arguments`, as `tools/call` does: the same
+    /// request type, read from the same JSON, and the same method, which calls
+    /// the command's core function. The REST API serves every tool through it
+    /// (ADR-081). Answers the tool's JSON, or why it failed.
+    ///
+    /// # Errors
+    ///
+    /// Returns the tool's message when it fails, `Invalid parameters: ...`
+    /// when `arguments` are not its request, and `No tool ...` for a name
+    /// that is not one.
+    pub fn call(&self, name: &str, arguments: serde_json::Value) -> Result<String, String> {
+        /// The tool's request, read from `arguments` as rmcp reads them
+        fn args<T: serde::de::DeserializeOwned>(
+            arguments: serde_json::Value,
+        ) -> Result<Parameters<T>, String> {
+            serde_json::from_value(arguments)
+                .map(Parameters)
+                .map_err(|e| format!("Invalid parameters: {e}"))
+        }
+        let a = arguments;
+        match name {
+            "forge_validate" => self.validate(args(a)?),
+            "forge_calculate" => self.calculate(args(a)?),
+            "forge_edit" => self.edit(args(a)?),
+            "forge_audit" => self.audit(args(a)?),
+            "forge_export" => self.export(args(a)?),
+            "forge_import" => self.import(args(a)?),
+            "forge_sensitivity" => self.sensitivity(args(a)?),
+            "forge_goal_seek" => self.goal_seek(args(a)?),
+            "forge_break_even" => self.break_even(args(a)?),
+            "forge_variance" => self.variance(args(a)?),
+            "forge_compare" => self.compare(args(a)?),
+            "forge_scenarios" => self.scenarios(args(a)?),
+            "forge_tornado" => self.tornado(args(a)?),
+            "forge_game" => self.game(args(a)?),
+            "forge_simulate" => self.simulate(args(a)?),
+            "forge_decision_tree" => self.decision_tree(args(a)?),
+            "forge_real_options" => self.real_options(args(a)?),
+            "forge_bootstrap" => self.bootstrap(args(a)?),
+            "forge_bayesian" => self.bayesian(args(a)?),
+            "forge_schema" => Self::schema(args(a)?),
+            "forge_functions" => Ok(Self::functions(args(a)?)),
+            "forge_templates" => Self::templates(args(a)?),
+            "forge_examples" => Self::examples(args(a)?),
+            _ => Err(format!("No tool {name}")),
+        }
     }
 }
 
@@ -228,6 +286,56 @@ scalars:
         assert!(list.len() < 28_000, "{} bytes", list.len());
         // No field's doc repeats the long sentence of the shared ones
         assert!(!list.contains("directly or through another included file"));
+    }
+
+    /// Every tool is run by `call` from its JSON arguments, as `tools/call`
+    /// runs it; arguments that are not its request, and a name that is no
+    /// tool, say so
+    #[test]
+    fn every_tool_is_called_by_its_name() {
+        let server = ForgeMcpServer::new();
+        for tool in server.tools() {
+            let refused = server.call(&tool.name, serde_json::json!("not arguments"));
+            assert!(
+                refused
+                    .as_ref()
+                    .is_err_and(|e| e.starts_with("Invalid parameters: ")),
+                "{}: {refused:?}",
+                tool.name
+            );
+        }
+        assert_eq!(
+            server.call("forge_nothing", serde_json::json!({})),
+            Err("No tool forge_nothing".to_string())
+        );
+        // The tools the REST API has its own endpoints for, called here
+        let starter = format!("{}/examples/starter.yaml", env!("CARGO_MANIFEST_DIR"));
+        let file = serde_json::json!({"file_path": starter});
+        assert!(server.call("forge_validate", file).is_ok());
+        assert!(server
+            .call(
+                "forge_calculate",
+                serde_json::json!({"file_path": starter, "dry_run": true})
+            )
+            .is_ok());
+        assert!(server
+            .call(
+                "forge_audit",
+                serde_json::json!({"file_path": starter, "variable": "plan.profit"})
+            )
+            .is_ok());
+        assert!(server
+            .call(
+                "forge_export",
+                serde_json::json!({"yaml_path": "nowhere.yaml"})
+            )
+            .is_err());
+        assert!(server
+            .call(
+                "forge_import",
+                serde_json::json!({"excel_path": "nowhere.xlsx", "yaml_path": "nowhere.yaml"})
+            )
+            .is_err());
     }
 
     #[test]

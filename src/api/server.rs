@@ -190,6 +190,13 @@ pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
         .as_deref()
         .map(crate::path_root::Root::new)
         .transpose()?;
+    // Every MCP tool, with the same root (ADR-081)
+    let server = root
+        .clone()
+        .map_or_else(crate::mcp::ForgeMcpServer::new, |root| {
+            crate::mcp::ForgeMcpServer::new().with_root(root)
+        });
+    let document = Arc::new(super::tools::openapi(&server));
     let state = Arc::new(AppState {
         version: env!("CARGO_PKG_VERSION").to_string(),
         token: config.token.clone(),
@@ -208,6 +215,12 @@ pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
         .route("/api/v1/audit", post(handlers::audit))
         .route("/api/v1/export", post(handlers::export))
         .route("/api/v1/import", post(handlers::import_excel))
+        // The other tools, and the document of all of them
+        .merge(super::tools::routes(&server))
+        .route(
+            "/api/v1/openapi.json",
+            get(move || std::future::ready(Json(Arc::clone(&document)))),
+        )
         .layer(middleware::from_fn_with_state(state.clone(), guard))
         .with_state(state);
 
@@ -262,7 +275,10 @@ async fn serve_until(
 
     let addr: SocketAddr = config.socket_address().parse()?;
     info!("🔥 Forge API Server starting on http://{}", addr);
-    info!("   Endpoints: /api/v1/validate, /api/v1/calculate, /api/v1/audit, /api/v1/export, /api/v1/import");
+    info!(
+        "   Endpoints: every MCP tool at /api/v1/<name> (/api/v1/validate, /api/v1/goal-seek, ...)"
+    );
+    info!("   OpenAPI: /api/v1/openapi.json");
     info!("   Health: /health, Version: /version");
     if let Some(root) = &config.root {
         let shown = root.display().to_string();

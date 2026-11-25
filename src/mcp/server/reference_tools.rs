@@ -16,7 +16,7 @@ impl ForgeMcpServer {
         name = "forge_schema",
         description = "Get JSON Schema for Forge YAML model formats. Write new models as _forge_version \"5.1.0\": inputs as plain numbers (price: 16), formula scalars as {formula: \"=...\"}, tables as lists and row-formula strings. For a table over time use \"5.2.0\": a period column (month: {start: 2026-12, count: 12, unit: month}) gives the rows, and PREV(value, first_row_value) reads the row above. \"5.3.0\" allows an empty cell (null) in a column of numbers. \"5.4.0\" allows a date as a scalar (last_actual: 2026-10-31) and format: beside unit:, an Excel number format that changes how a number is shown, never its value (price: {value: 16, format: \"$#,##0.00\"}); results then carry a formatted map."
     )]
-    fn schema(Parameters(req): Parameters<SchemaRequest>) -> Result<String, String> {
+    pub(super) fn schema(Parameters(req): Parameters<SchemaRequest>) -> Result<String, String> {
         schema_core(req.version.as_deref()).map_err(|e| format!("Schema error: {e}"))
     }
 
@@ -24,7 +24,7 @@ impl ForgeMcpServer {
         name = "forge_functions",
         description = "List all 203 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
     )]
-    fn functions(Parameters(_req): Parameters<FunctionsRequest>) -> String {
+    pub(super) fn functions(Parameters(_req): Parameters<FunctionsRequest>) -> String {
         to_json(&functions_core())
     }
 
@@ -32,7 +32,9 @@ impl ForgeMcpServer {
         name = "forge_templates",
         description = "The blocks forge_edit's insert adds to a model: a game of two players, a game of many players alike, a tournament, a population whose strategies spread. Use without a name to list them, or specify a name for its YAML. Each is valid in any model of format 5.5.0 or later; insert raises an earlier model to it. Insert it with forge_edit: {op: insert, path: <template>, new_name: <the game's name>}."
     )]
-    fn templates(Parameters(req): Parameters<TemplatesRequest>) -> Result<String, String> {
+    pub(super) fn templates(
+        Parameters(req): Parameters<TemplatesRequest>,
+    ) -> Result<String, String> {
         templates_core(req.name.as_deref())
             .map(|r| to_json(&r))
             .map_err(|e| format!("Templates error: {e}"))
@@ -42,7 +44,7 @@ impl ForgeMcpServer {
         name = "forge_examples",
         description = "Get runnable YAML examples for all Forge capabilities. Use without a name to list available examples, or specify a name to get the full YAML content. `starter` is a first model to start from."
     )]
-    fn examples(Parameters(req): Parameters<ExamplesRequest>) -> Result<String, String> {
+    pub(super) fn examples(Parameters(req): Parameters<ExamplesRequest>) -> Result<String, String> {
         examples_core(req.name.as_deref())
             .map(|r| to_json(&r))
             .map_err(|e| format!("Examples error: {e}"))

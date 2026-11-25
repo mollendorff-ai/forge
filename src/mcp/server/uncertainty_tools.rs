@@ -58,7 +58,10 @@ impl ForgeMcpServer {
         name = "forge_simulate",
         description = "Run Monte Carlo simulation with probabilistic distributions (MC.Normal, MC.Triangular, MC.Uniform, MC.PERT, MC.Lognormal). Returns statistics, percentiles, threshold probabilities, and drivers (each MC.* input's rank correlation with each output). An MC.* input may be in an included file. `scenario` applies a scenario's overrides first. An output may be a table column (one result per row). With `seek` (\"P(year.profit > 0) = 0.8\"), `vary`, `min` and `max`, returns the value of that input at which the probability is first met."
     )]
-    fn simulate(&self, Parameters(req): Parameters<SimulateRequest>) -> Result<String, String> {
+    pub(super) fn simulate(
+        &self,
+        Parameters(req): Parameters<SimulateRequest>,
+    ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),
@@ -101,7 +104,7 @@ impl ForgeMcpServer {
         name = "forge_decision_tree",
         description = "Analyze decision trees using backward induction. Returns optimal path, expected value, decision policy, and risk profile."
     )]
-    fn decision_tree(
+    pub(super) fn decision_tree(
         &self,
         Parameters(req): Parameters<DecisionTreeRequest>,
     ) -> Result<String, String> {
@@ -120,7 +123,7 @@ impl ForgeMcpServer {
         name = "forge_real_options",
         description = "Value managerial flexibility (defer/expand/abandon) using real options pricing. Returns option values, exercise probabilities, and project value with options."
     )]
-    fn real_options(
+    pub(super) fn real_options(
         &self,
         Parameters(req): Parameters<RealOptionsRequest>,
     ) -> Result<String, String> {
@@ -139,7 +142,10 @@ impl ForgeMcpServer {
         name = "forge_bootstrap",
         description = "Non-parametric bootstrap resampling for confidence intervals. Returns original estimate, bootstrap mean, std error, bias, confidence intervals and nine percentiles of the bootstrap distribution (not every resample)."
     )]
-    fn bootstrap(&self, Parameters(req): Parameters<BootstrapRequest>) -> Result<String, String> {
+    pub(super) fn bootstrap(
+        &self,
+        Parameters(req): Parameters<BootstrapRequest>,
+    ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),
@@ -157,7 +163,10 @@ impl ForgeMcpServer {
         name = "forge_bayesian",
         description = "Bayesian network inference. Query posterior probabilities with optional evidence, optionally under a scenario. A prior or table entry may be a formula over the model's scalars; named queries under bayesian_network.queries also give scalars bayesian_network.<query>.<state>, which forge_calculate and forge_validate report. Returns probability distributions for each variable state."
     )]
-    fn bayesian(&self, Parameters(req): Parameters<BayesianRequest>) -> Result<String, String> {
+    pub(super) fn bayesian(
+        &self,
+        Parameters(req): Parameters<BayesianRequest>,
+    ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),
@@ -400,7 +409,11 @@ scalars:
     }
 
     /// 1,000 runs of the bagel year, seed 7 (the file's), as the tool answers
-    fn simulate(inline: bool, scenario: Option<&str>, seek: Option<&str>) -> serde_json::Value {
+    pub(super) fn simulate(
+        inline: bool,
+        scenario: Option<&str>,
+        seek: Option<&str>,
+    ) -> serde_json::Value {
         let (file_path, content, includes) = simulated(inline);
         json(&ok_text(ForgeMcpServer::new().simulate(Parameters(
             SimulateRequest {

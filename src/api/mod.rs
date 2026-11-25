@@ -5,6 +5,7 @@
 
 pub mod handlers;
 pub mod server;
+pub mod tools;
 
 pub use server::run_api_server;
 
