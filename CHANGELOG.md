@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.35] - 2026-11-25
+
+Wrong answers fixed: `ROW(reference)`, an array `IF` with an error in one branch, the `*IFS` functions over ranges of different sizes, `DDB` with a period or a life under 1, `PMT`, `PV`, `IPMT` and `PPMT` over any number of periods, and `CUMIPMT`, `CUMPRINC` and `VDB`, which could hang; a number of more than 15 digits is read as Excel reads it, and a simulation of huge values prints numbers. `forge validate` now fails a formula with no stored result, so a model `forge calculate` never ran on no longer passes the gate. `forge edit` changes a game's payoffs, settings, strategies, players and habits and a table's columns, and Forge Studio edits games on their cards and opens a model carried in a link (ADR-080). The documentation has a guide of six lessons on one model, pages for Studio, AI agents, pipelines, embedding, contributing and releasing, an index and an agent skill, each held by a test; coverage is 100% and no lint is allowed in any crate. Wrong answers were fixed, so the two weeks in docs/STABILITY.md start again from rc.35 (2026-12-09).
+
 ### Added
 
 - **An index of the documentation, `docs/README.md`** (ADR-078, roadmap A10). Five rows say where each kind of reader starts (new to Forge, working with an AI, building a pipeline, embedding Forge, changing or releasing it), and every page of `docs/` follows, by what it holds. The main README's documentation table leads to it, and `validation/repo/src/docs_index.rs` fails if a page of `docs/` is not linked from it (or a post from the posts' index), if a link goes nowhere, or if the README does not lead to it.

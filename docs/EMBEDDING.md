@@ -15,7 +15,7 @@ The crate is [`mollendorff-forge`](https://crates.io/crates/mollendorff-forge) (
 
 ```toml
 [dependencies]
-mollendorff-forge = { version = "10.0.0-rc.34", default-features = false }
+mollendorff-forge = { version = "10.0.0-rc.35", default-features = false }
 ```
 
 `default-features = false` leaves out the command line, the MCP server and the REST API (feature `cli`), and with them most of the dependencies: what is left is the parser, the calculator, the analyses and each command's `*_core` function, which build for `wasm32-unknown-unknown`. Add `features = ["excel"]` for the workbook export and import. The default features are the whole `forge` program.
