@@ -10,11 +10,6 @@ current: {}
 previous: {}
 
 backlog:
-  - id: E-DOC-COUNTS
-    title: "The test count in README.md and VALIDATION.md checked when a release is made, not on every merge"
-    why: "doc_counts fails main whenever another lane's merge crosses a step of 50 ('over 3,350 tests'); main was red after #428 for that. The figure belongs to the release"
-    acceptance: "doc_counts' test-count check runs in the release's checks only (or the figure is dropped, the maintainer's choice); no other lane's merge can turn main red with it"
-    model: "Sonnet 5.5, low: one check moves"
   - id: T1-NO-SKIPPING
     title: "No way round the three rules, in every crate"
     why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs: 218 lint allow or expect attributes, 16 lints allowed in Cargo.toml files, 31 places of code compiled only for or only without coverage, 2 ignored tests. Counted again 2026-11-24: every budget in no_skipping.rs is 0 except the crates clippy.toml allows in two versions (4: syn, getrandom, r-efi, hashbrown), each held by a library the maintainer decided to keep (ADR-072, ADR-075). None can be lowered today: tracing-attributes 0.1.31, zeroize_derive 1.5.0 and strum_macros 0.28 are the latest releases and are on syn 2; ahash 0.8.13 and jsonschema 0.63.1 still bring getrandom 0.3 (tried 2026-11-24, nothing removed); yaml-edit 0.3.6 is the latest and its rowan 0.16 is on hashbrown 0.14"
@@ -87,3 +82,10 @@ done:
     acceptance: "docs/**, *.md and skills/** are in the filter of the job that runs validation/repo; a page-only pull request shows it ran"
     model: "Sonnet 5.5, low: a filter, held by workflows.rs"
     built: "2026-11-25. docs/**, **/*.md and skills/** are in the push and pull_request filters of ci.yml, which starts the Repository checks job; validation/repo workflows_doc.rs holds them"
+  - id: E-DOC-COUNTS
+    title: "The test count in README.md and VALIDATION.md checked when a release is made, not on every merge"
+    why: "doc_counts fails main whenever another lane's merge crosses a step of 50 ('over 3,350 tests'); main was red after #428 for that. The figure belongs to the release"
+    decided: "The maintainer, 2026-11-25: drop the figure"
+    acceptance: "doc_counts' test-count check runs in the release's checks only (or the figure is dropped, the maintainer's choice); no other lane's merge can turn main red with it"
+    model: "Sonnet 5.5, low: one check moves"
+    built: "2026-11-25. README.md and VALIDATION.md give no count of unit tests (a count says nothing about quality and went stale with every merge); doc_counts.rs no longer counts them and fails if one comes back. The numbers shown are the ones a stranger can check: 100% coverage (the badge), the Gnumeric case count, R, Gambit, Excel"
