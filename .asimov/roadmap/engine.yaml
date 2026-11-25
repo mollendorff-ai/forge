@@ -5,15 +5,7 @@
 # for another lane goes at the end of that lane's backlog.
 # Items done before the split (2026-11-25) are in ../roadmap.yaml.
 
-current:
-  id: A17-SCORECARD
-  title: "OpenSSF Scorecard on the repository, with its badge"
-  why: "An outside rating of the practices T1-SUPPLY-CHAIN put in place, which a reader can check without trusting the README"
-  acceptance: "A pinned scorecard workflow runs weekly and on main; the README shows the badge; each check scored below 10 is fixed or a roadmap item says why not"
-  model: "Sonnet 5.5, low"
-  status: in_progress
-  built_so_far: "2026-11-25. .github/workflows/scorecard.yml (ossf/scorecard-action v2.6.0 and codeql-action upload-sarif v4.39.5, both pinned to a commit; weekly on Tuesdays, on every push to main, on branch_protection_rule and by hand; publishes the score), the badge in README.md, and validation/repo tests that every action in every workflow is pinned to a commit and that scorecard.yml and the badge stay"
-  left: "After the first run on main: read the score at https://scorecard.dev/viewer/?uri=github.com/mollendorff-ai/forge, and for each check below 10 fix it or add an item here saying why not. Some are the maintainer's settings (branch protection, required reviews, a security policy file); say so in the item"
+current: {}
 
 previous: {}
 
@@ -23,6 +15,41 @@ backlog:
     why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs: 218 lint allow or expect attributes, 16 lints allowed in Cargo.toml files, 31 places of code compiled only for or only without coverage, 2 ignored tests. Counted again 2026-11-24: every budget in no_skipping.rs is 0 except the crates clippy.toml allows in two versions (4: syn, getrandom, r-efi, hashbrown), each held by a library the maintainer decided to keep (ADR-072, ADR-075). None can be lowered today: tracing-attributes 0.1.31, zeroize_derive 1.5.0 and strum_macros 0.28 are the latest releases and are on syn 2; ahash 0.8.13 and jsonschema 0.63.1 still bring getrandom 0.3 (tried 2026-11-24, nothing removed); yaml-edit 0.3.6 is the latest and its rowan 0.16 is on hashbrown 0.14"
     how: "One kind of lint or one crate per pull request, each lowering its budget in validation/repo/src/no_skipping.rs. A count is not a size: the #![allow] of three cast lints at the top of core/array_calculator/evaluator/mod.rs is one attribute and covers the whole evaluator, about 24,000 lines, so it is worth more than most. float_cmp in tests: an assertion helper for an exact value. Casts: checked conversions (try_from) with the error named, in numeric code with a test at the boundary, since a careless cast is a wrong answer. too_many_lines: split the function. multiple_crate_versions: update or replace the dependency that pulls the second version. The coverage-only test files: make each run under cargo llvm-cov (it measures the binary they start). The two ignored tests: run the timing test in the release-build job it was meant for, and give the round-trip corpus a fixture in the repository"
     acceptance: "Every budget in validation/repo/src/no_skipping.rs is 0 and the test passes; CLAUDE.md and project.yaml name no exception"
+  - id: E-SC-SIGNED-RELEASES
+    title: "Each release archive carries a signature Scorecard can see (Signed-Releases, 0)"
+    why: "Scorecard 2026-11-25 scores Signed-Releases 0: it looks for a .sig, .asc, .sigstore or .intoto.jsonl file among the release's assets, and the attestations release.yml makes (actions/attest-build-provenance) live on GitHub, not on the release. Same file as A16-SBOM"
+    how: "Sign each archive in release.yml with a pinned Sigstore tool (a keyless signature, the .sigstore bundle) and attach it to the release beside the archive; do it with A16-SBOM, in the same pull request or the next one"
+    acceptance: "A release candidate lists a signature for each archive and `cosign verify-blob` (or gh attestation verify) accepts it; Scorecard's Signed-Releases rises on its next run"
+    model: "Sonnet 5.5, medium: the release path"
+  - id: E-SC-SAST
+    title: "Static analysis in CI that Scorecard recognises (SAST, 0)"
+    why: "Scorecard 2026-11-25 scores SAST 0: it finds no CodeQL or SonarCloud run on pull requests. Clippy pedantic already runs, but Scorecard does not count it"
+    how: "A pinned CodeQL workflow (github/codeql-action) for Rust and for the workflows' own YAML, on pull requests and weekly; read its first findings and fix or explain each"
+    acceptance: "A CodeQL run on a pull request, its alerts at zero or each one explained here; SAST rises on Scorecard's next run"
+    model: "Sonnet 5.5, medium: findings have to be read, not just switched on"
+  - id: E-SC-VULNS
+    title: "The one known vulnerability Scorecard reports (Vulnerabilities, 9)"
+    why: "Scorecard 2026-11-25 scores Vulnerabilities 9, so one OSV advisory is open against Forge or a dependency. cargo audit ignores none (.cargo/audit.toml), so it may be an advisory cargo audit does not carry, or a crate a pull request has not bumped yet"
+    how: "Open the Vulnerabilities check at https://scorecard.dev/viewer/?uri=github.com/mollendorff-ai/forge for the advisory's id, then update or replace the crate; if no fix exists, say so here"
+    acceptance: "Vulnerabilities is 10 on the next run, or this item names the advisory and why it stays"
+    model: "Sonnet 5.5, low"
+  - id: E-SC-PINNED
+    title: "The one dependency of the build that is not pinned (Pinned-Dependencies, 9)"
+    why: "Scorecard 2026-11-25 scores Pinned-Dependencies 9: every action is pinned to a commit (a validation/repo test holds that), so something else is not, such as a pip or npm install, a cargo install without --locked, or a download in a script"
+    how: "Open the check in the viewer for the file and line; pin it (a hash, an exact version, --locked) or say here why it cannot be"
+    acceptance: "Pinned-Dependencies is 10 on the next run, or this item says what stays and why"
+    model: "Sonnet 5.5, low"
+  - id: E-SC-FUZZING
+    title: "Fuzzing: decide whether Forge gets a fuzz target, and which (Fuzzing, 0)"
+    why: "Scorecard 2026-11-25 scores Fuzzing 0. Forge parses untrusted YAML and formulas, which is what fuzzing is for, and it already has property tests (proptest). Scorecard counts OSS-Fuzz, ClusterFuzzLite and some languages' native fuzzing; whether it counts proptest or cargo-fuzz for Rust has to be checked in its docs first. A fuzz crate is a crate, so AGENTS.md's rules hold for it: 100% coverage, pedantic lints, inline tests"
+    how: "Check which tools Scorecard's Fuzzing check detects for Rust. If a cargo-fuzz target on the formula parser and the YAML reader is counted, weigh it against the rules above; if only OSS-Fuzz or ClusterFuzzLite is, it is a larger step. Ask the maintainer before adding a crate"
+    acceptance: "The maintainer decides: a fuzz target is added with its own tests and Fuzzing rises, or this item says it is not worth its cost for Forge today"
+    model: "Opus 5.5, medium: a decision with a cost"
+  - id: S-SCORECARD-SETTINGS
+    title: "Scorecard checks that are the maintainer's: Branch-Protection, CII-Best-Practices, Code-Review, Contributors (user)"
+    why: "Scorecard 2026-11-25 scores Branch-Protection 0, Code-Review 0, CII-Best-Practices 0 and Contributors 6. None is a change to the code"
+    how: "Branch-Protection: in Settings, Rules, protect main (require a pull request and the CI checks, block force pushes). CII-Best-Practices: register the repository at https://www.bestpractices.dev and answer the passing-level questions; the engine lane can supply the evidence for each. Code-Review: Scorecard wants a reviewer other than the author to approve each pull request; with one maintainer it stays 0, and the proposal is to leave it. Contributors: counts contributors from several organisations; with one maintainer it stays below 10, and the proposal is to leave it"
+    acceptance: "Branch-Protection and CII-Best-Practices are done by the maintainer, or each is refused with a reason; Code-Review and Contributors are accepted as they are or the maintainer says otherwise"
   - id: A16-SBOM
     title: "An SBOM (CycloneDX or SPDX) attached to each release"
     why: "The release proves who built the binary (attestations, rc.28); an SBOM says what is inside it"
@@ -63,6 +90,12 @@ backlog:
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
 
 done:
+  - id: A17-SCORECARD
+    title: "OpenSSF Scorecard on the repository, with its badge"
+    why: "An outside rating of the practices T1-SUPPLY-CHAIN put in place, which a reader can check without trusting the README"
+    acceptance: "A pinned scorecard workflow runs weekly and on main; the README shows the badge; each check scored below 10 is fixed or a roadmap item says why not"
+    model: "Sonnet 5.5, low"
+    built: "2026-11-25, #441. .github/workflows/scorecard.yml (ossf/scorecard-action v2.6.0 and codeql-action upload-sarif v4.39.5, pinned to commits; Tuesdays, every push to main, branch_protection_rule, by hand; publishes the score), the badge in README.md, and validation/repo tests that every action in every workflow is pinned and that the workflow and badge stay. First score, 2026-11-25 (commit 6e8225c, Scorecard v5.7.0): 6.5. At 10: Dangerous-Workflow, Maintained, Dependency-Update-Tool, Binary-Artifacts, Token-Permissions, Security-Policy, Packaging, License, CI-Tests. Below 10, each with an item: Signed-Releases 0 (E-SC-SIGNED-RELEASES), SAST 0 (E-SC-SAST), Vulnerabilities 9 (E-SC-VULNS), Pinned-Dependencies 9 (E-SC-PINNED), Fuzzing 0 (E-SC-FUZZING), and Branch-Protection 0, Code-Review 0, CII-Best-Practices 0, Contributors 6 (S-SCORECARD-SETTINGS, the maintainer's)"
   - id: E-LANES
     title: "Four lanes, each with its own roadmap, and changelog entries as fragments"
     why: "Four sessions work on Forge at once and shared one roadmap and one [Unreleased] section: the same items sat in several handoffs (#430 was built twice), and every pull request collided in CHANGELOG.md and roadmap.yaml (2026-11-25)"
