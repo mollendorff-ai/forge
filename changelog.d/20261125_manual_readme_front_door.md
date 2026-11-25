@@ -1,0 +1,3 @@
+### Changed
+
+- **The README is the front door.** It opens with a door for each reader (new to Forge, working with an AI, building a pipeline, embedding Forge, changing Forge), each to the page the documentation's index starts that reader on, then tells the bagel shop's first year in five checked commands: its profit, its break-even price, the tornado, the price for an 80% chance of a profit and the price war across the street. The table of checks says which job runs each one on a pull request instead of a dated result; the results and their dates are in VALIDATION.md. `validation/repo` now checks every link and anchor of the README, its five doors and that table.
