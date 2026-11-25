@@ -31,7 +31,95 @@ conventions:
   - "Formatting: cargo fmt --all -- --check passes (rustfmt.toml), in the pre-commit hook and in CI, with no #[rustfmt::skip] and no ignore in rustfmt.toml"
   - "100% test coverage, not negotiable (the maintainer, 2026-11-16; ADR-004, CLAUDE.md). A test asserts a result; one that only runs the code does not count. No skipping: no cfg(coverage) or cfg(not(coverage)) code, no coverage(off), no ignored test. CI fails below the floor in ci.yml, which only rises, to 100 (roadmap T1-COVERAGE-GATE); make coverage fails below 100"
   - "validation/repo/src/no_skipping.rs counts every way round these three rules; the counts only fall, to zero (roadmap T1-NO-SKIPPING). Never raise its budget or lower the coverage floor"
-  - "CHANGELOG.md has an [Unreleased] section; every PR adds its entry there in plain words that say what a user saw and what changed (the PR template asks for it)"
+  - "Every PR adds its changelog entry as a new file in changelog.d/ (a ### Added, Changed, Fixed or Removed heading, then the entry in plain words that say what a user saw and what changed), never in CHANGELOG.md: the engine lane collects them with scriv when it releases, and [Unreleased] holds only scriv's marker (validation/repo/src/lanes.rs; the PR template asks for it)"
   - "Docs describe what the code does today; a superseded design doc gets a dated note at the top, not a rewrite (the PR template asks; last checked across docs/architecture on 2026-11-08)"
   - "No Rust file over 1,500 lines, its inline tests included, in any crate (validation/repo/src/conventions.rs): a longer file is split into modules by what it does, never emptied of its tests"
   - "MIT OR Apache-2.0 license (Cargo.toml, LICENSE-MIT, LICENSE-APACHE)"
+
+# Forge is worked on in four lanes at once, each by its own session
+# (asimov 3.6.0 lanes; AGENTS.md says the same for agents not launched by
+# asimov). A lane takes work only from .asimov/roadmap/<id>.yaml and changes
+# only what it owns and the shared paths; work for another lane goes at the
+# end of that lane's backlog. engine and features both own src/: engine
+# makes what exists better, features adds what does not exist yet.
+lanes:
+  - id: engine
+    title: "Engine: the engine as it is, validation, CI, releases, repository hygiene"
+    releases: true
+    owns:
+      - src/
+      - validation/
+      - .github/
+      - .asimov/
+      - .cargo/
+      - .cargo-husky/
+      - .claude/
+      - scripts/
+      - Formula/
+      - test-data/
+      - proptest-regressions/
+      - forge-wasm/
+      - Cargo.toml
+      - Cargo.lock
+      - build.rs
+      - clippy.toml
+      - rustfmt.toml
+      - Makefile
+      - install.sh
+      - AGENTS.md
+      - CLAUDE.md
+      - CHANGELOG.md
+      - SECURITY.md
+      - VALIDATION.md
+      - docs/SESSIONS.md
+      - docs/STABILITY.md
+  - id: manual
+    title: "Manual: the guide, examples, READMEs, --help text, the skill, the prompts"
+    owns:
+      - docs/guide/
+      - docs/cli/
+      - docs/posts/
+      - docs/images/
+      - docs/README.md
+      - docs/EXAMPLES.md
+      - docs/FEATURES.md
+      - docs/FUNCTIONS.md
+      - docs/GLOSSARY.md
+      - docs/MCP.md
+      - docs/PROMPTS.md
+      - docs/REPORT.md
+      - docs/WORKFLOWS.md
+      - docs/FPA-PREDICTION-METHODS.md
+      - examples/
+      - skills/
+      - editors/
+      - README.md
+      - src/cli/
+  - id: features
+    title: "Features: new behaviour in the engine and its surfaces (command line, Studio, MCP, REST)"
+    owns:
+      - src/
+      - studio/
+      - forge-wasm/
+      - schema/
+      - json/
+      - examples/
+      - docs/architecture/ADR-
+  - id: architecture
+    title: "Architecture: docs/architecture, the ADR index, MAINTAINING, EMBEDDING, CONTRIBUTING"
+    owns:
+      - docs/architecture/
+      - docs/MAINTAINING.md
+      - docs/EMBEDDING.md
+      - CONTRIBUTING.md
+
+# Any lane may change these: a change's changelog fragment, and the check in
+# validation/repo that holds the page or code it changed.
+shared:
+  - changelog.d/
+  - validation/repo/
+
+changelog:
+  fragments: changelog.d/
+
+format: 1

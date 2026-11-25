@@ -50,10 +50,11 @@ Lessons, read in order, on one model: Bagel Lune, a made-up bagel shop.
 
 - [Contributing](../CONTRIBUTING.md): set-up, and what a change needs
 - [Maintaining Forge](MAINTAINING.md): how a release is made
+- [Working in a session](SESSIONS.md): how an agent's session works on Forge, in its lane
 - [The architecture](architecture/README.md): how Forge is built, and every decision (ADR) behind it
 - [Validation](../VALIDATION.md): what is checked against what, with the latest results
 - [The changelog](../CHANGELOG.md) and [its archive](CHANGELOG_ARCHIVE.md), before v8.0.0
-- [The roadmap](../.asimov/roadmap.yaml): what is next, in order
+- [The roadmap](../.asimov/roadmap/): what is next in each lane, in order, and [roadmap.yaml](../.asimov/roadmap.yaml): the state and what was done
 
 ## Every page is checked
 

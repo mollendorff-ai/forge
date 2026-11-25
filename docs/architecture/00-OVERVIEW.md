@@ -120,7 +120,7 @@ flowchart LR
 | `editors/vscode/` | A VS Code extension: syntax colours (also used by Studio's editor) and the schemas. |
 | `test-data/` | Models and workbooks the unit tests read. |
 | `docs/` | User documentation, the architecture (this folder) and posts. |
-| `.asimov/` | The roadmap (`roadmap.yaml`) and project conventions; roadmap ids such as `T1-COVERAGE-GATE` refer to it. |
+| `.asimov/` | The project conventions and lanes (`project.yaml`), each lane's roadmap (`roadmap/<lane>.yaml`) and the record of what was done (`roadmap.yaml`); roadmap ids such as `T1-COVERAGE-GATE` refer to them. |
 
 ## Principles
 

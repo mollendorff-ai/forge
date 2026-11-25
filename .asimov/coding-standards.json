@@ -1,16 +1,16 @@
 {
-  "philosophy": "Human-readable, beautiful, well-formatted code",
+  "philosophy": "Human-readable, well-structured, consistently formatted code",
   "rfc2119": {
-    "MUST": "We follow (obviously)",
-    "SHOULD": "We follow (best practice = we do it)",
-    "MAY": "We don't care (no opinion needed, zero bikeshedding)"
+    "MUST": "Required - always follow",
+    "SHOULD": "Recommended - follow unless justified exception",
+    "MAY": "Optional - no strong preference"
   },
   "principles": [
     "Code is for humans first, machines second",
-    "Tests are documentation",
+    "Tests serve as executable documentation",
     "No warnings, no exceptions",
-    "Perfect > Done, no sloppy code",
-    "Push for 100% test coverage, if possible"
+    "Quality over speed - avoid incomplete implementations",
+    "Target 100% test coverage where practical"
   ],
-  "rule": "See project.yaml coding_standards section for project-specific rules"
+  "rule": "MUST write human-readable, well-structured, consistently formatted code. Code is for humans first. Tests serve as executable documentation. No warnings, no exceptions. Quality over speed. Target 100% test coverage where practical. RFC 2119 keywords: MUST = required, SHOULD = recommended unless justified, MAY = optional."
 }

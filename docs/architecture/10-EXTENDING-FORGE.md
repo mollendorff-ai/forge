@@ -11,7 +11,7 @@ flowchart LR
     adr -- no --> code
     write --> code["code, with its tests inline"]
     code --> local["cargo test, make test-repo<br/>make lint, cargo fmt<br/>make coverage"]
-    local --> pr["pull request:<br/>CHANGELOG [Unreleased],<br/>docs, validation cases"]
+    local --> pr["pull request:<br/>a changelog.d fragment,<br/>docs, validation cases"]
     pr --> ci{"CI, Validation,<br/>Expected values"}
     ci -- red --> code
     ci -- green --> merge["merged by the maintainer"]

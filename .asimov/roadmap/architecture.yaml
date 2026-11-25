@@ -1,0 +1,24 @@
+# Roadmap of the architecture lane (docs/architecture, the ADR index, MAINTAINING, EMBEDDING, CONTRIBUTING).
+# Lanes: .asimov/project.yaml and AGENTS.md. Schema: asimov's roadmap.yaml
+# (current, previous, backlog), plus done:, where this lane's finished items
+# go, each with its dated built: line. Take work from here only; work found
+# for another lane goes at the end of that lane's backlog.
+# Items done before the split (2026-11-25) are in ../roadmap.yaml.
+
+current: {}
+
+previous: {}
+
+backlog:
+  - id: AR-MAINTAINING-REVIEW
+    title: "docs/MAINTAINING.md's release steps reviewed, with the changelog collected by scriv"
+    why: "A9-ROLES left it open: the maintainer has not reviewed the release steps; E-LANES changes step 3 (the changelog is collected from changelog.d/)"
+    acceptance: "Each step is the one the engine lane ran for the next release, or corrected; roles.rs passes; the maintainer's review is dated here"
+    model: "Sonnet 5.5, medium: steps checked against a real release"
+  - id: AR-PAGES-CURRENT
+    title: "The architecture pages say what the code does after ADR-078 to ADR-080 and the lanes"
+    why: "Three ADRs were accepted in two days (2026-11-23 to 2026-11-25) while other work merged around them; no one has read the pages they change since"
+    acceptance: "Each page an ADR changes is read against the code and corrected, or a dated note says why not"
+    model: "Sonnet 5.5, medium: reading code against pages"
+
+done: []

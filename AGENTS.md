@@ -18,6 +18,23 @@ Prefer a stable, well-maintained library to code of our own. Size alone is never
 
 A library that brings a second version of a crate is not replaced for that reason. The duplicate is allowed in `clippy.toml` with the library and the reason written next to it, and counted in `validation/repo/src/no_skipping.rs`. The maintainer decides it, and no one else may raise that count. The allowance ends when the library stops bringing the duplicate, and the count then falls with it. It covers only duplicate versions of crates. No other lint, and no rule above, may be switched off for a library.
 
+## Working in lanes
+
+Forge is worked on by several sessions at once, each in one lane. A lane owns some paths and has its own roadmap; they are listed under `lanes:` in `.asimov/project.yaml`, which asimov reads (`asimov --lane <id>`). A session's lane is the first line of its handoff, or `ASIMOV_LANE`.
+
+| Lane | Its work | Roadmap |
+| --- | --- | --- |
+| `engine` | What exists, made better: the engine's answers and speed, `validation/`, CI, releases, the repository's hygiene (supply chain, SBOM, Scorecard, metadata) | `.asimov/roadmap/engine.yaml` |
+| `manual` | The guide, the examples, the READMEs, `--help` text, the skill, the prompts: for people and agents using Forge | `.asimov/roadmap/manual.yaml` |
+| `features` | New behaviour in the engine and its surfaces (command line, Studio, MCP, REST), with its ADR and its `--help` | `.asimov/roadmap/features.yaml` |
+| `architecture` | `docs/architecture/` and the ADR index, `MAINTAINING.md`, `EMBEDDING.md`, `CONTRIBUTING.md` | `.asimov/roadmap/architecture.yaml` |
+
+- Take work only from your lane's roadmap, as it is on `main` (fetch first). Work you find that is another lane's goes at the end of that lane's `backlog`, saying what you found; you do not do it.
+- Change only the paths your lane owns, the shared ones (`changelog.d/`, `validation/repo/`) and other lanes' backlogs. A new feature's guide page and architecture page are items the features lane files for the manual and architecture lanes.
+- A change's changelog entry is a new file in `changelog.d/` ([how](changelog.d/README.md)). Only the engine lane edits `CHANGELOG.md`, changes the version and makes a release.
+- A finished item moves to its lane's `done:` list with a dated `built:` line. `.asimov/roadmap.yaml` keeps the project's state and what was done before the lanes.
+- [docs/SESSIONS.md](docs/SESSIONS.md) has how a session works here: committing, the checks CI runs, pull requests, the handoff.
+
 ## Proposing the next step
 
 Whenever you propose what to do next, give each step the model and the effort level to run it with, and say why in a few words. For example:

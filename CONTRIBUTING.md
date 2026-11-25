@@ -57,7 +57,7 @@ make format         # Format the code
 
 ## What a change needs
 
-- **An entry in CHANGELOG.md**, under `[Unreleased]`, saying in plain words what a user saw and what changed.
+- **A changelog entry**, as a new file in `changelog.d/` ([how](changelog.d/README.md)), saying in plain words what a user saw and what changed. `CHANGELOG.md` itself changes only when a release is made.
 - **A test that fails without the change** for every bug fix: a wrong answer, an error, a crash or a wrong message. The test reproduces the bug, fails on the commit before the fix and passes after it.
 - **An example with outside numbers** for a new or changed command: a model in `examples/` whose results come from a calculation made outside Forge (by hand, a spreadsheet, R, Python), asserted in a test. `src/cli/commands/examples/` (its `bagel_example` tests) shows how. Using the bagel models found more bugs in one evening than the unit tests had.
 - **Green CI**, including the Validation workflow, which runs the suites in `validation/` (forge-e2e-gnumeric, forge-e2e-r, the generated cases of `validation/sweep` and the games of `validation/games`; ADR-057) against the build of the same commit. New cases go in the same pull request. A pull request that changes or removes an existing expected value there says `changes expected values` in its title and, in its description, where each new value comes from (Excel, Gnumeric, R; the version and the date); the Expected values check fails it otherwise.
