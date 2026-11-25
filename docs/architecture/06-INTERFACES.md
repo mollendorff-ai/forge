@@ -101,6 +101,9 @@ sequenceDiagram
 - **The same answers.** CI's `forge-wasm` job runs every case of `forge-wasm/tests/cases.json` through the WebAssembly module in Node and natively, and fails on any difference; Studio's screen tests compare what the page shows with `forge calculate` run natively ([07](07-TESTING-ARCHITECTURE.md#webassembly-and-studio)).
 - **A budget.** The gzipped module must stay under the ceiling of ADR-070; the CI summary prints its size.
 
+- **A model in a link.** `studio/link.js` opens a model from the part of an address after `#`: `name=`, `yaml=` (percent-encoded text) and `gzip=` (gzipped, base64url), the first file the main one (ADR-080). A fragment never reaches a server, so the model stays in the tab; the query carries only `?example=` and `&model=`. A fragment is read whole or not at all, and Studio asks before it replaces files that are the person's own. `studio/tests/link.mjs` fails if any request carries part of a model.
+- **A policy.** `studio/index.html` has a Content Security Policy that limits scripts, workers and every request to the page's own address, so a missed escape cannot run a script or send a model elsewhere. A feature that needs another origin changes the policy in an ADR.
+
 What the page itself owns (views, editing a line of YAML, suggestions, offline caching) is in [studio/README.md](../../studio/README.md#how-it-is-built).
 
 ## Keeping the doors in step

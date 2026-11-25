@@ -142,4 +142,5 @@ Each of these is a decision someone made, with the record of why.
 - To change how a model is read: [02 - Data model](02-DATA-MODEL.md).
 - To change how formulas are calculated, or add a function: [03 - Formula evaluation](03-FORMULA-EVALUATION.md), then [10 - Extending Forge](10-EXTENDING-FORGE.md).
 - To add a command, an MCP tool or a Studio view: [06 - Interfaces](06-INTERFACES.md).
+- To find the page for a reader (a new user, an AI agent, a pipeline, an embedder, a contributor): [docs/README.md](../README.md), the index of the documentation (ADR-078).
 - To know what will check your change: [07 - Testing architecture](07-TESTING-ARCHITECTURE.md).
