@@ -1,8 +1,8 @@
 # ADR-081: Every Tool over REST, Described by an OpenAPI Document Made from It
 
-**Status:** Proposed (2026-11-25); built the same day (roadmap T3-API), for the maintainer to accept or change
+**Status:** Accepted (2026-11-25); built: `POST /api/v1/<tool>` for every MCP tool and `GET /api/v1/openapi.json` (roadmap T3-API)
 **Date:** 2026-11-25
-**Decided by:** the maintainer, who asked for T3-API to be built; the design and the analysis are Claude's
+**Decided by:** the maintainer (2026-11-25), who accepted the five decisions as written, the 422 for a tool's failure and the five endpoints left as they are among them; the design and the analysis are Claude's
 **For:** ADR-047 (one core function under every surface), ADR-049 (inline content). It changes none of their decisions
 
 ---
