@@ -576,6 +576,12 @@ mod tests {
             "name = \"mollendorff-forge\"\nversion = \"{version}\""
         )));
         assert!(read("CHANGELOG.md").contains("## [Unreleased]"));
+        // the example dependency in EMBEDDING.md is held to the version by
+        // the embedding check, so a release changes it too
+        assert!(
+            doc.contains("`docs/EMBEDDING.md`"),
+            "the page does not name EMBEDDING.md"
+        );
     }
 
     /// EMBEDDING.md's Rust example is the crate's own, which `cargo test --doc`
