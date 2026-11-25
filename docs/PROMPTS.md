@@ -53,6 +53,8 @@ results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 
 *Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): installed in 2.8 s; a coffee-shop model with assumptions, a 12-month table and year totals, `forge validate` passing before and after `forge calculate`; year revenue 325,913.78 and profit 78,245.97, worst month the first (4,360); its own check, month by month in Python and in closed form, agreed to the last digit. Under a minute in all.*
 
+*Run again on 2026-11-24 by a fresh agent (Forge 10.0.0-rc.34): the same year as on 2026-11-22 (revenue 325,913.78, profit 78,245.97, worst month the first at 4,360), `forge validate` passing before and after `forge calculate`, and its own Python check agreeing to the last digit. No friction. Under a minute.*
+
 ## 2. Bring a workbook in from Excel, and back
 
 Forge reads a workbook, keeps the formulas it can express, and writes a workbook with live formulas.
@@ -87,6 +89,8 @@ results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 
 *Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33), with no workbook attached: it exported the bagel example and imported it back (all 18 formulas kept, the inputs as values, `costs.yaml` as its own file), and found the results equal to the workbook's stored values to 15 significant digits, read with its own openpyxl script. The price changed to 17 gave a profit of 24,334.44 and a new workbook. It noted that scenarios, the tornado and comments do not go through Excel, as the export says. About 80 s.*
 
+*Run again on 2026-11-24 by a fresh agent (Forge 10.0.0-rc.34), with no workbook attached: all 18 formulas kept, `costs.yaml` as its own file, the results equal to the workbook's stored values read with its own openpyxl script; the price at 18 gave a profit of 47,882.56 and a new workbook. No command failed. About 40 s.*
+
 ## 3. Budget against actual
 
 A month's plan and what happened, line by line, with which way each line is good news.
@@ -118,6 +122,8 @@ results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
 *Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): installed in 2.7 s; the household month 455.85 short of plan, side work and eating out the main causes and transport the only good news; two variances checked in its own Python script; the user's month 167 short, food the whole story. About 50 s.*
+
+*Run again on 2026-11-24 by a fresh agent (Forge 10.0.0-rc.34): the household month 455.85 short of plan, side work and eating out the main causes and transport the only good news, two variances checked in its own Python; the user's month 167 short. No command failed. It noted that the example's comment gave a path without saying where to run it; the comment now says. Under 30 s.*
 
 ## 4. What if: scenarios, break-even, goal seek
 
@@ -155,6 +161,8 @@ results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
 *Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): scenarios (probability-weighted profit 621.64), break-even at 15.97 a dozen, 24.27 staff hours a day for 60,000, profit from -46,310 at 14 to 94,979 at 20; with the break-even price worked out to 15.9666, a copy of the model made -0.19. `--vary price_per_dozen` now works without the group name. About 75 s.*
+
+*Run again on 2026-11-24 by a fresh agent (Forge 10.0.0-rc.34): the same answers as on 2026-11-22 (621.64, 15.97, 24.27, -46,310 to 94,979), and a copy of the model at 15.9666 made -0.19. It had to work out 15.9666 by hand, since break-even printed only 15.97 beside a profit of -0.000063; `break-even` and `goal-seek` now print every digit beside the two decimals (`15.97 (15.966607933396)`). It also expected the scenarios in the file's order; they now are. About 50 s.*
 
 ## 5. Risk and decisions
 
@@ -194,6 +202,8 @@ results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
 *Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): a 35% chance of a profitable first year over 5,000 runs, opening demand the main driver (+0.84); the tornado led by opening demand, price and staff hours; the decision tree's 58,500 (open now) and 61,500 (pop-up first) worked out again by hand; waiting a year worth 4,605 more than investing today. No file changed. About 60 s.*
+
+*Run again on 2026-11-24 by a fresh agent (Forge 10.0.0-rc.34): a 35% chance of a profitable first year over 5,000 runs, opening demand the main driver (+0.84); the tornado led by opening demand, price and staff hours; the decision tree's 58,500 and 61,500 worked out again by hand; waiting worth 4,605. No friction, no file changed. About 35 s.*
 
 ## 6. Games: what will the other side do?
 
@@ -235,6 +245,8 @@ results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
 *Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): the inspection game's one mixed equilibrium (the AI cheats a third of the time, the human audits a third of the time), each side's indifference shown by hand; with the penalty at 8 the audit rate falls to a fifth and the cheating stays at a third, explained as each side's mix being set by the other side's payoffs; in the tournament grim trigger first at 2.596 a round, tit for tat second at 2.448, grim, tit for tat and always defect collectively stable; tit for tat against always defect worked out by hand as 0.995 (and always defect's 1.020), as the match table says. It wrote one copy, `inspection-penalty8.yaml`. No command failed; about 16 s of commands. The only question it had was the folder: it ran from `forge-examples/`, which the prompt now says.*
+
+*Run again on 2026-11-24 by a fresh agent (Forge 10.0.0-rc.34): the same equilibria, indifference shown by hand, the penalty at 8 lowering the audit rate to a fifth and leaving the cheating at a third, and tit for tat against always defect worked out as 0.995. No command failed. It found the mix printed as `0.20` beside `0.6667`; every share now has four decimals. About 40 s.*
 
 ## 7. A price war: games from the model's own numbers
 
@@ -279,6 +291,8 @@ results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
 
 *Run on 2026-11-22 by a fresh agent (Forge 10.0.0-rc.33): played once, cutting dominates and both shops lose 2,300 a month against both holding, with the four payoffs traced to their formulas (food 2.56 a dozen, margins 13.02 and 11.08); in the tournament the discounter earns most (21,065) by feeding on the shops that always hold or forgive, while tit for tat, grim trigger and the discounter are collectively stable, the threshold 0.640; grim trigger against the discounter worked out by hand as 0.05 x 12,893.63 + 0.95 x 19,188.94 = 18,874.17, as Forge's cell; across the city 99.1% of the shops cut in two years; with loyal regulars holding dominates and the cutters fall to 2.4%; with the lease ending (0.6) only the tournament changes and the discounter is the only stable strategy. No file changed, no command failed, under 5 s of commands. It noticed that the example's comment said grim trigger "cannot be beaten by a discounter" when it is beaten head to head; the comment now says collectively stable.*
+
+*Run again on 2026-11-24 by a fresh agent (Forge 10.0.0-rc.34): the same answers as on 2026-11-22, grim trigger against the discounter worked out by hand as 18,874.173 (and the lease ending's cell as 16,670.815). No command failed. It was surprised to see the discounter collectively stable when the example's comment named only tit for tat and grim trigger; the comment, the bagel README and lesson 6 now say so. About 40 s.*
 
 ## Writing your own
 

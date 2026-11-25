@@ -212,7 +212,7 @@ fn print_goal_seek_result(
         c,
         "   {} = {} → {} = {}",
         vary.bright_yellow().bold(),
-        display_number(result.solution).bold().green(),
+        solution_text(result.solution).bold().green(),
         target.bright_blue(),
         display_number(result.achieved).green()
     );
@@ -229,6 +229,20 @@ fn print_goal_seek_result(
         );
     }
     outln!(c, "{}", "─".repeat(50));
+}
+
+/// The input goal-seek found, as a report shows a number, then every digit
+/// Forge keeps when the two differ: `15.97 (15.966607933396)`. The two
+/// decimals read well, and the digits are the input that gives the result
+/// printed beside it: 15.97 makes the bagel shop's profit 79.88, not 0.
+fn solution_text(solution: f64) -> String {
+    let shown = display_number(solution);
+    let exact = crate::core::precision::to_15_digits(solution);
+    if shown.replace(',', "").parse::<f64>() == Ok(exact) {
+        shown
+    } else {
+        format!("{shown} ({exact})")
+    }
 }
 
 /// Execute the break-even command
@@ -398,7 +412,7 @@ mod tests {
             assert_eq!(
                 after_file,
                 format!(
-                    "   Target: y = 0\n   Vary: x\n   Tolerance: 0.0001\n\n   Bisection stopped after 54 evaluations, error 1\n{line}\n🎯 Solution found in 54 iterations:\n   x = 50.00 → y = 1.00\n   ⚠\u{fe0f} Error: 1 (tolerance: 0.0001)\n{line}\n",
+                    "   Target: y = 0\n   Vary: x\n   Tolerance: 0.0001\n\n   Bisection stopped after 54 evaluations, error 1\n{line}\n🎯 Solution found in 54 iterations:\n   x = 50.00 (50.0000000000001) → y = 1.00\n   ⚠\u{fe0f} Error: 1 (tolerance: 0.0001)\n{line}\n",
                     line = "─".repeat(50)
                 )
             );
@@ -428,8 +442,10 @@ mod tests {
         use crate::cli::forge;
 
         #[test]
-        fn goal_seek_prints_the_solution_with_two_decimals() {
-            // examples/mortgage: 397.04 a month saves 80,000 of interest (README)
+        fn goal_seek_prints_the_solution_with_two_decimals_and_every_digit() {
+            // examples/mortgage: 397.04 a month saves 80,000 of interest
+            // (README), and the input that gives exactly 80,000 is beside it:
+            // two decimals alone hide that 397.04 is not it (agents, 2026-11-24)
             let text = forge(&[
                 "goal-seek",
                 "examples/mortgage/mortgage.yaml",
@@ -442,10 +458,25 @@ mod tests {
             ])
             .printed();
             assert!(
-                text.contains("loan.extra_per_month = 397.04 → saved.interest = 80,000.00"),
+                text.contains(
+                    "loan.extra_per_month = 397.04 (397.044207903935) → saved.interest = 80,000.00"
+                ),
                 "{text}"
             );
         }
+    }
+
+    /// Every digit beside the two decimals only where they differ
+    #[test]
+    fn a_solution_shows_its_digits_only_where_two_decimals_hide_them() {
+        assert_eq!(super::solution_text(12.0), "12.00");
+        assert_eq!(super::solution_text(1_450.5), "1,450.50");
+        assert_eq!(super::solution_text(0.0479), "0.0479");
+        assert_eq!(
+            super::solution_text(15.966_607_933_396),
+            "15.97 (15.966607933396)"
+        );
+        assert_eq!(super::solution_text(1_234.567), "1,234.57 (1234.567)");
     }
 
     mod break_even_header {

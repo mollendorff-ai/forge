@@ -16,7 +16,7 @@ A year profit of 786.32 on 386,827.45 of revenue is a margin of 0.2%. So how far
 ```
 forge break-even examples/bagel/bagel.yaml --output year.profit --vary assumptions.price_per_dozen
 ...
-   assumptions.price_per_dozen = 15.97 → year.profit = -0.000063
+   assumptions.price_per_dozen = 15.97 (15.966607933396) → year.profit = -0.000063
 ```
 
 At 15.97 the plan earns nothing. The planned 16 is 3 cents above it.

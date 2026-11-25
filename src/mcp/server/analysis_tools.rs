@@ -546,8 +546,8 @@ scenarios:
         assert_eq!(
             profits,
             [
-                ("bear".to_string(), 20_000.0),
-                ("bull".to_string(), 250_000.0)
+                ("bull".to_string(), 250_000.0),
+                ("bear".to_string(), 20_000.0)
             ]
         );
     }

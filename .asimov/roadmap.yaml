@@ -171,11 +171,14 @@ tier1:
   # Forge and Excel may give different answers without a warning, and places
   # where Forge says less than it knows.
 
-  - id: T1-AGENT-FRICTION
-    title: "Run the five prompts of docs/PROMPTS.md again with fresh agents, after the friction fixes"
-    why: "The fixes from the 2026-11-15 runs are in (CHANGELOG [Unreleased]): short flags agree, --output-var, bare names, validate's messages, variance's is_favorable and --fail-on-alert, export and import notes, real-options' value added, help and example paths. Not changed, by design: a table column is one formula or a list of literals, so a product mix needs an IF on a name"
-    how: "A fresh agent per prompt, on a release that has the fixes; each reports where it had to work around Forge"
-    acceptance: "The five prompts in docs/PROMPTS.md run again by fresh agents, whose reports name none of the earlier friction"
+  # T1-AGENT-FRICTION is done (2026-11-24): the seven prompts of
+  # docs/PROMPTS.md were run again by fresh agents on 10.0.0-rc.34. No
+  # command failed, every result they checked agreed, and no report named
+  # the friction of 2026-11-15. What they did find is fixed: break-even and
+  # goal-seek print every digit of the input beside its two decimals, forge
+  # scenarios keeps the file's order, a game's mix has four decimals, and
+  # two example comments say more (the household example's folder, the
+  # price war's third stable strategy).
 
   # Found by a fresh agent running the bagel example on rc.27 (2026-11-16);
   # both done the same day (CHANGELOG [Unreleased]): T1-SIM-SHOW-ONE,

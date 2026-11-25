@@ -294,6 +294,15 @@ fn print_dominated(c: &mut Console<'_>, title: &str, list: &[Dominated]) {
     }
 }
 
+/// How often a strategy is played in a mixed equilibrium: four decimals,
+/// always, so the shares of one equilibrium read alike (`0.2000` beside
+/// `0.6667`, where a report's rule gave `0.20`).
+fn share(p: f64) -> String {
+    let (whole, fraction) =
+        crate::core::array_calculator::evaluator::text::number_format::rounded_digits(p, 4);
+    format!("{whole}.{fraction}")
+}
+
 fn print_equilibrium(c: &mut Console<'_>, number: usize, e: &NamedEquilibrium) {
     let stable = match e.stable {
         Some(true) => ", stable: a population returns to it",
@@ -310,7 +319,7 @@ fn print_equilibrium(c: &mut Console<'_>, number: usize, e: &NamedEquilibrium) {
                 if 1.0 - *p < 1e-12 {
                     strategy.clone()
                 } else {
-                    format!("{strategy} {}", display_number(*p))
+                    format!("{strategy} {}", share(*p))
                 }
             })
             .collect();
@@ -453,7 +462,10 @@ games:
         // and the mix with stag at 3/4
         assert!(out.contains("stag_hunt: me vs you"), "{out}");
         assert!(out.contains("3 equilibria:"), "{out}");
-        assert!(out.contains("stag 0.75, hare 0.25 (payoff 3.00)"), "{out}");
+        assert!(
+            out.contains("stag 0.7500, hare 0.2500 (payoff 3.00)"),
+            "{out}"
+        );
         // Marked symmetric with two strategies: a population returns to
         // either pure one and leaves the mix (above 3/4 stag spreads)
         assert!(
@@ -482,7 +494,10 @@ games:
         let out = forge(&["game", &file, "--game", "stag_hunt", "-s", "costly"]).printed();
         // c = 1: hare pays 2 against both, the mix is stag at (3 - 1) / 4
         assert!(out.contains("Scenario: costly"), "{out}");
-        assert!(out.contains("stag 0.50, hare 0.50 (payoff 2.00)"), "{out}");
+        assert!(
+            out.contains("stag 0.5000, hare 0.5000 (payoff 2.00)"),
+            "{out}"
+        );
         assert!(!out.contains("prisoners"), "{out}");
     }
 
@@ -1284,6 +1299,22 @@ games:
                 "sealed_bids.equilibrium_1.thornvale.payoff",
                 4.679_078_916_932,
             );
+        }
+
+        /// With the penalty at 8 the human audits a fifth of the time, shown
+        /// with the same four decimals as the AI's thirds (it was `0.20`
+        /// beside `0.6667`, the agents of 2026-11-24)
+        #[test]
+        fn a_mix_shows_four_decimals_for_every_strategy() {
+            let dir = tempfile::tempdir().unwrap();
+            let file = dir.path().join("inspection8.yaml");
+            let text = std::fs::read_to_string("examples/games/inspection.yaml")
+                .unwrap()
+                .replace("penalty: 4 ", "penalty: 8 ");
+            std::fs::write(&file, text).unwrap();
+            let out = forge(&["game", file.to_str().unwrap()]).printed();
+            assert!(out.contains("ai: comply 0.6667, cheat 0.3333"), "{out}");
+            assert!(out.contains("human: audit 0.2000, trust 0.8000"), "{out}");
         }
 
         #[test]

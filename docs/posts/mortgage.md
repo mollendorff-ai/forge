@@ -37,7 +37,7 @@ You may not want to pay 300 for no reason. Ask for a goal instead: how much more
 
 ```
 forge goal-seek examples/mortgage/mortgage.yaml --target saved.interest --value 80000 --vary loan.extra_per_month
-   loan.extra_per_month = 397.04 → saved.interest = 80,000.00
+   loan.extra_per_month = 397.04 (397.044207903935) → saved.interest = 80,000.00
 ```
 
 397.04 a month, which is 97.04 more than the 300: those 97.04 buy another 15,403.12 of saving.

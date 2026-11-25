@@ -96,7 +96,7 @@ Trying prices gives a profit just below zero at 15.96 and just above it at 15.97
 
 ```text
 $ forge break-even examples/bagel/bagel.yaml --output-var year.profit --vary assumptions.price_per_dozen
-   assumptions.price_per_dozen = 15.97 → year.profit = -0.000082
+   assumptions.price_per_dozen = 15.97 (15.966607932577) → year.profit = -0.000082
 ```
 
 The shop breaks even at `15.97` a dozen. [Goal Seek, Break-Even and Sensitivity](../FEATURES.md#goal-seek-break-even-and-sensitivity) says how Forge finds it.

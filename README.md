@@ -119,10 +119,10 @@ Models of the kind people have. Every number below is what the command prints, a
 
 ```text
 $ forge goal-seek examples/mortgage/mortgage.yaml --target saved.interest --value 80000 --vary loan.extra_per_month
-   loan.extra_per_month = 397.04 → saved.interest = 80,000.00
+   loan.extra_per_month = 397.04 (397.044207903935) → saved.interest = 80,000.00
 ```
 
-A month-by-month loop in Python, solved with SciPy, gives 397.044208 (the command prints two decimals; the test compares the full value). The model holds that loop too, as a table of 300 months in which each month opens with what the month before closed with (`opening: "=PREV(closing, loan.principal)"`): it is paid off with payment 247, in June 2047, and its interest equals the closed form's. [`examples/periods`](examples/periods/README.md) has a monthly plan and a five-year valuation written the same way.
+A month-by-month loop in Python, solved with SciPy, gives 397.044208 (the command prints two decimals and, in brackets, every digit it keeps). The model holds that loop too, as a table of 300 months in which each month opens with what the month before closed with (`opening: "=PREV(closing, loan.principal)"`): it is paid off with payment 247, in June 2047, and its interest equals the closed form's. [`examples/periods`](examples/periods/README.md) has a monthly plan and a five-year valuation written the same way.
 
 **What price gives a new bagel shop an 80% chance of making money in its first year?** [`examples/bagel`](examples/bagel/README.md) has twelve months of seasonal demand, five cost lines, and supplier prices kept in an included file. In the simulation, opening demand, staffing, the flour price and the wage are uncertain.
 
@@ -315,7 +315,7 @@ Forge's results are checked against engines it does not control, and none of the
 
 | Check | What it covers | Latest result |
 | --- | --- | --- |
-| Unit tests (this repo) | over 3,300 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
+| Unit tests (this repo) | over 3,350 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
 | [forge-e2e-gnumeric](validation/gnumeric) | 2,182 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 175 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,137 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); CI runs them on every pull request |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
 | [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R; games of many players and their dynamics with egttools, and again in R from the payoffs alone | 0 disagreements in 3,000 generated games, 372 tournament values and the named games (2026-11-20); games of many players and dynamics: 3,000 more games and every generation, 0 disagreements ([VALIDATION.md](VALIDATION.md), 2026-11-22) |

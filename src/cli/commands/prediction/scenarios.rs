@@ -241,6 +241,32 @@ scalars:
             path
         }
 
+        /// The scenarios come in the file's order, as the agents of
+        /// 2026-11-24 expected: they were sorted by name
+        #[test]
+        fn the_scenarios_come_in_the_files_order() {
+            let dir = tempfile::tempdir().unwrap();
+            let text = format!(
+                "{BASE}scenarios:\n  zeta: {{probability: 0.2, scalars: {{g: 2}}}}\n  alpha: {{probability: 0.3, scalars: {{g: 3}}}}\n  mid: {{probability: 0.5, scalars: {{g: 4}}}}\n"
+            );
+            let path = model(&dir, &text);
+            let names: Vec<String> = scenarios_core(&path, None)
+                .unwrap()
+                .scenarios
+                .into_iter()
+                .map(|s| s.name)
+                .collect();
+            assert_eq!(names, ["zeta", "alpha", "mid"]);
+            let (result, printed) = capture(|c| scenarios(c, &path, None, None, false));
+            result.unwrap();
+            let at = |name: &str| printed.out.find(&format!("{name} (p=")).unwrap();
+            assert!(
+                at("zeta") < at("alpha") && at("alpha") < at("mid"),
+                "{}",
+                printed.out
+            );
+        }
+
         #[test]
         fn what_cannot_be_read_is_named() {
             let dir = tempfile::tempdir().unwrap();
