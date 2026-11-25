@@ -15,9 +15,6 @@ backlog:
     why: "validate, calculate and audit already take inline content; the rest only exist over MCP"
     acceptance: "Each endpoint shares its core function with the MCP tool; an OpenAPI document is generated from the handlers, not written by hand"
     note: "Found 2026-11-22 (docs/architecture/08-API-SERVER-ARCHITECTURE.md): of the five endpoints there are, export and import did not call a core; they ran forge export's and forge import's printing functions on a Console and discarded what they printed. ApiResponse::err in src/api/handlers.rs was used only by its own tests, since a failed operation answers success: true with its flag false (T1-INTERFACE-PARITY). Both done 2026-11-22: export and import call export_core and import_core, their answers checked whole and unchanged (the same tests pass on the code before), and ApiResponse has only ok, its data no longer optional"
-  - id: T3-MCP-TOKENS
-    title: "Shorter MCP tool list"
-    why: "16.7 KB for 20 tools; the descriptions are short already, the per-field docs repeat. Worth about 400 tokens per session; do it when there is nothing above it"
   - id: T3-TRANSPORT
     title: "MCP over HTTP/SSE via rmcp"
     why: "Needed for hosted or browser clients; nobody has one yet"
@@ -45,3 +42,8 @@ done:
     why: "forge edit changed a column of numbers or dates (2026-11-24) and refused text. Proposed by the manual lane; the maintainer chose it on 2026-11-25"
     acceptance: "set_value with a list of texts changes the column; the file's quoting and comments are kept, checked on files that quote each way"
     built: "2026-11-25. set_value with a list of texts sets a column of text (src/edit/column.rs, text::set_text_column): a row with the same text keeps its bytes, a changed row keeps its quotes ('single' with ' doubled, \"double\" escaped as JSON escapes), and a plain row stays plain when YAML reads it back as that text, else double quotes; comments and the list's style stay. Texts are compared as texts (1.0 is not 1), a number for a row of text is refused, and the read-back refuses a column whose type changes (texts that are all dates). --set takes the quotes off each item of a list. Tested on flow and block lists in each quoting, Unicode names, the words YAML reads as true, false or null, and every column of text of the examples changed and back (the fund's ledger refuses, its lookups failing). ADR-075 says it; the docs are the manual lane's M-EDIT-TEXT-COLUMN-DOCS"
+  - id: T3-MCP-TOKENS
+    title: "Shorter MCP tool list"
+    why: "The tools/list answer every client reads at the start of a session; the roadmap said 16.7 KB for 20 tools, and with 23 tools it was 30,262 bytes"
+    acceptance: "Descriptions shortened, tools unchanged: the same names and parameters"
+    built: "2026-11-25: 27,661 bytes (8.6% less, measured as the JSON of tools/list). The includes field's doc, repeated in 17 tools, is a line; forge_edit's description no longer lists every op the schema's Op already describes, its op field says only what it is, and its path doc drops what each op's example shows (forge_edit 7,307 to 6,021 bytes); forge_game's description is shorter. Pinned by the_tool_list_stays_short (src/mcp/server.rs). What is left is mostly the schemas themselves (forge_edit's Op and Change, each tool's fields) and the JSON Schema keys schemars writes; cutting those would change what a client is told, not repeat it"

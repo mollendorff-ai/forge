@@ -121,9 +121,7 @@ pub enum Value {
 #[cfg_attr(feature = "cli", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Change {
-    /// `set_value`, `set_formula`, `add`, `delete`, `rename`,
-    /// `make_uncertain`, `make_certain`, `add_strategy`, `delete_strategy`,
-    /// `add_player`, `delete_player` or `set_habit`
+    /// What the change does
     pub op: Op,
     /// The name as formulas read it: `price`, `year.price`, a table's column
     /// `months.sales`, or `@costs.rent` in the file included as `costs`; for
@@ -133,13 +131,9 @@ pub struct Change {
     /// `public_goods.payoffs.keep`), a tournament's `rivalry.tournament.noise`,
     /// `.rounds`, `.continuation` or a player's chance
     /// (`axelrod.tournament.players.rand.cooperate`), or the dynamics'
-    /// `price_war.dynamics.generations`, `.baseline` or `.start.hold`; a
-    /// `noise` or `baseline` the file leaves at its default is added; for
-    /// `rename`, also a game `price_war`, its player `price_war.players.lune`
-    /// (a tournament's too), and its strategy `price_war.strategies.hold`, or
-    /// one player's `inspection.strategies.human.audit`; for `add_strategy`
-    /// and `delete_strategy` a strategy so named, and for `add_player` and
-    /// `delete_player` a player; for `insert` the template
+    /// `price_war.dynamics.generations`, `.baseline` or `.start.hold` (a
+    /// `noise` or `baseline` left at its default is added); a game, player or
+    /// strategy as each op's example shows; for `insert` the template
     pub path: String,
     /// The input's value (`set_value`, `add`)
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -15,7 +15,7 @@ pub struct ValidateRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Whether to show verbose output
     #[serde(default)]
@@ -29,7 +29,7 @@ pub struct CalculateRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Whether to perform a dry run (don't update file)
     #[serde(default)]
@@ -48,7 +48,7 @@ pub struct EditRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// The changes, made in turn; none is made unless all can be
     pub changes: Vec<crate::edit::Change>,
@@ -64,7 +64,7 @@ pub struct AuditRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Name of the variable to audit
     pub variable: String,
@@ -77,7 +77,7 @@ pub struct ExportRequest {
     pub yaml_path: Option<String>,
     /// Raw YAML content (alternative to `yaml_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Path for the output Excel file. If omitted, the Excel workbook is returned
     /// inline as a base64-encoded string in the `excel_base64` response field.
@@ -100,7 +100,7 @@ pub struct SensitivityRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Name of the input variable to vary
     pub vary: String,
@@ -121,7 +121,7 @@ pub struct GoalSeekRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Name of the target output variable
     pub target: String,
@@ -149,7 +149,7 @@ pub struct BreakEvenRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Name of the output variable to find zero crossing
     pub output: String,
@@ -172,7 +172,7 @@ pub struct VarianceRequest {
     pub actual_path: Option<String>,
     /// Raw YAML content for actual model (alternative to `actual_path`)
     pub actual_content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with content params)
+    /// Files the models include, by namespace (with the content params)
     pub includes: Option<HashMap<String, String>>,
     /// Variance threshold percentage for alerts (default: 10)
     pub threshold: Option<f64>,
@@ -185,7 +185,7 @@ pub struct CompareRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// List of scenario names to compare
     pub scenarios: Vec<String>,
@@ -198,7 +198,7 @@ pub struct SimulateRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Number of simulation iterations (default: from YAML config or 10000)
     pub iterations: Option<usize>,
@@ -229,7 +229,7 @@ pub struct ScenariosRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Optional: run only this named scenario
     pub scenario_filter: Option<String>,
@@ -242,7 +242,7 @@ pub struct DecisionTreeRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
 }
 
@@ -253,7 +253,7 @@ pub struct RealOptionsRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
 }
 
@@ -264,7 +264,7 @@ pub struct TornadoRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Optional: override the output variable to analyze
     pub output_var: Option<String>,
@@ -277,7 +277,7 @@ pub struct GameRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Optional: only this game
     pub game: Option<String>,
@@ -292,7 +292,7 @@ pub struct BootstrapRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Override number of bootstrap iterations
     pub iterations: Option<usize>,
@@ -309,7 +309,7 @@ pub struct BayesianRequest {
     pub file_path: Option<String>,
     /// Raw YAML content (alternative to `file_path`)
     pub content: Option<String>,
-    /// Inline include content as namespace to YAML map (use with `content`), one entry for each file included, directly or through another included file
+    /// Files the model includes, by namespace, nested ones too (with `content`)
     pub includes: Option<HashMap<String, String>>,
     /// Optional: specific variable to query (omit for all nodes)
     pub query_var: Option<String>,

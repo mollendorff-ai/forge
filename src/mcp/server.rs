@@ -217,6 +217,19 @@ scalars:
         assert_eq!(count, 23, "Expected 23 tools, got {count}");
     }
 
+    /// The list every client reads at the start of a session (T3-MCP-TOKENS):
+    /// 27,661 bytes when it was shortened (30,262 before). A description
+    /// longer than the ceiling says again what another part of the list
+    /// already says: the schema's own docs, or a tool's.
+    #[test]
+    fn the_tool_list_stays_short() {
+        let server = ForgeMcpServer::new();
+        let list = serde_json::to_string(&server.tool_router.list_all()).expect("JSON");
+        assert!(list.len() < 28_000, "{} bytes", list.len());
+        // No field's doc repeats the long sentence of the shared ones
+        assert!(!list.contains("directly or through another included file"));
+    }
+
     #[test]
     fn test_tool_names() {
         let server = ForgeMcpServer::new();
