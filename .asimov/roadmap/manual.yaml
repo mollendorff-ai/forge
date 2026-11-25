@@ -10,11 +10,6 @@ current: {}
 previous: {}
 
 backlog:
-  - id: M-RC35-FOLLOW-UP
-    title: "The pipeline and the skill move to rc.35"
-    why: "rc.35 (2026-11-25) fails a formula with no stored result in forge validate and has forge_validate's passed, so the workarounds kept for rc.34 can go"
-    acceptance: "examples/pipeline/forge.yml installs v10.0.0-rc.35 with no jq step, docs/guide/pipeline.md says so, pipeline.rs passes and the red case still fails; the two rc.34 notes in skills/forge-modelling/SKILL.md are gone and skill.rs passes"
-    model: "Sonnet 5.5, low: a small change held by existing tests"
   - id: A10-README-AND-TRIALS
     title: "The README as the front door, then a trial by a fresh reader of each kind"
     how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
@@ -31,4 +26,10 @@ backlog:
     how: "When someone offers, not by recruiting: one FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
     acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
 
-done: []
+done:
+  - id: M-RC35-FOLLOW-UP
+    title: "The pipeline and the skill move to rc.35"
+    why: "rc.35 (2026-11-25) fails a formula with no stored result in forge validate and has forge_validate's passed, so the workarounds kept for rc.34 can go"
+    acceptance: "examples/pipeline/forge.yml installs v10.0.0-rc.35 with no jq step, docs/guide/pipeline.md says so, pipeline.rs passes and the red case still fails; the two rc.34 notes in skills/forge-modelling/SKILL.md are gone and skill.rs passes"
+    built: "2026-11-25: examples/pipeline/forge.yml installs v10.0.0-rc.35; its jq step is now a plain JSON step (the artifact stays), and the page, docs/WORKFLOWS.md and pipeline.rs say so (the rc.34-only test is gone, the red case fails at validate). The skill lost its three rc.34 notes (passed, the column edit, the by-hand fallback). pipeline, skill and guide tests pass"
+    model: "Sonnet 5.5, low: a small change held by existing tests"

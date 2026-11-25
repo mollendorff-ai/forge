@@ -1,8 +1,8 @@
 # A repository of Forge models, checked on every pull request: copy this
 # file to .github/workflows/forge.yml. It fails when a stored result is out
 # of date, when a formula has no stored result, or when an expect: is not
-# met; it writes each model's results as JSON for the next program, and
-# shows them on the run's page. docs/guide/pipeline.md explains each step.
+# met (forge validate, from 10.0.0-rc.35); it writes each model's results
+# as JSON for the next program, and shows them on the run's page. docs/guide/pipeline.md explains each step.
 name: Models
 
 on:
@@ -19,7 +19,7 @@ defaults:
 
 env:
   # The release to install; raise it in a pull request of its own
-  FORGE_VERSION: v10.0.0-rc.34
+  FORGE_VERSION: v10.0.0-rc.35
 
 jobs:
   check:
@@ -35,17 +35,11 @@ jobs:
       - name: Every stored result is what its formula gives
         run: forge validate *.yaml
 
-      # Up to 10.0.0-rc.34, forge validate passes a formula with no stored
-      # result; this step stops it, and can go with a later FORGE_VERSION
-      - name: Every formula has its result stored
+      - name: The results, as JSON
         run: |
           mkdir -p results
           for model in *.yaml; do
             forge report "$model" --format json > "results/${model%.yaml}.json"
-            if ! jq -e '.uncalculated == []' "results/${model%.yaml}.json" > /dev/null; then
-              echo "::error file=$model::no stored result for $(jq -r '.uncalculated | join(", ")' "results/${model%.yaml}.json"): run forge calculate $model"
-              exit 1
-            fi
           done
 
       - name: The results, on the run's page

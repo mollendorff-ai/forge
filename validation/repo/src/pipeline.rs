@@ -163,7 +163,7 @@ mod tests {
     }
 
     const VALIDATE: &str = "Every stored result is what its formula gives";
-    const STORED: &str = "Every formula has its result stored";
+    const JSON: &str = "The results, as JSON";
     const SUMMARY: &str = "The results, on the run's page";
 
     #[test]
@@ -235,7 +235,7 @@ mod tests {
     fn models_calculated_and_up_to_date_pass() {
         let repo = Repository::with(&["bagel.yaml", "costs.yaml"]);
         let runs = repo.check();
-        assert_eq!(ended(&runs), (vec![VALIDATE, STORED, SUMMARY], Some(0)));
+        assert_eq!(ended(&runs), (vec![VALIDATE, JSON, SUMMARY], Some(0)));
         let results: Value = serde_json::from_str(
             &std::fs::read_to_string(repo.models.join("results/bagel.json")).expect("results"),
         )
@@ -279,21 +279,5 @@ mod tests {
         let named =
             "no stored result (ingredients.per_dozen, labour.loaded_wage): run forge calculate";
         assert!(out.contains(named), "{out}");
-    }
-
-    /// The releases up to 10.0.0-rc.34 pass such a formula at `validate`;
-    /// the next step stops it there, and can go once `FORGE_VERSION` is a
-    /// release whose `validate` fails it.
-    #[test]
-    fn the_json_step_stops_a_formula_never_calculated_on_its_own() {
-        let repo = Repository::with(&["bagel.yaml"]);
-        let stored: Vec<Step> = steps(&read(WORKFLOW))
-            .into_iter()
-            .filter(|step| step.name == STORED)
-            .collect();
-        let runs = run_steps(&stored, &repo.models, &repo.bin, &repo.summary);
-        assert_eq!(ended(&runs), (vec![STORED], Some(1)));
-        let error = "::error file=costs.yaml::no stored result for ingredients.per_dozen, labour.loaded_wage: run forge calculate costs.yaml";
-        assert!(runs[0].ran.out.contains(error), "{}", runs[0].ran.out);
     }
 }

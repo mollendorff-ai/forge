@@ -88,7 +88,7 @@ $ forge validate shop.yaml
 ✅ All scalar values match their formulas!
 ```
 
-**The verdict is `forge validate`'s exit status: 0 passes, anything else fails**, and the message names each result that is wrong. With the MCP tools it is `passed` in `forge_validate`'s answer: `passed: true` passes. A model passes only when every formula's stored result is what the formula gives now. Releases up to 10.0.0-rc.34 have no `passed` (read `scalars_valid`, `tables_valid` and an empty `mismatches` instead) and let a formula with no stored result pass, so calculate before you validate.
+**The verdict is `forge validate`'s exit status: 0 passes, anything else fails**, and the message names each result that is wrong. With the MCP tools it is `passed` in `forge_validate`'s answer: `passed: true` passes. A model passes only when every formula's stored result is what the formula gives now.
 
 ## 4. Change a model
 
@@ -126,7 +126,7 @@ $ forge edit shop.yaml --set "products.price=[20, 45]" --dry-run
   price: [20, 45]
 ```
 
-Forge 10.0.0-rc.34 and older refuse that (`it is a table's column of values, which edit does not change yet`): with them, change that one line of the file yourself, and nothing else, then calculate and validate. For a what-if, change a copy of the file (`cp shop.yaml shop_plus_at_45.yaml`) unless the user asked to change the model, so that they keep both.
+For a what-if, change a copy of the file (`cp shop.yaml shop_plus_at_45.yaml`) unless the user asked to change the model, so that they keep both.
 
 ## 5. Check one result another way
 
@@ -155,7 +155,7 @@ End your answer with:
 - **A bare formula in a group of scalars is refused**: `'plan.revenue' is a formula in a group of scalars; write it as revenue: {formula: "=..."}`. A formula in a table is the bare string. Do not swap the two forms.
 - **A misspelt name fails with a suggestion**: `Unknown name: plan.unit. Did you mean 'plan.units'?` Fix the name; do not add an input to make the message go away.
 - **No `_forge_version`** fails with `Missing required field: _forge_version`, and lists the formats.
-- **A table's column is set with a list**, one value for each row (step 4); edit does not add or remove rows. Releases up to 10.0.0-rc.34 refuse it: change that line by hand there.
+- **A table's column is set with a list**, one value for each row (step 4); edit does not add or remove rows.
 - **`forge calculate` rewrites the file.** Use `--dry-run` to look first; the `.bak` holds the file as it was.
 - **A model with `MC.` distributions** (`MC.Normal(100, 10)`) is for `forge simulate`: `forge calculate` and `forge validate` refuse it. `forge calculate --plan` calculates it at its plan.
 - **Paths after `install.sh --examples`** are under `forge-examples/` (`forge-examples/bagel/bagel.yaml`), not `examples/`.
