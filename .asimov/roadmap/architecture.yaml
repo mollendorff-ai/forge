@@ -15,6 +15,11 @@ backlog:
     why: "A9-ROLES left it open: the maintainer has not reviewed the release steps; E-LANES changes step 3 (the changelog is collected from changelog.d/)"
     acceptance: "Each step is the one the engine lane ran for the next release, or corrected; roles.rs passes; the maintainer's review is dated here"
     model: "Sonnet 5.5, medium: steps checked against a real release"
+  - id: AR-MAINTAINING-SCORECARD
+    title: "docs/MAINTAINING.md and the CI page name the Scorecard workflow"
+    why: "Found 2026-11-25 by the engine lane (A17-SCORECARD): .github/workflows/scorecard.yml runs on Tuesdays and on every push to main and publishes the OpenSSF Scorecard score the README's badge shows; MAINTAINING.md's weekly section names only weekly.yml and validation.yml"
+    acceptance: "The page says what scorecard.yml does and when, and roles.rs holds the claim like the others"
+    model: "Sonnet 5.5, low"
 
 done:
   - id: AR-PAGES-CURRENT

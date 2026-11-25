@@ -80,4 +80,51 @@ mod tests {
             );
         }
     }
+
+    /// An action is pinned to a commit
+    /// (a tag can be moved), so that what runs is what was reviewed.
+    #[test]
+    fn every_action_is_pinned_to_a_commit() {
+        let mut wrong = Vec::new();
+        let dir = root().join(".github/workflows");
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            let text = std::fs::read_to_string(&path).unwrap_or_default();
+            for line in text.lines() {
+                let Some(used) = line
+                    .trim_start()
+                    .strip_prefix("- uses: ")
+                    .or_else(|| line.trim_start().strip_prefix("uses: "))
+                else {
+                    continue;
+                };
+                let used = used.split_whitespace().next().unwrap_or_default();
+                let pinned = used.rsplit_once('@').is_some_and(|(_, sha)| {
+                    sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit())
+                });
+                if !used.starts_with("./") && !pinned {
+                    wrong.push(format!("{}: {used}", path.display()));
+                }
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "actions not pinned to a commit: {wrong:#?}"
+        );
+    }
+
+    #[test]
+    fn the_scorecard_runs_weekly_and_on_main_and_the_readme_shows_its_badge() {
+        let workflow = read(".github/workflows/scorecard.yml");
+        for needed in [
+            "schedule:",
+            "branches: [ main ]",
+            "publish_results: true",
+            "permissions: read-all",
+        ] {
+            assert!(workflow.contains(needed), "scorecard.yml has `{needed}`");
+        }
+        assert!(read("README.md")
+            .contains("https://api.scorecard.dev/projects/github.com/mollendorff-ai/forge/badge"));
+    }
 }
