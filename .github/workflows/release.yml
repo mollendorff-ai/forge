@@ -187,6 +187,40 @@ jobs:
             published/*.tar.gz
             published/*.zip
 
+      # What is inside the binaries: a CycloneDX SBOM of the crate's
+      # dependencies, from Cargo.lock, by a tool at an exact version
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # stable
+        with:
+          toolchain: stable
+
+      - name: Generate the SBOM
+        run: |
+          cargo install --locked --version 0.5.10 cargo-cyclonedx
+          cargo cyclonedx --format json --spec-version 1.5 --override-filename forge.cdx
+          test -s forge.cdx.json
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' forge.cdx.json
+
+      # A keyless Sigstore signature for each archive and for the SBOM, as a
+      # .sigstore bundle beside it on the release, the file Scorecard's
+      # Signed-Releases looks for (verify with `cosign verify-blob`)
+      - name: Install cosign
+        uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
+        with:
+          cosign-release: v3.1.6
+
+      - name: Sign the archives and the SBOM
+        run: |
+          mkdir signatures
+          cp forge.cdx.json signatures/
+          cp published/*.tar.gz published/*.zip signatures/
+          cd signatures
+          for f in *; do
+            cosign sign-blob --yes --bundle "$f.sigstore" "$f"
+          done
+          rm -f *.tar.gz *.zip forge.cdx.json
+          ls -l
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
         with:
@@ -195,6 +229,8 @@ jobs:
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
             checksums.txt
+            forge.cdx.json
+            signatures/*.sigstore
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
