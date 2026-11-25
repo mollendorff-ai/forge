@@ -24,6 +24,7 @@ pub mod function_cases;
 pub mod guide;
 pub mod help_examples;
 pub mod install_script;
+pub mod lanes;
 pub mod no_skipping;
 pub mod pipeline;
 pub mod posts;

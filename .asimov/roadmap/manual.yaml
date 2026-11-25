@@ -1,0 +1,34 @@
+# Roadmap of the manual lane (the guide, examples, READMEs, --help text, the skill, the prompts).
+# Lanes: .asimov/project.yaml and AGENTS.md. Schema: asimov's roadmap.yaml
+# (current, previous, backlog), plus done:, where this lane's finished items
+# go, each with its dated built: line. Take work from here only; work found
+# for another lane goes at the end of that lane's backlog.
+# Items done before the split (2026-11-25) are in ../roadmap.yaml.
+
+current: {}
+
+previous: {}
+
+backlog:
+  - id: M-RC35-FOLLOW-UP
+    title: "The pipeline and the skill move to rc.35"
+    why: "rc.35 (2026-11-25) fails a formula with no stored result in forge validate and has forge_validate's passed, so the workarounds kept for rc.34 can go"
+    acceptance: "examples/pipeline/forge.yml installs v10.0.0-rc.35 with no jq step, docs/guide/pipeline.md says so, pipeline.rs passes and the red case still fails; the two rc.34 notes in skills/forge-modelling/SKILL.md are gone and skill.rs passes"
+    model: "Sonnet 5.5, low: a small change held by existing tests"
+  - id: A10-README-AND-TRIALS
+    title: "The README as the front door, then a trial by a fresh reader of each kind"
+    how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
+    acceptance: "readme_commands.rs passes; four trial reports name no step that failed, or each is a roadmap item"
+    model: "Opus 5.5, high for the README; Sonnet 5.5, medium for the trials"
+  - id: A15-DOC-INDEXERS
+    title: "What Context7, DeepWiki and GitMCP tell an agent about Forge, corrected"
+    why: "Coding agents look up an unknown library through these; no model was trained on Forge, so they may be the only source an agent reads, and they may repeat stale docs"
+    acceptance: "Each service's answer about Forge read and recorded; a config file (context7.json, DeepWiki's) added where the service reads one and its answer is wrong or thin"
+    model: "Sonnet 5.5, low"
+  - id: T2-FIRST-USER
+    title: "Watch one real person build a model with Forge"
+    why: "Every bug found on 2026-11-07 came from building a model, and fresh agents have found the rest (T1-AGENT-FRICTION). A person who did not write Forge has not been watched yet. This is to find where a model goes wrong or a command confuses, not to test demand: adoption is not a goal (2026-11-16)"
+    how: "When someone offers, not by recruiting: one FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
+    acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
+
+done: []

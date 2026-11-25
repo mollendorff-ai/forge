@@ -1,5 +1,15 @@
-# Forge Roadmap
+# Forge Roadmap: the project's state, what was done, and what is parked
 # Version: Cargo.toml | History: CHANGELOG.md | Config: project.yaml
+#
+# Since 2026-11-25 Forge is worked on in four lanes at once (AGENTS.md,
+# .asimov/project.yaml), and each lane's open work is in its own file:
+#   .asimov/roadmap/engine.yaml        the engine as it is, CI, releases
+#   .asimov/roadmap/manual.yaml        the guide, examples, READMEs, --help
+#   .asimov/roadmap/features.yaml      new behaviour and its surfaces
+#   .asimov/roadmap/architecture.yaml  docs/architecture and the ADRs
+# This file is no lane's: state: changes with a release (the engine lane),
+# and the items below are the record of what was done before the split. An
+# item finished from now on goes in its lane's done: list, not here.
 #
 # Rewritten 2026-11-07 after a day of real use through MCP (see CHANGELOG
 # 10.0.0-rc.3 and the fixes after it). Every bug found that day, including
@@ -161,12 +171,6 @@ tier1:
   # README's first line, followed by "A Rust engine with a command line, an
   # MCP server and a browser app."; the 10-15x token claim is gone.
 
-  - id: T1-LISTINGS
-    title: "Outside listings show today's Forge"
-    why: "The LobeHub MCP listing (royalbit forge) still shows the Elastic-2.0 licence and the battle-tested wording of an old README"
-    how: "The maintainer asks LobeHub to refresh or remove it; check other listings (ecosyste.ms, docs.rs for old versions) at the same time"
-    acceptance: "The listing shows MIT OR Apache-2.0 and the current description, or is gone"
-
   # Found while making dates real dates (ADR-054, 2026-11-10): places where
   # Forge and Excel may give different answers without a warning, and places
   # where Forge says less than it knows.
@@ -191,12 +195,6 @@ tier1:
   # linting and formatting, each a gate that fails CI, not a badge. Formatting
   # (cargo fmt --check) and pedantic clippy with -D warnings are gates already;
   # since 2026-11-16 the MSRV job lints every target, tests included.
-
-  - id: T1-COVERAGE-GATE
-    title: "100% coverage: lines, functions and regions, with nothing skipped"
-    why: "ADR-004 requires 100%, but its 2026-11-08 note made it a goal; P-COV100 was parked for the same reason, now overruled by the maintainer (2026-11-16: no exceptions, no skipping). Measured on PR #257's head (2026-11-16): lines 88.04%, functions 84.46%, regions 86.31%. Since then the Coverage job fails below floors in ci.yml (88.0, 84.4 and 86.3 at first; 88.9, 85.4 and 87.3 since PR #258; 89.6, 86.1 and 88.1 since PR #259), which only rise, and make coverage fails below 100"
-    how: "List each uncovered line by file (cargo llvm-cov --ignore-filename-regex 'tests/' --summary-only, then --show-missing-lines). Cover each with a test that asserts a result. A line no test can reach is a defensive branch that cannot happen: remove it, or make the type rule it out; never exclude it from the count. Raise the floors in ci.yml with each merge that raises coverage"
-    acceptance: "The floors in ci.yml are 100 for lines, functions and regions, and the Coverage job passes on main; validation/repo/src/no_skipping.rs counts no coverage-only code and no ignored test"
 
   # T1-TESTS-INLINE is done (2026-11-17, PRs #257 to #263): every test is
   # inline, in the module it tests, in every crate, and no Rust file is over
@@ -281,11 +279,6 @@ tier1:
   # round-trip (39) and that the 9 that do not draw from MC. distributions;
   # the 5,000-row SUMIFS test holds its time in every build, against a plain
   # loop of the same work (limit 100 times), not in release only.
-  - id: T1-NO-SKIPPING
-    title: "No way round the three rules, in every crate"
-    why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs: 218 lint allow or expect attributes, 16 lints allowed in Cargo.toml files, 31 places of code compiled only for or only without coverage, 2 ignored tests. Counted again 2026-11-24: every budget in no_skipping.rs is 0 except the crates clippy.toml allows in two versions (4: syn, getrandom, r-efi, hashbrown), each held by a library the maintainer decided to keep (ADR-072, ADR-075). None can be lowered today: tracing-attributes 0.1.31, zeroize_derive 1.5.0 and strum_macros 0.28 are the latest releases and are on syn 2; ahash 0.8.13 and jsonschema 0.63.1 still bring getrandom 0.3 (tried 2026-11-24, nothing removed); yaml-edit 0.3.6 is the latest and its rowan 0.16 is on hashbrown 0.14"
-    how: "One kind of lint or one crate per pull request, each lowering its budget in validation/repo/src/no_skipping.rs. A count is not a size: the #![allow] of three cast lints at the top of core/array_calculator/evaluator/mod.rs is one attribute and covers the whole evaluator, about 24,000 lines, so it is worth more than most. float_cmp in tests: an assertion helper for an exact value. Casts: checked conversions (try_from) with the error named, in numeric code with a test at the boundary, since a careless cast is a wrong answer. too_many_lines: split the function. multiple_crate_versions: update or replace the dependency that pulls the second version. The coverage-only test files: make each run under cargo llvm-cov (it measures the binary they start). The two ignored tests: run the timing test in the release-build job it was meant for, and give the round-trip corpus a fixture in the repository"
-    acceptance: "Every budget in validation/repo/src/no_skipping.rs is 0 and the test passes; CLAUDE.md and project.yaml name no exception"
 
   # From an independent audit of rc.26 at f389e22 (2026-11-15), checked again
   # on main at f77fa0a (rc.27, 2026-11-16): the examples were recomputed
@@ -619,26 +612,6 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
-  - id: T2-SCENARIO-CHECKS
-    title: "A model states what each scenario should give, and forge validate checks it"
-    why: "Found 2026-11-22 trying to remove the last Python from kinship-protocol (github.com/mollendorff-ai/kinship-protocol), whose CI runs scripts/check_models.py (647 lines) to pin the figures its docs quote. forge validate checks the value: stored next to each formula, but only for the base case: it takes no --scenario, and most of kinship's figures are results of scenarios (a cost of conflict, a noise level, a horizon, a number of generations). So the expected figures live in a script, and nothing in the model says what a scenario should give. forge compare shows scenarios side by side and checks nothing. The maintainer chose this route (2026-11-22) over committed output files that CI diffs, which are regenerated, not stated"
-    how: "ADR-074 (accepted 2026-11-22). Built 2026-11-22: steps 1 to 4, expect: (format 5.6.0), forge validate, calculate --scenario writing nothing, MCP, REST and Studio; examples/games/stag-hunt.yaml states its figures. Steps 5 and 6 built 2026-11-22 (see T2-BAYESIAN-LINK); kinship-protocol's v0.8.0 moves its figures in once they are released. The ADR: an expect: in each scenario and at the top of the file (format 5.6.0), checked by forge validate within 1e-6, calculate --scenario writing nothing, and for T2-BAYESIAN-LINK a network that reads scalars, --scenario and named queries, built together; =BAYES() left out. An ADR first (ADR-074): where a scenario's expected results are written (a value: on the formula for each scenario, or an expect: beside the scenario's scalars), what forge validate says when one differs (the scenario, the name, both numbers, as it does for the base case), the tolerance, and whether forge calculate --scenario writes them as it writes the base case's. The MCP validate and Studio say the same as the command. Decide it with kinship-protocol's models in front of it: every figure its script pins is the first real use. Then T2-BAYESIAN-LINK's first step, so that its Bayesian check can move too"
-    acceptance: "kinship-protocol's expected figures live in its models and forge validate checks every one, scenario by scenario, so its scripts/check_models.py can be deleted; breaking a value in a scenario makes validate fail with the scenario named; the ADR says what was left out"
-
-  - id: T2-BAYESIAN-LINK
-    title: "Let a Bayesian network's results drive the model"
-    why: "Asked 2026-11-15 whether Forge's Bayesian networks are 'too basic' (a Grok review). Read from the code: exact inference on discrete nodes by variable elimination with hard evidence, checked against R's bnlearn on ten networks; no learning from data, no continuous nodes (now refused with a reason; before, 'No factors remaining'), no soft evidence, no joint most-probable explanation. Competing with pgmpy or bnlearn on inference features would be scope creep. What is missing for an FP&A user is that the network sits beside the model: its probabilities cannot come from formulas, and its results cannot feed formulas, scenarios or a simulation, as the other engines' do (the probability of default given the economy feeding expected loss is the use no spreadsheet does)"
-    how: "ADR-074 (accepted 2026-11-22, built: see below) decides it: a prior or table entry may be a formula over scalars, forge bayesian takes --scenario, and named queries in the network give each posterior as a scalar of the model (bayesian_network.<query>.<state>), which formulas, expect:, simulate and tornado read; =BAYES() is left out, since a query is easier for an agent to write and check. An ADR first: a node's prior or table entries written as formulas, and a query result readable from a formula (such as =BAYES(network, node, state, evidence)), without a second model format. Decide it with a real use in front of it (T2-FIRST-USER), not before. A real use has come (2026-11-22): kinship-protocol's mistake_or_defection.yaml is checked at nine settings of the prior and the noise by a script that rewrites the network's numbers, because forge bayesian refuses a formula in a prior or a table ('invalid type: string, expected f64') and takes no --scenario. A first step smaller than =BAYES(): a node's prior and table entries may be formulas over scalars, and forge bayesian takes --scenario, so the nine settings are scenarios of one file; decide it in the same ADR as T2-SCENARIO-CHECKS or beside it"
-    acceptance: "A worked example in examples/ where a posterior feeds a result in the model, calculated and checked against a hand calculation, and the ADR says what was left out. For the first step: kinship-protocol's nine settings are scenarios of one file, and forge bayesian --scenario gives each of them, checked against Bayes' rule worked out by hand"
-    built: "2026-11-22, ADR-074 steps 5 and 6. A prior or table entry is a number or a formula over the model's scalars (src/bayesian/written.rs), worked out after them and under the scenario applied, each row then checked to be probabilities, with the node named; forge bayesian --scenario, and scenario on forge_bayesian and forge-wasm's bayesian; named queries (bayesian_network.queries.<q>: {node, evidence}) checked when the file is read, whose posteriors are scalars bayesian_network.<q>.<state>, the network a cell of the calculation as a game is (src/core/array_calculator/network.rs), a cycle refused. examples/expected_loss.yaml: the probability of default given the economy feeding an expected loss, Bayes' rule by hand beside it, both pinned by expect: in the file and two scenarios. simulate moves a prior that reads an MC.* input, and tornado one that reads a scalar, each run checked by hand (src/cli/commands/simulate/mod.rs, src/tornado/engine.rs). What is left of the acceptance is kinship-protocol's: its nine settings as scenarios of one file, after a release"
-    studio: "forge_bayesian takes a scenario (2026-11-22), but Forge Studio's Bayesian card does not pass the scenario chosen on the Model view yet (runAnalyses in studio/app.js), as the game card does; it is drawn at the plan in every scenario. A test needs a network with scenarios in one of Studio's example sets (examples/expected_loss.yaml is in none)"
-
-  - id: T2-GAME-THEORY
-    title: "Games: a payoff table, and which strategies are an equilibrium"
-    why: "Parked as P-GAME until a user asked; the maintainer asked on 2026-11-16, for his own kinship-protocol (github.com/mollendorff-ai/kinship-protocol), which calls Forge its game-theory calculator and wants more games. Read from its 13 models: a game is written by hand as scalars, one formula per strategy per parameter step (stag_hunt.yaml: c0_coop, c0_defect, c0_coop_wins, then c1_, c2_, c3_), a 'wins' flag is an IF the author writes, and the Axelrod tournament's average payoffs are numbers typed in (grim_base 2.622), calculated somewhere else. Forge works out a payoff and cannot say which strategy is dominated or where the equilibrium is. The second use is the one behind T1-MA-EXAMPLE: a bidding contest or a price answer, where the other side reacts"
-    how: "ADR-068 (accepted 2026-11-19): a games: section in model format 5.5.0, exact expected values for tournaments, results readable by formulas. The maintainer asked for it before the stable release (2026-11-19). Built: the section and its parser, schema 5.5.0, a game as a cell of the calculation, dominated strategies, pure equilibria for any number of players, mixed ones for two (checked against nashpy 0.0.43 and by hand), tornado, simulate, sensitivity and goal-seek on a game result, and a warning from forge export that names the games (Excel cannot find an equilibrium; the payoff formulas are not written and the results are numbers as of the export). Then (PR #299): the forge game command; tournaments (exact match values as joint Markov chains, noise, continuation, collectively stable strategies; every pair of the nine strategies within 2.4 standard errors of the axelrod library's seeded average); the forge_game MCP tool (21 tools) and game in forge-wasm; seven examples in examples/games with their numbers asserted (stag hunt, chicken and Axelrod from kinship-protocol, inspection with its tornado, a noisy tournament, battle of the sexes, the continuation sweep). kinship-protocol's three models are rewritten in its own repository (its v0.5.0, 2026-11-20), with the four further games; one went against this item's acceptance text: in its noisy tournament generous TitForTat came 5th at 5% noise and TitForTwoTats won at 1%, so 'a forgiving strategy wins' holds only while mistakes are rare (its docs/MORE_GAMES.md). The e2e suite is T2-GAME-THEORY-E2E. The ADR says what is left out (more than two players in mixed strategies, extensive-form games, auctions)."
-    acceptance: "kinship-protocol's stag hunt, chicken and Axelrod tournament are rewritten as game sections and give the results its models store today, or the difference is explained; the tournament's average payoffs are calculated by Forge and no longer typed in; every equilibrium in the tests is checked against the outside tool or a hand calculation. Two more games, chosen because the three above do not cover them: an inspection game (an AI complies or cheats, a human audits or trusts; it has no pure equilibrium, so it tests the mixed path, and a tornado on the penalty shows the known result that a harsher penalty lowers the audit rate and not the cheating), and a tournament with noise (each move is mistaken with a small seeded probability, so tit-for-tat falls apart and a forgiving strategy wins), each with its equilibrium or ranking checked the same way. Optional, same checks: a battle of the sexes (two pure equilibria and one mixed), and a sweep of the continuation probability that shows cooperation taking over near the threshold kinship-protocol derives by formula"
-
   - id: T2-GAME-THEORY-E2E
     title: "Check the games against an outside engine, as the analytics are checked against R"
     why: "Every equilibrium asserted in the unit tests is checked against nashpy or by hand, once, when the test is written. Nothing runs Forge as a program against another engine, as validation/gnumeric and validation/r do. nashpy runs the same support enumeration as Forge, so it is not independent of the method; Gambit (pygambit 16.7.0 installs from PyPI) is a separate implementation with its own pure, mixed and LCP solvers. Spreadsheets cannot check an equilibrium, so Gnumeric and LibreOffice only matter for the export, which now warns instead (2026-11-19)"
@@ -652,12 +625,6 @@ tier2:
     how: "ADR-073 (accepted 2026-11-21): the count form, symmetric mixed equilibria of two-strategy games and a dynamics: key are built; tournaments of many players and the general mixed case stay out. After T2-GAME-THEORY is built and used. An ADR first, deciding whether pure equilibria for n players are enough for the public goods game, and whether replicator dynamics belong in a game section or in the existing time-series model. Extensive-form games such as the ultimatum game stay out"
     acceptance: "A five-player public goods game whose pure equilibria are checked against the outside tool or a hand calculation, and the ADR says what was left out"
     built: "2026-11-21, ADR-073 steps 1 to 4. The count form (#334): a symmetric game of any number of players with one payoff per strategy over <game>.others.<strategy>, examples/games/public-goods.yaml, and validation/games/counted.py against Gambit's enumpure_solve. The symmetric mixed equilibria of a symmetric game of two strategies (src/games/population.rs): the roots of the population function by polycool (roots 0.0.8, chosen in the ADR, misses roots; measured and noted there), <game>.equilibrium_<k>.stable, the degenerate case named, examples/games/volunteers-dilemma.yaml, and validation/games/symmetric.py against the closed form, the exact roots (sympy) and Gambit's enumpoly_solve. Step 5, the dynamics: key (src/games/dynamics.rs): the discrete replicator equation of a symmetric game of any number of players and strategies, <game>.dynamics.share.<strategy> and <game>.dynamics.payoff, the path in forge game and its -o output, examples/games/hawk-dove.yaml and dynamics in stag-hunt.yaml, and validation/games/dynamics.py against egttools 0.2.1 every generation; the suite found the step leaving the simplex where the average payoff is below 0, fixed before release (ADR-073's note under question 3). Studio's view (2026-11-22): a game of players alike drawn by count, its pure equilibria by split, the dynamics as a chart of the shares and a table of the path, and public-goods, volunteers-dilemma and hawk-dove in the Games set, each number checked against Forge's report by studio/tests/games.mjs. Checked again in R (validation/games/many_players.R: the dynamics stepped again, the symmetric mixes as polynomial roots, the closed forms) and through forge_game in-process. The bagel's games of many shops (2026-11-22): the price war across the city (dynamics) and the street's festival of five shops (examples/bagel/street_fund.yaml)"
-
-  - id: T2-FIRST-USER
-    title: "Watch one real person build a model with Forge"
-    why: "Every bug found on 2026-11-07 came from building a model, and fresh agents have found the rest (T1-AGENT-FRICTION). A person who did not write Forge has not been watched yet. This is to find where a model goes wrong or a command confuses, not to test demand: adoption is not a goal (2026-11-16)"
-    how: "When someone offers, not by recruiting: one FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
-    acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
 
   # The AI pipeline demonstration is done (2026-11-15): Sentinel ran docs/WORKFLOWS.md's
   # fourth workflow once, on Apple's Q4 FY2026 release, with the chat as the AI
@@ -702,11 +669,6 @@ tier2:
 # record (GitHub advises against one: any account could claim a subdomain).
 
 studio:
-  - id: S-HOME
-    title: "mollendorff.ai: the page is up; the www certificate and the .com/.ca forwards are left (user)"
-    why: "The page exists (mollendorff-ai.github.io, no scripts or cookies). On 2026-11-15 https://www.mollendorff.ai showed 'This Connection Is Not Private' on an iPhone: DNS is right, the GitHub Pages certificate does not cover www"
-    how: "Settings, Pages in mollendorff-ai.github.io: remove the custom domain, save, add mollendorff.ai again, wait for the certificate, tick Enforce HTTPS. Then open mollendorff.com and mollendorff.ca on the phone and see where they land (EasyDNS forwards if they do not reach mollendorff.ai)"
-    acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
   # Decided 2026-11-22 with the maintainer (a brainstorm on how people create,
   # edit and run calculations, simulations and games in Studio, and learn
   # Forge): ADR-075, ADR-076 and ADR-077. Built in this order.
@@ -844,11 +806,6 @@ adoption:
     model: "Sonnet 5.5, medium"
     built: "2026-11-24: CONTRIBUTING.md (a Setting up section: what to install and which make target needs it), docs/MAINTAINING.md (what a version on main sets off, the Release workflow's seven jobs, what a release changes, what to do when a step fails), docs/EMBEDDING.md (the library, forge serve, forge-wasm, forge mcp) and src/lib.rs's crate docs, with a doctest that runs a model from a string. validation/repo/src/roles.rs holds each to the files that state its claims (versions, targets, jobs, secrets, scripts, the places the version is written, links and paths) and sends EMBEDDING.md's REST request to a running forge serve; src/lib.rs joined doc_counts' function-count places"
     open: "(1) The fresh-agent trial of CONTRIBUTING.md (A10's). (2) The maintainer has not yet reviewed MAINTAINING.md's release steps. Found while writing it: make check ended with validate-docs over every page, which failed on 82 tracked pages that were never linted (CHANGELOG.md alone 296 errors; CI does not run it), so no clone could get make check green. 2026-11-24: validate-docs now lints the Markdown files the change touches (against origin/main) and make validate-docs-all lints every page; the 82 old pages are not fixed"
-  - id: A10-README-AND-TRIALS
-    title: "The README as the front door, then a trial by a fresh reader of each kind"
-    how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
-    acceptance: "readme_commands.rs passes; four trial reports name no step that failed, or each is a roadmap item"
-    model: "Opus 5.5, high for the README; Sonnet 5.5, medium for the trials"
   # Decided 2026-11-23 with the maintainer: the files and services agents
   # and their tools look for, and the standards that make Forge's claims
   # checkable. Each was named from Claude's training (mid-2026), not checked
@@ -867,11 +824,6 @@ adoption:
     model: "Opus 5.5, high"
     built: "2026-11-24: skills/forge-modelling/SKILL.md, against the specification read that day from its source (agentskills/agentskills at 83021e2, docs/specification.mdx, and skills-ref's validator.py): six fields at most, name forge-modelling as its folder, 176 lines in all, then 186 after the trial. Every step holds with the debug build and with the released rc.34, but for the verdict: rc.34's forge_validate has no passed and its validate passes a formula with no stored result, which the skill says, so it calculates before it validates. validation/repo/src/skill.rs checks the format, runs its $ forge blocks as guide.rs runs a lesson, and calls its MCP table against forge mcp; install_script.rs checks the install line, the folders install.sh writes and the cargo fallback. docs/guide/ai.md says where the folder goes (Claude Code's skills page and Claude's help article, read through the claude-code-guide agent; .agents/skills/ from the site's guide for clients). A fresh agent given only the skill (an empty folder and HOME, no repository, no web) built a coffee cart's year with rc.34 from install to audit with no step of the skill failing, and checked the profit in Python (150,450; 159,900 with the latte at 5.00); it had to guess at one thing, a change to a table's column, which forge edit refuses, so step 4 now shows the refusal and says what to do instead"
     found: "2026-11-24, in the trial: forge edit --changes with an array value ({\"op\": \"set_value\", \"path\": \"products.price\", \"value\": [20, 45]}) fails with serde's 'data did not match any variant of untagged enum Value at line 1 column 65', where --set of the same column says plainly that edit does not change a table's column yet (rc.34 and main). Both fixed the same day: set_value takes a list for a table's column of numbers or dates (src/edit/column.rs), and a value that is not a number, a text or a list is refused saying what a value is; the skill's step 4 shows the change, and says that rc.34 refuses it"
-  - id: A13-MCP-REGISTRY
-    title: "server.json for the official MCP Registry, and the other listings pointed at it"
-    why: "The LobeHub listing still shows the Elastic-2.0 licence and an old README; one authoritative entry, kept true by a test, is the fix at the source"
-    acceptance: "server.json validates against the registry's schema, a test checks its version against Cargo.toml and its description against the binary, and the entry is published (the maintainer's account)"
-    model: "Sonnet 5.5, medium"
   - id: A14-LLMS-TXT
     title: "llms.txt and llms-full.txt on Studio's site, kept only if an agent does better with them"
     why: "A 2024 proposal for a Markdown index at a site's root; tools such as GitMCP read it, and there is little evidence the big assistants fetch it. Decides the question A5 leaves open"
@@ -879,50 +831,15 @@ adoption:
     model: "Sonnet 5.5, medium"
     built: "2026-11-25: removed. docs/README.md, the index the files are built from, was written first (docs_index.rs holds it). llms.txt (the index's sections, each link at the release's tag to the page's Markdown, with what changes Forge under Optional; 5.6 KB) and llms-full.txt (each other page once; 414 KB) were built by studio/build.mjs and tested, then tried: two fresh Sonnet 5.5 agents were given one task (a 120,000 loan at 6.5% over 5 years: the monthly payment, the interest, the payment over 4 years; loan.yaml calculated, validated, one result checked in Python), one with llms.txt and the pages it links, one with only forge --help. Both were right on all three numbers (2,347.94, 20,876.27, 2,845.79) and neither ran a command that failed; the agent with llms.txt read three pages and used 5 tool calls and 78.5K tokens, the one with only the help used 4 and 69.7K. It did not do better, so the files were not kept. One run each, one task, one model: a result that says the files are not worth their upkeep here, not that they never help"
     found: "2026-11-25, from both agents: neither source told them (1) that PMT's payment is negative for a positive loan, as in Excel (FUNCTIONS.md says only 'Loan payment'), (2) that a scalar formula is written {formula: \"=...\"} (starter.yaml's comment and lesson 2 say it; forge calculate --help does not), (3) that forge calculate writes its results into the file and keeps a .bak (the agent with the index did not read lesson 3 or the command's help, which both say it; the help-only agent read the help and had no trouble: this was wrongly first written as a gap of the help). The help-only agent also found 'examples starter' only by guessing. 2026-11-25: (1) is in the descriptions of PMT, IPMT and PPMT (forge functions, FUNCTIONS.md; a test in src/functions/registry.rs gives each the sign it says), (2) is in forge calculate --help under WRITING A FORMULA (a test in validation/repo's help_examples runs its two models and checks the results), and the top-level help's first example is forge examples starter And CI's path filter has no docs/**, README.md or *.md, so a pull request that changes only a page runs none of the page checks in validation/repo (A9's and A8's pull requests ran only the Mermaid check)"
-  - id: A15-DOC-INDEXERS
-    title: "What Context7, DeepWiki and GitMCP tell an agent about Forge, corrected"
-    why: "Coding agents look up an unknown library through these; no model was trained on Forge, so they may be the only source an agent reads, and they may repeat stale docs"
-    acceptance: "Each service's answer about Forge read and recorded; a config file (context7.json, DeepWiki's) added where the service reads one and its answer is wrong or thin"
-    model: "Sonnet 5.5, low"
-  - id: A16-SBOM
-    title: "An SBOM (CycloneDX or SPDX) attached to each release"
-    why: "The release proves who built the binary (attestations, rc.28); an SBOM says what is inside it"
-    acceptance: "release.yml attaches it, made by a pinned tool; a release candidate carries it and a scanner reads it"
-    model: "Sonnet 5.5, medium"
-  - id: A17-SCORECARD
-    title: "OpenSSF Scorecard on the repository, with its badge"
-    why: "An outside rating of the practices T1-SUPPLY-CHAIN put in place, which a reader can check without trusting the README"
-    acceptance: "A pinned scorecard workflow runs weekly and on main; the README shows the badge; each check scored below 10 is fixed or a roadmap item says why not"
-    model: "Sonnet 5.5, low"
-  - id: A18-METADATA
-    title: "CITATION.cff, security.txt, the crate's keywords and categories, GitHub topics, and the site's robots.txt checked"
-    why: "Agents and people find a tool by searching crates.io, GitHub and docs.rs; GitHub shows 'Cite this repository' from CITATION.cff; Forge wants to be read, so no AI crawler should be blocked by accident"
-    acceptance: "CITATION.cff valid (cffconvert) and its version checked against Cargo.toml by a test; /.well-known/security.txt on the site; keywords and categories set; the topics set by the maintainer; robots.txt read and recorded"
-    model: "Haiku 5.5, low; the topics are the maintainer's"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done, and only when a use calls for one;
 # adoption is not a goal, 2026-11-16)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-tier3:
-  - id: T3-API
-    title: "REST endpoints for the analytics tools (parity with the 20 MCP tools) + OpenAPI spec"
-    why: "validate, calculate and audit already take inline content; the rest only exist over MCP"
-    acceptance: "Each endpoint shares its core function with the MCP tool; an OpenAPI document is generated from the handlers, not written by hand"
-    note: "Found 2026-11-22 (docs/architecture/08-API-SERVER-ARCHITECTURE.md): of the five endpoints there are, export and import did not call a core; they ran forge export's and forge import's printing functions on a Console and discarded what they printed. ApiResponse::err in src/api/handlers.rs was used only by its own tests, since a failed operation answers success: true with its flag false (T1-INTERFACE-PARITY). Both done 2026-11-22: export and import call export_core and import_core, their answers checked whole and unchanged (the same tests pass on the code before), and ApiResponse has only ok, its data no longer optional"
-
-  - id: T3-TRANSPORT
-    title: "MCP over HTTP/SSE via rmcp"
-    why: "Needed for hosted or browser clients; nobody has one yet"
-
-  - id: T3-BENCH
-    title: "Per-function benchmarks"
-    why: "Content for a talk, not a user need"
-
-  - id: T3-MCP-TOKENS
-    title: "Shorter MCP tool list"
-    why: "16.7 KB for 20 tools; the descriptions are short already, the per-field docs repeat. Worth about 400 tokens per session; do it when there is nothing above it"
+# Its open items (T3-API, T3-TRANSPORT, T3-MCP-TOKENS, T3-BENCH) moved to
+# the features and engine lanes on 2026-11-25.
+tier3: []
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PARKED (nothing lost; revisit when a user asks)

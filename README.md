@@ -103,7 +103,7 @@ Forge is a release candidate (v10.0.0-rc.35) and an R&D prototype: read its clai
 
 Forge began in 2025 as the core of a trading-engine idea, built closed-source for a few months. Making the YAML calculator showed it was worth more as a financial-modelling tool, and it was opened under MIT OR Apache-2.0 in February 2026; it is not a trading engine and does not plan to become one ([ADR-063](docs/architecture/ADR-063-ORIGIN-OF-FORGE.md)).
 
-Known problems as of 2026-11-12 (what is planned, and in what order, is in the [roadmap](.asimov/roadmap.yaml)):
+Known problems as of 2026-11-12 (what is planned, and in what order, is in each lane's [roadmap](.asimov/roadmap/)):
 
 - `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value, an uncertain input (`MC.*`) as its plan value, and lists it. `forge import` brings such a cell back as that value: the distribution stays in the YAML file.
 - `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
@@ -354,7 +354,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | [Validation](VALIDATION.md) | What is checked against what, and the latest results |
 | [Stability](docs/STABILITY.md) | What a stable release promises |
 | [Architecture](docs/architecture/) | The decisions (ADRs) and why |
-| [Roadmap](.asimov/roadmap.yaml) | What is next, in order, and what is unverified |
+| [Roadmap](.asimov/roadmap/) | What is next in each lane, in order; [roadmap.yaml](.asimov/roadmap.yaml) holds the state and what was done |
 | [Changelog](CHANGELOG.md) | Every release |
 | [Contributing](CONTRIBUTING.md) | How to change Forge, and what a change needs |
 

@@ -1,7 +1,7 @@
 # Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed build-all uninstall install install-forge cross-forge lint lint-fix format format-check test test-unit test-repo test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-docs-all validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
+.PHONY: help build build-static build-compressed build-all uninstall install install-forge cross-forge lint lint-fix format format-check test test-unit test-repo test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-docs-all validate-yaml changelog validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OS AND ARCHITECTURE DETECTION
@@ -491,10 +491,20 @@ validate-docs-all:
 		exit 1; \
 	fi
 
+# A release's changelog (docs/MAINTAINING.md, step 3): scriv moves every
+# fragment in changelog.d/ into CHANGELOG.md under VERSION's dated heading
+# and deletes it. scriv is pinned and installed in target/, not globally.
+SCRIV_VERSION = 1.5.1
+changelog:
+	@test -n "$(VERSION)" || { echo "Usage: make changelog VERSION=10.0.0-rc.N"; exit 1; }
+	@test -x target/scriv/bin/scriv || { python3 -m venv target/scriv && \
+		target/scriv/bin/pip install -q scriv==$(SCRIV_VERSION); }
+	target/scriv/bin/scriv collect --version $(VERSION)
+
 validate-yaml:
 	@echo "📄 Validating YAML files..."
 	@if command -v yamllint >/dev/null 2>&1; then \
-		yamllint .asimov/roadmap.yaml 2>/dev/null && \
+		yamllint .asimov/roadmap.yaml .asimov/roadmap/*.yaml 2>/dev/null && \
 		echo "✅ YAML validation passed"; \
 	else \
 		echo "❌ yamllint not found. Run: pip install yamllint"; \
