@@ -1,0 +1,7 @@
+{
+  "repo_notes": [
+    {
+      "content": "Forge is a financial-modelling engine: a YAML model in, calculated results out. Read docs/guide/ (the lessons), docs/MCP.md and skills/forge-modelling/SKILL.md first; docs/architecture/ holds decision records, and CHANGELOG.md has what changed in each release."
+    }
+  ]
+}

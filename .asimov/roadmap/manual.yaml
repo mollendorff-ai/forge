@@ -10,20 +10,16 @@ current: {}
 previous: {}
 
 backlog:
-  - id: M-RC35-FOLLOW-UP
-    title: "The pipeline and the skill move to rc.35"
-    why: "rc.35 (2026-11-25) fails a formula with no stored result in forge validate and has forge_validate's passed, so the workarounds kept for rc.34 can go"
-    acceptance: "examples/pipeline/forge.yml installs v10.0.0-rc.35 with no jq step, docs/guide/pipeline.md says so, pipeline.rs passes and the red case still fails; the two rc.34 notes in skills/forge-modelling/SKILL.md are gone and skill.rs passes"
-    model: "Sonnet 5.5, low: a small change held by existing tests"
   - id: A10-README-AND-TRIALS
     title: "The README as the front door, then a trial by a fresh reader of each kind"
     how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
     acceptance: "readme_commands.rs passes; four trial reports name no step that failed, or each is a roadmap item"
     model: "Opus 5.5, high for the README; Sonnet 5.5, medium for the trials"
-  - id: A15-DOC-INDEXERS
-    title: "What Context7, DeepWiki and GitMCP tell an agent about Forge, corrected"
-    why: "Coding agents look up an unknown library through these; no model was trained on Forge, so they may be the only source an agent reads, and they may repeat stale docs"
-    acceptance: "Each service's answer about Forge read and recorded; a config file (context7.json, DeepWiki's) added where the service reads one and its answer is wrong or thin"
+  - id: A15-MAINTAINER-STEPS
+    title: "Index Forge at DeepWiki and Context7, then read what each says"
+    why: "A15 added llms.txt, context7.json and .devin/wiki.json, but DeepWiki has never indexed the repository and Context7 has no entry for it (2026-11-25); only the maintainer can add it, and Context7 wants a free API key"
+    how: "The maintainer: index the repository at deepwiki.com/mollendorff-ai/forge and add it at context7.com/add-library (a free key from its dashboard lifts the anonymous quota). Then an agent reads each service's answer about Forge (and GitMCP's again, its index was old) and corrects the config files where one is wrong or thin"
+    acceptance: "DeepWiki and Context7 answer from the current pages (the guide, the skill, 23 MCP tools), and the answers are recorded in this item's built: line"
     model: "Sonnet 5.5, low"
   - id: T2-FIRST-USER
     title: "Watch one real person build a model with Forge"
@@ -31,4 +27,16 @@ backlog:
     how: "When someone offers, not by recruiting: one FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
     acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
 
-done: []
+done:
+  - id: A15-DOC-INDEXERS
+    title: "What Context7, DeepWiki and GitMCP tell an agent about Forge, corrected"
+    why: "Coding agents look up an unknown library through these; no model was trained on Forge, so they may be the only source an agent reads, and they may repeat stale docs"
+    acceptance: "Each service's answer about Forge read and recorded; a config file (context7.json, DeepWiki's) added where the service reads one and its answer is wrong or thin"
+    built: "2026-11-25: read through each service's own endpoint. GitMCP (gitmcp.io/mollendorff-ai/forge, MCP over HTTP with a session id): its answers were stale, from an old index: the docs/ listing led with CHANGELOG_ARCHIVE.md (v0.1.3 to v7.2.11), the MCP search returned FEATURES.md's v1.7.0 section (five tools, `forge_import`), ADR-027 and code comments with /home/rex paths, where Forge has 23 tools and a guide of lessons. DeepWiki (mcp.deepwiki.com): 'Repository not found', never indexed; deepwiki.com itself is behind a Vercel bot check. Context7: search by name finds only other projects named forge (digitalbazaar/forge, tensorblock/forge), and the anonymous quota was spent (needs a free key from its dashboard), so Forge's own entry is unread. Added llms.txt (GitMCP's first source: the guide, the skill, MCP, pipeline, then the reference), context7.json (folders, exclusions, three rules) and .devin/wiki.json (a repo note). Still the maintainer's: index the repository at deepwiki.com/mollendorff-ai/forge and add it at context7.com/add-library, then read what each says"
+    model: "Sonnet 5.5, low"
+  - id: M-RC35-FOLLOW-UP
+    title: "The pipeline and the skill move to rc.35"
+    why: "rc.35 (2026-11-25) fails a formula with no stored result in forge validate and has forge_validate's passed, so the workarounds kept for rc.34 can go"
+    acceptance: "examples/pipeline/forge.yml installs v10.0.0-rc.35 with no jq step, docs/guide/pipeline.md says so, pipeline.rs passes and the red case still fails; the two rc.34 notes in skills/forge-modelling/SKILL.md are gone and skill.rs passes"
+    built: "2026-11-25: examples/pipeline/forge.yml installs v10.0.0-rc.35; its jq step is now a plain JSON step (the artifact stays), and the page, docs/WORKFLOWS.md and pipeline.rs say so (the rc.34-only test is gone, the red case fails at validate). The skill lost its three rc.34 notes (passed, the column edit, the by-hand fallback). pipeline, skill and guide tests pass"
+    model: "Sonnet 5.5, low: a small change held by existing tests"

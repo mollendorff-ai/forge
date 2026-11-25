@@ -1,0 +1,27 @@
+# Forge
+
+> Financial models as plain text: a YAML file of inputs, formulas and tables, calculated the same way every time by one Rust engine (203 Excel-style functions, Monte Carlo, scenarios, break-even, decision trees, game theory). It runs as the `forge` command, as an MCP server for AI agents (`forge mcp`), and in the browser (Forge Studio). It is newer than any model's training: read these pages, not memory.
+
+Install: `curl -fsSL https://raw.githubusercontent.com/mollendorff-ai/forge/main/install.sh | sh`, or `cargo install mollendorff-forge`. Every command is `forge <command> <file.yaml>`; `forge --help` lists them.
+
+## Start here
+
+- [The guide](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/guide/README.md): six lessons on one model, each command run by a test
+- [Forge with an AI](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/guide/ai.md): the MCP server in a client, rules for an agent
+- [The agent skill](https://raw.githubusercontent.com/mollendorff-ai/forge/main/skills/forge-modelling/SKILL.md): how to build, change and check a model, step by step
+- [The MCP server](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/MCP.md): its tools and how to configure a client
+- [Models checked on every pull request](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/guide/pipeline.md): `forge validate` as a gate in GitHub Actions
+
+## Reference
+
+- [Features](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/FEATURES.md): the model file, every command, every analysis
+- [Functions](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/FUNCTIONS.md): every function, with an example
+- [The command line reference](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/cli/README.md): every command's `--help`
+- [Glossary](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/GLOSSARY.md)
+- [Embedding Forge](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/EMBEDDING.md): as a Rust crate or in WebAssembly
+
+## Optional
+
+- [The documentation index](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/README.md)
+- [Architecture decisions](https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/architecture/README.md)
+- [Changelog](https://raw.githubusercontent.com/mollendorff-ai/forge/main/CHANGELOG.md)
