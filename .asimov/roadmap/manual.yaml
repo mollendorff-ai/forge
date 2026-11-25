@@ -33,6 +33,13 @@ backlog:
     acceptance: "docs/MCP.md, docs/FEATURES.md and the skill say a column of text is changed and a column of true and false or with an empty cell is refused, with an example; docs/cli/README.md rebuilt from forge edit --help"
     model: "Sonnet 5.5, low: the behaviour is written in ADR-075 and the changelog"
 
+  - id: M-PIPELINE-EXAMPLE-RC35
+    title: "forge-pipeline-example runs the rc.35 workflow, and the guide's table says what its three pull requests now do"
+    why: "Found 2026-11-25 by the features lane. github.com/mollendorff-ai/forge-pipeline-example is the repository docs/guide/pipeline.md's \"It has run\" section links to: the bagel model, the workflow, and three pull requests opened as the page's examples (#1 calculated, passes; #2 not calculated, fails at forge validate; #3 a formula with no result, fails at the JSON check). It still runs rc.34 with the jq step; examples/pipeline/forge.yml moved to rc.35 (M-RC35-FOLLOW-UP), where forge validate itself fails a formula with no stored result. So the page's 'This workflow has run, unchanged' is no longer true, and #3 would now fail one step earlier than its row says. #1 and #2 were merged although their text says not to be (the repository's main passes forge validate); #3 is open and red on purpose"
+    how: "Copy examples/pipeline/forge.yml to the repository (a pull request, which needs the maintainer to open it or to give a session push access to that repository), then reopen the two failing examples against it, with #3 closed unmerged, and read each run's conclusion. Update the page's table and its dates from those runs"
+    acceptance: "The page's three rows link to runs of the rc.35 workflow, each failing at the step the row names; the repository's README says the same; validation/repo's pipeline checks pass"
+    model: "Sonnet 5.5, medium: three pull requests reopened and their runs read"
+
 done:
   - id: A15-DOC-INDEXERS
     title: "What Context7, DeepWiki and GitMCP tell an agent about Forge, corrected"
