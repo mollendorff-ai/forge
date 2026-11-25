@@ -69,6 +69,20 @@ pub fn rejoin_quotes(words: &[&str]) -> Vec<String> {
     out
 }
 
+/// Whether `text` holds a date written `2026-11-17`.
+#[must_use]
+pub fn has_date(text: &str) -> bool {
+    text.as_bytes().windows(10).any(|w| {
+        w.iter().enumerate().all(|(i, b)| {
+            if i == 4 || i == 7 {
+                *b == b'-'
+            } else {
+                b.is_ascii_digit()
+            }
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,10 +134,10 @@ mod tests {
             }
         }
         assert!(
-            commands >= 4,
+            commands >= 7,
             "only {commands} commands found in the README"
         );
-        assert!(lines_checked >= 15, "only {lines_checked} lines checked");
+        assert!(lines_checked >= 20, "only {lines_checked} lines checked");
     }
 
     /// A development command the README says runs "as CI runs it" is a command
@@ -188,5 +202,75 @@ mod tests {
                 "the README names forge-{target}, which release.yml does not build ({targets:?})"
             );
         }
+    }
+
+    /// The README's section with its name, up to the next `## ` heading.
+    fn section(readme: &str, heading: &str) -> String {
+        readme
+            .split(&format!("\n## {heading}\n"))
+            .nth(1)
+            .and_then(|rest| rest.split("\n## ").next())
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    /// Every link and anchor of the front page resolves (A10), as the
+    /// guide's do: it is the page every reader comes in by.
+    #[test]
+    fn every_link_in_the_readme_resolves() {
+        let readme = crate::read("README.md");
+        let links = crate::guide::check_links(&crate::root().join("README.md"), &readme);
+        assert!(links.as_ref().is_ok_and(|n| *n > 40), "{links:?}");
+    }
+
+    /// The first section is a door for each of ADR-078's five readers, to the
+    /// page the documentation's index starts that reader on (A10).
+    #[test]
+    fn the_readme_has_a_door_for_each_reader() {
+        let readme = crate::read("README.md");
+        let doors = section(&readme, "Where to start");
+        assert_eq!(
+            doors.lines().filter(|l| l.starts_with("| **")).count(),
+            5,
+            "{doors}"
+        );
+        for start in [
+            "docs/guide/README.md",
+            "docs/guide/ai.md",
+            "docs/guide/pipeline.md",
+            "docs/EMBEDDING.md",
+            "CONTRIBUTING.md",
+        ] {
+            assert!(doors.contains(&format!("]({start})")), "no door to {start}");
+        }
+        assert!(doors.contains("](docs/README.md)"));
+        assert_eq!(section(&readme, "Nowhere"), "");
+    }
+
+    #[test]
+    fn a_date_is_four_two_and_two_digits() {
+        assert!(has_date("2,137 pass (2026-11-17); CI runs them"));
+        assert!(!has_date(
+            "2,182 cases, 2026 to 11-17, 2026-1-17, 2026/11/17"
+        ));
+        assert!(!has_date("short"));
+    }
+
+    /// The table of checks says what runs each one on a pull request, not a
+    /// dated result that the next run outdates (A10): the results, with their
+    /// dates, are VALIDATION.md's.
+    #[test]
+    fn the_checks_table_names_what_runs_each_check_and_no_date() {
+        let readme = crate::read("README.md");
+        let checks = section(&readme, "How we know the numbers are right");
+        let rows: Vec<&str> = checks.lines().filter(|l| l.starts_with("| ")).collect();
+        assert_eq!(
+            rows.first().copied(),
+            Some("| Check | What it covers | Checked on every pull request by |")
+        );
+        assert!(rows.len() >= 6, "{rows:?}");
+        let dated: Vec<&&str> = rows.iter().filter(|row| has_date(row)).collect();
+        assert!(dated.is_empty(), "a row gives a dated result: {dated:?}");
+        assert!(checks.contains("](VALIDATION.md)"));
     }
 }

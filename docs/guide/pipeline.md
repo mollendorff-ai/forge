@@ -270,7 +270,7 @@ A change to a model is a change to its text, and the results it moved are in the
 
 ## It has run
 
-This workflow has run, unchanged, in [a repository of its own](https://github.com/mollendorff-ai/forge-pipeline-example) holding these two files, calculated with the release it installs (2026-11-24):
+This workflow has run in [a repository of its own](https://github.com/mollendorff-ai/forge-pipeline-example) holding these two files (2026-11-24). It installed 10.0.0-rc.34 then, whose `forge validate` passes a formula with no result, so it had one more step, "Every formula has its result stored", which read `uncalculated`; with rc.35 `forge validate` fails that case itself, and the step is gone:
 
 | Pull request | What it changes | The run |
 | --- | --- | --- |

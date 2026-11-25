@@ -18,56 +18,97 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
   <a href="https://forge.mollendorff.ai/"><img src="https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/images/studio-desktop.png" alt="Forge Studio on a laptop: the uncertain bagel model's YAML on the left, its scenarios, an Add a game card and its inputs as sliders on the right" width="560"></a>
 </p>
 
-| **You work with numbers** | **You build with AI agents** |
-| --- | --- |
-| Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Paste one prompt into your AI and it installs Forge and runs the bagel example; or install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
-| [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Prompt for your AI →](#try-it-with-your-ai) · [Quick start](#quick-start) · [For AI agents](#for-ai-agents) |
+**Checked, not trusted.** 2,182 formula tests compare Forge with Gnumeric, the analytics are compared with R and the games with Gambit, the axelrod library and egttools, on every pull request that changes the engine: [how we know the numbers are right](#how-we-know-the-numbers-are-right). What does not work yet is [listed](#status-and-known-limitations), not hidden.
 
-**Checked, not trusted.** 2,182 formula tests compare Forge with Gnumeric, the analytics are compared with R, the games' equilibria with Gambit, their tournaments with the axelrod library and their dynamics with egttools (games of many players and the dynamics again in R, from the payoffs alone), and the suites live [in this repository](validation/) and run in CI. On every pull request, 2,700 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 27,000 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+## Where to start
 
-## Four ways to use Forge
+| You are | Start here | Then |
+| --- | --- | --- |
+| **New to Forge**, with or without a terminal | [Forge Studio](https://forge.mollendorff.ai/?example=bagel) in your browser, nothing to install; or [the guide](docs/guide/README.md), six lessons on one model | [A tour of Studio](docs/guide/studio.md); [the bagel shop](#the-bagel-shop) below |
+| **Working with an AI**, or building an agent | [The prompt for your AI](#try-it-with-your-ai), or [Forge with an AI](docs/guide/ai.md) | [Seven more prompts](docs/PROMPTS.md); [the MCP server](docs/MCP.md); [the agent skill](skills/forge-modelling/SKILL.md) |
+| **Building a pipeline** | [Models checked on every pull request](docs/guide/pipeline.md) | [Workflows](docs/WORKFLOWS.md); [the command line reference](docs/cli/README.md) |
+| **Embedding Forge** in a program or a page | [Embedding Forge](docs/EMBEDDING.md) | [docs.rs](https://docs.rs/mollendorff-forge); [forge-wasm](forge-wasm/README.md) |
+| **Changing or releasing Forge** | [Contributing](CONTRIBUTING.md) | [AGENTS.md](AGENTS.md), the rules; [Maintaining Forge](docs/MAINTAINING.md); [the architecture](docs/architecture/README.md) |
 
-The same model and the same binary, from one person to a pipeline nobody watches:
+Every page is listed in [the documentation's index](docs/README.md).
 
-```mermaid
-flowchart LR
-    person([A person])
-    chat([An AI in a chat])
-    job([A scheduled job])
-    agent([An AI agent in a pipeline])
-    forge[["Forge: one engine<br/>command line · MCP · REST API · Studio"]]
-    yaml[(YAML models in git)]
-    out[Results as tables, JSON, CSV<br/>and Excel workbooks]
-    person --> forge
-    chat --> forge
-    job --> forge
-    agent --> forge
-    forge <--> yaml
-    forge --> out
+## The bagel shop
+
+Bagel Lune is a made-up wood-fired bagel shop in Montreal, planned over its first twelve months in [`examples/bagel`](examples/bagel/README.md): a table of months with seasonal demand, five cost lines, supplier prices kept in a second file, and four scenarios. The guide's lessons are written on it, and [Studio opens it](https://forge.mollendorff.ai/?example=bagel) from a link. Every number below is what the command prints: the tests run each command, and check its numbers against a calculation written outside Forge (the price seek with 1,000 runs instead of 5,000).
+
+**How does the first year go?** Revenue of 386,827.45 and a profit of 786.32. The third month is the worst, at -7,935.53.
+
+```text
+$ forge calculate examples/bagel/bagel.yaml --dry-run
+      year.revenue = 386827.449537828
+      year.profit = 786.320361712362
+      year.worst_month_profit = -7935.5334064
 ```
 
-1. **A person alone.** A model is a text file: change an input, `forge calculate`, and `git diff` shows every result it moved. No AI needed.
-2. **A person with an AI in a chat.** The AI writes the model and explains it; Forge does every sum, so no number is the AI's guess. [Tested prompts](docs/PROMPTS.md).
-3. **A pipeline without AI.** Forge as the deterministic calculator in a financial job, at month-end say: the same inputs give the same numbers, a failed formula exits with 1, and the results come out as JSON, CSV or a workbook.
-4. **A pipeline with AI.** An agent reads a new report and writes or updates the model, Forge checks and calculates it, and a person reviews the change as a pull request: a diff of formulas and inputs, not a workbook to trust. This is where Forge is headed.
+**What price breaks even?** 15.97 a dozen, three cents under the 16 it charges. Bagels are a hard business; the arithmetic, at least, is easy ([the post](docs/posts/bagel-price.md)).
 
-Each, with its diagram and commands: [docs/WORKFLOWS.md](docs/WORKFLOWS.md). The first two have been run end to end by fresh agents. The pipeline without AI is built from commands that work but has not yet been run whole. The pipeline with AI has run on a real filing with [Sentinel](https://github.com/mollendorff-ai/sentinel), a small earnings-analysis demo built on Forge: an AI in a chat read Apple's quarterly release and wrote the model, Forge calculated it, and its gross profit and operating income equal the figures the filing prints.
+```text
+$ forge break-even examples/bagel/bagel.yaml --output-var year.profit --vary assumptions.price_per_dozen
+   assumptions.price_per_dozen = 15.97 (15.966607933396) → year.profit = -0.000063
+```
 
-## Forge Studio
+**Which input matters most?** The tornado moves each input on its own, from low to high, and shows how far the year moves:
 
-Studio is Forge compiled to WebAssembly and run in your browser tab. Open an example, or your own YAML or Excel file, and the model shows as cards: drag an input, the results move. Edit a formula with suggestions for names and functions, see the whole model as a grid, apply a scenario, run goal seek, a tornado or a Monte Carlo simulation, and save the workbook `forge export` writes.
+```text
+$ forge tornado examples/bagel/bagel.yaml
+   assumptions.opening_dozens_per_day |██████████████████████████████| swing 114,499.75  (output -56,463.56 at low, 58,036.20 at high)
+   assumptions.price_per_dozen        |████████████████████████      | swing 94,192.48  (output -46,309.92 at low, 47,882.56 at high)
+   assumptions.staff_hours_per_day    |████████████████████          | swing 76,590.00  (output 46,740.32 at low, -29,849.68 at high)
+   assumptions.rent_per_month         |██████                        | swing 24,000.00  (output 10,386.32 at low, -13,613.68 at high)
+   assumptions.card_fee_rate          |█                             | swing 4,641.93  (output 3,880.94 at low, -760.99 at high)
+```
 
-- **Your model stays on your device.** There is no server doing the math, no account, no cookies and no analytics. GitHub Pages serves the page, so GitHub sees that someone downloaded it, as with any website; after that, nothing you type leaves the tab. Your files are kept in your browser's storage, on your device. A link can carry a model to Studio, after the `#`, the part of an address that a browser never sends to a server (ADR-080). A link you make holds your model wherever you paste it.
-- **It works offline.** Add it to your Home Screen and it opens and calculates with no connection: on a plane, in a tunnel, in a meeting room with bad Wi-Fi.
-- **The numbers are Forge's.** The page calculates nothing itself; it asks the same engine as the command line, and CI checks that the WebAssembly answers equal the native ones, case by case.
+**What price gives an 80% chance of making money?** In the simulation, opening demand, staffing, the flour price and the wage are uncertain. At the planned 16 a dozen, the chance is 34.76%; it takes 18.32.
 
-The shop in the screenshots, Bagel Lune, is fictional. It makes 786.32 on 386,827.45 of revenue, and Forge will tell you in one command that it [breaks even at 15.97 a dozen](docs/posts/bagel-price.md), three cents under its price. Bagels are a hard business; the arithmetic, at least, is easy.
+```text
+$ forge simulate examples/bagel/bagel_simulate.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24
+   assumptions.price_per_dozen = 18.32
+   P(year.profit > 0) there: 80.00%  (2.92% at 14, 100.00% at 24)
+   22 simulations of 5000 iterations, the same draws each time
+```
+
+**What if the shop across the street cuts its price?** The payoffs of a price war come from the plan's own numbers. Cutting pays more whatever the rival does, so both cut, and each earns 19,188.94 a month, less than if both had held at 16: a prisoner's dilemma the plan's numbers make.
+
+```text
+$ forge game examples/bagel/price_war.yaml
+      lune: hold is dominated by cut
+      rival: hold is dominated by cut
+         lune: cut (payoff 19,188.94)
+```
+
+The same shop also runs scenarios, goal seek, a decision tree, real options, a bootstrap, a Bayesian network and its actual year against the plan: its [README](examples/bagel/README.md) has each command and what it prints, and [the guide](docs/guide/README.md) builds the shop from an empty file.
+
+### Other models
+
+**How much more a month to save 80,000 of interest on a mortgage?** [`examples/mortgage`](examples/mortgage/README.md) is 450,000 at 4.79% over 25 years, compounded twice a year as Canadian fixed rates are. A month-by-month loop in Python, solved with SciPy, gives 397.044208:
+
+```text
+$ forge goal-seek examples/mortgage/mortgage.yaml --target saved.interest --value 80000 --vary loan.extra_per_month
+   loan.extra_per_month = 397.04 (397.044207903935) → saved.interest = 80,000.00
+```
+
+**Why is the year 27,000 over budget?** [`examples/rolling-forecast`](examples/rolling-forecast/README.md) has a fiscal year that starts in April, actuals up to October and forecast after, two products and a budget looked up month by month. The variance splits into volume, mix and price, and the three add up to it exactly:
+
+```text
+$ forge calculate examples/rolling-forecast/forecast.yaml --dry-run
+      fy2027.variance = 27,022  (27021.9306764037)
+      pvm.volume = 14,413  (14412.7435574308)
+      pvm.mix = 11,876  (11875.965095039)
+      pvm.price = 733  (733.222023933951)
+```
+
+A household's budget against its October is in [`examples/household`](examples/household/README.md), and [the posts](docs/posts/README.md) ask one question each of these models.
 
 ## Try it with your AI
 
 Forge is made for AI agents, so the quickest way to see it work is to let yours try it. Paste this into Claude, ChatGPT, Grok or any AI that can run commands (a coding agent, or a chat with a code sandbox):
 
-```text
+```plaintext
 Try Forge, the financial-modelling engine from Möllendorff AI:
 https://github.com/mollendorff-ai/forge (Rust; the crate is mollendorff-forge).
 Do not build it from source. Install the release binary and its examples with:
@@ -98,91 +139,41 @@ It needs an AI that can run commands. Tried by the maintainer on 2026-11-15: it 
 
 **Seven more prompts** in [docs/PROMPTS.md](docs/PROMPTS.md), each run by a fresh agent before it went in: build a model from a description, bring a workbook in from Excel and back, budget against actual, what-if (scenarios, break-even, goal seek, sensitivity), risk and decisions (simulation, tornado, decision tree, real options), games (what will the other side do?), and a price war built from the bagel shop's own numbers. Each ends with the model's YAML, to open in Studio, and the page ends with what to keep in a prompt of your own.
 
-## Status and known limitations
+## Four ways to use Forge
 
-Forge is a release candidate (v10.0.0-rc.35) and an R&D prototype: read its claims as hypotheses to check, not facts to trust. It was built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
+The same model and the same binary, from one person to a pipeline nobody watches:
 
-Forge began in 2025 as the core of a trading-engine idea, built closed-source for a few months. Making the YAML calculator showed it was worth more as a financial-modelling tool, and it was opened under MIT OR Apache-2.0 in February 2026; it is not a trading engine and does not plan to become one ([ADR-063](docs/architecture/ADR-063-ORIGIN-OF-FORGE.md)).
-
-Known problems as of 2026-11-12 (what is planned, and in what order, is in each lane's [roadmap](.asimov/roadmap/)):
-
-- `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value, an uncertain input (`MC.*`) as its plan value, and lists it. `forge import` brings such a cell back as that value: the distribution stays in the YAML file.
-- `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
-- A two-dimensional array constant such as `{1,2;3,4}` is refused (Forge has no two-dimensional values), and `forge import` brings a formula with one in as its values.
-- `forge calculate` does not draw `MC.*` distributions (for example `examples/monte-carlo.yaml`): it says so and points to `forge simulate`, or calculates the model at plan with `--plan`, each uncertain input at its `value:`.
-- Each analytics command has been checked once end to end, on the `examples/bagel` models, against calculations written outside Forge. That is one model each, not broad coverage.
-
-## Four questions, answered
-
-Models of the kind people have. Every number below is what the command prints, and the tests check each one against a calculation written outside Forge (the price seek with 1,000 runs instead of 5,000).
-
-**How much more a month to save 80,000 of interest on a mortgage?** [`examples/mortgage`](examples/mortgage/README.md) is 450,000 at 4.79% over 25 years, compounded twice a year as Canadian fixed rates are. Paying 300 more a month already means 247 payments instead of 300 and 64,596.88 less interest.
-
-```text
-$ forge goal-seek examples/mortgage/mortgage.yaml --target saved.interest --value 80000 --vary loan.extra_per_month
-   loan.extra_per_month = 397.04 (397.044207903935) → saved.interest = 80,000.00
+```mermaid
+flowchart LR
+    person([A person])
+    chat([An AI in a chat])
+    job([A scheduled job])
+    agent([An AI agent in a pipeline])
+    forge[["Forge: one engine<br/>command line · MCP · REST API · Studio"]]
+    yaml[(YAML models in git)]
+    out[Results as tables, JSON, CSV<br/>and Excel workbooks]
+    person --> forge
+    chat --> forge
+    job --> forge
+    agent --> forge
+    forge <--> yaml
+    forge --> out
 ```
 
-A month-by-month loop in Python, solved with SciPy, gives 397.044208 (the command prints two decimals and, in brackets, every digit it keeps). The model holds that loop too, as a table of 300 months in which each month opens with what the month before closed with (`opening: "=PREV(closing, loan.principal)"`): it is paid off with payment 247, in June 2047, and its interest equals the closed form's. [`examples/periods`](examples/periods/README.md) has a monthly plan and a five-year valuation written the same way.
+1. **A person alone.** A model is a text file: change an input, `forge calculate`, and `git diff` shows every result it moved. No AI needed.
+2. **A person with an AI in a chat.** The AI writes the model and explains it; Forge does every sum, so no number is the AI's guess. [Tested prompts](docs/PROMPTS.md).
+3. **A pipeline without AI.** Forge as the deterministic calculator in a financial job, at month-end say: the same inputs give the same numbers, a failed formula exits with 1, and the results come out as JSON, CSV or a workbook.
+4. **A pipeline with AI.** An agent reads a new report and writes or updates the model, Forge checks and calculates it, and a person reviews the change as a pull request: a diff of formulas and inputs, not a workbook to trust. This is where Forge is headed.
 
-**What price gives a new bagel shop an 80% chance of making money in its first year?** [`examples/bagel`](examples/bagel/README.md) has twelve months of seasonal demand, five cost lines, and supplier prices kept in an included file. In the simulation, opening demand, staffing, the flour price and the wage are uncertain.
+Each, with its diagram and commands: [docs/WORKFLOWS.md](docs/WORKFLOWS.md). The first two have been run end to end by fresh agents. No one has yet run a whole pipeline without AI in production, but its gate, a workflow that checks a repository of models on every pull request, has run green and red ([the guide's pipeline page](docs/guide/pipeline.md)). The pipeline with AI has run on a real filing with [Sentinel](https://github.com/mollendorff-ai/sentinel), a small earnings-analysis demo built on Forge: an AI in a chat read Apple's quarterly release and wrote the model, Forge calculated it, and its gross profit and operating income equal the figures the filing prints.
 
-```text
-$ forge simulate examples/bagel/bagel_simulate.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24
-   assumptions.price_per_dozen = 18.32
-   P(year.profit > 0) there: 80.00%  (2.92% at 14, 100.00% at 24)
-   22 simulations of 5000 iterations, the same draws each time
-```
+## Forge Studio
 
-At the planned 16 a dozen, the chance is 34.76%. The simulation names what drives the result: opening demand (+0.84), then staff hours (-0.42), the wage (-0.29) and the flour price (-0.09). The tornado shows how far each input can move the year when it changes alone:
+Studio is Forge compiled to WebAssembly and run in your browser tab. Open an example, or your own YAML or Excel file, and the model shows as cards: drag an input, the results move. Edit a formula with suggestions for names and functions, see the whole model as a grid, apply a scenario, run goal seek, a tornado or a Monte Carlo simulation, and save the workbook `forge export` writes.
 
-```text
-$ forge tornado examples/bagel/bagel.yaml
-   assumptions.opening_dozens_per_day |██████████████████████████████| swing 114,499.75  (output -56,463.56 at low, 58,036.20 at high)
-   assumptions.price_per_dozen        |████████████████████████      | swing 94,192.48  (output -46,309.92 at low, 47,882.56 at high)
-   assumptions.staff_hours_per_day    |████████████████████          | swing 76,590.00  (output 46,740.32 at low, -29,849.68 at high)
-   assumptions.rent_per_month         |██████                        | swing 24,000.00  (output 10,386.32 at low, -13,613.68 at high)
-   assumptions.card_fee_rate          |█                             | swing 4,641.93  (output 3,880.94 at low, -760.99 at high)
-```
-
-**Where did the household's October go?** [`examples/household`](examples/household/README.md) compares a budget with what came in and went out. Under `income` higher is better, and under `expenses` lower is better.
-
-```text
-$ forge variance examples/household/budget.yaml examples/household/actual.yaml
-Variable                      Budget       Actual     Variance      Var %   Status
-income.side_work              400.00       150.00      -250.00     -62.5%     ⚠️ ❌
-expenses.groceries            700.00       812.43       112.43      16.1%     ⚠️ ❌
-expenses.transport            180.00        96.50       -83.50     -46.4%     ⚠️ ✅
-expenses.eating_out           250.00       388.75       138.75      55.5%     ⚠️ ❌
-expenses.total              3,100.00     3,305.85       205.85       6.6%        ❌
-result.left_over            2,500.00     2,044.15      -455.85     -18.2%     ⚠️ ❌
-```
-
-(Six of its thirteen lines.) The same bagel model also runs scenarios, break-even, a decision tree, real options, a bootstrap and a Bayesian network: see its [README](examples/bagel/README.md).
-
-**Why is the year 27,000 over budget?** [`examples/rolling-forecast`](examples/rolling-forecast/README.md) is a rolling forecast with a fiscal year that starts in April. Its months are actuals up to October 2026 and forecast after, there are two products, and a budget table is looked up month by month. The variance splits into volume, mix and price, and the three add up to it exactly.
-
-```text
-$ forge calculate examples/rolling-forecast/forecast.yaml --dry-run
-      fy2027.revenue = 987,622  (987621.930676404)
-      fy2027.budget = 960,600  (960600)
-      fy2027.variance = 27,022  (27021.9306764037)
-      pvm.volume = 14,413  (14412.7435574308)
-      pvm.mix = 11,876  (11875.965095039)
-      pvm.price = 733  (733.222023933951)
-```
-
-The quarters are a table of their own, rolled up from the months with one formula: in a table column an aggregate's range is the whole column and its criterion the row's value, as on a summary sheet in Excel (ADR-058).
-
-```text
-   📊 Table: quarters
-      revenue = [229,101; 240,879; 253,830; 263,813]
-                [229100.5, 240878.5, 253830.273215977, 263812.657460427]
-      budget = [225,300; 235,200; 245,100; 255,000]
-               [225300, 235200, 245100, 255000]
-```
-
-(A few of its lines.) The months not closed yet are empty cells (`null`), which aggregates skip and formulas read as 0, as in Excel (ADR-059). Its README lists what Forge cannot do there yet: a date as a scalar input.
+- **Your model stays on your device.** There is no server doing the math, no account, no cookies and no analytics. GitHub Pages serves the page, so GitHub sees that someone downloaded it, as with any website; after that, nothing you type leaves the tab. Your files are kept in your browser's storage, on your device. A link can carry a model to Studio, after the `#`, the part of an address that a browser never sends to a server (ADR-080). A link you make holds your model wherever you paste it.
+- **It works offline.** Add it to your Home Screen and it opens and calculates with no connection: on a plane, in a tunnel, in a meeting room with bad Wi-Fi.
+- **The numbers are Forge's.** The page calculates nothing itself; it asks the same engine as the command line, and CI checks that the WebAssembly answers equal the native ones, case by case.
 
 ## Beyond the spreadsheet
 
@@ -242,7 +233,7 @@ For tighter integration, `forge mcp` is an MCP server with 23 tools (validate, c
 }
 ```
 
-With a file path, the server reads and writes as you, and only inside the folder it starts in; `"args": ["mcp", "--root", "/path/to/models"]` names the folder, and `--any-path` lifts the limit ([docs/MCP.md](docs/MCP.md#keeping-files-inside-one-folder)). [docs/MCP.md](docs/MCP.md) describes each tool. `forge serve` runs a REST API for validate, calculate, audit, export and import ([docs/FEATURES.md](docs/FEATURES.md#http-rest-api-server)).
+With a file path, the server reads and writes as you, and only inside the folder it starts in; `"args": ["mcp", "--root", "/path/to/models"]` names the folder, and `--any-path` lifts the limit ([docs/MCP.md](docs/MCP.md#keeping-files-inside-one-folder)). [docs/MCP.md](docs/MCP.md) describes each tool, and [Forge with an AI](docs/guide/ai.md) has rules to put in your project's `AGENTS.md` or `CLAUDE.md`. `forge serve` runs a REST API for validate, calculate, audit, export and import ([docs/FEATURES.md](docs/FEATURES.md#http-rest-api-server)).
 
 ## Quick start
 
@@ -302,42 +293,34 @@ Forge models are YAML files, so any editor with YAML support works. Two things h
 
 There is no language server: run `forge validate` and `forge calculate` in a terminal, or `forge watch` to recalculate on every save.
 
-### Side by side: `forge report`
-
-`forge report` shows a calculated file's scalars as a table: one row per group, one column per key, and groups with the same keys lined up. It reads what `forge calculate` wrote and never writes the file. `--format markdown` pastes into a document; `csv` and `json` keep all 15 significant digits.
-
-```bash
-forge calculate options.yaml && forge report options.yaml --format markdown
-```
-
-See [docs/REPORT.md](docs/REPORT.md).
-
 ## How we know the numbers are right
 
-Forge's results are checked against engines it does not control, and none of the checks is complete. The unit tests run on every push. The validation suites, in [`validation/`](validation/), run on every pull request and every merge to `main` that changes the engine or a suite, and every week. [VALIDATION.md](VALIDATION.md) lists what each one covers, its latest result and how to run it; [docs/STABILITY.md](docs/STABILITY.md) says what a stable release will promise, and what it will not.
+Forge's results are checked against engines it does not control, and none of the checks is complete. [VALIDATION.md](VALIDATION.md) lists what each one covers, its latest result and how to run it; [docs/STABILITY.md](docs/STABILITY.md) says what a stable release will promise, and what it will not.
 
-| Check | What it covers | Latest result |
+| Check | What it covers | Checked on every pull request by |
 | --- | --- | --- |
-| Unit tests (this repo) | Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
-| [forge-e2e-gnumeric](validation/gnumeric) | 2,182 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 175 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,137 pass, 0 fail, 1 skipped, the 168 by LibreOffice included (2026-11-17); CI runs them on every pull request |
-| [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
-| [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R; games of many players and their dynamics with egttools, and again in R from the payoffs alone | 0 disagreements in 3,000 generated games, 372 tournament values and the named games (2026-11-20); games of many players and dynamics: 3,000 more games and every generation, 0 disagreements ([VALIDATION.md](VALIDATION.md), 2026-11-22) |
-
-Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
+| Unit tests (this repo) | Black-Scholes and binomial option prices checked against QuantLib reference values, among the rest | CI's Test job, on every pull request and every merge to `main` (the CI badge above) |
+| [forge-e2e-gnumeric](validation/gnumeric) | 2,182 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the cases Gnumeric cannot read), and Forge after export and import all match the expected value. With them, 2,700 generated cases, arguments drawn from a seed toward the edges, compared with Gnumeric and LibreOffice ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)) | The Validation workflow's Gnumeric job, on every pull request that changes the engine or a suite; every week with 27,000 new generated cases |
+| [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | The Validation workflow's R job, on the same pull requests and every week |
+| [validation/games](validation/games) | Games: equilibria compared with Gambit, tournaments with the axelrod library, 2 x 2 closed forms with R; games of many players and their dynamics with egttools, and again in R from the payoffs alone | The Validation workflow's games job, on the same pull requests and every week |
+| [validation/repo](validation/repo) | The documentation: every `$ forge` command in this README and in the guide runs and prints what the page shows, and the counts of functions and tools in the docs are the code's | CI's Repository checks job, on every pull request |
 
 Clippy runs in pedantic mode and CI fails on a warning.
 
-## Intended use
+## Status and known limitations
 
-Forge is new and there is no adoption data yet. These are the uses it is designed for:
+Forge is a release candidate (v10.0.0-rc.35) and an R&D prototype: read its claims as hypotheses to check, not facts to trust. It was built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
 
-| Team | Intended use |
-| --- | --- |
-| **FP&A** | 3-statement models, budget vs actual, rolling forecasts |
-| **M&A** | DCF valuations, sensitivity analysis, scenario comparison |
-| **Consulting** | Client financial models with version control |
-| **Fintech** | Automated projections via API, embedded calculations |
-| **AI Agents** | A coding agent writes YAML and Forge evaluates it |
+Forge began in 2025 as the core of a trading-engine idea, built closed-source for a few months. Making the YAML calculator showed it was worth more as a financial-modelling tool, and it was opened under MIT OR Apache-2.0 in February 2026; it is not a trading engine and does not plan to become one ([ADR-063](docs/architecture/ADR-063-ORIGIN-OF-FORGE.md)).
+
+Known problems (what is planned, and in what order, is in each lane's [roadmap](.asimov/roadmap/)):
+
+- `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value, an uncertain input (`MC.*`) as its plan value, and lists it. `forge import` brings such a cell back as that value: the distribution stays in the YAML file.
+- `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
+- A two-dimensional array constant such as `{1,2;3,4}` is refused (Forge has no two-dimensional values), and `forge import` brings a formula with one in as its values.
+- `forge calculate` does not draw `MC.*` distributions (for example `examples/monte-carlo.yaml`): it says so and points to `forge simulate`, or calculates the model at plan with `--plan`, each uncertain input at its `value:`.
+- Each analytics command has been checked once end to end, on the `examples/bagel` models, against calculations written outside Forge. That is one model each, not broad coverage.
+- Some analytics specs are not yet compared with R: elasticity, the exponential distribution, one-point ranges ([VALIDATION.md](VALIDATION.md)).
 
 ## Documentation
 
@@ -351,6 +334,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | [Examples](examples/) | Runnable models, each with a README; [docs/EXAMPLES.md](docs/EXAMPLES.md) walks through them |
 | [Glossary](docs/GLOSSARY.md) | The terms: a model, scenario, equilibrium, plan |
 | [Command line reference](docs/cli/README.md) | Every command and option, with its output |
+| [Side by side](docs/REPORT.md) | `forge report`: a calculated file's scalars as a table, for a document or a spreadsheet |
 | [Posts](docs/posts/) | One question each, answered with the examples |
 | [Validation](VALIDATION.md) | What is checked against what, and the latest results |
 | [Stability](docs/STABILITY.md) | What a stable release promises |

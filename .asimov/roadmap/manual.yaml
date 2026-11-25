@@ -10,11 +10,6 @@ current: {}
 previous: {}
 
 backlog:
-  - id: A10-README-AND-TRIALS
-    title: "The README as the front door, then a trial by a fresh reader of each kind"
-    how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
-    acceptance: "readme_commands.rs passes; four trial reports name no step that failed, or each is a roadmap item"
-    model: "Opus 5.5, high for the README; Sonnet 5.5, medium for the trials"
   - id: A15-MAINTAINER-STEPS
     title: "Index Forge at DeepWiki and Context7, then read what each says"
     why: "A15 added llms.txt, context7.json and .devin/wiki.json, but DeepWiki has never indexed the repository and Context7 has no entry for it (2026-11-25); only the maintainer can add it, and Context7 wants a free API key"
@@ -34,6 +29,12 @@ backlog:
     model: "Sonnet 5.5, low: the behaviour is written in ADR-075 and the changelog"
 
 done:
+  - id: A10-README-AND-TRIALS
+    title: "The README as the front door, then a trial by a fresh reader of each kind"
+    how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
+    acceptance: "readme_commands.rs passes; four trial reports name no step that failed, or each is a roadmap item"
+    model: "Opus 5.5, high for the README; Sonnet 5.5, medium for the trials"
+    built: "2026-11-25: the README opens with a door for each of ADR-078's five readers (the page docs/README.md starts each on), tells the bagel shop's first year in five checked commands (calculate, break-even, tornado, the 80% price seek, the price war) with the mortgage and the rolling forecast as other models, and its table of checks says which job runs each on a pull request, with no date (the results are VALIDATION.md's). readme_commands.rs checks its links and anchors, the five doors and that table. Four trials, each a fresh agent (Sonnet 5.5, medium) with the docs only, an empty folder and its own HOME, the release rc.35: the new user (lessons 1 to 6), the AI user (the README's prompt, ai.md, forge mcp by hand over stdio, the skill end to end), the pipeline builder (pipeline.md, the workflow's steps run by hand, green and red) and the contributor (CONTRIBUTING.md from a clone: make check 6.5 minutes, a change, the commit). No step blocked any of them. Fixed the same day: lesson 3's git commit on a machine with no git identity, lesson 1's unexplained audit warning, the skill's --formula example on a name its model lacks, MCP.md's missing initialize handshake and its Claude Code command, the pipeline pages' rc.34 wording (uncalculated, the runs of 2026-11-24), ai.md's count of its ways. CONTRIBUTING.md's four points went to the architecture lane's backlog (AR-CONTRIBUTING-TRIAL). Left as cosmetic: the pages show the lines that matter, not every line a command prints, as the guide's index says"
   - id: A15-DOC-INDEXERS
     title: "What Context7, DeepWiki and GitMCP tell an agent about Forge, corrected"
     why: "Coding agents look up an unknown library through these; no model was trained on Forge, so they may be the only source an agent reads, and they may repeat stale docs"

@@ -172,6 +172,8 @@ git add bagel.yaml costs.yaml
 git commit -m "Bagel Lune: the first year's plan"
 ```
 
+If git has never been told who you are on this computer, the commit stops with `Author identity unknown`: tell it once, with `git config --global user.name "Your Name"` and `git config --global user.email you@example.com`, and commit again.
+
 and a line in `.gitignore` so the backups stay out of it:
 
 ```gitignore
