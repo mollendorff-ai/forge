@@ -66,6 +66,30 @@ pub fn yaml_block(help: &str) -> String {
     out
 }
 
+/// The models of `WRITING A FORMULA:` in `forge calculate --help`, without
+/// their indent: the blocks of its section that start with a group's name.
+#[must_use]
+pub fn formula_models(help: &str) -> String {
+    let text = section(help, &["WRITING A FORMULA:"]).join("\n");
+    text.split("\n\n")
+        .filter(|block| {
+            block
+                .trim_start()
+                .lines()
+                .next()
+                .is_some_and(|l| l.ends_with(':') && !l.contains(' '))
+        })
+        .map(|block| {
+            block
+                .lines()
+                .map(|l| l.strip_prefix("  ").unwrap_or(l))
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// The arguments of an example after `forge`, the quoted ones joined.
 #[must_use]
 pub fn arguments(example: &str) -> Vec<String> {
@@ -103,7 +127,7 @@ pub fn in_dir(args: &[String], model: &Path, dir: &Path) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::forge;
+    use crate::{forge, forge_in};
 
     /// The commands whose YAML CONFIGURATION is a whole model.
     const WHOLE_MODELS: [&str; 4] = ["bayesian", "bootstrap", "decision-tree", "real-options"];
@@ -252,5 +276,24 @@ mod tests {
             }
         }
         assert!(ran >= 8, "only {ran} examples ran");
+    }
+
+    #[test]
+    fn the_formula_forms_calculate_help_shows_calculate_as_it_says() {
+        let text = "About\n\nWRITING A FORMULA:\n  A scalar:\n\n  a:\n    x: 1\n\n  Then it reads:\n\n  b:\n    y: 2\n\nOTHER:\n  c:\n";
+        assert_eq!(formula_models(text), "a:\n  x: 1\nb:\n  y: 2");
+        assert_eq!(formula_models("About\n"), "");
+        let dir = tempfile::tempdir().unwrap();
+        let model = format!(
+            "_forge_version: \"5.1.0\"\n{}\n",
+            formula_models(&help("calculate"))
+        );
+        let path = dir.path().join("m.yaml");
+        std::fs::write(&path, model).unwrap();
+        let out = forge_in(dir.path(), &["calculate", "m.yaml"]).printed();
+        assert!(out.contains("plan.revenue = 480"), "{out}");
+        assert!(out.contains("total = [2, 4]"), "{out}");
+        let written = std::fs::read_to_string(&path).unwrap();
+        assert!(written.contains(r#"revenue: {formula: "=plan.price * 12", value: 480}"#));
     }
 }

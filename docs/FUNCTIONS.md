@@ -85,7 +85,7 @@
 
 | Function | Description | Syntax |
 |----------|-------------|--------|
-| `PMT` | Loan payment | `=PMT(rate, nper, pv, fv, type)` |
+| `PMT` | Loan payment, negative for a loan received (as in Excel) | `=PMT(rate, nper, pv, fv, type)` |
 | `PV` | Present value | `=PV(rate, nper, pmt, fv, type)` |
 | `FV` | Future value | `=FV(rate, nper, pmt, pv, type)` |
 | `NPV` | Net present value (skips an empty cell, as Excel does) | `=NPV(rate, value1, value2, ...)` |
@@ -98,8 +98,8 @@
 | `DB` | Declining balance depreciation | `=DB(cost, salvage, life, period, month)` |
 | `DDB` | Double declining balance | `=DDB(cost, salvage, life, period, factor)` |
 | `SLN` | Straight-line depreciation | `=SLN(cost, salvage, life)` |
-| `IPMT` | Interest payment | `=IPMT(rate, per, nper, pv, fv, type)` |
-| `PPMT` | Principal payment | `=PPMT(rate, per, nper, pv, fv, type)` |
+| `IPMT` | Interest payment, negative for a loan received (as in Excel) | `=IPMT(rate, per, nper, pv, fv, type)` |
+| `PPMT` | Principal payment, negative for a loan received (as in Excel) | `=PPMT(rate, per, nper, pv, fv, type)` |
 | `RRI` | Growth rate per period between two values | `=RRI(nper, pv, fv)` |
 | `SYD` | Sum-of-years-digits depreciation | `=SYD(cost, salvage, life, period)` |
 | `CUMIPMT` | Interest paid between two periods of a loan | `=CUMIPMT(rate, nper, pv, start_period, end_period, type)` |

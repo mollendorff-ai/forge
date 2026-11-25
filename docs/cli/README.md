@@ -4,7 +4,7 @@
 
 ## Main Help
 
-```
+```text
 Forge - Git-native financial modeling
 203 functions | Release candidate | Validated against Gnumeric, R and Gambit (validation/)
 
@@ -40,6 +40,7 @@ COMMANDS:
   serve         - Start HTTP REST API server
 
 EXAMPLES:
+  forge examples starter                        # A first model to start from
   forge calculate model.yaml                    # Execute formulas
   forge edit model.yaml --set year.price=17     # Change an input
   forge simulate model.yaml --iterations 10000  # Monte Carlo
@@ -97,11 +98,26 @@ Options:
 
 ## calculate
 
-```
+```text
 Calculate all formulas in a YAML file.
 
 Evaluates formulas in dependency order and writes each scalar formula's
 result next to it in the file.
+
+WRITING A FORMULA:
+  A scalar's formula is a mapping, and calculate adds its result as value:
+
+  plan:
+    price: 40
+    revenue: {formula: "=plan.price * 12"}
+
+  A table column's formula is a bare string, worked out row by row:
+
+  products:
+    units: [1, 2]
+    total: "=units * 2"
+
+  Run 'forge examples starter' for a whole model.
 
 CROSS-FILE REFERENCES:
   Add an '_includes' section to read the scalars of other files:
@@ -151,7 +167,7 @@ Options:
 
 ## edit
 
-```
+```text
 Change a model's text: set an input's value, a table's column of numbers
 or dates (a list, one value for each row), or a formula, add or delete an
 input, a formula or a table's column, or rename a scalar, a group, a table, a
@@ -256,7 +272,7 @@ Options:
 
 ## validate
 
-```
+```text
 Validate a model's stored results, and what it states it should give.
 
 Checks that each formula has its result stored next to it, that the result
@@ -303,7 +319,7 @@ Options:
 
 ## audit
 
-```
+```text
 Show audit trail for a specific variable
 
 Usage: forge audit <FILE> <VARIABLE>
@@ -318,7 +334,7 @@ Options:
 
 ## export
 
-```
+```text
 Export a model to an Excel .xlsx workbook, formulas included.
 
 The model is calculated first, and each formula cell carries Forge's result.
@@ -356,7 +372,7 @@ Options:
 
 ## import
 
-```
+```text
 Import an Excel .xlsx workbook as a Forge model (format 5.1.0, or 5.3.0
 with empty cells, 5.4.0 with dates or formats).
 
@@ -403,7 +419,7 @@ Options:
 
 ## watch
 
-```
+```text
 Watch YAML files and auto-calculate on changes.
 
 Monitors the folder of the specified file: a change to any .yaml file in it
@@ -449,7 +465,7 @@ Options:
 
 ## compare
 
-```
+```text
 Compare calculation results across multiple scenarios.
 
 Runs calculations for each specified scenario and displays results side-by-side.
@@ -536,7 +552,7 @@ Options:
 
 ## report
 
-```
+```text
 Show a calculated model's scalars side by side: one row per group,
 one column per key.
 
@@ -595,7 +611,7 @@ Options:
 
 ## variance
 
-```
+```text
 Compare budget vs actual with variance analysis.
 
 Calculates variances between two YAML files (budget and actual).
@@ -663,7 +679,7 @@ Options:
 
 ## sensitivity
 
-```
+```text
 Run sensitivity analysis by varying one or two inputs.
 
 Varies the specified input variable(s) across a range and shows how the
@@ -729,7 +745,7 @@ Options:
 
 ## goal-seek
 
-```
+```text
 Find the input value needed to achieve a target output.
 
 Uses numerical methods (bisection) to find what input value produces
@@ -785,7 +801,7 @@ Options:
 
 ## break-even
 
-```
+```text
 Find the break-even point where output equals zero.
 
 Special case of goal-seek that finds where a variable crosses zero.
@@ -831,7 +847,7 @@ Options:
 
 ## update
 
-```
+```text
 Check for updates and optionally install the latest version.
 
 Downloads and installs the latest Forge release from GitHub.
@@ -867,7 +883,7 @@ Options:
 
 ## functions
 
-```
+```text
 List all supported Excel-compatible functions by category.
 
 Most functions are Excel-compatible; a few are FP&A-native functions Excel
@@ -890,7 +906,7 @@ Options:
 
 ## schema
 
-```
+```text
 Display JSON schema for validating Forge YAML models.
 
 The versions are model formats (_forge_version), not Forge versions:
@@ -927,7 +943,7 @@ Options:
 
 ## examples
 
-```
+```text
 Display runnable example YAML models for Forge capabilities.
 
 Start a new model from `starter`; the others show Forge's analysis commands:
@@ -972,7 +988,7 @@ Options:
 
 ## upgrade
 
-```
+```text
 Upgrade a model and its includes to a newer model format: 5.1.0 by
 default, up to 5.6.0 with --to.
 
@@ -1032,7 +1048,7 @@ Options:
 
 ## simulate
 
-```
+```text
 Run Monte Carlo simulation for probabilistic analysis.
 
 Uses probability distributions (MC.Normal, MC.Triangular, etc.) to model
@@ -1132,7 +1148,7 @@ Options:
 
 ## scenarios
 
-```
+```text
 Run probability-weighted scenario analysis (Base/Bull/Bear cases).
 
 Scenarios are discrete outcomes with assigned probabilities. Unlike Monte Carlo
@@ -1195,7 +1211,7 @@ Options:
 
 ## decision-tree
 
-```
+```text
 Analyze decision trees using backward induction.
 
 Decision trees model sequential choices and uncertain outcomes.
@@ -1262,7 +1278,7 @@ Options:
 
 ## real-options
 
-```
+```text
 Value managerial flexibility using real options analysis.
 
 Real options quantify the value of flexibility to defer, expand, contract,
@@ -1329,7 +1345,7 @@ Options:
 
 ## tornado
 
-```
+```text
 Generate tornado diagram for sensitivity analysis.
 
 Tornado diagrams show which inputs have the most impact on outputs.
@@ -1381,7 +1397,7 @@ Options:
 
 ## game
 
-```
+```text
 Find the dominated strategies and the equilibria of the games in a model,
 and play its tournaments.
 
@@ -1453,7 +1469,7 @@ Options:
 
 ## bootstrap
 
-```
+```text
 Run bootstrap resampling for confidence intervals.
 
 Bootstrap is a non-parametric method that resamples from historical data
@@ -1508,7 +1524,7 @@ Options:
 
 ## bayesian
 
-```
+```text
 Run Bayesian network inference.
 
 Bayesian networks are probabilistic graphical models for causal reasoning.
@@ -1575,7 +1591,7 @@ Options:
 
 ## mcp
 
-```
+```text
 Start MCP (Model Context Protocol) server for AI integration.
 
 Runs a JSON-RPC server over stdin/stdout for use with Claude Desktop,
@@ -1625,7 +1641,7 @@ Options:
 
 ## serve
 
-```
+```text
 Start HTTP REST API server.
 
 Provides five operations on model files over HTTP (the other analyses are

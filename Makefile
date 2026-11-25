@@ -526,14 +526,14 @@ docs-cli:
 	@echo "" >> docs/cli/README.md
 	@echo "## Main Help" >> docs/cli/README.md
 	@echo "" >> docs/cli/README.md
-	@echo '```' >> docs/cli/README.md
+	@echo '```text' >> docs/cli/README.md
 	@./target/release/forge --help >> docs/cli/README.md
 	@echo '```' >> docs/cli/README.md
 	@echo "" >> docs/cli/README.md
 	@for cmd in calculate edit validate audit export import watch compare report variance sensitivity goal-seek break-even update functions schema examples upgrade simulate scenarios decision-tree real-options tornado game bootstrap bayesian mcp serve; do \
 		echo "## $$cmd" >> docs/cli/README.md; \
 		echo "" >> docs/cli/README.md; \
-		echo '```' >> docs/cli/README.md; \
+		echo '```text' >> docs/cli/README.md; \
 		./target/release/forge $$cmd --help >> docs/cli/README.md 2>/dev/null || true; \
 		echo '```' >> docs/cli/README.md; \
 		echo "" >> docs/cli/README.md; \

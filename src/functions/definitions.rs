@@ -719,7 +719,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "PMT",
         category: Category::Financial,
-        description: "Loan payment",
+        description: "Loan payment, negative for a loan received (as in Excel)",
         syntax: "=PMT(rate, nper, pv, fv, type)",
         scalar: true,
     },
@@ -810,14 +810,14 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "IPMT",
         category: Category::Financial,
-        description: "Interest payment",
+        description: "Interest payment, negative for a loan received (as in Excel)",
         syntax: "=IPMT(rate, per, nper, pv, fv, type)",
         scalar: true,
     },
     FunctionDef {
         name: "PPMT",
         category: Category::Financial,
-        description: "Principal payment",
+        description: "Principal payment, negative for a loan received (as in Excel)",
         syntax: "=PPMT(rate, per, nper, pv, fv, type)",
         scalar: true,
     },

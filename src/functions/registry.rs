@@ -254,5 +254,37 @@ mod tests {
             }
             assert!(names.contains(&"DATEDIF"));
         }
+
+        /// A reader of `forge functions` is told the sign Excel gives, and the
+        /// calculator gives it: a loan received of 100,000 is paid with
+        /// negative payments, interest and principal.
+        #[test]
+        fn the_loan_payment_functions_say_their_sign_and_give_it() {
+            let text = "_forge_version: \"5.1.0\"\nloan:\n  \
+                pmt: {formula: \"=PMT(0.005, 60, 100000)\"}\n  \
+                ipmt: {formula: \"=IPMT(0.005, 1, 60, 100000)\"}\n  \
+                ppmt: {formula: \"=PPMT(0.005, 1, 60, 100000)\"}\n";
+            let model = crate::parser::parse_model_text(
+                "loan.yaml",
+                text,
+                &std::collections::HashMap::new(),
+            )
+            .unwrap();
+            let done = crate::core::ArrayCalculator::new(model)
+                .calculate_all()
+                .unwrap();
+            for (name, key, value) in [
+                ("PMT", "loan.pmt", -1933.28),
+                ("IPMT", "loan.ipmt", -500.0),
+                ("PPMT", "loan.ppmt", -1433.28),
+            ] {
+                let got = done.scalars[key].value.unwrap();
+                assert!((got - value).abs() < 0.005, "{name} gave {got}");
+                let said = crate::functions::registry::find_function(name)
+                    .unwrap()
+                    .description;
+                assert!(said.contains("negative for a loan received"), "{said}");
+            }
+        }
     }
 }

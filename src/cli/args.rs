@@ -44,6 +44,7 @@ COMMANDS:
   serve         - Start HTTP REST API server
 
 EXAMPLES:
+  forge examples starter                        # A first model to start from
   forge calculate model.yaml                    # Execute formulas
   forge edit model.yaml --set year.price=17     # Change an input
   forge simulate model.yaml --iterations 10000  # Monte Carlo
@@ -68,6 +69,21 @@ pub enum Commands {
 
 Evaluates formulas in dependency order and writes each scalar formula's
 result next to it in the file.
+
+WRITING A FORMULA:
+  A scalar's formula is a mapping, and calculate adds its result as value:
+
+  plan:
+    price: 40
+    revenue: {formula: \"=plan.price * 12\"}
+
+  A table column's formula is a bare string, worked out row by row:
+
+  products:
+    units: [1, 2]
+    total: \"=units * 2\"
+
+  Run 'forge examples starter' for a whole model.
 
 CROSS-FILE REFERENCES:
   Add an '_includes' section to read the scalars of other files:
