@@ -15,10 +15,11 @@ backlog:
     why: "A9-ROLES left it open: the maintainer has not reviewed the release steps; E-LANES changes step 3 (the changelog is collected from changelog.d/)"
     acceptance: "Each step is the one the engine lane ran for the next release, or corrected; roles.rs passes; the maintainer's review is dated here"
     model: "Sonnet 5.5, medium: steps checked against a real release"
+
+done:
   - id: AR-PAGES-CURRENT
     title: "The architecture pages say what the code does after ADR-078 to ADR-080 and the lanes"
     why: "Three ADRs were accepted in two days (2026-11-23 to 2026-11-25) while other work merged around them; no one has read the pages they change since"
     acceptance: "Each page an ADR changes is read against the code and corrected, or a dated note says why not"
     model: "Sonnet 5.5, medium: reading code against pages"
-
-done: []
+    built: "2026-11-25: 00 (the way in for each reader, ADR-078), 06 (a model in a Studio link and the Content Security Policy, ADR-080), 07 (validation/repo's guide, docs_index, roles, agent, lanes and function checks; the link test) and 09 (the summary of huge values, ADR-079) read against the code and corrected. 01, 02, 03, 04, 05, 08 and 10 are changed by no ADR of 078 to 080 and were not touched"
