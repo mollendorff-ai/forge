@@ -24,7 +24,7 @@ Open Settings, Developer, Edit Config in Claude Desktop, or edit the file it nam
 ### Claude Code
 
 ```bash
-claude mcp add forge -- forge mcp
+claude mcp add --transport stdio forge -- forge mcp
 ```
 
 ### Any MCP Host
@@ -35,7 +35,16 @@ Launch the server:
 forge mcp
 ```
 
-The server reads JSON-RPC requests from stdin and writes responses to stdout, one JSON object per line.
+The server reads JSON-RPC requests from stdin and writes responses to stdout, one JSON object per line. A client starts with `initialize`, then sends the `notifications/initialized` notification, and then may list and call the tools:
+
+```bash
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"by-hand","version":"0"}}}' \
+  '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | forge mcp
+```
+
+The first line it prints is the answer to `initialize`, with the protocol version it speaks and its `instructions`; the second lists the 23 tools.
 
 ## Keeping Files Inside One Folder
 

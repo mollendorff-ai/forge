@@ -75,9 +75,10 @@ $ forge audit examples/bagel/bagel.yaml year.profit
    Formula: =SUM(months.profit)
    └─ months.profit (Column[months]) = 12 rows: -6541.992 … 5796.929911 =revenue - costs
          └─ assumptions.price_per_dozen (Scalar) = 17
+   ⚠️ The value in the file is 786.320362: run forge calculate to update it
 ```
 
-The year's profit is the sum of the months' profit, each month's is its revenue less its costs, and so on down to the inputs, the price among them. A number in a Forge model is never a number someone forgot to update: it is the end of a tree anyone can read.
+The year's profit is the sum of the months' profit, each month's is its revenue less its costs, and so on down to the inputs, the price among them. A number in a Forge model is never a number someone forgot to update: it is the end of a tree anyone can read. The last line is there because `--dry-run` wrote nothing: the file still holds the profit at 16, and [lesson 3](03-keeping-a-model.md) is about writing the results into it.
 
 ## Check it yourself
 
