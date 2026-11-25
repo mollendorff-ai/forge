@@ -100,7 +100,10 @@ impl Op {
 
 /// A value to write: a number, or its text as YAML holds it (`1e-5`,
 /// `0x10`, a date `2026-01-31`); or, for a table's column of values, a list
-/// of them, one for each row (`[20, 45]`)
+/// of them, one for each row (`[20, 45]`).
+///
+/// A column of text takes texts (`["Basic", "Plus"]`), each written in the
+/// quotes its row has.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "cli", derive(schemars::JsonSchema))]
 #[serde(

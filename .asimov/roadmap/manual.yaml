@@ -31,4 +31,10 @@ backlog:
     how: "When someone offers, not by recruiting: one FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
     acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
 
+  - id: M-EDIT-TEXT-COLUMN-DOCS
+    title: "The docs say forge edit changes a column of text"
+    why: "Found 2026-11-25 by the features lane (F-EDIT-TEXT-COLUMN): forge edit and forge_edit's set_value now take a list of texts for a table's column of text, each row written in its own quotes, and --set takes the quotes off each item ('products.name=[\"Basic\", Plus Pro]'). docs/MCP.md's set_value row and docs/FEATURES.md's forge edit paragraph still say a column of text is refused; skills/forge-modelling/SKILL.md (step 4) shows only a column of numbers or dates"
+    acceptance: "docs/MCP.md, docs/FEATURES.md and the skill say a column of text is changed and a column of true and false or with an empty cell is refused, with an example; docs/cli/README.md rebuilt from forge edit --help"
+    model: "Sonnet 5.5, low: the behaviour is written in ADR-075 and the changelog"
+
 done: []

@@ -168,8 +168,8 @@ Options:
 ## edit
 
 ```text
-Change a model's text: set an input's value, a table's column of numbers
-or dates (a list, one value for each row), or a formula, add or delete an
+Change a model's text: set an input's value, a table's column of numbers,
+dates or text (a list, one value for each row), or a formula, add or delete an
 input, a formula or a table's column, or rename a scalar, a group, a table, a
 column, a game, a player or a strategy and every name that reads it (formulas,
 scenarios, expectations, a simulation's outputs, a tornado's inputs, a game's
@@ -194,6 +194,7 @@ made in this order: --changes, --set, --formula, --add, --delete, --rename,
 EXAMPLES:
   forge edit model.yaml --set year.price=17
   forge edit model.yaml --set 'months.sales=[100, 120, 90]'   # Each row's value
+  forge edit model.yaml --set 'products.name=[Basic, Plus Pro]' # Texts, quoted as each row is
   forge edit model.yaml --formula 'year.margin==year.profit / year.revenue'
   forge edit model.yaml --add year.tax=0.15 --add 'year.net==year.profit * 0.85'
   forge edit model.yaml --add fee=25 --after rate          # At the top level
@@ -219,7 +220,7 @@ Arguments:
 
 Options:
       --set <PATH=VALUE>
-          Set an input: PATH=VALUE (a number, or a date 2026-01-31), or a table's column of values: PATH=[VALUE, ...], one for each row
+          Set an input: PATH=VALUE (a number, or a date 2026-01-31), or a table's column of numbers, dates or text: PATH=[VALUE, ...], one for each row (a text with a comma goes in --changes)
 
       --formula <PATH==FORMULA>
           Set a formula: PATH==FORMULA (the formula's = after the name's)

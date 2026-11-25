@@ -105,6 +105,45 @@ pub fn set_value(text: &str, names: &[&str], value: &str) -> Result<String, Stri
 /// As [`set_value`], and when the column is not a list of plain values, one
 /// for each of `values`.
 pub fn set_column(text: &str, names: &[&str], values: &[String]) -> Result<String, String> {
+    rows(text, names, values, |scalar, value| {
+        let was = scalar.as_string();
+        let same = was == *value
+            || matches!((was.parse::<f64>(), value.parse::<f64>()), (Ok(a), Ok(b)) if a.to_bits() == b.to_bits());
+        (!same).then(|| {
+            let quote = scalar
+                .value()
+                .chars()
+                .next()
+                .filter(|c| *c == '"' || *c == '\'');
+            quote.map_or_else(|| value.clone(), |q| format!("{q}{value}{q}"))
+        })
+    })
+}
+
+/// Set the texts of a table's column of text, `values` each row's, in order.
+///
+/// A row whose text is the same keeps its bytes; the others are written in
+/// the quotes the row has: 'single' or "double", escaped as each needs, or
+/// plain when YAML reads the plain text back as that text, and otherwise in
+/// double quotes. The list's style, its comments and its layout stay.
+///
+/// # Errors
+///
+/// As [`set_column`].
+pub fn set_text_column(text: &str, names: &[&str], values: &[String]) -> Result<String, String> {
+    rows(text, names, values, |scalar, value| {
+        (scalar.as_string() != *value).then(|| quoted_text(value, &scalar.value()))
+    })
+}
+
+/// Each row of the column `names` written as `write` says, given the row and
+/// its new value: `None` keeps the row's bytes
+fn rows(
+    text: &str,
+    names: &[&str],
+    values: &[String],
+    write: impl Fn(&Scalar, &String) -> Option<String>,
+) -> Result<String, String> {
     let file = parse(text)?;
     let (mapping, name) = place(&file, names)?;
     let not_list = || format!("{name} is not written as a list of {} values", values.len());
@@ -122,19 +161,44 @@ pub fn set_column(text: &str, names: &[&str], values: &[String]) -> Result<Strin
         return Err(not_list());
     }
     for (scalar, value) in scalars.iter().zip(values) {
-        let was = scalar.as_string();
-        let same = was == *value
-            || matches!((was.parse::<f64>(), value.parse::<f64>()), (Ok(a), Ok(b)) if a.to_bits() == b.to_bits());
-        if !same {
-            let quote = scalar
-                .value()
-                .chars()
-                .next()
-                .filter(|c| *c == '"' || *c == '\'');
-            scalar.set_value(&quote.map_or_else(|| value.clone(), |q| format!("{q}{value}{q}")));
+        if let Some(new) = write(scalar, value) {
+            scalar.set_value(&new);
         }
     }
     Ok(file.to_string())
+}
+
+/// A text for a row written `was`: in its quotes, 'single' (a `'` doubled)
+/// or "double" (escaped as JSON escapes it, which YAML reads the same); plain
+/// when `was` is and the text is words YAML reads as text ([`plain_text`]);
+/// otherwise in double quotes. A text with a control character (a line
+/// break, a tab) is in double quotes, the only ones that escape it.
+fn quoted_text(text: &str, was: &str) -> String {
+    let double = || serde_json::Value::String(text.to_string()).to_string();
+    match was.chars().next() {
+        Some('\'') if !text.contains(char::is_control) => {
+            format!("'{}'", text.replace('\'', "''"))
+        },
+        Some('\'' | '"') => double(),
+        _ if plain_text(text) => text.to_string(),
+        _ => double(),
+    }
+}
+
+/// Whether YAML reads `text`, written plain, as that text: a letter of any
+/// alphabet or `_` first, then letters, digits, spaces and `_./-()&+`, no
+/// space last, and not a word YAML reads as true, false or null (YAML 1.1's
+/// `yes`, `no`, `on` and `off` too, for the readers that keep them); a flow
+/// list's `,[]{}` are not among them
+fn plain_text(text: &str) -> bool {
+    const WORDS: [&str; 11] = [
+        "true", "false", "null", "yes", "no", "on", "off", "y", "n", "nan", "inf",
+    ];
+    let mut chars = text.chars();
+    chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
+        && chars.all(|c| c.is_alphanumeric() || " _./-()&+".contains(c))
+        && !text.ends_with(' ')
+        && !WORDS.contains(&text.to_lowercase().as_str())
 }
 
 /// Set a formula, in the quotes the file already uses for it.
