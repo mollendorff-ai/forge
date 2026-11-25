@@ -132,8 +132,8 @@ pub fn edit(
 #[derive(clap::Args)]
 #[command(
     about = "Change a model's text: values, formulas, names added, deleted and renamed, inputs made uncertain, a game's strategies and players, comments kept",
-    long_about = "Change a model's text: set an input's value, a table's column of numbers
-or dates (a list, one value for each row), or a formula, add or delete an
+    long_about = "Change a model's text: set an input's value, a table's column of numbers,
+dates or text (a list, one value for each row), or a formula, add or delete an
 input, a formula or a table's column, or rename a scalar, a group, a table, a
 column, a game, a player or a strategy and every name that reads it (formulas,
 scenarios, expectations, a simulation's outputs, a tornado's inputs, a game's
@@ -158,6 +158,7 @@ made in this order: --changes, --set, --formula, --add, --delete, --rename,
 EXAMPLES:
   forge edit model.yaml --set year.price=17
   forge edit model.yaml --set 'months.sales=[100, 120, 90]'   # Each row's value
+  forge edit model.yaml --set 'products.name=[Basic, Plus Pro]' # Texts, quoted as each row is
   forge edit model.yaml --formula 'year.margin==year.profit / year.revenue'
   forge edit model.yaml --add year.tax=0.15 --add 'year.net==year.profit * 0.85'
   forge edit model.yaml --add fee=25 --after rate          # At the top level
@@ -180,7 +181,8 @@ pub struct EditArgs {
     pub file: PathBuf,
 
     /// Set an input: PATH=VALUE (a number, or a date 2026-01-31), or a
-    /// table's column of values: PATH=[VALUE, ...], one for each row
+    /// table's column of numbers, dates or text: PATH=[VALUE, ...], one for
+    /// each row (a text with a comma goes in --changes)
     #[arg(long = "set", value_name = "PATH=VALUE")]
     pub set: Vec<String>,
 
@@ -255,7 +257,8 @@ pub struct EditArgs {
 }
 
 /// What `--set` writes: a value, or a list of them for a table's column
-/// (`[20, 45]`, each value as written)
+/// (`[20, 45]`, each value as written; `["Basic", 'Plus']`, the quotes
+/// around a value taken off)
 fn set_value_of(text: &str) -> Value {
     text.strip_prefix('[')
         .and_then(|rest| rest.strip_suffix(']'))
@@ -267,11 +270,19 @@ fn set_value_of(text: &str) -> Value {
                         .split(',')
                         .map(str::trim)
                         .filter(|item| !item.is_empty())
-                        .map(|item| Value::Text(item.to_string()))
+                        .map(|item| Value::Text(unquoted(item).to_string()))
                         .collect(),
                 )
             },
         )
+}
+
+/// `item` without the quotes around it, "double" or 'single'
+fn unquoted(item: &str) -> &str {
+    ['"', '\'']
+        .iter()
+        .find_map(|q| item.strip_prefix(*q).and_then(|rest| rest.strip_suffix(*q)))
+        .unwrap_or(item)
 }
 
 impl EditArgs {
@@ -778,19 +789,36 @@ games:
                 Value::Text("2026-01-31".into())
             ])
         );
+        assert_eq!(
+            super::set_value_of("[\"Basic\", 'Plus Pro', \"x', \"]"),
+            Value::List(vec![
+                Value::Text("Basic".into()),
+                Value::Text("Plus Pro".into()),
+                Value::Text("\"x'".into()),
+                Value::Text("\"".into())
+            ])
+        );
         assert_eq!(super::set_value_of("[]"), Value::List(vec![]));
         assert_eq!(super::set_value_of("[20"), Value::Text("[20".into()));
         // On the command line
         let dir = tempfile::tempdir().unwrap();
         let model = dir.path().join("t.yaml");
-        let text =
-            "_forge_version: \"5.1.0\"\nt:\n  price: [20, 40]   # each\n  double: \"=price * 2\"\n";
+        let text = "_forge_version: \"5.1.0\"\nt:\n  price: [20, 40]   # each\n  name: \
+                    [Basic, 'Plus']\n  double: \"=price * 2\"\n";
         std::fs::write(&model, text).unwrap();
-        let ran = forge(&["edit", model.to_str().unwrap(), "--set", "t.price=[20, 45]"]);
+        let ran = forge(&[
+            "edit",
+            model.to_str().unwrap(),
+            "--set",
+            "t.price=[20, 45]",
+            "--set",
+            "t.name=[\"Basic\", Plus Pro]",
+        ]);
         assert_eq!(ran.code, 0, "{}", ran.err);
         assert_eq!(
             std::fs::read_to_string(&model).unwrap(),
             text.replace("[20, 40]", "[20, 45]")
+                .replace("'Plus'", "'Plus Pro'")
         );
     }
 

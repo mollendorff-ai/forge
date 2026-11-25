@@ -5,7 +5,15 @@
 # for another lane goes at the end of that lane's backlog.
 # Items done before the split (2026-11-25) are in ../roadmap.yaml.
 
-current: {}
+current:
+  id: A17-SCORECARD
+  title: "OpenSSF Scorecard on the repository, with its badge"
+  why: "An outside rating of the practices T1-SUPPLY-CHAIN put in place, which a reader can check without trusting the README"
+  acceptance: "A pinned scorecard workflow runs weekly and on main; the README shows the badge; each check scored below 10 is fixed or a roadmap item says why not"
+  model: "Sonnet 5.5, low"
+  status: in_progress
+  built_so_far: "2026-11-25. .github/workflows/scorecard.yml (ossf/scorecard-action v2.6.0 and codeql-action upload-sarif v4.39.5, both pinned to a commit; weekly on Tuesdays, on every push to main, on branch_protection_rule and by hand; publishes the score), the badge in README.md, and validation/repo tests that every action in every workflow is pinned to a commit and that scorecard.yml and the badge stay"
+  left: "After the first run on main: read the score at https://scorecard.dev/viewer/?uri=github.com/mollendorff-ai/forge, and for each check below 10 fix it or add an item here saying why not. Some are the maintainer's settings (branch protection, required reviews, a security policy file); say so in the item"
 
 previous: {}
 
@@ -15,11 +23,6 @@ backlog:
     why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs: 218 lint allow or expect attributes, 16 lints allowed in Cargo.toml files, 31 places of code compiled only for or only without coverage, 2 ignored tests. Counted again 2026-11-24: every budget in no_skipping.rs is 0 except the crates clippy.toml allows in two versions (4: syn, getrandom, r-efi, hashbrown), each held by a library the maintainer decided to keep (ADR-072, ADR-075). None can be lowered today: tracing-attributes 0.1.31, zeroize_derive 1.5.0 and strum_macros 0.28 are the latest releases and are on syn 2; ahash 0.8.13 and jsonschema 0.63.1 still bring getrandom 0.3 (tried 2026-11-24, nothing removed); yaml-edit 0.3.6 is the latest and its rowan 0.16 is on hashbrown 0.14"
     how: "One kind of lint or one crate per pull request, each lowering its budget in validation/repo/src/no_skipping.rs. A count is not a size: the #![allow] of three cast lints at the top of core/array_calculator/evaluator/mod.rs is one attribute and covers the whole evaluator, about 24,000 lines, so it is worth more than most. float_cmp in tests: an assertion helper for an exact value. Casts: checked conversions (try_from) with the error named, in numeric code with a test at the boundary, since a careless cast is a wrong answer. too_many_lines: split the function. multiple_crate_versions: update or replace the dependency that pulls the second version. The coverage-only test files: make each run under cargo llvm-cov (it measures the binary they start). The two ignored tests: run the timing test in the release-build job it was meant for, and give the round-trip corpus a fixture in the repository"
     acceptance: "Every budget in validation/repo/src/no_skipping.rs is 0 and the test passes; CLAUDE.md and project.yaml name no exception"
-  - id: A17-SCORECARD
-    title: "OpenSSF Scorecard on the repository, with its badge"
-    why: "An outside rating of the practices T1-SUPPLY-CHAIN put in place, which a reader can check without trusting the README"
-    acceptance: "A pinned scorecard workflow runs weekly and on main; the README shows the badge; each check scored below 10 is fixed or a roadmap item says why not"
-    model: "Sonnet 5.5, low"
   - id: A16-SBOM
     title: "An SBOM (CycloneDX or SPDX) attached to each release"
     why: "The release proves who built the binary (attestations, rc.28); an SBOM says what is inside it"

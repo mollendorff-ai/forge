@@ -3,10 +3,11 @@
 //!
 //! `products.price` with `value: [20, 45]` writes each row whose value
 //! changes and leaves the others' bytes as they are (`20.00` stays `20.00`),
-//! in the list's own style, flow or block, comments kept. A column of numbers
-//! or of dates is changed; a column's rows are not added or removed (every
-//! column of a table has as many), and a column of text, of true and false
-//! or with an empty cell is refused, saying so.
+//! in the list's own style, flow or block, comments kept. A column of
+//! numbers, of dates or of text is changed, each text in the quotes its row
+//! has (`text::set_text_column`); a column's rows are not added or removed
+//! (every column of a table has as many), and a column of true and false or
+//! with an empty cell is refused, saying so.
 
 use super::{text, value_text, Change, Target, Value};
 use crate::types::ColumnValue;
@@ -25,23 +26,38 @@ pub(super) fn set(
         .expect("a column is named with its table");
     let values = &target.model.tables[table].columns[column].values;
     let other = match values {
-        ColumnValue::Number(_) | ColumnValue::Date(_) => None,
-        ColumnValue::Text(_) => Some("text"),
+        ColumnValue::Number(_) | ColumnValue::Date(_) | ColumnValue::Text(_) => None,
         ColumnValue::Boolean(_) => Some("true and false"),
         ColumnValue::Blanks(_) => Some("numbers with an empty cell"),
     };
     if let Some(other) = other {
         return Err(format!(
-            "it is a column of {other}; edit changes a column of numbers or of dates"
+            "it is a column of {other}; edit changes a column of numbers, of dates or of text"
         ));
     }
-    let texts = texts(change.value.as_ref(), values.len())?;
+    let items = items(change.value.as_ref(), values.len())?;
+    if matches!(values, ColumnValue::Text(_)) {
+        let texts = items
+            .iter()
+            .map(|item| match item {
+                Value::Text(text) => Ok(text.clone()),
+                _ => Err(
+                    "it is a column of text: its value is a list of texts ([\"Basic\", \"Plus\"])"
+                        .to_string(),
+                ),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        return text::set_text_column(text, names, &texts);
+    }
+    let texts = items
+        .iter()
+        .map(|item| value_text(Some(item)))
+        .collect::<Result<Vec<_>, _>>()?;
     text::set_column(text, names, &texts)
 }
 
-/// The text of each row's value: the change's `value` is a list, one value
-/// for each of the column's `rows`
-fn texts(value: Option<&Value>, rows: usize) -> Result<Vec<String>, String> {
+/// The change's `value`: a list, one value for each of the column's `rows`
+fn items(value: Option<&Value>, rows: usize) -> Result<&[Value], String> {
     let Some(Value::List(items)) = value else {
         return Err(format!(
             "it is a table's column of {rows} rows: its value is a list, one for each row ([20, 45])"
@@ -53,7 +69,7 @@ fn texts(value: Option<&Value>, rows: usize) -> Result<Vec<String>, String> {
             items.len()
         ));
     }
-    items.iter().map(|item| value_text(Some(item))).collect()
+    Ok(items)
 }
 
 #[cfg(test)]
@@ -70,6 +86,9 @@ products:
     - 200   # the busy one
     - 120
   launched: [2026-01-31, \"2026-03-01\"]
+  region:
+    - North   # plain
+    - 'South' # single quotes
   online: [true, false]
   revenue: \"=price * units\"
 year:
@@ -140,6 +159,63 @@ year:
     }
 
     #[test]
+    fn a_column_of_text_keeps_the_quotes_each_row_has() {
+        let set = |path: &str, texts: &[&str]| {
+            set_column(
+                path,
+                list(&texts.iter().map(|t| text(t)).collect::<Vec<_>>()),
+            )
+        };
+        // Double quotes, escaped as they need; the comment kept
+        assert_eq!(
+            set("products.name", &["Basic", "Plus \"Pro\" \\ 2"]),
+            Ok(MODEL.replace(
+                "[\"Basic\", \"Plus\"]   #",
+                "[\"Basic\", \"Plus \\\"Pro\\\" \\\\ 2\"]   #"
+            ))
+        );
+        // Plain stays plain; single quotes double a quote inside
+        assert_eq!(
+            set("products.region", &["Zürich-Nord", "O'Brien's"]),
+            Ok(MODEL
+                .replace("- North   #", "- Zürich-Nord   #")
+                .replace("- 'South' #", "- 'O''Brien''s' #"))
+        );
+        assert_eq!(
+            set("products.region", &["假设.单价", "South"]),
+            Ok(MODEL.replace("- North   #", "- 假设.单价   #"))
+        );
+        // A plain row whose text YAML would read as something else, or not
+        // as written, is double-quoted
+        for (new, written) in [
+            ("true", "\"true\""),
+            ("Yes", "\"Yes\""),
+            ("12", "\"12\""),
+            ("", "\"\""),
+            ("a: b", "\"a: b\""),
+            ("a #b", "\"a #b\""),
+            ("[x]", "\"[x]\""),
+            ("trailing ", "\"trailing \""),
+        ] {
+            assert_eq!(
+                set("products.region", &[new, "South"]),
+                Ok(MODEL.replace("- North   #", &format!("- {written}   #"))),
+                "{new}"
+            );
+        }
+        // A line break: double quotes, the only ones that escape it
+        assert_eq!(
+            set("products.region", &["North", "two\nlines"]),
+            Ok(MODEL.replace("- 'South' #", "- \"two\\nlines\" #"))
+        );
+        // The same texts: nothing to write
+        assert_eq!(
+            set("products.name", &["Basic", "Plus"]),
+            Ok(MODEL.to_string())
+        );
+    }
+
+    #[test]
     fn a_column_edit_cannot_change_is_refused_saying_why() {
         let refused = |path: &str, value: Value, why: &str| {
             let message = set_column(path, value).unwrap_err();
@@ -151,14 +227,26 @@ year:
         };
         let two = list(&[text("1"), text("2")]);
         refused(
-            "products.name",
-            two.clone(),
-            "it is a column of text; edit changes a column of numbers or of dates",
-        );
-        refused(
             "products.online",
             two.clone(),
-            "it is a column of true and false",
+            "it is a column of true and false; edit changes a column of numbers, of dates or of text",
+        );
+        refused(
+            "products.name",
+            list(&[text("Basic"), Value::Number(2.0)]),
+            "it is a column of text: its value is a list of texts ([\"Basic\", \"Plus\"])",
+        );
+        // Numbers for dates: the model's format refuses it
+        refused(
+            "products.launched",
+            list(&[text("1"), text("2")]),
+            "Forge refuses the model with this change",
+        );
+        // Texts that are all dates: Forge would read a column of dates
+        refused(
+            "products.name",
+            list(&[text("2026-01-31"), text("2026-02-28")]),
+            "Forge reads products.name in the new text as a column of dates and not of text",
         );
         refused(
             "products.price",
@@ -218,5 +306,81 @@ year:
             message.contains("it is a column of numbers with an empty cell"),
             "{message}"
         );
+    }
+
+    /// Every column of text of every example: each row's text changed, plain
+    /// and then in words a plain row cannot hold, and changed back to the
+    /// file as it was, byte for byte
+    #[test]
+    fn every_column_of_text_of_every_example_is_changed_and_back() {
+        let mut changed = 0;
+        let mut lookups = 0;
+        for (dir, files) in super::super::tests::example_sets() {
+            let mut mains: Vec<&String> = files.keys().filter(|k| !k.contains('/')).collect();
+            mains.sort();
+            for main in mains {
+                let model = super::super::check::read(&files, main).unwrap_or_default();
+                for (t, table) in &model.tables {
+                    for (c, column) in &table.columns {
+                        let ColumnValue::Text(texts) = &column.values else {
+                            continue;
+                        };
+                        let place = format!("{}/{main} {t}.{c}", dir.display());
+                        let set = |files: &HashMap<String, String>, texts: Vec<Value>| {
+                            let change = Change {
+                                op: Op::SetValue,
+                                path: format!("{t}.{c}"),
+                                value: Some(Value::List(texts)),
+                                formula: None,
+                                unit: None,
+                                after: None,
+                                new_name: None,
+                                plays: None,
+                            };
+                            edit_files(files, main, &[change]).map_err(|e| e.to_string())
+                        };
+                        let read = |files: &HashMap<String, String>| {
+                            super::super::check::read(files, main)
+                                .map(|m| super::super::check::snapshot(&m))
+                        };
+                        for form in ["{} (2)", "'{}': \"#2\""] {
+                            let new = texts.iter().map(|t| text(&form.replace("{}", t))).collect();
+                            let once = match set(&files, new) {
+                                Ok(once) => once,
+                                // The fund's ledger finds its deals and fees
+                                // by their text: a changed name no longer
+                                // matches, and Forge refuses the model
+                                Err(e) => {
+                                    assert!(
+                                        place.contains("fund.yaml")
+                                            && e.contains("XLOOKUP: no match found"),
+                                        "{place}: {e}"
+                                    );
+                                    lookups += 1;
+                                    continue;
+                                },
+                            };
+                            let mut after = files.clone();
+                            after.extend(once);
+                            let back = set(&after, texts.iter().map(|t| text(t)).collect());
+                            assert!(back.is_ok(), "{place}: {back:?}");
+                            after.extend(back.unwrap_or_default());
+                            // A plain row that took double quotes keeps them:
+                            // the model is the same, its bytes are not
+                            let same = if form.contains('#') {
+                                read(&after) == read(&files)
+                            } else {
+                                after == files
+                            };
+                            assert!(same, "{place}: not back as it was");
+                            changed += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(lookups, 8);
+        // The starter's products and the vineyards' varieties, both ways
+        assert!(changed >= 8, "{changed} changed");
     }
 }

@@ -67,9 +67,7 @@ pub(super) fn only(
             })
             .collect::<Vec<_>>()
     };
-    let sub = target.aliases.iter().try_fold(after, |model, alias| {
-        model.resolved_includes.get(alias).map(|r| &r.model)
-    });
+    let sub = within(after, target);
     let mut was = snapshot(before);
     let mut now = snapshot(after);
     match (change.op, kind) {
@@ -98,6 +96,21 @@ pub(super) fn only(
         return Err("Forge reads the new text as more than this change, so it was not made".into());
     }
     let sub = sub.expect("the model is the same, with the same includes");
+    if kind == Kind::Values {
+        let of = |model: Option<&ParsedModel>| {
+            model
+                .and_then(|m| values_of(m, name))
+                .map(ColumnValue::type_name)
+        };
+        let types = of(within(before, target)).zip(of(Some(sub)));
+        if let Some((was, now)) = types.filter(|(was, now)| was != now) {
+            return Err(format!(
+                "Forge reads {name} in the new text as a column of {} and not of {}, so it was not made",
+                plural(now),
+                plural(was)
+            ));
+        }
+    }
     if as_asked(sub, name, change) {
         Ok(())
     } else {
@@ -165,11 +178,7 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
         let (table, column) = name.rsplit_once('.')?;
         model.tables.get(table)?.row_formulas.get(column)
     };
-    let values = || {
-        name.rsplit_once('.')
-            .and_then(|(table, column)| model.tables.get(table).and_then(|t| t.columns.get(column)))
-            .map(|c| &c.values)
-    };
+    let values = || values_of(model, name);
     let reads = |v: &Variable| match &change.value {
         Some(Value::Number(n)) => v.value == Some(*n),
         _ => v.value.is_some(),
@@ -203,9 +212,41 @@ fn as_asked(model: &ParsedModel, name: &str, change: &Change) -> bool {
     }
 }
 
+/// The model of the file the target is in: `model`, or the one it includes
+/// by the target's aliases
+fn within<'m>(model: &'m ParsedModel, target: &Target<'_>) -> Option<&'m ParsedModel> {
+    target.aliases.iter().try_fold(model, |model, alias| {
+        model.resolved_includes.get(alias).map(|r| &r.model)
+    })
+}
+
+/// The values of the column `name` (`table.column`) in `model`
+fn values_of<'m>(model: &'m ParsedModel, name: &str) -> Option<&'m ColumnValue> {
+    let (table, column) = name.rsplit_once('.')?;
+    model
+        .tables
+        .get(table)?
+        .columns
+        .get(column)
+        .map(|c| &c.values)
+}
+
+/// A column's type, as a message names its values
+fn plural(type_name: &str) -> &str {
+    [
+        ("Number", "numbers"),
+        ("Date", "dates"),
+        ("Text", "text"),
+        ("Boolean", "true and false"),
+    ]
+    .iter()
+    .find(|(name, _)| *name == type_name)
+    .map_or(type_name, |(_, values)| values)
+}
+
 /// Whether a column holds the list a change gives: each number as given,
-/// each date as written; a row given as text that reads as a number, as
-/// that number
+/// each date and each text as written; a row given as text that reads as a
+/// number, as that number
 fn column_reads(values: &ColumnValue, items: &[Value]) -> bool {
     let number = |item: &Value| match item {
         Value::Number(n) => Some(*n),
@@ -221,6 +262,10 @@ fn column_reads(values: &ColumnValue, items: &[Value]) -> bool {
             .iter()
             .zip(items)
             .all(|(date, item)| matches!(item, Value::Text(text) if text == date)),
+        ColumnValue::Text(texts) => texts
+            .iter()
+            .zip(items)
+            .all(|(was, item)| matches!(item, Value::Text(text) if text == was)),
         _ => false,
     }
 }
@@ -275,9 +320,14 @@ mod tests {
         let dates = ColumnValue::Date(vec!["2026-01-31".into()]);
         assert!(column_reads(&dates, &[Value::Text("2026-01-31".into())]));
         assert!(!column_reads(&dates, &[Value::Number(1.0)]));
+        // Texts as written, not as numbers
+        let texts = ColumnValue::Text(vec!["1.0".into()]);
+        assert!(column_reads(&texts, &[Value::Text("1.0".into())]));
+        assert!(!column_reads(&texts, &[Value::Text("1".into())]));
+        assert!(!column_reads(&texts, &[Value::Number(1.0)]));
         // A column of another kind is never one edit wrote
-        let texts = ColumnValue::Text(vec!["a".into()]);
-        assert!(!column_reads(&texts, &[Value::Text("a".into())]));
+        let flags = ColumnValue::Boolean(vec![true]);
+        assert!(!column_reads(&flags, &[Value::Text("true".into())]));
     }
 
     fn model(text: &str) -> Result<ParsedModel, String> {
