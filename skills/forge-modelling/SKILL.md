@@ -117,7 +117,7 @@ $ forge calculate shop.yaml
       year.profit = 63600
 ```
 
-`forge edit --help` lists the other changes: a formula (`--formula 'year.margin==year.profit / year.revenue'`, two `=`), `--add`, `--delete`, `--rename` (and every name that reads it).
+`forge edit --help` lists the other changes: a formula already in the model (`--formula 'year.profit==year.revenue - year.costs'`, two `=`), `--add` for a new one (`--add 'year.margin==year.profit / year.revenue'`), `--delete`, `--rename` (and every name that reads it).
 
 A table's column of numbers or dates takes a list, one value for each row; only the rows that change are written (`--dry-run` shows the file and writes nothing):
 

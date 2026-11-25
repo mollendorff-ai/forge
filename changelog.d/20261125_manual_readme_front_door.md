@@ -1,0 +1,7 @@
+### Changed
+
+- **The README is the front door.** It opens with a door for each reader (new to Forge, working with an AI, building a pipeline, embedding Forge, changing Forge), each to the page the documentation's index starts that reader on, then tells the bagel shop's first year in five checked commands: its profit, its break-even price, the tornado, the price for an 80% chance of a profit and the price war across the street. The table of checks says which job runs each one on a pull request instead of a dated result; the results and their dates are in VALIDATION.md. `validation/repo` now checks every link and anchor of the README, its five doors and that table.
+
+### Fixed
+
+- **What three fresh readers tripped on, following the docs with rc.35.** Lesson 3 says what to do when `git commit` stops for want of a name and email; lesson 1 shows and explains the line `forge audit` prints when the file's stored result is out of date. The skill's `forge edit --formula` example changes a formula the model has, where it named one it does not (and `--add` adds one). docs/MCP.md shows the `initialize` handshake for a client wired by hand, and its Claude Code command matches the guide's. The pipeline page and `examples/pipeline/README.md` no longer say the workflow reads `uncalculated` (rc.35's `forge validate` fails such a formula itself); the runs recorded on 2026-11-24 say they were rc.34's workflow. The AI page counts its four ways.

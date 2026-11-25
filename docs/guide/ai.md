@@ -1,6 +1,6 @@
 # Forge with an AI
 
-An AI is good at writing a model and poor at arithmetic it does in its head. Forge is the other way round: the AI writes the YAML, Forge calculates it, and the same file gives the same numbers whoever opens it next. This page is for someone who works with an AI, in three ways, from the least to set up to the most:
+An AI is good at writing a model and poor at arithmetic it does in its head. Forge is the other way round: the AI writes the YAML, Forge calculates it, and the same file gives the same numbers whoever opens it next. This page is for someone who works with an AI, in four ways, from the least to set up to the most:
 
 1. [A chat that can run commands](#a-chat-that-can-run-commands): paste one prompt.
 2. [The Forge skill](#the-forge-skill): add it once, and an agent that loads skills knows how to model with Forge whenever a task calls for it.
