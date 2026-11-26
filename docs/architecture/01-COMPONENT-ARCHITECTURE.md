@@ -125,7 +125,7 @@ Every top-level module of `src/lib.rs`, with what it owns, where to start readin
 | `excel` | Export to and import from `.xlsx`; formula translation both ways (`workbook_refs`) | `src/excel/workbook_refs.rs` | ADR-033, ADR-034, ADR-054 |
 | `cli` | Commands and their help (`cli/args.rs`), their options (`cli/args/options.rs`), running a command in-process (`cli/run.rs`), the `Console`, and every command with its core (`cli/commands/`) | `src/cli/run.rs` (`run_from`) | ADR-032, ADR-047 |
 | `mcp` | The MCP server over stdio and its tools, grouped in `mcp/server/` | `src/mcp/server.rs` | ADR-047, ADR-048, ADR-049 |
-| `api` | The REST server, its security layer and handlers | `src/api/server.rs` (`build_router`) | ADR-001 |
+| `api` | The REST server, its security layer, the handlers of five operations, a route for every other MCP tool run through `ForgeMcpServer::call`, and the OpenAPI document made from the tools' schemas (`tools.rs`) | `src/api/server.rs` (`build_router`) | ADR-001, ADR-081 |
 | `inline_model` | A model sent as text, written to a temporary folder for a core | `src/inline_model.rs` | ADR-049 |
 | `path_root` | The folder `--root` keeps MCP and REST inside | `src/path_root.rs` | |
 
