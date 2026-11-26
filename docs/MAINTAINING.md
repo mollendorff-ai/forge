@@ -18,7 +18,7 @@ A release is a version in `Cargo.toml` on `main` that has no tag yet. Nothing el
 | --- | --- |
 | `test` | The gate: `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test --verbose` and `cargo build --release`, on stable |
 | `build` | Builds the binary for five targets (Linux x86_64 and ARM64 musl, macOS ARM and Intel, Windows x86_64) with `FORGE_RELEASE=1`, so the build carries no commit stamp, and uploads an archive for each: `.tar.gz`, `.zip` on Windows |
-| `release` | Writes `checksums.txt` with `scripts/release-checksums.sh`, checks it with `sha256sum -c`, signs a build attestation for each archive (`actions/attest-build-provenance`), creates the GitHub release with generated notes, then downloads every asset and checks them again |
+| `release` | Writes `checksums.txt` with `scripts/release-checksums.sh`, checks it with `sha256sum -c`, signs a build attestation for each archive (`actions/attest-build-provenance`), makes the SBOM `forge.cdx.json` (`cargo-cyclonedx`, from `Cargo.lock`), signs each archive and the SBOM keylessly (`cosign sign-blob`, one `<file>.sigstore` bundle each), creates the GitHub release with generated notes, then downloads every asset and checks `checksums.txt` again |
 | `studio` | Starts the `pages.yml` workflow for this tag, which publishes Forge Studio at <https://forge.mollendorff.ai/> |
 | `publish` | `cargo publish` to crates.io with the `CRATES_IO_TOKEN` secret; it does not fail the run when the version is already published (`continue-on-error`) |
 | `homebrew` | Downloads the release's `checksums.txt`, writes `Formula/forge.rb` with `scripts/homebrew-formula.sh` and commits it to `main` |
@@ -31,15 +31,16 @@ A release is a version in `Cargo.toml` on `main` that has no tag yet. Nothing el
 Do these in one pull request, as the release commits before it did (`git log --grep "Release 10.0.0"`):
 
 1. **Choose the version.** Forge is a release candidate (`10.0.0-rc.N`); the next is `rc.N+1`. [STABILITY.md](STABILITY.md) says what the stable release waits for: a candidate published for two weeks with no open report of a wrong answer. A wrong answer fixed in a release starts the two weeks again from that candidate.
-2. **Change the version in the places that write it:** `version` in `Cargo.toml`, the `mollendorff-forge` entry of `Cargo.lock` (run `cargo build` and commit what it changes), the status line of `README.md` ("Forge is a release candidate (v10.0.0-rc.N)"), the first paragraph of `docs/STABILITY.md`, and the `Cargo.toml` example of `docs/EMBEDDING.md`. `Formula/forge.rb` is written by the `homebrew` job after the release; leave it.
+2. **Change the version in the places that write it:** `version` in `Cargo.toml`, the `mollendorff-forge` entry of `Cargo.lock` (run `cargo build` and commit what it changes), the status line of `README.md` ("Forge is a release candidate (v10.0.0-rc.N)"), the first paragraph of `docs/STABILITY.md`, the `Cargo.toml` example of `docs/EMBEDDING.md`, and the version in `CITATION.cff` and in `server.json` (the MCP Registry's entry, twice), which `validation/repo` holds against `Cargo.toml`. `Formula/forge.rb` is written by the `homebrew` job after the release; leave it.
 3. **Date the changelog.** Run `make changelog VERSION=10.0.0-rc.N`: [scriv](https://scriv.readthedocs.io) moves every fragment in `changelog.d/` (each change adds one, [changelog.d/README.md](../changelog.d/README.md)) into `CHANGELOG.md` under `## [10.0.0-rc.N] - YYYY-MM-DD`, sorted into Added, Changed, Fixed and Removed, and deletes the fragments. Add a short paragraph under the new heading. `## [Unreleased]` keeps only its two comment lines, scriv's marker last.
 4. **Merge only when CI is green on the pull request and on `main` after the merge**, including the Validation workflow (the Gnumeric, R and games suites). A release made from a red `main` publishes what the checks refused.
-5. **Watch the run.** Open the Actions tab: `CI` on `main` (its `Auto Release` job), then `Release`, then `Pages` and `Install`. The release page must have five archives and `checksums.txt`.
+5. **Watch the run.** Open the Actions tab: `CI` on `main` (its `Auto Release` job), then `Release`, then `Pages` and `Install`. The release page must have five archives, `checksums.txt`, `forge.cdx.json` and a `.sigstore` bundle for each archive and for the SBOM (six).
 
 ## After a release
 
 - `brew install mollendorff-ai/forge/forge` and `cargo binstall mollendorff-forge` print the new version (the `Install` workflow checks both).
 - `gh attestation verify <archive> --repo mollendorff-ai/forge` verifies where an archive was built.
+- `cosign verify-blob --bundle <file>.sigstore --certificate-identity-regexp 'https://github.com/mollendorff-ai/forge/' --certificate-oidc-issuer https://token.actions.githubusercontent.com <file>` accepts an archive or the SBOM, and rejects one that was changed.
 - The `crates.io` page for `mollendorff-forge` shows the version. `docs.rs` builds the crate's documentation from `src/lib.rs`.
 - <https://forge.mollendorff.ai/> shows the release in its help links, which point at the tag.
 

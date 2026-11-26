@@ -508,6 +508,9 @@ mod tests {
                 "actions/attest-build-provenance",
             ),
             (rel, "continue-on-error", "continue-on-error"),
+            (rel, "cosign sign-blob", "cosign sign-blob"),
+            (rel, "cargo cyclonedx", "cargo-cyclonedx"),
+            (rel, "forge.cdx.json", "forge.cdx.json"),
             (rel, "gh attestation verify", "gh attestation verify"),
             (
                 rel,
@@ -575,6 +578,14 @@ mod tests {
         assert!(read("Cargo.lock").contains(&format!(
             "name = \"mollendorff-forge\"\nversion = \"{version}\""
         )));
+        // metadata.rs holds these two to the version, so a release changes them
+        for file in ["CITATION.cff", "server.json"] {
+            assert!(read(file).contains(&version), "{file} has no {version}");
+            assert!(
+                doc.contains(&format!("`{file}`")),
+                "the page does not name {file}"
+            );
+        }
         assert!(read("CHANGELOG.md").contains("## [Unreleased]"));
         // the example dependency in EMBEDDING.md is held to the version by
         // the embedding check, so a release changes it too
