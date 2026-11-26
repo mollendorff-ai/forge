@@ -15,12 +15,6 @@ backlog:
     why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs: 218 lint allow or expect attributes, 16 lints allowed in Cargo.toml files, 31 places of code compiled only for or only without coverage, 2 ignored tests. Counted again 2026-11-24: every budget in no_skipping.rs is 0 except the crates clippy.toml allows in two versions (4: syn, getrandom, r-efi, hashbrown), each held by a library the maintainer decided to keep (ADR-072, ADR-075). None can be lowered today: tracing-attributes 0.1.31, zeroize_derive 1.5.0 and strum_macros 0.28 are the latest releases and are on syn 2; ahash 0.8.13 and jsonschema 0.63.1 still bring getrandom 0.3 (tried 2026-11-24, nothing removed); yaml-edit 0.3.6 is the latest and its rowan 0.16 is on hashbrown 0.14"
     how: "One kind of lint or one crate per pull request, each lowering its budget in validation/repo/src/no_skipping.rs. A count is not a size: the #![allow] of three cast lints at the top of core/array_calculator/evaluator/mod.rs is one attribute and covers the whole evaluator, about 24,000 lines, so it is worth more than most. float_cmp in tests: an assertion helper for an exact value. Casts: checked conversions (try_from) with the error named, in numeric code with a test at the boundary, since a careless cast is a wrong answer. too_many_lines: split the function. multiple_crate_versions: update or replace the dependency that pulls the second version. The coverage-only test files: make each run under cargo llvm-cov (it measures the binary they start). The two ignored tests: run the timing test in the release-build job it was meant for, and give the round-trip corpus a fixture in the repository"
     acceptance: "Every budget in validation/repo/src/no_skipping.rs is 0 and the test passes; CLAUDE.md and project.yaml name no exception"
-  - id: E-SC-SIGNED-RELEASES
-    title: "Each release archive carries a signature Scorecard can see (Signed-Releases, 0)"
-    why: "Scorecard 2026-11-25 scores Signed-Releases 0: it looks for a .sig, .asc, .sigstore or .intoto.jsonl file among the release's assets, and the attestations release.yml makes (actions/attest-build-provenance) live on GitHub, not on the release. Same file as A16-SBOM"
-    how: "Sign each archive in release.yml with a pinned Sigstore tool (a keyless signature, the .sigstore bundle) and attach it to the release beside the archive; do it with A16-SBOM, in the same pull request or the next one"
-    acceptance: "A release candidate lists a signature for each archive and `cosign verify-blob` (or gh attestation verify) accepts it; Scorecard's Signed-Releases rises on its next run"
-    model: "Sonnet 5.5, medium: the release path"
   - id: E-SC-SAST
     title: "Static analysis in CI that Scorecard recognises (SAST, 0)"
     why: "Scorecard 2026-11-25 scores SAST 0: it finds no CodeQL or SonarCloud run on pull requests. Clippy pedantic already runs, but Scorecard does not count it"
@@ -50,11 +44,6 @@ backlog:
     why: "Scorecard 2026-11-25 scores Branch-Protection 0, Code-Review 0, CII-Best-Practices 0 and Contributors 6. None is a change to the code"
     how: "Branch-Protection: in Settings, Rules, protect main (require a pull request and the CI checks, block force pushes). CII-Best-Practices: register the repository at https://www.bestpractices.dev and answer the passing-level questions; the engine lane can supply the evidence for each. Code-Review: Scorecard wants a reviewer other than the author to approve each pull request; with one maintainer it stays 0, and the proposal is to leave it. Contributors: counts contributors from several organisations; with one maintainer it stays below 10, and the proposal is to leave it"
     acceptance: "Branch-Protection and CII-Best-Practices are done by the maintainer, or each is refused with a reason; Code-Review and Contributors are accepted as they are or the maintainer says otherwise"
-  - id: A16-SBOM
-    title: "An SBOM (CycloneDX or SPDX) attached to each release"
-    why: "The release proves who built the binary (attestations, rc.28); an SBOM says what is inside it"
-    acceptance: "release.yml attaches it, made by a pinned tool; a release candidate carries it and a scanner reads it"
-    model: "Sonnet 5.5, medium"
   - id: A18-METADATA
     title: "CITATION.cff, security.txt, the crate's keywords and categories, GitHub topics, and the site's robots.txt checked"
     why: "Agents and people find a tool by searching crates.io, GitHub and docs.rs; GitHub shows 'Cite this repository' from CITATION.cff; Forge wants to be read, so no AI crawler should be blocked by accident"
@@ -90,6 +79,19 @@ backlog:
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
 
 done:
+  - id: E-SC-SIGNED-RELEASES
+    title: "Each release archive carries a signature Scorecard can see (Signed-Releases, 0)"
+    why: "Scorecard 2026-11-25 scores Signed-Releases 0: it looks for a .sig, .asc, .sigstore or .intoto.jsonl file among the release's assets, and the attestations release.yml makes (actions/attest-build-provenance) live on GitHub, not on the release. Same file as A16-SBOM"
+    how: "Sign each archive in release.yml with a pinned Sigstore tool (a keyless signature, the .sigstore bundle) and attach it to the release beside the archive; do it with A16-SBOM, in the same pull request or the next one"
+    acceptance: "A release candidate lists a signature for each archive and `cosign verify-blob` (or gh attestation verify) accepts it; Scorecard's Signed-Releases rises on its next run"
+    model: "Sonnet 5.5, medium: the release path"
+    built: "2026-11-25. release.yml signs each archive and the SBOM keylessly with cosign v3.1.6 (sigstore/cosign-installer v4.1.4, pinned to a commit), as a <file>.sigstore bundle attached to the release. Not yet seen on a release: the next release candidate has to list the files, and cosign verify-blob has to accept one, before Scorecard's Signed-Releases can be expected to rise."
+  - id: A16-SBOM
+    title: "An SBOM (CycloneDX or SPDX) attached to each release"
+    why: "The release proves who built the binary (attestations, rc.28); an SBOM says what is inside it"
+    acceptance: "release.yml attaches it, made by a pinned tool; a release candidate carries it and a scanner reads it"
+    model: "Sonnet 5.5, medium"
+    built: "2026-11-25. release.yml makes forge.cdx.json (CycloneDX 1.5, cargo-cyclonedx 0.5.10 --locked) from Cargo.lock and attaches it, signed. Not yet seen on a release: the next release candidate has to list the files, and cosign verify-blob has to accept one, before Scorecard's Signed-Releases can be expected to rise."
   - id: A17-SCORECARD
     title: "OpenSSF Scorecard on the repository, with its badge"
     why: "An outside rating of the practices T1-SUPPLY-CHAIN put in place, which a reader can check without trusting the README"
