@@ -58,6 +58,12 @@ backlog:
     how: "For each game, the results its comments state, under expect: for the file as written and for each scenario its comments name (axelrod c2, chicken c3, hawk-dove costly, public-goods generous, volunteers-dilemma cheap), as stag-hunt.yaml does through kinship:; or examples/README.md says only stag-hunt.yaml does"
     acceptance: "forge validate passes on each file in examples/games/ with at least one expected result, and examples/README.md's sentence is true"
     model: "Opus 5.5, medium: each figure worked out and checked against the comment, not copied from the output"
+  - id: M-HOW-THIS-IS-BUILT
+    title: "The README has a short 'How this is built' section that shows what the maintainer decides"
+    why: "Found 2026-11-26 by the evaluation of Forge at rc.36 (Owner risk, B+; fix list item 3). The README discloses the AI authorship, but the evaluator counted 215 of 316 commits as authored by Claude (a shallow clone) and noted that a reader, an employer or a CV reader may ask what the maintainer did. The answer is in the repository (AGENTS.md's rules, the lanes, the ADRs, the gates that stop work from going round the rules, the maintainer opening and merging every pull request), but not on the front page. Filed at the maintainer's request."
+    how: "A few short paragraphs in README.md, under 'Status and known limitations' or beside 'Development', that say only what the repository shows and link to it: AGENTS.md (the rules no session may switch off), the four lanes and their roadmaps, docs/SESSIONS.md ('Open one, and merge one, only when the maintainer asks'), the ADRs, validation/repo/src/no_skipping.rs, and the checks against Gnumeric, LibreOffice, R, Gambit and the axelrod library. Which decisions are the maintainer's (what is built and in what order, every merge, the release, the duplicate-crate allowance in AGENTS.md) is for the maintainer to state in his own words: ask him, do not infer it from the history, and do not claim more than the files show. Say plainly that AI sessions write most of the code and that nothing here is a claim of expertise in a field the maintainer has not worked in."
+    acceptance: "README.md has the section; each sentence in it is true of a file it links to; readme_commands.rs and docs_index.rs pass; the maintainer has read the section and agreed it says what he decides, no more"
+    model: "Opus 5.5, medium: a few paragraphs on the front page where every claim must be true and checkable, in the maintainer's words"
 
 
 done:
