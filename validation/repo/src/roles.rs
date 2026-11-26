@@ -541,17 +541,6 @@ mod tests {
                 "`cargo audit`",
             ),
             (".github/workflows/weekly.yml", "Mondays", "Mondays"),
-            (".github/workflows/scorecard.yml", "Tuesdays", "Tuesdays"),
-            (
-                ".github/workflows/scorecard.yml",
-                "branches: [ main ]",
-                "every push to `main`",
-            ),
-            (
-                ".github/workflows/scorecard.yml",
-                "security-events: write",
-                "Security tab",
-            ),
             (".github/workflows/validation.yml", "Mondays", "Mondays"),
             (
                 ".github/workflows/validation.yml",
@@ -568,6 +557,19 @@ mod tests {
         for file in named_paths(&doc) {
             assert!(root().join(&file).exists(), "{file}");
         }
+    }
+
+    /// MAINTAINING.md says when the Scorecard workflow runs and what it does.
+    #[test]
+    fn maintaining_says_when_the_scorecard_runs_and_what_it_does() {
+        let (_, doc) = page("docs/MAINTAINING.md");
+        let scorecard = ".github/workflows/scorecard.yml";
+        let claims = [
+            (scorecard, "Tuesdays", "Tuesdays"),
+            (scorecard, "branches: [ main ]", "every push to `main`"),
+            (scorecard, "security-events: write", "Security tab"),
+        ];
+        assert_eq!(unheld(&doc, &claims, &read), Vec::<String>::new());
     }
 
     /// A release changes the version where `docs/MAINTAINING.md` says it is
