@@ -58,7 +58,7 @@ impl ForgeMcpServer {
         name = "forge_sensitivity",
         description = "Run sensitivity analysis by varying one or two input variables and observing output changes. Essential for what-if modeling and risk assessment."
     )]
-    fn sensitivity(
+    pub(super) fn sensitivity(
         &self,
         Parameters(req): Parameters<SensitivityRequest>,
     ) -> Result<String, String> {
@@ -84,7 +84,10 @@ impl ForgeMcpServer {
         name = "forge_goal_seek",
         description = "Find the input value needed to achieve a target output. Uses bisection solver. Example: 'What price do I need for $100K profit?'"
     )]
-    fn goal_seek(&self, Parameters(req): Parameters<GoalSeekRequest>) -> Result<String, String> {
+    pub(super) fn goal_seek(
+        &self,
+        Parameters(req): Parameters<GoalSeekRequest>,
+    ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),
@@ -107,7 +110,10 @@ impl ForgeMcpServer {
         name = "forge_break_even",
         description = "Find the break-even point where an output equals zero. Example: 'At what units does profit = 0?'"
     )]
-    fn break_even(&self, Parameters(req): Parameters<BreakEvenRequest>) -> Result<String, String> {
+    pub(super) fn break_even(
+        &self,
+        Parameters(req): Parameters<BreakEvenRequest>,
+    ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),
@@ -158,7 +164,10 @@ impl ForgeMcpServer {
         name = "forge_compare",
         description = "Compare calculation results across multiple scenarios side-by-side. Useful for what-if analysis."
     )]
-    fn compare(&self, Parameters(req): Parameters<CompareRequest>) -> Result<String, String> {
+    pub(super) fn compare(
+        &self,
+        Parameters(req): Parameters<CompareRequest>,
+    ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),
@@ -174,7 +183,10 @@ impl ForgeMcpServer {
         name = "forge_scenarios",
         description = "Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results. A scenario without a probability is left out of the weighting and named in `unweighted`; forge_compare puts it beside the others."
     )]
-    fn scenarios(&self, Parameters(req): Parameters<ScenariosRequest>) -> Result<String, String> {
+    pub(super) fn scenarios(
+        &self,
+        Parameters(req): Parameters<ScenariosRequest>,
+    ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),
@@ -190,7 +202,10 @@ impl ForgeMcpServer {
         name = "forge_tornado",
         description = "Generate tornado sensitivity diagram. Varies each input one-at-a-time to show which inputs have the greatest impact on the output."
     )]
-    fn tornado(&self, Parameters(req): Parameters<TornadoRequest>) -> Result<String, String> {
+    pub(super) fn tornado(
+        &self,
+        Parameters(req): Parameters<TornadoRequest>,
+    ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),
@@ -206,7 +221,7 @@ impl ForgeMcpServer {
         name = "forge_game",
         description = "Find the equilibria of the games in a model's 'games' section, and play its tournaments (ADR-068). For a game played once: dominated strategies (strict, in the order removed, and weak), pure Nash equilibria (any number of players), mixed ones (two players, ties of a degenerate game named; in a symmetric game, the mixes in which all play alike, each with `stable`), each strategy's payoff against an even mix, and with a `dynamics:` key each strategy's share generation by generation (ADR-073). For a tournament of built-in strategies (tit_for_tat, grim_trigger, ...): each player's score, rank and cooperation, the match table and the collectively stable players, as exact expected values. Each report has `kind` table or tournament. The same numbers are scalars formulas can read (stag_hunt.equilibrium_1.me.stag, axelrod.score.tft)."
     )]
-    fn game(&self, Parameters(req): Parameters<GameRequest>) -> Result<String, String> {
+    pub(super) fn game(&self, Parameters(req): Parameters<GameRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),

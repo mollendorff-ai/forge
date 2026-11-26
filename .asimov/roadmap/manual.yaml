@@ -35,6 +35,12 @@ backlog:
     acceptance: "The page's three rows link to runs of the rc.35 workflow, each failing at the step the row names; the repository's README says the same; validation/repo's pipeline checks pass"
     model: "Sonnet 5.5, medium: three pull requests reopened and their runs read"
 
+  - id: M-REST-EVERY-TOOL-DOCS
+    title: "The docs show every MCP tool over REST, and the OpenAPI document"
+    why: "Found 2026-11-25 by the features lane (T3-API, ADR-081): forge serve serves every MCP tool at POST /api/v1/<name>, the body the tool's arguments and the answer its JSON in data (422 with the tool's message when it fails), and GET /api/v1/openapi.json. docs/FEATURES.md's HTTP REST API section lists five endpoints; docs/MCP.md does not say the tools are also reachable over HTTP. forge serve --help already says it"
+    acceptance: "FEATURES.md lists the served tools with one worked call (goal-seek on starter.yaml) and the document's address; validation/repo passes"
+    model: "Sonnet 5.5, low"
+
 done:
   - id: A10-README-AND-TRIALS
     title: "The README as the front door, then a trial by a fresh reader of each kind"

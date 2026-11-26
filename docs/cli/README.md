@@ -1645,18 +1645,21 @@ Options:
 ```text
 Start HTTP REST API server.
 
-Provides five operations on model files over HTTP (the other analyses are
-MCP tools and commands):
+Serves every MCP tool over HTTP (ADR-081):
   POST /api/v1/validate  - Validate YAML model files
   POST /api/v1/calculate - Calculate formulas (with dry-run support)
   POST /api/v1/audit     - Audit variable dependency trees
   POST /api/v1/export    - Export YAML to Excel (.xlsx)
   POST /api/v1/import    - Import Excel to YAML
+  POST /api/v1/<tool>    - Any other MCP tool, named as its command is
+                           (goal-seek, simulate, edit, ...): the body is the
+                           tool's arguments, the answer its JSON in data
 
 Additional endpoints:
+  GET  /api/v1/openapi.json - The OpenAPI 3.1 document of every endpoint
   GET  /health           - Health check
   GET  /version          - Server version info
-  GET  /                 - API documentation
+  GET  /                 - The endpoints
 
 Security:
   The API reads and writes the files that requests name, as your user.
@@ -1675,6 +1678,8 @@ EXAMPLES:
   forge serve                                        # Start on localhost:8080
   FORGE_API_TOKEN=... forge serve --host 0.0.0.0     # All interfaces, token required
   forge serve --cors-origin http://localhost:3000    # Allow one web app
+  curl -s localhost:8080/api/v1/goal-seek -d '{"file_path": "starter.yaml",
+    "target": "plan.profit", "value": 0, "vary": "plan.price"}'
 
 Usage: forge serve [OPTIONS]
 

@@ -90,7 +90,10 @@ impl ForgeMcpServer {
         name = "forge_audit",
         description = "Audit a specific variable to see its dependency tree and calculated value."
     )]
-    fn audit(&self, Parameters(req): Parameters<AuditRequest>) -> Result<String, String> {
+    pub(super) fn audit(
+        &self,
+        Parameters(req): Parameters<AuditRequest>,
+    ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
             self.root.as_ref(),
             req.file_path.as_deref(),
