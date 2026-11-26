@@ -100,8 +100,11 @@ pub fn fragment_problems(text: &str) -> Vec<String> {
     problems
 }
 
-/// The lines under `## [Unreleased]` in a changelog, up to the next release,
-/// that are neither blank nor a comment: what was written there by hand.
+/// What was written by hand under `## [Unreleased]` in a changelog.
+///
+/// The lines up to the next release that are neither blank, a comment nor
+/// the anchor scriv writes above each release's heading
+/// (`<a id='changelog-10.0.0-rc.36'></a>`).
 #[must_use]
 pub fn written_under_unreleased(changelog: &str) -> Vec<String> {
     changelog
@@ -110,7 +113,11 @@ pub fn written_under_unreleased(changelog: &str) -> Vec<String> {
         .unwrap_or_default()
         .lines()
         .map(str::trim)
-        .filter(|l| !(l.is_empty() || l.starts_with("<!--") && l.ends_with("-->")))
+        .filter(|l| {
+            !(l.is_empty()
+                || l.starts_with("<!--") && l.ends_with("-->")
+                || l.starts_with("<a id='changelog-") && l.ends_with("'></a>"))
+        })
         .map(str::to_string)
         .collect()
 }
@@ -195,11 +202,15 @@ mod tests {
     #[test]
     fn only_comments_under_unreleased_count_as_empty() {
         let empty = format!(
-            "# Changelog\n\n## [Unreleased]\n\n<!-- note -->\n{MARKER}\n\n## [1.0] - d\n\n- old\n"
+            "# Changelog\n\n## [Unreleased]\n\n<!-- note -->\n{MARKER}\n\n<a id='changelog-1.0'></a>\n## [1.0] - d\n\n- old\n"
         );
         assert_eq!(written_under_unreleased(&empty), Vec::<String>::new());
         let written = "## [Unreleased]\n\n### Added\n\n- new\n\n## [1.0] - d\n- old\n";
         assert_eq!(written_under_unreleased(written), ["### Added", "- new"]);
+        assert_eq!(
+            written_under_unreleased("## [Unreleased]\n<a id='other'></a>\n"),
+            ["<a id='other'></a>"]
+        );
         assert_eq!(
             written_under_unreleased("## [Unreleased]\n- only\n"),
             ["- only"]
