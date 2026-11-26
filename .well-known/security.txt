@@ -1,0 +1,8 @@
+# RFC 9116. The site's root (mollendorff.ai/.well-known/security.txt) is served
+# from the mollendorff-ai.github.io repository; this is the file for it, kept
+# here so that validation/repo can check it against SECURITY.md.
+Contact: mailto:security@mollendorff.ai
+Expires: 2027-11-26T00:00:00.000Z
+Policy: https://github.com/mollendorff-ai/forge/blob/main/SECURITY.md
+Canonical: https://mollendorff.ai/.well-known/security.txt
+Preferred-Languages: en
