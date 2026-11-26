@@ -65,6 +65,12 @@ backlog:
     acceptance: "README.md has the section; each sentence in it is true of a file it links to; readme_commands.rs and docs_index.rs pass; the maintainer has read the section and agreed it says what he decides, no more"
     model: "Opus 5.5, medium: a few paragraphs on the front page where every claim must be true and checkable, in the maintainer's words"
 
+  - id: M-WHAT-IF-PLAN-EXAMPLES
+    title: "The guide and the examples use --plan on the what-if commands, and the examples' pairs that are the same plan become one file"
+    why: "Filed 2026-11-26 by the features lane (F-WHAT-IF-PLAN, ADR-076 addendum of 2026-11-26): scenarios, compare, goal-seek, break-even, sensitivity, tornado and audit take --plan, so one file can hold a plan and its uncertainty. examples/bagel has bagel.yaml and bagel_simulate.yaml, the same plan twice; docs/FEATURES.md says calculate --plan only; the comments of bagel_simulate.yaml, microgrid_risk.yaml and realestate_risk.yaml say calculate cannot evaluate MC.* inputs, and nothing says the what-if commands can at plan"
+    how: "Say --plan where the guide and FEATURES.md speak of an uncertain model's what-ifs; decide which example pairs are the same plan and merge them, keeping every figure a page or a test asserts (Studio's sets, forge-wasm's cases and the examples' tests name these files)"
+    acceptance: "The guide's pages pass validation/repo; each merged example gives the figures its tests assert, at plan"
+    model: "Sonnet 5.5, medium: pages that are run, and figures that are tested"
 
 done:
   - id: M-HOW-BUILT

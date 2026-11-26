@@ -344,8 +344,12 @@ impl AuditDep {
 /// # Errors
 ///
 /// Returns an error if the file cannot be parsed or the variable is not found.
-pub fn audit_core(file: &Path, variable: &str) -> ForgeResult<AuditResult> {
-    let model = parser::parse_model(file)?;
+pub fn audit_core(file: &Path, variable: &str, plan: bool) -> ForgeResult<AuditResult> {
+    let mut model = parser::parse_model(file)?;
+    // At plan, each uncertain input is its plan figure before anything is
+    // calculated; a distribution that does not parse is said as any other
+    // calculation error is, below
+    let refused = crate::cli::commands::plan::at_plan_or_refused(&mut model, plan, "audit");
     let mut builder = Builder::new(&model);
     let target = builder
         .main
@@ -389,7 +393,7 @@ pub fn audit_core(file: &Path, variable: &str) -> ForgeResult<AuditResult> {
         formula: target.formula,
         dependencies: target.children,
         is_valid: is_valid && builder.main.calculated.is_some(),
-        calculation_error: crate::cli::commands::reject_distributions_in(&model, "audit")
+        calculation_error: refused
             .and_then(|()| {
                 ArrayCalculator::new(model.clone())
                     .calculate_all()
@@ -471,12 +475,13 @@ fn not_found(model: &ParsedModel, variable: &str) -> ForgeError {
 /// # Errors
 ///
 /// Returns an error if the file cannot be parsed or the variable is not found.
-pub fn audit(c: &mut Console<'_>, file: &Path, variable: &str) -> ForgeResult<()> {
+pub fn audit(c: &mut Console<'_>, file: &Path, variable: &str, plan: bool) -> ForgeResult<()> {
     outln!(c, "{}", "🔍 Forge - Audit Trail".bold().green());
     outln!(c, "   File: {}", file.display());
     outln!(c, "   Variable: {}\n", variable.bright_blue().bold());
+    crate::cli::commands::plan::print_what_if_plan(c, plan);
 
-    let result = audit_core(file, variable)?;
+    let result = audit_core(file, variable, plan)?;
     outln!(c, "{}", "📋 Variable Information:".bold().cyan());
     outln!(c, "   Name: {}", result.variable.bright_blue());
     outln!(c, "   Type: {}", result.var_type.cyan());
@@ -650,7 +655,12 @@ mod tests {
     #[test]
     fn bagel_profit_down_to_the_included_costs() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let result = audit_core(&root.join("examples/bagel/bagel.yaml"), "year.profit").unwrap();
+        let result = audit_core(
+            &root.join("examples/bagel/bagel.yaml"),
+            "year.profit",
+            false,
+        )
+        .unwrap();
         assert!((result.calculated_value.unwrap() - 786.320_361_7).abs() < 1e-6);
         assert!(result.is_valid);
         let deps = &result.dependencies;
@@ -698,7 +708,7 @@ mod tests {
             "_forge_version: \"5.1.0\"\n_includes:\n  - file: prices.yaml\n    as: prices\norder:\n  kg: [120, 6, 3]\n  cost: \"=kg * @prices.list.with_tax\"\ntotal:\n  cost:\n    formula: \"=SUM(order.cost)\"\n",
         )
         .unwrap();
-        let result = audit_core(&main, "total.cost").unwrap();
+        let result = audit_core(&main, "total.cost", false).unwrap();
         let deps = &result.dependencies;
         let with_tax = find(deps, "@prices.list.with_tax").unwrap();
         assert_eq!(with_tax.dep_type, "Column[list]");
@@ -714,18 +724,28 @@ mod tests {
     #[test]
     fn a_column_and_a_scalar_from_its_own_group() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let column = audit_core(&root.join("examples/bagel/bagel.yaml"), "months.costs").unwrap();
+        let column = audit_core(
+            &root.join("examples/bagel/bagel.yaml"),
+            "months.costs",
+            false,
+        )
+        .unwrap();
         assert_eq!(column.var_type, "Column[months]");
         assert_eq!(column.calculated_values.as_ref().map(Vec::len), Some(12));
         // `margin = profit / revenue`: both are scalars of `year`
-        let margin = audit_core(&root.join("examples/bagel/bagel.yaml"), "year.margin").unwrap();
+        let margin = audit_core(
+            &root.join("examples/bagel/bagel.yaml"),
+            "year.margin",
+            false,
+        )
+        .unwrap();
         let names: Vec<&str> = margin
             .dependencies
             .iter()
             .map(|d| d.name.as_str())
             .collect();
         assert_eq!(names, ["year.profit", "year.revenue"]);
-        let err = audit_core(&root.join("examples/bagel/bagel.yaml"), "nope")
+        let err = audit_core(&root.join("examples/bagel/bagel.yaml"), "nope", false)
             .unwrap_err()
             .to_string();
         assert!(err.contains("not a scalar or a table column"), "{err}");
@@ -745,7 +765,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let file = dir.path().join("m.yaml");
             fs::write(&file, text).unwrap();
-            let (result, captured) = capture(|c| audit(c, &file, variable));
+            let (result, captured) = capture(|c| audit(c, &file, variable, false));
             (result, captured.out)
         }
 
@@ -807,7 +827,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let file = dir.path().join("m.yaml");
             fs::write(&file, text).unwrap();
-            audit_core(&file, variable).unwrap()
+            audit_core(&file, variable, false).unwrap()
         }
 
         #[test]
@@ -957,7 +977,7 @@ mod tests {
                 "_forge_version: \"5.1.0\"\n_includes:\n  - file: prices.yaml\n    as: prices\n  - file: other.yaml\n    as: other\nx: {formula: \"=@nope.y + @prices.list.missing + @prices.absent + @other.bonus + nosuch.col\"}\n",
             )
             .unwrap();
-            let found = audit_core(&main, "x").unwrap();
+            let found = audit_core(&main, "x", false).unwrap();
             let kinds: Vec<(&str, &str)> = found
                 .dependencies
                 .iter()
@@ -966,7 +986,7 @@ mod tests {
             let (mut unknown, mut dozens) = (Vec::new(), 0);
             walk(&found.dependencies, &mut unknown, &mut dozens);
             assert_eq!(unknown.len(), 4, "{unknown:?}");
-            let (result, captured) = capture(|c| audit(c, &main, "x"));
+            let (result, captured) = capture(|c| audit(c, &main, "x", false));
             result.unwrap();
             assert!(captured.out.contains("[other.yaml]"), "{}", captured.out);
             assert_eq!(

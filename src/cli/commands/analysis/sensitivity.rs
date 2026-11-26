@@ -99,10 +99,15 @@ struct Resolved {
     output: String,
 }
 
-fn resolve(file: &Path, vary: &str, vary2: Option<&str>, output: &str) -> ForgeResult<Resolved> {
+fn resolve(
+    file: &Path,
+    (vary, vary2): (&str, Option<&str>),
+    output: &str,
+    plan: bool,
+) -> ForgeResult<Resolved> {
     use crate::cli::commands::names::scalar_name;
-    let model = parser::parse_model(file)?;
-    crate::cli::commands::reject_distributions_in(&model, "sensitivity")?;
+    let mut model = parser::parse_model(file)?;
+    crate::cli::commands::plan::at_plan_or_refused(&mut model, plan, "sensitivity")?;
     let vary = scalar_name(&model, vary, false)?;
     let vary2 = vary2.map(|v| scalar_name(&model, v, false)).transpose()?;
     let output = scalar_name(&model, output, true)?;
@@ -148,6 +153,7 @@ pub fn sensitivity_core(
     vary2: Option<&str>,
     range2: Option<&str>,
     output: &str,
+    plan: bool,
 ) -> ForgeResult<crate::cli::commands::results::SensitivityResult> {
     use crate::cli::commands::results::{SensitivityData, SensitivityEntry, SensitivityResult};
     let Resolved {
@@ -155,7 +161,7 @@ pub fn sensitivity_core(
         vary,
         vary2,
         output,
-    } = resolve(file, vary, vary2, output)?;
+    } = resolve(file, (vary, vary2), output, plan)?;
     let values1 = parse_range(range)?;
 
     let data = if let (Some(v2), Some(r2)) = (vary2, range2) {
@@ -211,7 +217,7 @@ pub fn sensitivity(
     (vary, range): (&str, &str),
     (vary2, range2): (Option<&str>, Option<&str>),
     output: &str,
-    verbose: bool,
+    (verbose, plan): (bool, bool),
 ) -> ForgeResult<()> {
     outln!(c, "{}", "🔥 Forge - Sensitivity Analysis".bold().green());
     outln!(c, "   File: {}", file.display());
@@ -225,8 +231,9 @@ pub fn sensitivity(
         );
     }
     outln!(c, "   Output: {}\n", output.bright_blue());
+    crate::cli::commands::plan::print_what_if_plan(c, plan);
 
-    let result = sensitivity_core(file, vary, range, vary2, range2, output)?;
+    let result = sensitivity_core(file, vary, range, vary2, range2, output, plan)?;
     let (vary, output) = (result.vary.as_str(), result.output.as_str());
     match &result.data {
         SensitivityData::OneVar { entries } => {
@@ -342,12 +349,19 @@ pub fn sensitivity_in_format(
     (vary, range): (&str, &str),
     (vary2, range2): (Option<&str>, Option<&str>),
     output: &str,
-    (format, verbose): (&str, bool),
+    (format, verbose, plan): (&str, bool, bool),
 ) -> ForgeResult<()> {
     if format != "json" {
-        return sensitivity(c, file, (vary, range), (vary2, range2), output, verbose);
+        return sensitivity(
+            c,
+            file,
+            (vary, range),
+            (vary2, range2),
+            output,
+            (verbose, plan),
+        );
     }
-    let result = sensitivity_core(file, vary, range, vary2, range2, output)?;
+    let result = sensitivity_core(file, vary, range, vary2, range2, output, plan)?;
     // Names, numbers and lists of them: there is nothing JSON cannot write
     let json =
         serde_json::to_string_pretty(&crate::core::precision::Rounded(&result)).unwrap_or_default();
@@ -597,6 +611,7 @@ out:
                 None,
                 None,
                 "verdict.project_npv",
+                false,
             )
             .unwrap();
             let json = serde_json::to_value(result.data).unwrap();
@@ -654,9 +669,16 @@ out:
 
         fn matrix(output: &str) -> Vec<Vec<Option<f64>>> {
             let (_dir, path) = file();
-            let result =
-                sensitivity_core(&path, "s.x", "1,2,1", Some("s.y"), Some("0,1,1"), output)
-                    .unwrap();
+            let result = sensitivity_core(
+                &path,
+                "s.x",
+                "1,2,1",
+                Some("s.y"),
+                Some("0,1,1"),
+                output,
+                false,
+            )
+            .unwrap();
             two_var_matrix(result.data)
         }
 
@@ -717,6 +739,7 @@ out:
                 Some("synergies.cost_run_rate"),
                 Some("20,60,10"),
                 "valuation.value_created",
+                false,
             )
             .unwrap();
             let matrix = two_var_matrix(result.data);
@@ -763,6 +786,7 @@ out:
                 None,
                 None,
                 "value_created",
+                false,
             )
             .unwrap();
             assert_eq!(result.vary, CASH);
@@ -786,6 +810,7 @@ out:
                 Some(CASH),
                 Some("50,70,20"),
                 "valuation.value_created",
+                false,
             )
             .unwrap();
             let matrix = two_var_matrix(result.data);
@@ -903,7 +928,7 @@ out:
                            (vary, range): (&str, &str),
                            (vary2, range2): (Option<&str>, Option<&str>),
                            output: &str| {
-                sensitivity_core(file, vary, range, vary2, range2, output)
+                sensitivity_core(file, vary, range, vary2, range2, output, false)
                     .unwrap_err()
                     .to_string()
             };
@@ -957,7 +982,8 @@ out:
         #[test]
         fn an_output_the_model_does_not_have_fails_each_entry() {
             let (_dir, path) = file();
-            let result = sensitivity_core(&path, "s.x", "1,2,1", None, None, "nope").unwrap();
+            let result =
+                sensitivity_core(&path, "s.x", "1,2,1", None, None, "nope", false).unwrap();
             let json = serde_json::to_value(result.data).unwrap();
             let entry = |input: f64| {
                 serde_json::json!({

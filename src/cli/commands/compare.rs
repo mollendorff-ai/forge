@@ -394,12 +394,14 @@ pub fn compare(
     scenarios: &[String],
     verbose: bool,
     format: ReportFormat,
+    plan: bool,
 ) -> ForgeResult<()> {
     let table = format == ReportFormat::Table;
     if table {
         outln!(c, "{}", "🔥 Forge - Scenario Comparison".bold().green());
         outln!(c, "   File: {}", file.display());
         outln!(c, "   Scenarios: {}\n", scenarios.join(", "));
+        crate::cli::commands::plan::print_what_if_plan(c, plan);
     }
 
     let model = parser::parse_model(file)?;
@@ -415,11 +417,14 @@ pub fn compare(
     let inputs: Vec<String> = model
         .scalars
         .iter()
-        .filter(|(_, v)| v.formula.is_none())
+        // At plan an uncertain input is set, so it is an input
+        .filter(|(_, v)| {
+            v.formula.is_none() || plan && v.formula.as_deref().is_some_and(|f| f.contains("MC."))
+        })
         .map(|(name, _)| name.clone())
         .collect();
 
-    let result = super::compare_core(file, scenarios)?;
+    let result = super::compare_core(file, scenarios, plan)?;
     out!(
         c,
         "{}",
@@ -440,9 +445,10 @@ pub fn compare(
 pub fn compare_core(
     file: &Path,
     scenarios: &[String],
+    plan: bool,
 ) -> ForgeResult<crate::cli::commands::results::ComparisonResult> {
-    let base_model = parser::parse_model(file)?;
-    crate::cli::commands::reject_distributions_in(&base_model, "compare")?;
+    let mut base_model = parser::parse_model(file)?;
+    crate::cli::commands::plan::at_plan_or_refused(&mut base_model, plan, "compare")?;
 
     for scenario_name in scenarios {
         if !base_model.scenarios.contains_key(scenario_name) {
@@ -822,7 +828,7 @@ scenarios:
             let names: Vec<String> = ["base", "all_cash", "all_shares"]
                 .map(String::from)
                 .to_vec();
-            let result = compare_core(Path::new(MODEL), &names).unwrap();
+            let result = compare_core(Path::new(MODEL), &names, false).unwrap();
             let at = |variable: &str, scenario: &str| result.values[variable][scenario].unwrap();
             let expected = [
                 // (variable, 60/40, all cash, all shares, tolerance)
@@ -1105,7 +1111,7 @@ scenarios:
         fn a_core_comparison_names_the_scenarios_in_order_when_one_is_missing() {
             let (_dir, path) = file();
             let compare = |file: &str| {
-                super::super::compare_core(std::path::Path::new(file), &["nope".to_string()])
+                super::super::compare_core(std::path::Path::new(file), &["nope".to_string()], false)
                     .unwrap_err()
                     .to_string()
             };

@@ -75,6 +75,7 @@ impl ForgeMcpServer {
             req.vary2.as_deref(),
             req.range2.as_deref(),
             &req.output,
+            req.plan,
         )
         .map(|r| to_json(&r))
         .map_err(|e| format!("Sensitivity analysis failed: {e}"))
@@ -101,6 +102,7 @@ impl ForgeMcpServer {
             &req.vary,
             (req.min, req.max),
             req.tolerance,
+            req.plan,
         )
         .map(|r| to_json(&r))
         .map_err(|e| format!("Goal seek failed: {e}"))
@@ -127,6 +129,7 @@ impl ForgeMcpServer {
             &req.vary,
             (req.min, req.max),
             0.0001,
+            req.plan,
         )
         .map(|r| to_json(&r))
         .map_err(|e| format!("Break-even analysis failed: {e}"))
@@ -174,7 +177,7 @@ impl ForgeMcpServer {
             req.content.as_deref(),
             req.includes.as_ref(),
         )?;
-        compare_core(&path, &req.scenarios)
+        compare_core(&path, &req.scenarios, req.plan)
             .map(|r| comparison_json(&r).to_string())
             .map_err(|e| format!("Scenario comparison failed: {e}"))
     }
@@ -193,7 +196,7 @@ impl ForgeMcpServer {
             req.content.as_deref(),
             req.includes.as_ref(),
         )?;
-        scenarios_core(&path, req.scenario_filter.as_deref())
+        scenarios_core(&path, req.scenario_filter.as_deref(), req.plan)
             .map(|r| scenarios_json(&path, &r))
             .map_err(|e| format!("Scenario analysis failed: {e}"))
     }
@@ -212,7 +215,7 @@ impl ForgeMcpServer {
             req.content.as_deref(),
             req.includes.as_ref(),
         )?;
-        tornado_core(&path, req.output_var.as_deref())
+        tornado_core(&path, req.output_var.as_deref(), req.plan)
             .map(|r| to_json(&r))
             .map_err(|e| format!("Tornado analysis failed: {e}"))
     }
@@ -242,6 +245,73 @@ mod tests {
     };
     use rmcp::handler::server::wrapper::Parameters;
 
+    /// Each what-if tool takes `plan` (ADR-076, addendum of 2026-11-26): on
+    /// a launch whose price is uncertain and planned at 20, the figures
+    /// worked by hand; without it, the tool says to send `plan: true`
+    #[test]
+    fn every_what_if_tool_takes_plan() {
+        let server = ForgeMcpServer::new();
+        let launch = crate::cli::commands::LAUNCH;
+        let calls = [
+            (
+                "forge_scenarios",
+                serde_json::json!({}),
+                "/expected_values/outputs.profit",
+                2000.0,
+            ),
+            (
+                "forge_compare",
+                serde_json::json!({"scenarios": ["dear"]}),
+                "/values/outputs.profit/dear",
+                3000.0,
+            ),
+            (
+                "forge_tornado",
+                serde_json::json!({}),
+                "/base_value",
+                2000.0,
+            ),
+            (
+                "forge_goal_seek",
+                serde_json::json!({"target": "outputs.profit", "value": 2500, "vary": "assumptions.units", "tolerance": 1e-9}),
+                "/solution",
+                125.0,
+            ),
+            (
+                "forge_break_even",
+                serde_json::json!({"output": "outputs.profit", "vary": "assumptions.price", "min": -10, "max": 10}),
+                "/solution",
+                0.0,
+            ),
+            (
+                "forge_sensitivity",
+                serde_json::json!({"vary": "assumptions.price", "range": "15,25,5", "output": "outputs.profit"}),
+                "/data/OneVar/entries/2/output",
+                2500.0,
+            ),
+            (
+                "forge_audit",
+                serde_json::json!({"variable": "outputs.profit"}),
+                "/calculated_value",
+                2000.0,
+            ),
+        ];
+        for (tool, mut args, pointer, want) in calls {
+            args["content"] = serde_json::json!(launch);
+            let refused = server.call(tool, args.clone());
+            args["plan"] = serde_json::json!(true);
+            let answer = json(&server.call(tool, args).unwrap_or_default());
+            let got = answer.pointer(pointer).and_then(serde_json::Value::as_f64);
+            assert!(
+                got.is_some_and(|got| (got - want).abs() < 1e-6),
+                "{tool}: {pointer} is {got:?}, by hand {want}: {answer}"
+            );
+            // The audit answers its error, the others refuse
+            let said = refused.map_or_else(|e| e, |ok| json(&ok)["calculation_error"].to_string());
+            assert!(said.contains("plan: true"), "{tool}: {said}");
+        }
+    }
+
     const DATED: &str = r#"_forge_version: "5.4.0"
 inputs:
   last_actual: 2026-10-31
@@ -264,6 +334,7 @@ scenarios:
         let server = ForgeMcpServer::new();
         // May succeed or fail depending on test fixture
         let _ = server.sensitivity(Parameters(SensitivityRequest {
+            plan: false,
             file_path: Some("test-data/sensitivity_test.yaml".into()),
             content: None,
             includes: None,
@@ -279,6 +350,7 @@ scenarios:
     fn test_call_sensitivity_two_var() {
         let server = ForgeMcpServer::new();
         let _ = server.sensitivity(Parameters(SensitivityRequest {
+            plan: false,
             file_path: Some("test-data/sensitivity_test.yaml".into()),
             content: None,
             includes: None,
@@ -294,6 +366,7 @@ scenarios:
     fn test_call_goal_seek() {
         let server = ForgeMcpServer::new();
         let _ = server.goal_seek(Parameters(GoalSeekRequest {
+            plan: false,
             file_path: Some("test-data/budget.yaml".into()),
             content: None,
             includes: None,
@@ -310,6 +383,7 @@ scenarios:
     fn test_call_break_even() {
         let server = ForgeMcpServer::new();
         let _ = server.break_even(Parameters(BreakEvenRequest {
+            plan: false,
             file_path: Some("test-data/budget.yaml".into()),
             content: None,
             includes: None,
@@ -338,6 +412,7 @@ scenarios:
     fn test_call_compare() {
         let server = ForgeMcpServer::new();
         let result = server.compare(Parameters(CompareRequest {
+            plan: false,
             file_path: Some("test-data/budget.yaml".into()),
             content: None,
             includes: None,
@@ -351,6 +426,7 @@ scenarios:
     fn test_call_compare_empty_scenarios() {
         let server = ForgeMcpServer::new();
         let _ = server.compare(Parameters(CompareRequest {
+            plan: false,
             file_path: Some("test-data/budget.yaml".into()),
             content: None,
             includes: None,
@@ -362,6 +438,7 @@ scenarios:
     fn test_call_scenarios_dispatch() {
         let server = ForgeMcpServer::new();
         let e = err_text(server.scenarios(Parameters(ScenariosRequest {
+            plan: false,
             file_path: Some("test-data/budget.yaml".into()),
             content: None,
             includes: None,
@@ -375,6 +452,7 @@ scenarios:
         let server = ForgeMcpServer::new();
         assert!(server
             .scenarios(Parameters(ScenariosRequest {
+                plan: false,
                 file_path: Some("nonexistent.yaml".into()),
                 content: None,
                 includes: None,
@@ -414,6 +492,7 @@ scenarios:
 "#;
         let server = ForgeMcpServer::new();
         let text = ok_text(server.scenarios(Parameters(ScenariosRequest {
+            plan: false,
             file_path: None,
             content: Some(content.to_string()),
             includes: None,
@@ -453,6 +532,7 @@ scenarios:
 "#;
         let server = ForgeMcpServer::new();
         let text = ok_text(server.scenarios(Parameters(ScenariosRequest {
+            plan: false,
             file_path: None,
             content: Some(content.to_string()),
             includes: None,
@@ -498,6 +578,7 @@ scenarios:
 "#;
         let server = ForgeMcpServer::new();
         let text = ok_text(server.compare(Parameters(CompareRequest {
+            plan: false,
             file_path: None,
             content: Some(content.to_string()),
             includes: None,
@@ -541,6 +622,7 @@ scenarios:
 "#;
         let server = ForgeMcpServer::new();
         let text = ok_text(server.scenarios(Parameters(ScenariosRequest {
+            plan: false,
             file_path: None,
             content: Some(content.to_string()),
             includes: None,
@@ -593,6 +675,7 @@ scenarios:
 "#;
         let server = ForgeMcpServer::new();
         let text = ok_text(server.compare(Parameters(CompareRequest {
+            plan: false,
             file_path: None,
             content: Some(content.to_string()),
             includes: None,
@@ -617,6 +700,7 @@ scenarios:
     fn test_call_tornado() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.tornado(Parameters(TornadoRequest {
+            plan: false,
             file_path: Some("examples/tornado.yaml".into()),
             content: None,
             includes: None,
@@ -660,6 +744,7 @@ scalars:
     fn test_compare_gives_a_date_as_its_text() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.compare(Parameters(CompareRequest {
+            plan: false,
             file_path: None,
             content: Some(DATED.to_string()),
             includes: None,
@@ -675,6 +760,7 @@ scalars:
     fn test_scenarios_give_a_date_as_its_text() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.scenarios(Parameters(ScenariosRequest {
+            plan: false,
             file_path: None,
             content: Some(DATED.to_string()),
             includes: None,
@@ -721,6 +807,7 @@ scalars:
             let (file_path, content, includes) = plan(inline);
             let result = json(&ok_text(ForgeMcpServer::new().sensitivity(Parameters(
                 SensitivityRequest {
+                    plan: false,
                     file_path,
                     content,
                     includes,
@@ -752,6 +839,7 @@ scalars:
         for inline in [false, true] {
             let (file_path, content, includes) = plan(inline);
             let hours = json(&ok_text(server.goal_seek(Parameters(GoalSeekRequest {
+                plan: false,
                 file_path,
                 content,
                 includes,
@@ -768,6 +856,7 @@ scalars:
 
             let (file_path, content, includes) = plan(inline);
             let price = json(&ok_text(server.break_even(Parameters(BreakEvenRequest {
+                plan: false,
                 file_path,
                 content,
                 includes,
@@ -793,6 +882,7 @@ scalars:
             let (file_path, content, includes) = plan(inline);
             let result = json(&ok_text(ForgeMcpServer::new().break_even(Parameters(
                 BreakEvenRequest {
+                    plan: false,
                     file_path,
                     content,
                     includes,
@@ -850,6 +940,7 @@ scalars:
             let (file_path, content, includes) = plan(inline);
             let result = json(&ok_text(ForgeMcpServer::new().compare(Parameters(
                 CompareRequest {
+                    plan: false,
                     file_path,
                     content,
                     includes,
@@ -890,6 +981,7 @@ scalars:
         for inline in [false, true] {
             let (file_path, content, includes) = plan(inline);
             let all = json(&ok_text(server.scenarios(Parameters(ScenariosRequest {
+                plan: false,
                 file_path,
                 content,
                 includes,
@@ -904,6 +996,7 @@ scalars:
 
             let (file_path, content, includes) = plan(inline);
             let one = json(&ok_text(server.scenarios(Parameters(ScenariosRequest {
+                plan: false,
                 file_path,
                 content,
                 includes,
@@ -935,6 +1028,7 @@ scalars:
             let (file_path, content, includes) = plan(inline);
             let result = json(&ok_text(ForgeMcpServer::new().tornado(Parameters(
                 TornadoRequest {
+                    plan: false,
                     file_path,
                     content,
                     includes,
@@ -976,6 +1070,7 @@ scalars:
             let (file_path, content, includes) = takeover(inline);
             let result = json(&ok_text(ForgeMcpServer::new().scenarios(Parameters(
                 ScenariosRequest {
+                    plan: false,
                     file_path,
                     content,
                     includes,
@@ -1001,6 +1096,7 @@ scalars:
             let (file_path, content, includes) = takeover(inline);
             let result = json(&ok_text(ForgeMcpServer::new().break_even(Parameters(
                 BreakEvenRequest {
+                    plan: false,
                     file_path,
                     content,
                     includes,
@@ -1199,7 +1295,7 @@ scenarios:
         let priced =
             "_forge_version: \"5.1.0\"\nprice: 4\nout:\n  total: {formula: \"=price * 2\"}\n";
         assert_eq!(
-            err_text(server.sensitivity(Parameters(SensitivityRequest {
+            err_text(server.sensitivity(Parameters(SensitivityRequest { plan: false,
                 file_path: None,
                 content: Some(priced.to_string()),
                 includes: None,
@@ -1241,6 +1337,7 @@ scenarios:
         );
         assert_eq!(
             err_text(server.goal_seek(Parameters(GoalSeekRequest {
+                plan: false,
                 file_path: None,
                 content: content.clone(),
                 includes: None,
@@ -1254,7 +1351,7 @@ scenarios:
             "Goal seek failed: Validation error: Output variable 'nope' not found in model"
         );
         assert_eq!(
-            err_text(server.break_even(Parameters(BreakEvenRequest {
+            err_text(server.break_even(Parameters(BreakEvenRequest { plan: false,
                 file_path: None,
                 content: content.clone(),
                 includes: None,
@@ -1267,6 +1364,7 @@ scenarios:
         );
         assert_eq!(
             err_text(server.tornado(Parameters(TornadoRequest {
+                plan: false,
                 file_path: None,
                 content,
                 includes: None,

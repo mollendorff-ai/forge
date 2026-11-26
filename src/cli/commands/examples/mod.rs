@@ -435,14 +435,14 @@ mod tests {
             let base = result.scalars["year.first_year_return"].unwrap();
             assert!(close(base, 786.320_361_7 / 95_000.0, 1e-9), "{base}");
             let scenarios = vec!["flour_shock".to_string()];
-            let shock = compare_core(Path::new(MODEL), &scenarios).unwrap();
+            let shock = compare_core(Path::new(MODEL), &scenarios, false).unwrap();
             let value = shock.values["year.first_year_return"]["flour_shock"].unwrap();
             assert!(close(value, -16_943.271_075 / 95_000.0, 1e-9), "{value}");
         }
 
         #[test]
         fn flour_shock_changes_the_included_price() {
-            let results = scenarios_core(Path::new(MODEL), Some("flour_shock")).unwrap();
+            let results = scenarios_core(Path::new(MODEL), Some("flour_shock"), false).unwrap();
             let shock = &results.scenarios[0];
             assert_eq!(shock.name, "flour_shock");
             assert!(close(shock.outputs["year.profit"], -16_943.271_075, 1e-6));
@@ -464,6 +464,7 @@ mod tests {
                 "assumptions.price_per_dozen",
                 (Some(10.0), Some(30.0)),
                 0.0001,
+                false,
             )
             .unwrap();
             assert!(price.converged);
@@ -476,6 +477,7 @@ mod tests {
                 "assumptions.staff_hours_per_day",
                 (Some(8.0), Some(40.0)),
                 0.0001,
+                false,
             )
             .unwrap();
             assert!(hours.converged);
@@ -495,7 +497,7 @@ mod tests {
         /// ```
         #[test]
         fn tornado_matches_the_independent_calculation() {
-            let result = crate::cli::tornado_core(Path::new(MODEL), None).unwrap();
+            let result = crate::cli::tornado_core(Path::new(MODEL), None, false).unwrap();
             let expected = [
                 ("assumptions.opening_dozens_per_day", -56_463.56, 58_036.20),
                 ("assumptions.price_per_dozen", -46_309.92, 47_882.56),
@@ -641,11 +643,14 @@ mod tests {
         #[test]
         fn compare_and_real_options_output_is_the_same_every_time() {
             let scenarios = vec!["tourist_summer".to_string(), "base".to_string()];
-            let a = serde_json::to_string(&compare_core(Path::new(MODEL), &scenarios).unwrap())
-                .unwrap();
-            for _ in 0..5 {
-                let b = serde_json::to_string(&compare_core(Path::new(MODEL), &scenarios).unwrap())
+            let a =
+                serde_json::to_string(&compare_core(Path::new(MODEL), &scenarios, false).unwrap())
                     .unwrap();
+            for _ in 0..5 {
+                let b = serde_json::to_string(
+                    &compare_core(Path::new(MODEL), &scenarios, false).unwrap(),
+                )
+                .unwrap();
                 assert_eq!(a, b);
             }
             let file = Path::new("examples/bagel/wait_option.yaml");
@@ -1169,6 +1174,7 @@ mod tests {
                 "loan.extra_per_month",
                 (None, None),
                 0.0001,
+                false,
             )
             .unwrap();
             assert!(result.converged);

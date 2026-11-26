@@ -392,7 +392,7 @@ summary:
         fn compare_takes_the_full_form_without_a_probability() {
             let dir = tempfile::tempdir().unwrap();
             let file = model(dir.path(), FULL_NO_PROBABILITY);
-            let result = compare_core(&file, &both()).unwrap();
+            let result = compare_core(&file, &both(), false).unwrap();
             let revenue = &result.values["summary.revenue"];
             assert!((revenue["optimistic"].unwrap() - 65_268.0).abs() < 1e-6);
             assert!((revenue["pessimistic"].unwrap() - 57_036.0).abs() < 1e-6);
@@ -402,7 +402,7 @@ summary:
         fn compare_takes_the_flat_form_as_before() {
             let dir = tempfile::tempdir().unwrap();
             let file = model(dir.path(), FLAT);
-            let result = compare_core(&file, &both()).unwrap();
+            let result = compare_core(&file, &both(), false).unwrap();
             assert!(
                 (result.values["summary.revenue"]["optimistic"].unwrap() - 65_268.0).abs() < 1e-6
             );
@@ -412,7 +412,7 @@ summary:
         fn scenarios_without_any_probability_leave_nothing_to_weigh() {
             let dir = tempfile::tempdir().unwrap();
             let file = model(dir.path(), FULL_NO_PROBABILITY);
-            let error = scenarios_core(&file, None).unwrap_err().to_string();
+            let error = scenarios_core(&file, None, false).unwrap_err().to_string();
             for expected in [
                 "No scenario has a probability, so there is nothing to weigh",
                 "(no probability: optimistic, pessimistic)",
@@ -428,7 +428,7 @@ summary:
             let typo =
                 FULL_NO_PROBABILITY.replace("description:", "probabilty: 0.5\n    description:");
             let file = model(dir.path(), &typo);
-            let error = compare_core(&file, &both()).unwrap_err().to_string();
+            let error = compare_core(&file, &both(), false).unwrap_err().to_string();
             assert!(error.contains("Did you mean 'probability'"), "{error}");
         }
 
@@ -437,7 +437,7 @@ summary:
             // The scalars of the model in `forge compare --help`, with its output
             let dir = tempfile::tempdir().unwrap();
             let file = model(dir.path(), FULL_NO_PROBABILITY);
-            let result = compare_core(&file, &both()).unwrap();
+            let result = compare_core(&file, &both(), false).unwrap();
             assert_eq!(
                 result.variables,
                 [
@@ -493,7 +493,7 @@ summary:
         fn scenarios_weighs_the_chances_and_names_the_choices() {
             let dir = tempfile::tempdir().unwrap();
             let file = model(dir.path(), MIXED);
-            let results = scenarios_core(&file, None).unwrap();
+            let results = scenarios_core(&file, None, false).unwrap();
             let names: Vec<&str> = results.scenarios.iter().map(|s| s.name.as_str()).collect();
             assert_eq!(names, ["optimistic", "pessimistic"]);
             // In the file's order
@@ -510,7 +510,7 @@ summary:
         fn compare_takes_the_choices_from_the_same_list() {
             let dir = tempfile::tempdir().unwrap();
             let file = model(dir.path(), MIXED);
-            let result = compare_core(&file, &choices()).unwrap();
+            let result = compare_core(&file, &choices(), false).unwrap();
             let revenue = &result.values["summary.revenue"];
             assert!((revenue["price_rise"].unwrap() - 72_924.0).abs() < 1e-6);
             assert!((revenue["more_customers"].unwrap() - 75_705.0).abs() < 1e-6);
@@ -521,7 +521,7 @@ summary:
             let dir = tempfile::tempdir().unwrap();
             let forgotten = MIXED.replace("    probability: 0.4\n", "");
             let file = model(dir.path(), &forgotten);
-            let error = scenarios_core(&file, None).unwrap_err().to_string();
+            let error = scenarios_core(&file, None, false).unwrap_err().to_string();
             assert!(
                 error.contains(
                     "must sum to 1.0, got 0.6000 \
@@ -535,7 +535,7 @@ summary:
         fn a_choice_is_not_run_on_its_own() {
             let dir = tempfile::tempdir().unwrap();
             let file = model(dir.path(), MIXED);
-            let error = scenarios_core(&file, Some("price_rise"))
+            let error = scenarios_core(&file, Some("price_rise"), false)
                 .unwrap_err()
                 .to_string();
             for expected in [
@@ -546,7 +546,7 @@ summary:
                 assert!(error.contains(expected), "{error}");
             }
             // A chance still runs alone, and the choices are still named
-            let results = scenarios_core(&file, Some("optimistic")).unwrap();
+            let results = scenarios_core(&file, Some("optimistic"), false).unwrap();
             assert_eq!(results.scenarios.len(), 1);
             assert_eq!(results.unweighted, choices());
         }
@@ -578,7 +578,7 @@ summary:
         fn the_results_name_the_choices_and_an_older_file_still_reads() {
             let dir = tempfile::tempdir().unwrap();
             let file = model(dir.path(), MIXED);
-            let results = scenarios_core(&file, None).unwrap();
+            let results = scenarios_core(&file, None, false).unwrap();
             let json: serde_json::Value =
                 serde_json::from_str(&results.to_json().unwrap()).unwrap();
             assert_eq!(
