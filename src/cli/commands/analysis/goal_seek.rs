@@ -27,6 +27,7 @@ pub fn goal_seek_core(
 ) -> ForgeResult<crate::cli::commands::results::GoalSeekResult> {
     let (min, max) = bounds;
     let base_model = parser::parse_model(file)?;
+    crate::cli::commands::reject_distributions_in(&base_model, "goal-seek and break-even")?;
     let vary = &crate::cli::commands::names::scalar_name(&base_model, vary, false)?;
     let target = &crate::cli::commands::names::scalar_name(&base_model, target, true)?;
 
@@ -282,6 +283,41 @@ const BREAK_EVEN_TOLERANCE: f64 = 0.0001;
 
 #[cfg(test)]
 mod tests {
+    /// A model with an `MC.*` input is refused with what to run instead
+    /// (roadmap E-MC-MESSAGE)
+    mod distributions {
+        #[test]
+        fn goal_seek_names_the_distribution_and_what_to_run() {
+            crate::cli::commands::assert_distributions_refused(
+                &[
+                    "goal-seek",
+                    "FILE",
+                    "--target",
+                    "outputs.profit",
+                    "--value",
+                    "1000",
+                    "--vary",
+                    "assumptions.units",
+                ],
+                "goal-seek and break-even",
+            );
+        }
+
+        #[test]
+        fn break_even_names_the_distribution_and_what_to_run() {
+            crate::cli::commands::assert_distributions_refused(
+                &[
+                    "break-even",
+                    "FILE",
+                    "--output",
+                    "outputs.profit",
+                    "--vary",
+                    "assumptions.units",
+                ],
+                "goal-seek and break-even",
+            );
+        }
+    }
 
     mod small_models {
         //! One input `x` and one output `y`, so the answer is known by hand:

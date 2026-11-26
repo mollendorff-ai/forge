@@ -70,6 +70,7 @@ pub fn scenarios_core(
     }
 
     let model = parser::parse_model(file)?;
+    crate::cli::commands::reject_distributions_in(&model, "scenarios")?;
 
     // Report every calculated scalar (the ones with a formula) as an output,
     // so the probability of a positive result and the range are filled in.
@@ -193,6 +194,15 @@ pub fn scenarios(
 
 #[cfg(test)]
 mod tests {
+    /// A model with an `MC.*` input is refused with what to run instead
+    /// (roadmap E-MC-MESSAGE)
+    mod distributions {
+        #[test]
+        fn scenarios_names_the_distribution_and_what_to_run() {
+            crate::cli::commands::assert_distributions_refused(&["scenarios", "FILE"], "scenarios");
+        }
+    }
+
     use std::io::Write;
     use tempfile::NamedTempFile;
 

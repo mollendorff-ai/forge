@@ -389,8 +389,12 @@ pub fn audit_core(file: &Path, variable: &str) -> ForgeResult<AuditResult> {
         formula: target.formula,
         dependencies: target.children,
         is_valid: is_valid && builder.main.calculated.is_some(),
-        calculation_error: ArrayCalculator::new(model.clone())
-            .calculate_all()
+        calculation_error: crate::cli::commands::reject_distributions_in(&model, "audit")
+            .and_then(|()| {
+                ArrayCalculator::new(model.clone())
+                    .calculate_all()
+                    .map(drop)
+            })
             .err()
             .map(|e| e.to_string()),
         warnings,
@@ -585,6 +589,18 @@ fn print_dependency(c: &mut Console<'_>, dep: &AuditDep, indent: usize) {
 
 #[cfg(test)]
 mod tests {
+    /// A model with an `MC.*` input is refused with what to run instead
+    /// (roadmap E-MC-MESSAGE)
+    mod distributions {
+        #[test]
+        fn audit_names_the_distribution_and_what_to_run() {
+            crate::cli::commands::assert_distributions_refused(
+                &["audit", "FILE", "outputs.profit"],
+                "audit",
+            );
+        }
+    }
+
     use super::*;
 
     #[test]
