@@ -10,30 +10,11 @@ current: {}
 previous: {}
 
 backlog:
-  - id: AR-MAINTAINING-SCORECARD
-    title: "docs/MAINTAINING.md and the CI page name the Scorecard workflow"
-    why: "Found 2026-11-25 by the engine lane (A17-SCORECARD): .github/workflows/scorecard.yml runs on Tuesdays and on every push to main and publishes the OpenSSF Scorecard score the README's badge shows; MAINTAINING.md's weekly section names only weekly.yml and validation.yml"
-    acceptance: "The page says what scorecard.yml does and when, and roles.rs holds the claim like the others"
-    model: "Sonnet 5.5, low"
-
-  - id: AR-CONTRIBUTING-TRIAL
-    title: "What a fresh contributor found in CONTRIBUTING.md"
-    why: "Filed by the manual lane from A10's trial (2026-11-25): a fresh agent cloned main and followed CONTRIBUTING.md through make check (6.5 minutes), a small change and a commit. Nothing blocked. (1) Nothing says git commit runs a pre-commit hook of 4 to 8 minutes (only docs/SESSIONS.md, which a person is not sent to): the commit sat silent for almost 5 minutes. (2) The Rust row says 1.97 or later and that CI's stable is 1.100.0; that 1.100 is needed only for coverage has to be inferred. (3) The changelog fragment's name needs a lane (changelog.d/README.md), and the lanes are explained only in AGENTS.md: which lane an outside contributor writes is a guess. (4) No branch, fork or pull request steps, and no word on whether a pull request needs an issue first"
-    acceptance: "Each of the four is answered on the page, or the decision that it should not be; roles.rs passes"
-    model: "Sonnet 5.5, low: four sentences on one page"
-  - id: AR-RELEASE-FILES
-    title: "MAINTAINING.md names the files whose version a release changes beyond Cargo.toml"
-    why: "Found 2026-11-26 by the engine lane: CITATION.cff (version, date-released) and server.json (version twice) hold the crate's version, and validation/repo metadata.rs fails a release that leaves them behind; .well-known/security.txt expires 2027-11-26. The page that says what a release changes does not list them"
-    how: "Add the three files to the release steps in docs/MAINTAINING.md, and the places-the-version-is-written check in roles.rs if it lists them"
-    acceptance: "docs/MAINTAINING.md names them and validation/repo passes"
-    model: "Haiku 5.5, low"
-
   - id: AR-WHAT-IF-PLAN
     title: "The analysis engines' page and the ADR index say the what-if commands take --plan"
     why: "Filed 2026-11-26 by the features lane (F-WHAT-IF-PLAN): ADR-076 has an addendum of 2026-11-26, the what-if commands taking --plan (plan: true over MCP, REST and forge-wasm), one rule for all in src/cli/commands/plan.rs (at_plan_or_refused). 09-ANALYSIS-ENGINES.md says calculate --plan only, and the index row of ADR-076 does not name the addendum"
     acceptance: "09-ANALYSIS-ENGINES.md and the ADR index say it; architecture_docs.rs passes"
     model: "Haiku 5.5, low: the addendum says what to write"
-
 done:
   - id: AR-PAGES-CURRENT
     title: "The architecture pages say what the code does after ADR-078 to ADR-080 and the lanes"
@@ -48,6 +29,25 @@ done:
     model: "Sonnet 5.5, medium: steps checked against a real release"
     checked: "2026-11-26, against rc.36 (release commit 5b9646b, run 45850019234, PR #450): the jobs, their order, the version places, scriv's collection and the CI hand-off to Release matched. Corrected: the version is also in CITATION.cff and server.json; the release job makes the SBOM and signs each archive and the SBOM with cosign; the release page has 13 files, not 6; the cosign verify-blob check was missing. roles.rs holds each. Not yet done: the maintainer's dated review, so the item stays open"
     built: "2026-11-26: docs/MAINTAINING.md checked against rc.36 and corrected (PR #455); the maintainer read the page and agreed with it on 2026-11-26"
+  - id: AR-MAINTAINING-SCORECARD
+    title: "docs/MAINTAINING.md and the CI page name the Scorecard workflow"
+    why: "Found 2026-11-25 by the engine lane (A17-SCORECARD): .github/workflows/scorecard.yml runs on Tuesdays and on every push to main and publishes the OpenSSF Scorecard score the README's badge shows; MAINTAINING.md's weekly section names only weekly.yml and validation.yml"
+    acceptance: "The page says what scorecard.yml does and when, and roles.rs holds the claim like the others"
+    model: "Sonnet 5.5, low"
+    built: "2026-11-26: docs/MAINTAINING.md says what scorecard.yml does and when (Tuesdays and every push to main, publishes the badge score, uploads to the Security tab); roles.rs holds the three claims"
+  - id: AR-CONTRIBUTING-TRIAL
+    title: "What a fresh contributor found in CONTRIBUTING.md"
+    why: "Filed by the manual lane from A10's trial (2026-11-25): a fresh agent cloned main and followed CONTRIBUTING.md through make check (6.5 minutes), a small change and a commit. Nothing blocked. (1) Nothing says git commit runs a pre-commit hook of 4 to 8 minutes (only docs/SESSIONS.md, which a person is not sent to): the commit sat silent for almost 5 minutes. (2) The Rust row says 1.97 or later and that CI's stable is 1.100.0; that 1.100 is needed only for coverage has to be inferred. (3) The changelog fragment's name needs a lane (changelog.d/README.md), and the lanes are explained only in AGENTS.md: which lane an outside contributor writes is a guess. (4) No branch, fork or pull request steps, and no word on whether a pull request needs an issue first"
+    acceptance: "Each of the four is answered on the page, or the decision that it should not be; roles.rs passes"
+    model: "Sonnet 5.5, low: four sentences on one page"
+    built: "2026-11-26: CONTRIBUTING.md answers the four: the pre-commit hook takes 4 to 8 minutes and prints little; Rust 1.100.0 is for make coverage only; the fragment takes the lane whose work yours is (the four named, the maintainer moves the file when two fit); a new \"Sending a change\" section with the branch, the fork and the pull request, no issue needed first except to talk a new feature over before its ADR. The last point is the session's wording, for the maintainer to confirm or change"
+  - id: AR-RELEASE-FILES
+    title: "MAINTAINING.md names the files whose version a release changes beyond Cargo.toml"
+    why: "Found 2026-11-26 by the engine lane: CITATION.cff (version, date-released) and server.json (version twice) hold the crate's version, and validation/repo metadata.rs fails a release that leaves them behind; .well-known/security.txt expires 2027-11-26. The page that says what a release changes does not list them"
+    how: "Add the three files to the release steps in docs/MAINTAINING.md, and the places-the-version-is-written check in roles.rs if it lists them"
+    acceptance: "docs/MAINTAINING.md names them and validation/repo passes"
+    model: "Haiku 5.5, low"
+    built: "2026-11-26: CITATION.cff and server.json were added to MAINTAINING.md by AR-MAINTAINING-REVIEW (PR #455); this adds date-released and security.txt's Expires (2027-11-26, which no test fails on), and roles.rs holds the date the page gives"
   - id: AR-REST-EVERY-TOOL
     title: "The API server's pages say every MCP tool is served over REST (ADR-081)"
     why: "Found 2026-11-25 by the features lane (T3-API): forge serve now serves every MCP tool at POST /api/v1/<name> (goal-seek, simulate, edit, ...), each running the tool itself through ForgeMcpServer::call (src/api/tools.rs), and GET /api/v1/openapi.json, an OpenAPI 3.1 document made from the tools' schemas. 08-API-SERVER-ARCHITECTURE.md (its opening and the /version row), 01-COMPONENT-ARCHITECTURE.md and docs/EMBEDDING.md still say five operations, the other analyses being MCP tools and commands. The ADR index has ADR-081's row, added with the ADR because validation/repo requires one"

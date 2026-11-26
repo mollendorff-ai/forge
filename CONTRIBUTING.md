@@ -13,7 +13,7 @@ An AI agent working in this repository reads [AGENTS.md](AGENTS.md) first (`CLAU
 
 ## Setting up
 
-`make check` needs Rust (1.97 or later), Node and `markdownlint-cli2`, the first three rows below. The other tools are for the suites that compare Forge with other engines, and CI runs those if you do not.
+`make check` needs Rust (1.97 or later, any newer stable works), Node and `markdownlint-cli2`, the first three rows below. Rust 1.100.0 is needed only for `make coverage` (the fourth row). The other tools are for the suites that compare Forge with other engines, and CI runs those if you do not.
 
 | What | Which | Why |
 | --- | --- | --- |
@@ -64,6 +64,13 @@ make format         # Format the code
 - **Docs that stay true**: update what the change makes wrong; a page about a design that no longer exists gets a dated note at the top.
 - **No skipping the rules** in AGENTS.md: 100% coverage, pedantic lints and formatting, with no `allow`, no coverage-only code, no ignored test and no formatting skip; tests inline, in the file they test; no file over 1,500 lines. `validation/repo/src/no_skipping.rs` counts what is still left from before the rules, and fails if a change adds to it.
 - **Measure coverage with Rust 1.100 or later**, the toolchain CI's stable is: `RUSTUP_TOOLCHAIN=1.100.0 make coverage`. `scripts/coverage.sh` refuses an older `rustc`, which counts fewer regions inside macros and reads 100% where CI does not.
+
+## Sending a change
+
+1. Fork the repository (or branch, if you have write access) from the newest `main`: `git fetch origin main && git checkout -b <your branch> origin/main`.
+2. `git commit` runs a pre-commit hook (`.cargo-husky/hooks/pre-commit`) that takes 4 to 8 minutes and prints little while it does: format, lint, every test and `validation/repo`. A commit that sits silent is not stuck; wait for it, then check `git log -1`.
+3. Name the changelog fragment `<date>_<lane>_<what>.md` with the lane whose work yours is: `engine` (the engine's answers, speed and `validation/`, CI, releases), `manual` (guide, examples, READMEs, `--help` text), `features` (new behaviour) or `architecture` (`docs/architecture/`, the contributor pages). The table in [AGENTS.md](AGENTS.md) has each lane's list; when two fit, the maintainer moves the file.
+4. Push the branch and open a pull request against `main`, with the template filled in. A pull request needs no issue first. For a new feature, open an issue or a discussion before you write it: a feature has an ADR in `docs/architecture/` first, and the maintainer says whether it fits.
 
 The pull request template has these as a checklist. `.asimov/project.yaml` lists the conventions; `validation/repo/src/conventions.rs` checks the ones a test can.
 
