@@ -40,6 +40,13 @@ backlog:
     why: "Found 2026-11-25 by the features lane (T3-API, ADR-081): forge serve serves every MCP tool at POST /api/v1/<name>, the body the tool's arguments and the answer its JSON in data (422 with the tool's message when it fails), and GET /api/v1/openapi.json. docs/FEATURES.md's HTTP REST API section lists five endpoints; docs/MCP.md does not say the tools are also reachable over HTTP. forge serve --help already says it"
     acceptance: "FEATURES.md lists the served tools with one worked call (goal-seek on starter.yaml) and the document's address; validation/repo passes"
     model: "Sonnet 5.5, low"
+  - id: M-MCP-NAME
+    title: "The README carries the MCP Registry name, so the registry can verify the crate"
+    why: "Found 2026-11-26 by the engine lane (A13-MCP-REGISTRY): the registry checks a cargo package by looking for `mcp-name: <server name>` in the crate's README as rendered by crates.io, which drops HTML comments, so it has to be visible text. The name is io.github.mollendorff-ai/forge (server.json)"
+    how: "A visible line in README.md, for example a bullet under 'For AI agents': `MCP Registry name: mcp-name: io.github.mollendorff-ai/forge`, with a readme_commands.rs check that it equals server.json's name. It reaches crates.io with the next release"
+    acceptance: "README.md has the line, a test holds it equal to server.json's name, and the maintainer can publish the entry after that release"
+    model: "Haiku 5.5, low"
+
 
 done:
   - id: A10-README-AND-TRIALS

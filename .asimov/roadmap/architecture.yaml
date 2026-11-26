@@ -31,6 +31,13 @@ backlog:
     why: "Found 2026-11-25 by the features lane (T3-API): forge serve now serves every MCP tool at POST /api/v1/<name> (goal-seek, simulate, edit, ...), each running the tool itself through ForgeMcpServer::call (src/api/tools.rs), and GET /api/v1/openapi.json, an OpenAPI 3.1 document made from the tools' schemas. 08-API-SERVER-ARCHITECTURE.md (its opening and the /version row), 01-COMPONENT-ARCHITECTURE.md and docs/EMBEDDING.md still say five operations, the other analyses being MCP tools and commands. The ADR index has ADR-081's row, added with the ADR because validation/repo requires one"
     acceptance: "08, 01 and EMBEDDING.md describe the served tools, the 400 and 422 answers and the document; architecture_docs.rs passes"
     model: "Sonnet 5.5, low: ADR-081 says what to write"
+  - id: AR-RELEASE-FILES
+    title: "MAINTAINING.md names the files whose version a release changes beyond Cargo.toml"
+    why: "Found 2026-11-26 by the engine lane: CITATION.cff (version, date-released) and server.json (version twice) hold the crate's version, and validation/repo metadata.rs fails a release that leaves them behind; .well-known/security.txt expires 2027-11-26. The page that says what a release changes does not list them"
+    how: "Add the three files to the release steps in docs/MAINTAINING.md, and the places-the-version-is-written check in roles.rs if it lists them"
+    acceptance: "docs/MAINTAINING.md names them and validation/repo passes"
+    model: "Haiku 5.5, low"
+
 
 done:
   - id: AR-PAGES-CURRENT
