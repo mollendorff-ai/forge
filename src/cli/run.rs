@@ -140,7 +140,7 @@ impl CalculateArgs {
 
 impl AuditArgs {
     fn run(self, c: &mut Console<'_>) -> ForgeResult<()> {
-        super::audit(c, &self.file, &self.variable)
+        super::audit(c, &self.file, &self.variable, self.plan)
     }
 }
 
@@ -177,7 +177,14 @@ impl WatchArgs {
 
 impl CompareArgs {
     fn run(self, c: &mut Console<'_>) -> ForgeResult<()> {
-        super::compare(c, &self.file, &self.scenarios, self.verbose, self.format)
+        super::compare(
+            c,
+            &self.file,
+            &self.scenarios,
+            self.verbose,
+            self.format,
+            self.plan,
+        )
     }
 }
 
@@ -213,7 +220,7 @@ impl SensitivityArgs {
             (&self.vary, &self.range),
             (self.vary2.as_deref(), self.range2.as_deref()),
             &self.output_var,
-            (&self.format, self.verbose),
+            (&self.format, self.verbose, self.plan),
         )
     }
 }
@@ -227,7 +234,7 @@ impl GoalSeekArgs {
             &self.vary,
             (self.min, self.max),
             self.tolerance,
-            self.verbose,
+            (self.verbose, self.plan),
         )
     }
 }
@@ -239,9 +246,8 @@ impl BreakEvenArgs {
             &self.file,
             &self.output_var,
             &self.vary,
-            self.min,
-            self.max,
-            self.verbose,
+            (self.min, self.max),
+            (self.verbose, self.plan),
         )
     }
 }
@@ -272,6 +278,7 @@ impl ScenariosArgs {
             self.scenario.as_deref(),
             self.output,
             self.verbose,
+            self.plan,
         )
     }
 }
@@ -303,6 +310,7 @@ impl TornadoArgs {
             self.output_var.as_deref(),
             self.output,
             self.verbose,
+            self.plan,
         )
     }
 }

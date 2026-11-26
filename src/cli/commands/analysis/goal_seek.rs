@@ -24,10 +24,15 @@ pub fn goal_seek_core(
     vary: &str,
     bounds: (Option<f64>, Option<f64>),
     tolerance: f64,
+    plan: bool,
 ) -> ForgeResult<crate::cli::commands::results::GoalSeekResult> {
     let (min, max) = bounds;
-    let base_model = parser::parse_model(file)?;
-    crate::cli::commands::reject_distributions_in(&base_model, "goal-seek and break-even")?;
+    let mut base_model = parser::parse_model(file)?;
+    crate::cli::commands::plan::at_plan_or_refused(
+        &mut base_model,
+        plan,
+        "goal-seek and break-even",
+    )?;
     let vary = &crate::cli::commands::names::scalar_name(&base_model, vary, false)?;
     let target = &crate::cli::commands::names::scalar_name(&base_model, target, true)?;
 
@@ -159,14 +164,23 @@ pub fn goal_seek(
     vary: &str,
     bounds: (Option<f64>, Option<f64>),
     tolerance: f64,
-    verbose: bool,
+    (verbose, plan): (bool, bool),
 ) -> ForgeResult<()> {
     outln!(c, "{}", "🔥 Forge - Goal Seek".bold().green());
     outln!(c, "   File: {}", file.display());
     outln!(c, "   Target: {} = {}", target.bright_blue(), value);
     outln!(c, "   Vary: {}", vary.bright_yellow());
     outln!(c, "   Tolerance: {tolerance}\n");
-    solve(c, file, (target, value), vary, bounds, tolerance, verbose)
+    crate::cli::commands::plan::print_what_if_plan(c, plan);
+    solve(
+        c,
+        file,
+        (target, value),
+        vary,
+        bounds,
+        tolerance,
+        (verbose, plan),
+    )
 }
 
 /// Find the input, then print the solution (the part goal-seek and
@@ -178,9 +192,9 @@ fn solve(
     vary: &str,
     bounds: (Option<f64>, Option<f64>),
     tolerance: f64,
-    verbose: bool,
+    (verbose, plan): (bool, bool),
 ) -> ForgeResult<()> {
-    let result = goal_seek_core(file, target, value, vary, bounds, tolerance)?;
+    let result = goal_seek_core(file, target, value, vary, bounds, tolerance, plan)?;
     if verbose {
         outln!(
             c,
@@ -256,15 +270,15 @@ pub fn break_even(
     file: &Path,
     output: &str,
     vary: &str,
-    min: Option<f64>,
-    max: Option<f64>,
-    verbose: bool,
+    bounds: (Option<f64>, Option<f64>),
+    (verbose, plan): (bool, bool),
 ) -> ForgeResult<()> {
     outln!(c, "{}", "🔥 Forge - Break-Even Analysis".bold().green());
     outln!(c, "   File: {}", file.display());
     outln!(c, "   Finding where {} = 0", output.bright_blue());
     outln!(c, "   Vary: {}", vary.bright_yellow());
     outln!(c, "   Tolerance: {BREAK_EVEN_TOLERANCE}\n");
+    crate::cli::commands::plan::print_what_if_plan(c, plan);
 
     // Break-even is goal-seek with value = 0
     solve(
@@ -272,9 +286,9 @@ pub fn break_even(
         file,
         (output, 0.0),
         vary,
-        (min, max),
+        bounds,
         BREAK_EVEN_TOLERANCE,
-        verbose,
+        (verbose, plan),
     )
 }
 
@@ -343,7 +357,7 @@ mod tests {
         fn seek(x: &str, formula: &str, value: f64) -> Result<(f64, f64, bool), String> {
             let dir = tempfile::tempdir().unwrap();
             let path = model(dir.path(), x, formula);
-            goal_seek_core(&path, "y", value, "x", (None, None), 1e-9)
+            goal_seek_core(&path, "y", value, "x", (None, None), 1e-9, false)
                 .map(|r| (r.solution, r.achieved, r.converged))
                 .map_err(|e| e.to_string())
         }
@@ -440,7 +454,7 @@ mod tests {
                 "x",
                 (None, None),
                 0.0001,
-                true,
+                (true, false),
             )
             .unwrap();
             let text = String::from_utf8(out).unwrap();
@@ -458,10 +472,10 @@ mod tests {
         fn a_file_or_a_name_that_is_not_there_is_refused() {
             let dir = tempfile::tempdir().unwrap();
             let missing = dir.path().join("none.yaml");
-            assert!(goal_seek_core(&missing, "y", 1.0, "x", (None, None), 1e-9).is_err());
+            assert!(goal_seek_core(&missing, "y", 1.0, "x", (None, None), 1e-9, false).is_err());
             let path = model(dir.path(), "1", "=x");
             for (target, vary) in [("y", "nope"), ("@nope.y", "x")] {
-                let err = goal_seek_core(&path, target, 1.0, vary, (None, None), 1e-9)
+                let err = goal_seek_core(&path, target, 1.0, vary, (None, None), 1e-9, false)
                     .unwrap_err()
                     .to_string();
                 assert!(err.contains("nope"), "{target}, {vary}: {err}");
@@ -558,6 +572,7 @@ mod tests {
                 "fuel.diesel_price",
                 (Some(0.1), Some(1.45)),
                 0.0001,
+                false,
             )
             .unwrap();
             assert!(result.converged);
@@ -587,6 +602,7 @@ mod tests {
                 "market.multiple_factor",
                 (Some(0.5), Some(3.0)),
                 1e-12,
+                false,
             )
             .unwrap();
             assert!(result.converged);
@@ -616,6 +632,7 @@ mod tests {
                 "harvest.price_per_tonne",
                 (None, None),
                 0.0001,
+                false,
             )
             .unwrap();
             assert!(result.converged);
@@ -644,6 +661,7 @@ mod tests {
                 "deal.price",
                 (Some(4_000_000.0), Some(5_500_000.0)),
                 0.0001,
+                false,
             )
             .unwrap();
             assert!(result.converged);
@@ -667,6 +685,7 @@ mod tests {
                 "deal.price",
                 (None, None),
                 0.0001,
+                false,
             )
             .unwrap();
             assert!(result.converged);
@@ -699,6 +718,7 @@ mod tests {
                 "offer.premium",
                 (Some(0.3), Some(0.6)),
                 1e-9,
+                false,
             )
             .unwrap();
             assert!(result.converged);
@@ -719,6 +739,7 @@ mod tests {
                     vary,
                     (Some(bounds.0), Some(bounds.1)),
                     1e-12,
+                    false,
                 )
                 .unwrap();
                 assert!(result.converged, "{vary}");
@@ -762,6 +783,7 @@ mod tests {
                 CASH,
                 (None, None),
                 1e-9,
+                false,
             )
             .unwrap();
             assert!(result.converged);
@@ -780,6 +802,7 @@ mod tests {
                 "@target.free_cash_flow_next_year",
                 (Some(40.0), Some(62.0)),
                 1e-9,
+                false,
             )
             .unwrap();
             assert_eq!(bare.vary, CASH);
@@ -808,6 +831,7 @@ mod tests {
                 "@seller.company.free_cash_flow_next_year",
                 (None, None),
                 1e-9,
+                false,
             )
             .unwrap_err()
             .to_string();

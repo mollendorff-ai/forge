@@ -182,11 +182,22 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
                 calculate_core(main, true, scenario).map_err(fail)?
             })
         },
-        "audit" => to_value(audit_core(main, str_arg(args, "variable")?).map_err(fail)?),
-        "scenarios" => {
-            to_value(scenarios_core(main, opt_str(args, "scenario_filter")?).map_err(fail)?)
-        },
-        "compare" => to_value(compare_core(main, &strings(args, "scenarios")?).map_err(fail)?),
+        // `plan` on a what-if tool: its uncertain inputs at plan, as calculate's
+        "audit" => to_value(
+            audit_core(main, str_arg(args, "variable")?, opt_bool(args, "plan")?).map_err(fail)?,
+        ),
+        "scenarios" => to_value(
+            scenarios_core(
+                main,
+                opt_str(args, "scenario_filter")?,
+                opt_bool(args, "plan")?,
+            )
+            .map_err(fail)?,
+        ),
+        "compare" => to_value(
+            compare_core(main, &strings(args, "scenarios")?, opt_bool(args, "plan")?)
+                .map_err(fail)?,
+        ),
         "goal_seek" => to_value(
             goal_seek_core(
                 main,
@@ -195,6 +206,7 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
                 str_arg(args, "vary")?,
                 (opt_f64(args, "min")?, opt_f64(args, "max")?),
                 opt_f64(args, "tolerance")?.unwrap_or(0.0001),
+                opt_bool(args, "plan")?,
             )
             .map_err(fail)?,
         ),
@@ -207,6 +219,7 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
                 str_arg(args, "vary")?,
                 (opt_f64(args, "min")?, opt_f64(args, "max")?),
                 0.0001,
+                opt_bool(args, "plan")?,
             )
             .map_err(fail)?,
         ),
@@ -218,10 +231,23 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
                 opt_str(args, "vary2")?,
                 opt_str(args, "range2")?,
                 str_arg(args, "output")?,
+                opt_bool(args, "plan")?,
             )
             .map_err(fail)?,
         ),
-        "tornado" => to_value(tornado_core(main, opt_str(args, "output_var")?).map_err(fail)?),
+        "tornado" => to_value(
+            tornado_core(main, opt_str(args, "output_var")?, opt_bool(args, "plan")?)
+                .map_err(fail)?,
+        ),
+        _ => run_analysis(tool, main, args),
+    }
+}
+
+/// The tools that analyse a model of their own, or one under uncertainty:
+/// [`run_on_files`] for those after the what-if tools.
+fn run_analysis(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Value, String> {
+    let fail = |e: mollendorff_forge::ForgeError| e.to_string();
+    match tool {
         "simulate" => simulate(main, args),
         "probability_seek" => probability_seek(main, args),
         "variance" => to_value(
@@ -804,6 +830,45 @@ mod tests {
                 24.27,
                 0.005,
             );
+        }
+
+        /// The what-if tools with `plan` (ADR-076, addendum of 2026-11-26):
+        /// the bagel's simulation file at plan is bagel.yaml's plan, so each
+        /// answers what bagel.yaml answers, and the audit has nothing to say
+        #[test]
+        fn the_bagels_simulation_at_plan_answers_as_its_plan() {
+            for (at_plan, plain) in [
+                (
+                    "break-even price, bagel simulate at plan",
+                    "break-even price",
+                ),
+                (
+                    "goal seek staff hours, bagel simulate at plan",
+                    "goal seek staff hours",
+                ),
+            ] {
+                close(
+                    number(&case(at_plan), "/solution"),
+                    number(&case(plain), "/solution"),
+                    1e-9,
+                );
+            }
+            let sensitivity = case("sensitivity price, bagel simulate at plan");
+            close(
+                number(&sensitivity, "/data/OneVar/entries/1/output"),
+                786.32,
+                0.005,
+            );
+            let compared = case("compare rent hike, bagel simulate at plan");
+            let rent = case("calculate bagel simulate at plan, rent hike");
+            close(
+                number(&compared, "/values/year.profit/rent_hike"),
+                number(&rent, "/scalars/year.profit"),
+                1e-9,
+            );
+            let audit = case("audit profit, bagel simulate at plan");
+            close(number(&audit, "/calculated_value"), 786.32, 0.005);
+            assert!(audit["calculation_error"].is_null(), "{audit}");
         }
 
         /// `examples/expected_loss.yaml` in its recession: the prior reads the

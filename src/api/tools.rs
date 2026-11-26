@@ -468,6 +468,42 @@ mod tests {
         }
     }
 
+    /// `plan` over REST (ADR-076, addendum of 2026-11-26): a served tool
+    /// takes it as its MCP tool does, and the audit's own endpoint too; on a
+    /// launch whose price is uncertain and planned at 20, 20 x 100
+    #[tokio::test]
+    async fn the_what_if_endpoints_take_plan() {
+        let router = build_router(&ApiConfig::default()).expect("the default starts");
+        let launch = crate::cli::commands::LAUNCH;
+        let body = |plan: bool, extra: Value| {
+            let mut body = json!({"content": launch, "plan": plan});
+            body.as_object_mut()
+                .expect("an object")
+                .extend(extra.as_object().cloned().unwrap_or_default());
+            body.to_string()
+        };
+        let tornado = |plan| body(plan, json!({}));
+        let (status, answer) = send(&router, Method::POST, "/api/v1/tornado", &tornado(true)).await;
+        assert_eq!(status, StatusCode::OK, "{answer}");
+        assert_eq!(answer["data"]["base_value"], 2000.0, "{answer}");
+        let (status, refused) =
+            send(&router, Method::POST, "/api/v1/tornado", &tornado(false)).await;
+        assert_ne!(status, StatusCode::OK, "{refused}");
+        assert!(refused.to_string().contains("plan: true"), "{refused}");
+
+        let audit = |plan| body(plan, json!({"variable": "outputs.profit"}));
+        let (_, answer) = send(&router, Method::POST, "/api/v1/audit", &audit(true)).await;
+        let result = &answer["data"]["result"];
+        assert_eq!(result["calculated_value"], 2000.0, "{answer}");
+        assert!(
+            result.get("calculation_error").is_none_or(Value::is_null),
+            "{answer}"
+        );
+        let (_, answer) = send(&router, Method::POST, "/api/v1/audit", &audit(false)).await;
+        let error = answer["data"]["result"]["calculation_error"].to_string();
+        assert!(error.contains("plan: true"), "{answer}");
+    }
+
     #[tokio::test]
     async fn a_failure_says_why_with_its_status() {
         let router = build_router(&ApiConfig::default()).expect("the default starts");

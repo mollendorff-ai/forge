@@ -923,7 +923,7 @@ mod inherited_budget {
         let dir = tempfile::tempdir().unwrap();
         let yaml = dir.path().join("budget.yaml");
         import_core(&example("budget.xlsx"), &yaml, false, false).unwrap();
-        let audit = audit_core(&yaml, "summary.net_income").unwrap();
+        let audit = audit_core(&yaml, "summary.net_income", false).unwrap();
         assert!(audit.is_valid);
         assert_eq!(
             audit.formula.as_deref(),
