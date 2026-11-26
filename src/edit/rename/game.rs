@@ -391,6 +391,9 @@ pub(super) mod tests {
                 ("* pg.others", "* public.others"),
                 ("\"=pg.", "\"=public."),
                 ("- pg.even_mix", "- public.even_mix"),
+                // and under expect:
+                ("pg.pure_equilibria", "public.pure_equilibria"),
+                ("pg.equilibrium_1", "public.equilibrium_1"),
             ],
         );
         renamed_and_back(
@@ -407,6 +410,7 @@ pub(super) mod tests {
                 ("\n  axelrod:\n", "\n  tour:\n"),
                 ("axelrod.score.", "tour.score."),
                 ("axelrod.cooperation.", "tour.cooperation."),
+                ("axelrod.rank.", "tour.rank."),
             ],
         );
         renamed_and_back(
@@ -510,6 +514,7 @@ pub(super) mod tests {
                     "output: inspection.equilibrium_1.human.audit",
                     "output: inspection.equilibrium_1.human.check",
                 ),
+                ("human.audit: =", "human.check: ="),
             ],
         );
         renamed_and_back(
@@ -526,6 +531,7 @@ pub(super) mod tests {
                 ("players: [ai, human]", "players: [ai, person]"),
                 ("      human: [audit", "      person: [audit"),
                 ("equilibrium_1.human.audit", "equilibrium_1.person.audit"),
+                ("equilibrium_1.human.payoff", "equilibrium_1.person.payoff"),
             ],
         );
         renamed_and_back(
@@ -546,6 +552,7 @@ pub(super) mod tests {
                 ),
                 ("opera: {opera:", "ballet: {ballet:"),
                 ("football: {opera:", "football: {ballet:"),
+                (".opera: =", ".ballet: ="),
             ],
         );
         renamed_and_back(

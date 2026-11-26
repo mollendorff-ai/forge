@@ -46,6 +46,8 @@ printf '%s\n' \
 
 The first line it prints is the answer to `initialize`, with the protocol version it speaks and its `instructions`; the second lists the 23 tools.
 
+A system that does not speak MCP can reach every tool over HTTP: `forge serve` serves each one at `POST /api/v1/<name>` (`forge_goal_seek` at `/api/v1/goal-seek`), with the same arguments and answers, and describes them in an OpenAPI document ([FEATURES.md](FEATURES.md#http-rest-api-server)).
+
 ## Keeping Files Inside One Folder
 
 The tools read and write the files an agent names, with your permissions: `forge_calculate` writes results into the model, `forge_export` and `forge_import` write a workbook or a model wherever `excel_path` or `yaml_path` points. That is normal for a local MCP server, but it means an agent, or a prompt injected into one by a document it read, can read any model or workbook you can and write a file anywhere you can.
@@ -173,7 +175,7 @@ Each change has an `op` and a `path`, the name as formulas read it (`price`, `ye
 
 | `op` | Takes | Does |
 |------|-------|------|
-| `set_value` | `value` | An input's value: a number, or its text as YAML holds it (`1e-5`, a date `2026-01-31`). The rest of the line, a comment or the rest of a flow mapping, stays. For a table's column of numbers or of dates, a list, one value for each row (`"value": [100, 120, 90]`): each row whose value changes is written, the others and the list's style and comments stay, and a list of another length is refused (a column's rows are not changed). A column of text, of true and false, or with an empty cell is refused |
+| `set_value` | `value` | An input's value: a number, or its text as YAML holds it (`1e-5`, a date `2026-01-31`). The rest of the line, a comment or the rest of a flow mapping, stays. For a table's column of numbers, of dates or of text, a list, one value for each row (`"value": [100, 120, 90]`, `"value": ["Basic", "Plus Pro"]`): each row whose value changes is written, the others and the list's style and comments stay, and a list of another length is refused (a column's rows are not changed). A changed row of text keeps its quotes, and a plain one stays plain when YAML reads it back as the same text; a number given for a row of text is refused. A column of true and false, or with an empty cell, is refused |
 | `set_formula` | `formula` | A scalar's or a column's formula, one line starting with `=`, in the quotes the file already uses for it |
 | `add` | `value` or `formula`, and `unit`; `after` at the top level | An input or a formula at the end of its group, in the indentation of the keys there; a formula in a table is a column. At the top level it goes after the block of the name `after` |
 | `delete` | | An input, a formula or a column, with the lines under it and its comment on the line; a comment above it stays. The last name of a group is not deleted |

@@ -22,12 +22,6 @@ backlog:
     how: "When someone offers, not by recruiting: one FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
     acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
 
-  - id: M-EDIT-TEXT-COLUMN-DOCS
-    title: "The docs say forge edit changes a column of text"
-    why: "Found 2026-11-25 by the features lane (F-EDIT-TEXT-COLUMN): forge edit and forge_edit's set_value now take a list of texts for a table's column of text, each row written in its own quotes, and --set takes the quotes off each item ('products.name=[\"Basic\", Plus Pro]'). docs/MCP.md's set_value row and docs/FEATURES.md's forge edit paragraph still say a column of text is refused; skills/forge-modelling/SKILL.md (step 4) shows only a column of numbers or dates"
-    acceptance: "docs/MCP.md, docs/FEATURES.md and the skill say a column of text is changed and a column of true and false or with an empty cell is refused, with an example; docs/cli/README.md rebuilt from forge edit --help"
-    model: "Sonnet 5.5, low: the behaviour is written in ADR-075 and the changelog"
-
   - id: M-PIPELINE-EXAMPLE-RC35
     title: "forge-pipeline-example runs the rc.35 workflow, and the guide's table says what its three pull requests now do"
     why: "Found 2026-11-25 by the features lane. github.com/mollendorff-ai/forge-pipeline-example is the repository docs/guide/pipeline.md's \"It has run\" section links to: the bagel model, the workflow, and three pull requests opened as the page's examples (#1 calculated, passes; #2 not calculated, fails at forge validate; #3 a formula with no result, fails at the JSON check). It still runs rc.34 with the jq step; examples/pipeline/forge.yml moved to rc.35 (M-RC35-FOLLOW-UP), where forge validate itself fails a formula with no stored result. So the page's 'This workflow has run, unchanged' is no longer true, and #3 would now fail one step earlier than its row says. #1 and #2 were merged although their text says not to be (the repository's main passes forge validate); #3 is open and red on purpose"
@@ -35,29 +29,6 @@ backlog:
     acceptance: "The page's three rows link to runs of the rc.35 workflow, each failing at the step the row names; the repository's README says the same; validation/repo's pipeline checks pass"
     model: "Sonnet 5.5, medium: three pull requests reopened and their runs read"
 
-  - id: M-REST-EVERY-TOOL-DOCS
-    title: "The docs show every MCP tool over REST, and the OpenAPI document"
-    why: "Found 2026-11-25 by the features lane (T3-API, ADR-081): forge serve serves every MCP tool at POST /api/v1/<name>, the body the tool's arguments and the answer its JSON in data (422 with the tool's message when it fails), and GET /api/v1/openapi.json. docs/FEATURES.md's HTTP REST API section lists five endpoints; docs/MCP.md does not say the tools are also reachable over HTTP. forge serve --help already says it"
-    acceptance: "FEATURES.md lists the served tools with one worked call (goal-seek on starter.yaml) and the document's address; validation/repo passes"
-    model: "Sonnet 5.5, low"
-  - id: M-MCP-NAME
-    title: "The README carries the MCP Registry name, so the registry can verify the crate"
-    why: "Found 2026-11-26 by the engine lane (A13-MCP-REGISTRY): the registry checks a cargo package by looking for `mcp-name: <server name>` in the crate's README as rendered by crates.io, which drops HTML comments, so it has to be visible text. The name is io.github.mollendorff-ai/forge (server.json)"
-    how: "A visible line in README.md, for example a bullet under 'For AI agents': `MCP Registry name: mcp-name: io.github.mollendorff-ai/forge`, with a readme_commands.rs check that it equals server.json's name. It reaches crates.io with the next release"
-    acceptance: "README.md has the line, a test holds it equal to server.json's name, and the maintainer can publish the entry after that release"
-    model: "Haiku 5.5, low"
-  - id: M-DEAL-BID-BRANCH
-    title: "The acquisition README's 91.73 for the 40% bid is printed by a command on its page"
-    why: "Found 2026-11-26 by a run of every example with v10.0.0-rc.36. examples/acquisition/README.md says 'a 40% knockout bid that Thornvale counters only 15% of the time, 91.73', but forge decision-tree examples/acquisition/deal_bid.yaml prints only the best path (Expected Value $109.54, opening at 30%), so no command on the page shows 91.73. The figure is right: with the offer_30_percent branch removed, forge decision-tree prints Expected Value $91.73. The same holds for the 69% threshold the paragraph gives"
-    how: "Either a scenario in deal_bid.yaml that leaves only the 40% bid (or sets the counter's chance to the 69% threshold), run by a command in the README's list; or the paragraph says how the figure is worked out. If the tree should print each first choice's value, that is a features item, filed there"
-    acceptance: "Each figure in the paragraph is printed by a command on the page, or the page says it is worked out by hand and how"
-    model: "Sonnet 5.5, low"
-  - id: M-GAMES-EXPECT
-    title: "Every game in examples/games/ states its results under expect:, so forge validate checks them"
-    why: "Found 2026-11-26 by a run of every example with v10.0.0-rc.36. examples/README.md says the games 'state theirs in expect:', but only stag-hunt.yaml has an expect: block (forge validate: 11 expected results match). The other nine (axelrod, battle-of-the-sexes, chicken, continuation, hawk-dove, inspection, noisy-tournament, public-goods, volunteers-dilemma) give their results in comments, which nothing checks. Each one spot-checked held, such as the volunteer's dilemma's mixed equilibrium at 0.2047 (0.204729 by hand) and axelrod --scenario c2's grim first at 2.517"
-    how: "For each game, the results its comments state, under expect: for the file as written and for each scenario its comments name (axelrod c2, chicken c3, hawk-dove costly, public-goods generous, volunteers-dilemma cheap), as stag-hunt.yaml does through kinship:; or examples/README.md says only stag-hunt.yaml does"
-    acceptance: "forge validate passes on each file in examples/games/ with at least one expected result, and examples/README.md's sentence is true"
-    model: "Opus 5.5, medium: each figure worked out and checked against the comment, not copied from the output"
   - id: M-HOW-THIS-IS-BUILT
     title: "The README has a short 'How this is built' section that shows what the maintainer decides"
     why: "Found 2026-11-26 by the evaluation of Forge at rc.36 (Owner risk, B+; fix list item 3). The README discloses the AI authorship, but the evaluator counted 215 of 316 commits as authored by Claude (a shallow clone) and noted that a reader, an employer or a CV reader may ask what the maintainer did. The answer is in the repository (AGENTS.md's rules, the lanes, the ADRs, the gates that stop work from going round the rules, the maintainer opening and merging every pull request), but not on the front page. Filed at the maintainer's request."
@@ -67,6 +38,39 @@ backlog:
 
 
 done:
+  - id: M-GAMES-EXPECT
+    title: "Every game in examples/games/ states its results under expect:, so forge validate checks them"
+    why: "Found 2026-11-26 by a run of every example with v10.0.0-rc.36. examples/README.md says the games 'state theirs in expect:', but only stag-hunt.yaml has an expect: block (forge validate: 11 expected results match). The other nine (axelrod, battle-of-the-sexes, chicken, continuation, hawk-dove, inspection, noisy-tournament, public-goods, volunteers-dilemma) give their results in comments, which nothing checks. Each one spot-checked held, such as the volunteer's dilemma's mixed equilibrium at 0.2047 (0.204729 by hand) and axelrod --scenario c2's grim first at 2.517"
+    how: "For each game, the results its comments state, under expect: for the file as written and for each scenario its comments name (axelrod c2, chicken c3, hawk-dove costly, public-goods generous, volunteers-dilemma cheap), as stag-hunt.yaml does through kinship:; or examples/README.md says only stag-hunt.yaml does"
+    acceptance: "forge validate passes on each file in examples/games/ with at least one expected result, and examples/README.md's sentence is true"
+    model: "Opus 5.5, medium: each figure worked out and checked against the comment, not copied from the output"
+    built: "2026-11-26: the nine other games in examples/games/ have expect: blocks (85 results, 96 with stag-hunt's 11), each value worked out outside Forge in Python (closed forms for the mixed equilibria, the replicator equation iterated for hawk-dove, and each tournament's exact expected scores by dynamic programming over the last two rounds' moves, noise included), then compared with the comments: every figure the comments give held (axelrod 2.596 ... 1.90875, c2's grim 2.5166; the noisy tournament's 2.518, 2.471 and 2.457, which also showed the tournament plays itself by default). forge validate passes on all ten. New scenarios where a comment states a number nothing ran: inspection's lenient and harsh (the tornado's two penalties: audit 1/2 and 1/5, cheating 1/3) and continuation's short_matches (w = 0.4: AlwaysDefect 3.4 against GrimTrigger, which is then not stable). The files are format 5.6.0, set by hand: forge upgrade --to 5.6.0 refuses a 5.5.0 file with games (filed as E-UPGRADE-GAMES)"
+  - id: M-MCP-NAME
+    title: "The README carries the MCP Registry name, so the registry can verify the crate"
+    why: "Found 2026-11-26 by the engine lane (A13-MCP-REGISTRY): the registry checks a cargo package by looking for `mcp-name: <server name>` in the crate's README as rendered by crates.io, which drops HTML comments, so it has to be visible text. The name is io.github.mollendorff-ai/forge (server.json)"
+    how: "A visible line in README.md, for example a bullet under 'For AI agents': `MCP Registry name: mcp-name: io.github.mollendorff-ai/forge`, with a readme_commands.rs check that it equals server.json's name. It reaches crates.io with the next release"
+    acceptance: "README.md has the line, a test holds it equal to server.json's name, and the maintainer can publish the entry after that release"
+    model: "Haiku 5.5, low"
+    built: "2026-11-26: README.md has a visible line, mcp-name: io.github.mollendorff-ai/forge, under For AI agents (crates.io drops HTML comments, so a comment would not do); readme_commands.rs holds it equal to server.json's name. It reaches crates.io with the next release; the maintainer can then publish the registry entry"
+  - id: M-EDIT-TEXT-COLUMN-DOCS
+    title: "The docs say forge edit changes a column of text"
+    why: "Found 2026-11-25 by the features lane (F-EDIT-TEXT-COLUMN): forge edit and forge_edit's set_value now take a list of texts for a table's column of text, each row written in its own quotes, and --set takes the quotes off each item ('products.name=[\"Basic\", Plus Pro]'). docs/MCP.md's set_value row and docs/FEATURES.md's forge edit paragraph still say a column of text is refused; skills/forge-modelling/SKILL.md (step 4) shows only a column of numbers or dates"
+    acceptance: "docs/MCP.md, docs/FEATURES.md and the skill say a column of text is changed and a column of true and false or with an empty cell is refused, with an example; docs/cli/README.md rebuilt from forge edit --help"
+    model: "Sonnet 5.5, low: the behaviour is written in ADR-075 and the changelog"
+    built: "2026-11-26: docs/MCP.md's set_value row, docs/FEATURES.md's forge edit paragraph and the skill's step 4 say a column of text is changed (--set 'products.name=[Basic, Plus Pro]'), and a column of true and false or with an empty cell is refused. Tried on a model first: --set takes the items unquoted and a number there is read as text ('5' is written \"5\"); through --changes or forge_edit a JSON number for a row of text is refused, which MCP.md says and the skill repeats. docs/cli/README.md already had the text (the update-docs job rebuilt it from forge edit --help)"
+  - id: M-REST-EVERY-TOOL-DOCS
+    title: "The docs show every MCP tool over REST, and the OpenAPI document"
+    why: "Found 2026-11-25 by the features lane (T3-API, ADR-081): forge serve serves every MCP tool at POST /api/v1/<name>, the body the tool's arguments and the answer its JSON in data (422 with the tool's message when it fails), and GET /api/v1/openapi.json. docs/FEATURES.md's HTTP REST API section lists five endpoints; docs/MCP.md does not say the tools are also reachable over HTTP. forge serve --help already says it"
+    acceptance: "FEATURES.md lists the served tools with one worked call (goal-seek on starter.yaml) and the document's address; validation/repo passes"
+    model: "Sonnet 5.5, low"
+    built: "2026-11-26: docs/FEATURES.md's REST section lists POST /api/v1/<tool> and GET /api/v1/openapi.json, with a goal-seek call on examples/starter.yaml run against a real forge serve (solution 24.9999994976446, 31 iterations) and the 422 and 400 answers; docs/MCP.md says the tools are reachable over HTTP. Left to the architecture lane, as ADR-081 files it: pages 08 and 01 and EMBEDDING.md still say five operations"
+  - id: M-DEAL-BID-BRANCH
+    title: "The acquisition README's 91.73 for the 40% bid is printed by a command on its page"
+    why: "Found 2026-11-26 by a run of every example with v10.0.0-rc.36. examples/acquisition/README.md says 'a 40% knockout bid that Thornvale counters only 15% of the time, 91.73', but forge decision-tree examples/acquisition/deal_bid.yaml prints only the best path (Expected Value $109.54, opening at 30%), so no command on the page shows 91.73. The figure is right: with the offer_30_percent branch removed, forge decision-tree prints Expected Value $91.73. The same holds for the 69% threshold the paragraph gives"
+    how: "Either a scenario in deal_bid.yaml that leaves only the 40% bid (or sets the counter's chance to the 69% threshold), run by a command in the README's list; or the paragraph says how the figure is worked out. If the tree should print each first choice's value, that is a features item, filed there"
+    acceptance: "Each figure in the paragraph is printed by a command on the page, or the page says it is worked out by hand and how"
+    model: "Sonnet 5.5, low"
+    built: "2026-11-26: the second of the two ways the item names: examples/acquisition/README.md says the command prints only the best path and works the other bid out by hand from the tree's numbers (a countered offer is worth the better of the 18 break fee and 0.35 x 18 + 0.65 x 40.91 = 32.89; 0.85 x 102.11 + 0.15 x 32.89 = 91.73; the 69% is where 224.51 - p x (224.51 - 32.89) falls to 91.73, 0.693), which decision_tree.rs already asserts (91.727225 and 0.69295). A scenario that leaves only the 40% bid would need decision-tree to take scenarios, which it does not"
   - id: M-HOW-BUILT
     title: "The README says how Forge is built: one maintainer, AI agents in lanes, and the rules they cannot switch off"
     why: "Asked by the maintainer on 2026-11-26, after an audit of the repository found the AI authorship disclosed (Status and known limitations) but not what the maintainer decides, so a reader of the owner's profile would ask what the owner did"

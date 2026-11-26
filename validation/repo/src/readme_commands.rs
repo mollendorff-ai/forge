@@ -273,4 +273,21 @@ mod tests {
         assert!(dated.is_empty(), "a row gives a dated result: {dated:?}");
         assert!(checks.contains("](VALIDATION.md)"));
     }
+
+    /// The MCP Registry verifies a crate by this line in the README as
+    /// crates.io shows it, and the name is `server.json`'s (M-MCP-NAME).
+    #[test]
+    fn the_readme_carries_the_registry_name_of_server_json() {
+        let server: serde_json::Value =
+            serde_json::from_str(&crate::read("server.json")).unwrap_or_default();
+        let name = server["name"].as_str().unwrap_or_default();
+        assert!(name.starts_with("io.github.mollendorff-ai/"), "{name}");
+        let readme = crate::read("README.md");
+        let line = format!("mcp-name: {name}");
+        assert_eq!(
+            readme.lines().filter(|l| l.ends_with(&line)).count(),
+            1,
+            "the README has no visible `{line}` line"
+        );
+    }
 }

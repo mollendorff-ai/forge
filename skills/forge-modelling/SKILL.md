@@ -119,12 +119,14 @@ $ forge calculate shop.yaml
 
 `forge edit --help` lists the other changes: a formula already in the model (`--formula 'year.profit==year.revenue - year.costs'`, two `=`), `--add` for a new one (`--add 'year.margin==year.profit / year.revenue'`), `--delete`, `--rename` (and every name that reads it).
 
-A table's column of numbers or dates takes a list, one value for each row; only the rows that change are written (`--dry-run` shows the file and writes nothing):
+A table's column of numbers, dates or text takes a list, one value for each row; only the rows that change are written (`--dry-run` shows the file and writes nothing):
 
 ```text
 $ forge edit shop.yaml --set "products.price=[20, 45]" --dry-run
   price: [20, 45]
 ```
+
+A column of text takes its items without quotes, and each row keeps the quotes it had: `--set 'products.name=[Basic, Plus Pro]'` writes `["Basic", "Plus Pro"]`. A list of another length and a column of true and false are refused, and no file is written. Through `forge_edit` or `--changes`, a row of text is a JSON text: a number there is refused.
 
 For a what-if, change a copy of the file (`cp shop.yaml shop_plus_at_45.yaml`) unless the user asked to change the model, so that they keep both.
 
