@@ -10,6 +10,9 @@
 //   interval, every state of every node of a network;
 // - on a network, a state tapped is evidence: the chances are then the
 //   tool's given that state, and a second tap takes it back;
+// - in a scenario chosen on the Model view the card is drawn from the tool's
+//   answer in that scenario, and expected_loss.yaml's recession gives the
+//   file's own working by hand (865/1254);
 // - no card makes the page scroll sideways at 390 px.
 //
 //   node studio/tests/analyses.mjs <built Studio dir or address>
@@ -65,6 +68,7 @@ const found = await page.evaluate(async (tools) => {
   }
   return list;
 }, TOOLS);
+if (!found.some((f) => f.file === "expected_loss.yaml")) fail("no example set has a network with scenarios (expected_loss.yaml)");
 if (found.length < 9) fail(`only ${found.length} analysis files found in the example sets`);
 
 // The numbers on a card against the tool's answer
@@ -84,7 +88,7 @@ const answer = (item, extra = {}) => page.evaluate(async ({ item, tool, extra })
 }, { item, tool: TOOLS[item.section], extra });
 const drawn = () => page.waitForFunction(() => document.body.dataset.state === "ready" && document.querySelector("[data-analysis] [data-num], [data-analysis] .msg.bad"), null, { timeout: 120000 });
 
-let numbers = 0, evidence = 0;
+let numbers = 0, evidence = 0, scenarioRuns = 0;
 for (const item of found) {
   const label = `${item.set}/${item.file}`;
   await page.goto(`${base}/?example=${item.set}&model=${item.file}`);
@@ -113,6 +117,36 @@ for (const item of found) {
   await page.waitForFunction((g) => Number(document.body.dataset.generation) > g && document.body.dataset.state === "ready", before, { timeout: 60000 });
   numbers += await compare(`${label} with nothing seen again`, plain, item.section);
   evidence++;
+  // In a scenario the model has: the chances are the tool's in that scenario, not the plan's
+  const scenarios = await page.evaluate(async (item) => (await (await import("./forge.js")).call("model", { files: item.files, main: item.file })).scenarios, item);
+  for (const name of scenarios) {
+    const move = async (click) => {
+      const g = Number(await page.evaluate(() => document.body.dataset.generation));
+      await click();
+      await page.waitForFunction((n) => Number(document.body.dataset.generation) > n && document.body.dataset.state === "ready", g, { timeout: 60000 });
+    };
+    await move(() => page.click(`[data-scn="${name}"]`));
+    const where = `${label} in ${name}`;
+    if (!(await page.$(`[data-bn-scenario="${name}"]`))) fail(`${where}: the card does not say the scenario`);
+    const inScenario = await answer(item, { scenario: name });
+    numbers += await compare(where, inScenario, item.section);
+    await move(() => page.click(`[data-ev="${node}"][data-state="${state}"]`));
+    const seen = await answer(item, { scenario: name, evidence: [`${node}=${state}`] });
+    numbers += await compare(`${where} given ${node}=${state}`, seen, item.section);
+    if (JSON.stringify(seen.queries) === JSON.stringify(given.queries) && JSON.stringify(inScenario.queries) === JSON.stringify(plain.queries)) fail(`${where}: Forge answers as in the plan`);
+    // expected_loss.yaml, in the recession, by Bayes' rule by hand: 0.0865 / 0.1254 (the file's own working)
+    if (item.file === "expected_loss.yaml" && name === "recession") {
+      await move(() => page.click(`[data-ev="${node}"][data-state="${state}"]`));
+      await move(() => page.click('[data-ev="default"][data-state="yes"]'));
+      const shown = Number(await page.getAttribute('[data-node="economy"] [data-num="/queries/economy/probabilities/2"]', "data-value"));
+      if (Math.abs(shown - 865 / 1254) > 1e-9) fail(`${where}: the bad year given a default shows ${shown}, by hand 865/1254`);
+      await move(() => page.click('[data-ev="default"][data-state="yes"]'));
+    } else await move(() => page.click(`[data-ev="${node}"][data-state="${state}"]`));
+    await move(() => page.click('[data-scn=""]'));
+    if (await page.$("[data-bn-scenario]")) fail(`${label}: the plan still says a scenario`);
+    numbers += await compare(`${label} back at the plan`, plain, item.section);
+    scenarioRuns++;
+  }
 }
 
 await browser.close();
@@ -121,4 +155,4 @@ if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log(`Analyses: ${found.length} files of the example sets open on a card drawn from their tool (${[...new Set(found.map((f) => f.section))].join(", ")}), ${numbers} numbers each Forge's, and on ${evidence} Bayesian networks a state tapped is evidence, and tapped again is not.`);
+console.log(`Analyses: ${found.length} files of the example sets open on a card drawn from their tool (${[...new Set(found.map((f) => f.section))].join(", ")}), ${numbers} numbers each Forge's, and on ${evidence} Bayesian networks a state tapped is evidence, and tapped again is not, and in ${scenarioRuns} scenarios of them the chances are the tool's in that scenario.`);

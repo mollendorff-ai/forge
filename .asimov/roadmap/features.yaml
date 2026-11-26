@@ -13,11 +13,6 @@ backlog:
   - id: T3-TRANSPORT
     title: "MCP over HTTP/SSE via rmcp"
     why: "Needed for hosted or browser clients; nobody has one yet"
-  - id: F-STUDIO-BAYESIAN-SCENARIO
-    title: "Forge Studio's Bayesian card is drawn in the scenario chosen on the Model view"
-    why: "Found 2026-11-22 (T2-BAYESIAN-LINK). forge_bayesian takes a scenario, but the Bayesian card does not pass the scenario chosen on the Model view yet (runAnalyses in studio/app.js), as the game card does; it is drawn at the plan in every scenario"
-    acceptance: "The card shows the scenario's posteriors, checked against forge bayesian --scenario on the same model; a test needs a network with scenarios in one of Studio's example sets (examples/expected_loss.yaml is in none, so add it to a set or use a model that is). studio/app.js is at the 1,500-line limit: the new code goes in a module of its own"
-    model: "Sonnet 5.5, medium: the game card is the pattern"
   - id: T2-GAME-THEORY
     title: "Games: a payoff table, and which strategies are an equilibrium"
     why: "Parked as P-GAME until a user asked; the maintainer asked on 2026-11-16, for his own kinship-protocol (github.com/mollendorff-ai/kinship-protocol), which calls Forge its game-theory calculator and wants more games. Read from its 13 models: a game is written by hand as scalars, one formula per strategy per parameter step (stag_hunt.yaml: c0_coop, c0_defect, c0_coop_wins, then c1_, c2_, c3_), a 'wins' flag is an IF the author writes, and the Axelrod tournament's average payoffs are numbers typed in (grim_base 2.622), calculated somewhere else. Forge works out a payoff and cannot say which strategy is dominated or where the equilibrium is. The second use is the one behind T1-MA-EXAMPLE: a bidding contest or a price answer, where the other side reacts"
@@ -31,6 +26,12 @@ backlog:
     model: "Opus 5.5, high: a surface change across four doors, and a default to decide"
 
 done:
+  - id: F-STUDIO-BAYESIAN-SCENARIO
+    title: "Forge Studio's Bayesian card is drawn in the scenario chosen on the Model view"
+    why: "Found 2026-11-22 (T2-BAYESIAN-LINK). forge_bayesian takes a scenario, but the Bayesian card does not pass the scenario chosen on the Model view yet (runAnalyses in studio/app.js), as the game card does; it is drawn at the plan in every scenario"
+    acceptance: "The card shows the scenario's posteriors, checked against forge bayesian --scenario on the same model; a test needs a network with scenarios in one of Studio's example sets (examples/expected_loss.yaml is in none, so add it to a set or use a model that is). studio/app.js is at the 1,500-line limit: the new code goes in a module of its own"
+    model: "Sonnet 5.5, medium: the game card is the pattern"
+    built: "2026-11-26. forge_bayesian is asked for the scenario chosen on the Model view (studio/bayesscenario.js; runAnalyses passes it), and the card says which scenario it is drawn in. examples/expected_loss.yaml is a Studio set of its own (A lender's loan), the only network with scenarios in a set. tests/analyses.mjs applies each scenario of each network (recession and boom): every number is the tool's in that scenario, with and without evidence, the recession given a default shows 865/1254 as the file's own working has it, and the plan comes back on the plan chip. The network's named queries are drawn by the card as chances, so tests/screen.mjs does not look for them as scalars"
   - id: F-EDIT-TEXT-COLUMN
     title: "forge edit changes a table's column of text"
     why: "forge edit changed a column of numbers or dates (2026-11-24) and refused text. Proposed by the manual lane; the maintainer chose it on 2026-11-25"

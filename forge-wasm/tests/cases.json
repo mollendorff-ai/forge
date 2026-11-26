@@ -41,6 +41,7 @@
   {"name": "simulate vineyard", "tool": "simulate", "dir": "vineyard", "files": ["vineyard_risk.yaml", "costs.yaml"], "main": "vineyard_risk.yaml", "args": {"iterations": 1000}},
   {"name": "calculate stag hunt", "tool": "calculate", "dir": "games", "files": ["stag-hunt.yaml"], "main": "stag-hunt.yaml"},
   {"name": "calculate stag hunt, c3", "tool": "calculate", "dir": "games", "files": ["stag-hunt.yaml"], "main": "stag-hunt.yaml", "args": {"scenario": "c3"}},
+  {"name": "calculate expected loss","tool": "calculate", "dir": "", "files": ["expected_loss.yaml"], "main": "expected_loss.yaml"},
   {"name": "calculate starter","tool": "calculate", "dir": "", "files": ["starter.yaml"], "main": "starter.yaml"},
   {"name": "calculate household", "tool": "calculate", "dir": "household", "files": ["budget.yaml"], "main": "budget.yaml"},
   {"name": "calculate options", "tool": "calculate", "dir": "options", "files": ["compare-options.yaml"], "main": "compare-options.yaml"},
