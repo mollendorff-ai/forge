@@ -1,6 +1,7 @@
 //! The files that say what Forge is to a tool, not a reader: `CITATION.cff`
-//! (GitHub's "Cite this repository") and `.well-known/security.txt`, each
-//! checked against `Cargo.toml` and `SECURITY.md` so they cannot drift.
+//! (GitHub's "Cite this repository"), `.well-known/security.txt` and
+//! `server.json` (the MCP Registry's entry), each checked against
+//! `Cargo.toml`, `SECURITY.md` and the binary so they cannot drift.
 
 #[cfg(test)]
 mod tests {
@@ -45,5 +46,52 @@ mod tests {
         assert!(field(&txt, "Expires")
             .parse::<String>()
             .is_ok_and(|e| e.len() == 24));
+    }
+
+    #[test]
+    fn server_json_names_this_crate_version_and_command() {
+        let entry: serde_json::Value = serde_json::from_str(&read("server.json")).unwrap();
+        let cargo = read("Cargo.toml");
+        let (version, name) = (field(&cargo, "version"), field(&cargo, "name"));
+        assert_eq!(entry["version"], version.as_str());
+        let package = &entry["packages"][0];
+        assert_eq!(package["registryType"], "cargo");
+        assert_eq!(package["registryBaseUrl"], "https://crates.io");
+        assert_eq!(package["identifier"], name.as_str());
+        assert_eq!(package["version"], version.as_str());
+        assert_eq!(package["transport"]["type"], "stdio");
+        assert_eq!(
+            entry["repository"]["url"],
+            field(&cargo, "repository").as_str()
+        );
+        assert_eq!(entry["websiteUrl"], field(&cargo, "homepage").as_str());
+        assert!(entry["name"]
+            .as_str()
+            .is_some_and(|n| n.starts_with("io.github.mollendorff-ai/")));
+        let length = entry["description"]
+            .as_str()
+            .map_or(0, |d| d.chars().count());
+        assert!(
+            (1..=100).contains(&length),
+            "the registry takes 1 to 100 characters, not {length}"
+        );
+    }
+
+    /// What the entry says to run is a command the binary has, and the
+    /// binary speaks MCP as the version the entry names.
+    #[test]
+    fn server_json_command_is_what_the_binary_serves() {
+        let entry: serde_json::Value = serde_json::from_str(&read("server.json")).unwrap();
+        let argument = entry["packages"][0]["packageArguments"][0]["value"]
+            .as_str()
+            .unwrap_or_default();
+        assert_eq!(argument, "mcp");
+        let help = crate::forge(&[argument, "--help"]);
+        assert_eq!(help.code, Some(0), "forge {argument} --help: {}", help.err);
+        assert!(help.out.contains("MCP"));
+        let version = crate::forge(&["--version"]);
+        assert!(version
+            .out
+            .contains(entry["version"].as_str().unwrap_or_default()));
     }
 }
