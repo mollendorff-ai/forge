@@ -674,7 +674,7 @@ months:
             assert_eq!(
                 set_column(file, &names, &two),
                 Err(refused.to_string()),
-                "{file}"
+                "FILE"
             );
         }
         assert!(set_column("t: [", &names, &two).is_err());

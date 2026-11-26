@@ -67,13 +67,14 @@ backlog:
     why: "The page exists (mollendorff-ai.github.io, no scripts or cookies). On 2026-11-15 https://www.mollendorff.ai showed 'This Connection Is Not Private' on an iPhone: DNS is right, the GitHub Pages certificate does not cover www"
     how: "Settings, Pages in mollendorff-ai.github.io: remove the custom domain, save, add mollendorff.ai again, wait for the certificate, tick Enforce HTTPS. Then open mollendorff.com and mollendorff.ca on the phone and see where they land (EasyDNS forwards if they do not reach mollendorff.ai)"
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
+
+done:
   - id: E-MC-MESSAGE
     title: "The what-if commands say why they cannot run a file with MC.* inputs, as calculate does"
     why: "Found 2026-11-26 by a model written from scratch with v10.0.0-rc.36 (an uncertain launch, its inputs with value: and an MC.* formula). forge calculate and forge validate on it say which inputs use MC.* and to run forge simulate or forge calculate --plan (src/cli/commands/mod.rs, the check before calculating). forge scenarios, compare, break-even, goal-seek, sensitivity and audit instead say 'Unknown function: MC.Triangular' for each input, and list every formula downstream as not calculated; scenarios and compare also print 'Formula evaluation error:' twice. MC.Triangular is a function Forge knows, so the message sends the reader the wrong way. report and export run"
     acceptance: "Each of those commands, on such a file, gives calculate's message (the inputs, and what to run instead), held by a test per command; or runs it at plan if F-WHAT-IF-PLAN lands first"
     model: "Sonnet 5.5, medium: one check shared by six commands, a test each"
-
-done:
+    built: "2026-11-26. The check calculate and validate make before calculating (src/cli/commands/mod.rs, reject_distributions) now takes the command's name, and the cores of compare, goal-seek and break-even, sensitivity, scenarios and tornado run it first (tornado has the same failure and was not on the list), so the CLI, the MCP tools and REST all say which inputs use MC.*, that the command cannot evaluate them, and to run forge simulate or forge calculate --plan. audit still prints the trail, with that message as its warning in place of Unknown function. A test per command runs it on a model with an MC.Triangular input and fails on the old message"
   - id: A13-MCP-REGISTRY
     title: "server.json for the official MCP Registry, and the other listings pointed at it"
     why: "The LobeHub listing still shows the Elastic-2.0 licence and an old README; one authoritative entry, kept true by a test, is the fix at the source"

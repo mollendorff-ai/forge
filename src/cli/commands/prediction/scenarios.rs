@@ -70,6 +70,9 @@ pub fn scenarios_core(
     }
 
     let model = parser::parse_model(file)?;
+    // Said after the scenarios are checked: a model with no scenario to weigh
+    // is told that first, as Studio's Analyze card explains it (ADR-076)
+    let distributions = crate::cli::commands::reject_distributions_in(&model, "scenarios");
 
     // Report every calculated scalar (the ones with a formula) as an output,
     // so the probability of a positive result and the range are filled in.
@@ -82,6 +85,7 @@ pub fn scenarios_core(
     let engine = ScenarioEngine::new(config, model)
         .map_err(ForgeError::Validation)?
         .with_outputs(outputs);
+    distributions?;
     let mut results = engine.run().map_err(ForgeError::Eval)?;
     // The expected values and ranges still cover every scenario.
     if let Some(name) = scenario_filter {
@@ -193,6 +197,32 @@ pub fn scenarios(
 
 #[cfg(test)]
 mod tests {
+    /// A model with an `MC.*` input is refused with what to run instead
+    /// (roadmap E-MC-MESSAGE)
+    mod distributions {
+        #[test]
+        fn scenarios_names_the_distribution_and_what_to_run() {
+            crate::cli::commands::assert_distributions_refused(&["scenarios", "FILE"], "scenarios");
+        }
+
+        /// A model that has both problems is told it has no scenario to
+        /// weigh first, as Studio's Analyze card explains it (ADR-076).
+        #[test]
+        fn scenarios_without_a_probability_are_reported_before_the_distributions() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("both.yaml");
+            std::fs::write(
+                &path,
+                "_forge_version: \"5.1.0\"\nassumptions:\n  price:\n    value: 20\n    formula: \"=MC.Triangular(15, 20, 25)\"\noutputs:\n  profit:\n    value: 20\n    formula: \"=assumptions.price\"\nscenarios:\n  a:\n    scalars:\n      assumptions.price: 1\n",
+            )
+            .unwrap();
+            let ran = crate::cli::forge(&["scenarios", path.to_str().unwrap()]);
+            let said = ran.both();
+            assert!(said.contains("No scenario has a probability"), "{said}");
+            assert!(!said.contains("MC.*"), "{said}");
+        }
+    }
+
     use std::io::Write;
     use tempfile::NamedTempFile;
 

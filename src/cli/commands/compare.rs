@@ -442,6 +442,7 @@ pub fn compare_core(
     scenarios: &[String],
 ) -> ForgeResult<crate::cli::commands::results::ComparisonResult> {
     let base_model = parser::parse_model(file)?;
+    crate::cli::commands::reject_distributions_in(&base_model, "compare")?;
 
     for scenario_name in scenarios {
         if !base_model.scenarios.contains_key(scenario_name) {
@@ -505,6 +506,18 @@ pub fn compare_core(
 
 #[cfg(test)]
 mod tests {
+    /// A model with an `MC.*` input is refused with what to run instead
+    /// (roadmap E-MC-MESSAGE)
+    mod distributions {
+        #[test]
+        fn compare_names_the_distribution_and_what_to_run() {
+            crate::cli::commands::assert_distributions_refused(
+                &["compare", "FILE", "--scenarios", "high"],
+                "compare",
+            );
+        }
+    }
+
     use super::*;
 
     mod compare {

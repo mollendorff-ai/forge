@@ -365,6 +365,13 @@ pub(super) fn calculated(
 /// `calculate` and `validate` are deterministic and cannot evaluate `MC.*` distributions; say so
 /// up front instead of failing later with an unknown-function or unknown-column error.
 fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
+    reject_distributions_in(model, "calculate and validate")
+}
+
+/// The check of [`reject_distributions`] for `command`, a command that
+/// calculates the model as calculate does (the what-if commands), named in
+/// the message so that it says which command cannot run the file.
+fn reject_distributions_in(model: &crate::types::ParsedModel, command: &str) -> ForgeResult<()> {
     let mut names: Vec<String> = model
         .scalars
         .iter()
@@ -385,7 +392,7 @@ fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
     }
     names.sort_unstable();
     Err(ForgeError::Validation(format!(
-        "{} use MC.* distributions, which calculate and validate cannot evaluate. Run `forge simulate` on this file instead, or `forge calculate --plan` for its plan.",
+        "{} use MC.* distributions, which {command} cannot evaluate. Run `forge simulate` on this file instead, or `forge calculate --plan` for its plan.",
         names.join(", ")
     )))
 }
@@ -631,6 +638,43 @@ pub fn apply_scenario(
     }
 
     Ok(())
+}
+
+/// A model whose input is an `MC.*` distribution, with weighted scenarios
+/// and a tornado section, given to `forge` with these arguments, `FILE`
+/// standing for its path: what each what-if command prints for it
+/// (roadmap E-MC-MESSAGE).
+#[cfg(test)]
+pub(crate) fn forge_on_distributions(args: &[&str]) -> crate::cli::Ran {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let path = dir.path().join("launch.yaml");
+    std::fs::write(
+        &path,
+        "_forge_version: \"5.1.0\"\nassumptions:\n  price:\n    value: 20\n    formula: \"=MC.Triangular(15, 20, 25)\"\n  units:\n    value: 100\noutputs:\n  profit:\n    value: 2000\n    formula: \"=assumptions.price * assumptions.units\"\nscenarios:\n  low:\n    probability: 0.5\n    scalars:\n      assumptions.units: 50\n  high:\n    probability: 0.5\n    scalars:\n      assumptions.units: 150\ntornado:\n  output: outputs.profit\n  inputs:\n    - name: assumptions.units\n      low: 50\n      high: 150\n",
+    )
+    .expect("model written");
+    let file = path.to_string_lossy().to_string();
+    let args: Vec<&str> = args
+        .iter()
+        .map(|a| if *a == "FILE" { file.as_str() } else { a })
+        .collect();
+    crate::cli::forge(&args)
+}
+
+/// That `forge <args>` on [`forge_on_distributions`]'s model says which
+/// input is a distribution, that `command` cannot evaluate it, and what to
+/// run instead, where it used to say the function was unknown.
+#[cfg(test)]
+pub(crate) fn assert_distributions_refused(args: &[&str], command: &str) {
+    let ran = forge_on_distributions(args);
+    let said = ran.both();
+    assert!(
+        said.contains(&format!(
+            "assumptions.price use MC.* distributions, which {command} cannot evaluate. Run `forge simulate` on this file instead, or `forge calculate --plan` for its plan."
+        )),
+        "{said}"
+    );
+    assert!(!said.contains("Unknown function"), "{said}");
 }
 
 #[cfg(test)]

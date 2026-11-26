@@ -102,6 +102,7 @@ struct Resolved {
 fn resolve(file: &Path, vary: &str, vary2: Option<&str>, output: &str) -> ForgeResult<Resolved> {
     use crate::cli::commands::names::scalar_name;
     let model = parser::parse_model(file)?;
+    crate::cli::commands::reject_distributions_in(&model, "sensitivity")?;
     let vary = scalar_name(&model, vary, false)?;
     let vary2 = vary2.map(|v| scalar_name(&model, v, false)).transpose()?;
     let output = scalar_name(&model, output, true)?;
@@ -434,6 +435,27 @@ fn print_two_var_sensitivity(
 
 #[cfg(test)]
 mod tests {
+    /// A model with an `MC.*` input is refused with what to run instead
+    /// (roadmap E-MC-MESSAGE)
+    mod distributions {
+        #[test]
+        fn sensitivity_names_the_distribution_and_what_to_run() {
+            crate::cli::commands::assert_distributions_refused(
+                &[
+                    "sensitivity",
+                    "FILE",
+                    "--vary",
+                    "assumptions.units",
+                    "--range",
+                    "50,150,50",
+                    "--output",
+                    "outputs.profit",
+                ],
+                "sensitivity",
+            );
+        }
+    }
+
     use super::parse_range;
     use crate::cli::commands::results::SensitivityData;
 

@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 fn load(file: &Path, output_var: Option<&str>) -> ForgeResult<(TornadoConfig, ParsedModel)> {
     let yaml_content = parser::read_model_text(file)?;
     let model = parser::parse_model(file)?;
+    crate::cli::commands::reject_distributions_in(&model, "tornado")?;
 
     // The text is YAML: the model was just read from it
     let value: yaml_serde::Value = parser::read_yaml(&yaml_content).unwrap_or_default();
@@ -154,6 +155,14 @@ pub fn tornado(
 
 #[cfg(test)]
 mod tests {
+    /// A model with an `MC.*` input is refused with what to run instead
+    /// (roadmap E-MC-MESSAGE)
+    mod distributions {
+        #[test]
+        fn tornado_names_the_distribution_and_what_to_run() {
+            crate::cli::commands::assert_distributions_refused(&["tornado", "FILE"], "tornado");
+        }
+    }
 
     mod tornado_note {
         //! `forge tornado` says when an input cannot move the output, instead of
