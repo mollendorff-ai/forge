@@ -92,13 +92,13 @@ done:
     how: "Sign each archive in release.yml with a pinned Sigstore tool (a keyless signature, the .sigstore bundle) and attach it to the release beside the archive; do it with A16-SBOM, in the same pull request or the next one"
     acceptance: "A release candidate lists a signature for each archive and `cosign verify-blob` (or gh attestation verify) accepts it; Scorecard's Signed-Releases rises on its next run"
     model: "Sonnet 5.5, medium: the release path"
-    built: "2026-11-25. release.yml signs each archive and the SBOM keylessly with cosign v3.1.6 (sigstore/cosign-installer v4.1.4, pinned to a commit), as a <file>.sigstore bundle attached to the release. Not yet seen on a release: the next release candidate has to list the files, and cosign verify-blob has to accept one, before Scorecard's Signed-Releases can be expected to rise."
+    built: "2026-11-25. release.yml signs each archive and the SBOM keylessly with cosign v3.1.6 (sigstore/cosign-installer v4.1.4, pinned to a commit), as a <file>.sigstore bundle attached to the release. Seen on rc.36 (2026-11-26, run 45850019234): the release lists five archives, checksums.txt, forge.cdx.json (216 components) and six .sigstore bundles, and cosign verify-blob accepts the Linux archive and the SBOM (certificate identity release.yml at the v10.0.0-rc.36 tag) and rejects a changed file. Scorecard's Signed-Releases rises on its next run."
   - id: A16-SBOM
     title: "An SBOM (CycloneDX or SPDX) attached to each release"
     why: "The release proves who built the binary (attestations, rc.28); an SBOM says what is inside it"
     acceptance: "release.yml attaches it, made by a pinned tool; a release candidate carries it and a scanner reads it"
     model: "Sonnet 5.5, medium"
-    built: "2026-11-25. release.yml makes forge.cdx.json (CycloneDX 1.5, cargo-cyclonedx 0.5.10 --locked) from Cargo.lock and attaches it, signed. Not yet seen on a release: the next release candidate has to list the files, and cosign verify-blob has to accept one, before Scorecard's Signed-Releases can be expected to rise."
+    built: "2026-11-25. release.yml makes forge.cdx.json (CycloneDX 1.5, cargo-cyclonedx 0.5.10 --locked) from Cargo.lock and attaches it, signed. Seen on rc.36 (2026-11-26, run 45850019234): the release lists five archives, checksums.txt, forge.cdx.json (216 components) and six .sigstore bundles, and cosign verify-blob accepts the Linux archive and the SBOM (certificate identity release.yml at the v10.0.0-rc.36 tag) and rejects a changed file. Scorecard's Signed-Releases rises on its next run."
   - id: A17-SCORECARD
     title: "OpenSSF Scorecard on the repository, with its badge"
     why: "An outside rating of the practices T1-SUPPLY-CHAIN put in place, which a reader can check without trusting the README"
