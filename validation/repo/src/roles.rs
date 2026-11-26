@@ -541,6 +541,17 @@ mod tests {
                 "`cargo audit`",
             ),
             (".github/workflows/weekly.yml", "Mondays", "Mondays"),
+            (".github/workflows/scorecard.yml", "Tuesdays", "Tuesdays"),
+            (
+                ".github/workflows/scorecard.yml",
+                "branches: [ main ]",
+                "every push to `main`",
+            ),
+            (
+                ".github/workflows/scorecard.yml",
+                "security-events: write",
+                "Security tab",
+            ),
             (".github/workflows/validation.yml", "Mondays", "Mondays"),
             (
                 ".github/workflows/validation.yml",
@@ -586,6 +597,18 @@ mod tests {
                 "the page does not name {file}"
             );
         }
+        // the page says when security.txt expires, and says it as the file does
+        let expires = read(".well-known/security.txt");
+        let date = expires
+            .lines()
+            .find_map(|l| l.strip_prefix("Expires: "))
+            .and_then(|e| e.get(..10))
+            .unwrap_or_default();
+        assert!(
+            doc.contains(&format!("({date} now)")),
+            "the page's date for Expires"
+        );
+        assert!(doc.contains("`.well-known/security.txt`"));
         assert!(read("CHANGELOG.md").contains("## [Unreleased]"));
         // the example dependency in EMBEDDING.md is held to the version by
         // the embedding check, so a release changes it too
