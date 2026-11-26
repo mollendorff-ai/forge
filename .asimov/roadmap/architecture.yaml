@@ -10,12 +10,6 @@ current: {}
 previous: {}
 
 backlog:
-  - id: AR-MAINTAINING-REVIEW
-    title: "docs/MAINTAINING.md's release steps reviewed, with the changelog collected by scriv"
-    why: "A9-ROLES left it open: the maintainer has not reviewed the release steps; E-LANES changes step 3 (the changelog is collected from changelog.d/)"
-    acceptance: "Each step is the one the engine lane ran for the next release, or corrected; roles.rs passes; the maintainer's review is dated here"
-    model: "Sonnet 5.5, medium: steps checked against a real release"
-    checked: "2026-11-26, against rc.36 (release commit 5b9646b, run 45850019234, PR #450): the jobs, their order, the version places, scriv's collection and the CI hand-off to Release matched. Corrected: the version is also in CITATION.cff and server.json; the release job makes the SBOM and signs each archive and the SBOM with cosign; the release page has 13 files, not 6; the cosign verify-blob check was missing. roles.rs holds each. Not yet done: the maintainer's dated review, so the item stays open"
   - id: AR-MAINTAINING-SCORECARD
     title: "docs/MAINTAINING.md and the CI page name the Scorecard workflow"
     why: "Found 2026-11-25 by the engine lane (A17-SCORECARD): .github/workflows/scorecard.yml runs on Tuesdays and on every push to main and publishes the OpenSSF Scorecard score the README's badge shows; MAINTAINING.md's weekly section names only weekly.yml and validation.yml"
@@ -52,3 +46,10 @@ done:
     acceptance: "Each page an ADR changes is read against the code and corrected, or a dated note says why not"
     model: "Sonnet 5.5, medium: reading code against pages"
     built: "2026-11-25: 00 (the way in for each reader, ADR-078), 06 (a model in a Studio link and the Content Security Policy, ADR-080), 07 (validation/repo's guide, docs_index, roles, agent, lanes and function checks; the link test) and 09 (the summary of huge values, ADR-079) read against the code and corrected. 01, 02, 03, 04, 05, 08 and 10 are changed by no ADR of 078 to 080 and were not touched"
+  - id: AR-MAINTAINING-REVIEW
+    title: "docs/MAINTAINING.md's release steps reviewed, with the changelog collected by scriv"
+    why: "A9-ROLES left it open: the maintainer has not reviewed the release steps; E-LANES changes step 3 (the changelog is collected from changelog.d/)"
+    acceptance: "Each step is the one the engine lane ran for the next release, or corrected; roles.rs passes; the maintainer's review is dated here"
+    model: "Sonnet 5.5, medium: steps checked against a real release"
+    checked: "2026-11-26, against rc.36 (release commit 5b9646b, run 45850019234, PR #450): the jobs, their order, the version places, scriv's collection and the CI hand-off to Release matched. Corrected: the version is also in CITATION.cff and server.json; the release job makes the SBOM and signs each archive and the SBOM with cosign; the release page has 13 files, not 6; the cosign verify-blob check was missing. roles.rs holds each. Not yet done: the maintainer's dated review, so the item stays open"
+    built: "2026-11-26: docs/MAINTAINING.md checked against rc.36 and corrected (PR #455); the maintainer read the page and agreed with it on 2026-11-26"
