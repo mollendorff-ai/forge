@@ -18,8 +18,14 @@
 # would give each 16: the dilemma. At r = 5 every player is indifferent and
 # all 32 profiles are equilibria; above it, everyone contributes. Gambit's
 # enumpure_solve gives the same equilibria (validation/games).
+#
+# Each result above is written under expect:, for the file as written and
+# for each scenario, and forge validate games/public-goods.yaml checks that Forge
+# still gives them (ADR-074).
+# Against an even mix, k of the other four is 2 on average: contributing
+# pays r * 10 * 3 / 5 and keeping 10 + r * 10 * 2 / 5, 10 (r / 5 - 1) apart.
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 endowment: 10   # what each player holds
 r: 1.6          # what the pot is multiplied by
@@ -48,10 +54,19 @@ dilemma:
     value: -6.8
     notes: What contributing gains a player against an even mix, 10 (r / 5 - 1), -6.8 at r = 1.6
 
+expect:                       # worked out by hand
+  pg.pure_equilibria: 1
+  pg.equilibrium_1.a1.contribute: 0
+  dilemma.all_keep: 10
+  dilemma.all_contribute: 16
+  dilemma.cost_of_keeping: -6.8
+
 scenarios:
   break_even:
     description: The pot returns exactly what goes in; every profile is an equilibrium
     scalars: {r: 5}
+    expect: {pg.pure_equilibria: 32, dilemma.cost_of_keeping: 0}
   generous:
     description: A multiplier above the number of players; everyone contributes
     scalars: {r: 6}
+    expect: {pg.pure_equilibria: 1, pg.equilibrium_1.a1.contribute: 1, pg.equilibrium_1.a1.payoff: 60, dilemma.cost_of_keeping: 2}

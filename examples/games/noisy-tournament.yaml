@@ -10,8 +10,14 @@
 # second (2.471), TitForTat third (2.457). The values are exact; the Python
 # axelrod library, 2,000 seeded runs of each match, gives the same order
 # (2.517, 2.471, 2.457).
+#
+# Each result above is written under expect:, and
+# forge validate games/noisy-tournament.yaml checks that Forge still gives
+# them (ADR-074).
+# The scores under expect: are each match's expected payoff worked out
+# exactly over the moves' chances, round by round, outside Forge.
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 noise: 0.05     # the chance that a move is flipped
 
@@ -51,3 +57,12 @@ results:
   tft_place_with_noise:
     formula: "=noisy.rank.tft"
     value: 3
+
+expect:                       # worked out by hand
+  clean.rank.tft: 1
+  noisy.rank.tf2t: 1
+  noisy.rank.gtft: 2
+  noisy.rank.tft: 3
+  noisy.score.tf2t: 2.5183954493
+  noisy.score.gtft: 2.4707685281
+  noisy.score.tft: 2.457248409

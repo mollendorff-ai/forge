@@ -9,8 +9,15 @@
 # w reaches (T - c - R) / (T - P), 0.5 here, nothing in the roster does
 # better against GrimTrigger than it does, and it is collectively stable.
 # kinship-protocol derives that threshold by formula; the sweep shows it.
+#
+# Each result above is written under expect:, for the file as written and
+# for each scenario, and forge validate games/continuation.yaml checks that Forge
+# still gives them (ADR-074).
+# At w = 0.6, AlwaysDefect gets 0.4 * 5 + 0.6 * 1 = 2.6 against GrimTrigger,
+# under its 3; at w = 0.4 (short_matches) it gets 3.4, and GrimTrigger is not
+# stable.
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 w: 0.6    # the chance that a match goes on after a round
 c: 0      # the cost of a defection
@@ -45,3 +52,15 @@ kinship:
   grim_holds:
     formula: "=long_run.stable.grim"
     value: 1
+
+expect:                       # worked out by hand
+  kinship.threshold: 0.5
+  long_run.match.grim.grim: 3
+  long_run.match.ad.grim: 2.6
+  long_run.stable.grim: 1
+
+scenarios:
+  short_matches:
+    description: A chance of 0.4 that a match goes on, under the threshold
+    scalars: {w: 0.4}
+    expect: {long_run.match.ad.grim: 3.4, long_run.stable.grim: 0}

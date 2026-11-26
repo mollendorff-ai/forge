@@ -7,8 +7,12 @@
 # mixed one where Alex goes to the opera with 3/5 and Sam with 2/5, each
 # expecting 6/5: less than either pure one gives the one who likes it less
 # (nashpy agrees, and by hand each mix makes the other indifferent).
+#
+# Each result above is written under expect:, and
+# forge validate games/battle-of-the-sexes.yaml checks that Forge still gives
+# them (ADR-074).
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 games:
   evening:
@@ -17,3 +21,11 @@ games:
     payoffs:                          # [alex, sam]
       opera: {opera: [3, 2], football: [0, 0]}
       football: {opera: [0, 0], football: [2, 3]}
+
+expect:                       # worked out by hand
+  evening.pure_equilibria: 2
+  evening.equilibria: 3
+  evening.equilibrium_3.alex.opera: =3/5
+  evening.equilibrium_3.sam.opera: =2/5
+  evening.equilibrium_3.alex.payoff: =6/5
+  evening.equilibrium_3.sam.payoff: =6/5

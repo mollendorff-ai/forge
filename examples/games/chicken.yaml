@@ -11,8 +11,13 @@
 # (nashpy agrees). Against a driver who swerves half the time, swerving pays
 # 2 and going straight 2.5 - c, so swerving wins once c passes 0.5:
 #   forge game games/chicken.yaml --scenario c3
+#
+# Each result above is written under expect:, for the file as written and
+# for each scenario, and forge validate games/chicken.yaml checks that Forge
+# still gives them (ADR-074).
+# At c2, the crossover, swerve and straight tie, so swerving does not win.
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 c: 0      # the cost of a defection (going straight)
 
@@ -37,11 +42,20 @@ kinship:
     formula: "=chicken.equilibrium_3.me.swerve"
     value: 0.333333333333333
 
+expect:                       # worked out by hand
+  chicken.pure_equilibria: 2
+  kinship.swerve_share: =1/3
+  kinship.crossover_c: 0.5
+  kinship.coop_wins: 0
+
 scenarios:
   c1:
     scalars: {c: 0.25}
+    expect: {kinship.swerve_share: =5/12, kinship.coop_wins: 0}
   c2:
     description: The crossover
     scalars: {c: 0.5}
+    expect: {kinship.swerve_share: =1/2, kinship.coop_wins: 0}
   c3:
     scalars: {c: 1}
+    expect: {kinship.swerve_share: =2/3, kinship.coop_wins: 1}
