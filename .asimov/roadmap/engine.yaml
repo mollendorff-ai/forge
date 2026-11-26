@@ -21,12 +21,6 @@ backlog:
     how: "A pinned CodeQL workflow (github/codeql-action) for Rust and for the workflows' own YAML, on pull requests and weekly; read its first findings and fix or explain each"
     acceptance: "A CodeQL run on a pull request, its alerts at zero or each one explained here; SAST rises on Scorecard's next run"
     model: "Sonnet 5.5, medium: findings have to be read, not just switched on"
-  - id: E-SC-VULNS
-    title: "The one known vulnerability Scorecard reports (Vulnerabilities, 9)"
-    why: "Scorecard 2026-11-25 scores Vulnerabilities 9, so one OSV advisory is open against Forge or a dependency. cargo audit ignores none (.cargo/audit.toml), so it may be an advisory cargo audit does not carry, or a crate a pull request has not bumped yet"
-    how: "Open the Vulnerabilities check at https://scorecard.dev/viewer/?uri=github.com/mollendorff-ai/forge for the advisory's id, then update or replace the crate; if no fix exists, say so here"
-    acceptance: "Vulnerabilities is 10 on the next run, or this item names the advisory and why it stays"
-    model: "Sonnet 5.5, low"
   - id: E-SC-PINNED
     title: "The one dependency of the build that is not pinned (Pinned-Dependencies, 9)"
     why: "Scorecard 2026-11-25 scores Pinned-Dependencies 9: every action is pinned to a commit (a validation/repo test holds that), so something else is not, such as a pip or npm install, a cargo install without --locked, or a download in a script"
@@ -69,6 +63,13 @@ backlog:
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
 
 done:
+  - id: E-SC-VULNS
+    title: "The one known vulnerability Scorecard reports (Vulnerabilities, 9)"
+    why: "Scorecard 2026-11-25 scores Vulnerabilities 9, so one OSV advisory is open against Forge or a dependency. cargo audit ignores none (.cargo/audit.toml), so it may be an advisory cargo audit does not carry, or a crate a pull request has not bumped yet"
+    how: "Open the Vulnerabilities check at https://scorecard.dev/viewer/?uri=github.com/mollendorff-ai/forge for the advisory's id, then update or replace the crate; if no fix exists, say so here"
+    acceptance: "Vulnerabilities is 10 on the next run, or this item names the advisory and why it stays"
+    model: "Sonnet 5.5, low"
+    built: "2026-11-26. The advisory is RUSTSEC-2026-0543: chrono is unmaintained (informational, no security flaw, every version affected, no patch; the advice is jiff or time). cargo audit warns on an unmaintained crate but does not fail, which is why it passed. It stays: rmcp, the MCP SDK, requires chrono with no feature to leave it out (3.11.0: chrono ^0.4.38, not optional), so replacing chrono in Forge's own date code (38 uses in 15 files) would not take it out of the tree, nor raise the score. Vulnerabilities stays 9 until rmcp moves off chrono; check then, and weigh moving Forge's own dates to jiff or time with it"
   - id: E-MC-MESSAGE
     title: "The what-if commands say why they cannot run a file with MC.* inputs, as calculate does"
     why: "Found 2026-11-26 by a model written from scratch with v10.0.0-rc.36 (an uncertain launch, its inputs with value: and an MC.* formula). forge calculate and forge validate on it say which inputs use MC.* and to run forge simulate or forge calculate --plan (src/cli/commands/mod.rs, the check before calculating). forge scenarios, compare, break-even, goal-seek, sensitivity and audit instead say 'Unknown function: MC.Triangular' for each input, and list every formula downstream as not calculated; scenarios and compare also print 'Formula evaluation error:' twice. MC.Triangular is a function Forge knows, so the message sends the reader the wrong way. report and export run"
@@ -86,7 +87,7 @@ done:
     why: "Agents and people find a tool by searching crates.io, GitHub and docs.rs; GitHub shows 'Cite this repository' from CITATION.cff; Forge wants to be read, so no AI crawler should be blocked by accident"
     acceptance: "CITATION.cff valid (cffconvert) and its version checked against Cargo.toml by a test; /.well-known/security.txt on the site; keywords and categories set; the topics set by the maintainer; robots.txt read and recorded"
     model: "Haiku 5.5, low; the topics are the maintainer's"
-    built: "2026-11-26. CITATION.cff (valid under cffconvert 1.2.0) and .well-known/security.txt, and validation/repo metadata.rs checks the first's version, licence, addresses and abstract against Cargo.toml and the second's contact and policy against SECURITY.md. Keywords and categories read and kept (asimov and ai-built were added on purpose, CHANGELOG_ARCHIVE). robots.txt read: https://mollendorff.ai/robots.txt answers 404, so no crawler is blocked, and the site has no security.txt (404). What is left is the maintainer's: the GitHub topics, and copying .well-known/security.txt to the root of the mollendorff-ai.github.io repository (it expires 2027-11-26)"
+    built: "2026-11-26. CITATION.cff (valid under cffconvert 1.2.0) and .well-known/security.txt, and validation/repo metadata.rs checks the first's version, licence, addresses and abstract against Cargo.toml and the second's contact and policy against SECURITY.md. Keywords and categories read and kept (asimov and ai-built were added on purpose, CHANGELOG_ARCHIVE). robots.txt read: https://mollendorff.ai/robots.txt answers 404, so no crawler is blocked, and the site has no security.txt (404). The GitHub topics are the maintainer's, to set when convenient (2026-11-26: not tracked here). .well-known/security.txt is on the site's repository with a .nojekyll, since Pages builds it with Jekyll, which leaves out dot-folders (mollendorff-ai.github.io #8, 2026-11-26); it expires 2027-11-26"
   - id: E-SC-SIGNED-RELEASES
     title: "Each release archive carries a signature Scorecard can see (Signed-Releases, 0)"
     why: "Scorecard 2026-11-25 scores Signed-Releases 0: it looks for a .sig, .asc, .sigstore or .intoto.jsonl file among the release's assets, and the attestations release.yml makes (actions/attest-build-provenance) live on GitHub, not on the release. Same file as A16-SBOM"
