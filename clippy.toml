@@ -5,20 +5,24 @@ msrv = "1.97.0"
 # The crates allowed in two versions (multiple_crate_versions), counted in
 # validation/repo/src/no_skipping.rs.
 #
-# getrandom 0.3 and 0.4, since 2026-11-21 (ADR-072): jsonschema,
-# jsonschema-value and referencing take ahash with its default features,
-# which bring getrandom 0.3; Forge, rand and zip are on 0.4. The maintainer
-# decided that the rule against duplicates does not compete with keeping a
-# core, stable library. getrandom 0.3.4, the last 0.3, takes r-efi 5 (for
-# UEFI firmware only) where 0.4 takes r-efi 6, so r-efi comes with it. Remove
-# both here when jsonschema no longer brings getrandom 0.3.
+# getrandom 0.3 and 0.4, since 2026-11-21 (ADR-072): on wasm32 (Forge Studio),
+# jsonschema, jsonschema-value and referencing take getrandom 0.3 themselves,
+# with its wasm_js feature (0.60.2 and the latest, 0.63.2); Forge, rand and zip
+# are on 0.4. The maintainer decided that the rule against duplicates does not
+# compete with keeping a core, stable library. getrandom 0.3.4, the last 0.3,
+# takes r-efi 5 (for UEFI firmware only) where 0.4 takes r-efi 6, so r-efi
+# comes with it. Remove both here when jsonschema no longer brings getrandom
+# 0.3. (ahash 0.8.12, which the lockfile has, brought it on every target;
+# 0.8.14 does not, checked 2026-11-26, so that is not the reason now.)
 #
 # syn 2 and 3. serde, clap, tokio, rmcp
 # and wasm-bindgen are on syn 3; tracing-attributes (tracing's default
 # features, which rmcp turns on), zeroize_derive (zip, under calamine and
-# rust_xlsxwriter) and windows-implement and windows-interface (chrono's
-# clock, through iana-time-zone) have no release on syn 3 (2026-11-20).
-# Remove syn here when they do.
+# rust_xlsxwriter), strum_macros 0.28, zerocopy-derive 0.8 and
+# windows-implement and windows-interface (chrono's clock, through
+# iana-time-zone) have no release on syn 3 (checked 2026-11-26:
+# tracing-attributes 0.1.31, zeroize_derive 1.5.0 and strum_macros 0.28.0 are
+# the latest, each on syn 2). Remove syn here when they do.
 #
 # hashbrown 0.14 and 0.17, since 2026-11-22 (ADR-075): yaml-edit, the
 # lossless YAML tree Forge writes models through, is built on rowan, whose
