@@ -1,7 +1,8 @@
-//! The files that say what Forge is to a tool, not a reader: `CITATION.cff`
-//! (GitHub's "Cite this repository"), `.well-known/security.txt` and
-//! `server.json` (the MCP Registry's entry), each checked against
-//! `Cargo.toml`, `SECURITY.md` and the binary so they cannot drift.
+//! The files that tell a tool what Forge is, checked against the crate.
+//!
+//! `CITATION.cff` (GitHub's "Cite this repository"), `.well-known/security.txt`
+//! and `server.json` (the MCP Registry's entry) are each held against
+//! `Cargo.toml`, `SECURITY.md` and the binary, so they cannot drift.
 
 #[cfg(test)]
 mod tests {
