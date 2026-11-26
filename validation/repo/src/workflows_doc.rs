@@ -127,4 +127,19 @@ mod tests {
         assert!(read("README.md")
             .contains("https://api.scorecard.dev/projects/github.com/mollendorff-ai/forge/badge"));
     }
+
+    #[test]
+    fn codeql_analyses_the_rust_and_the_workflows_on_pull_requests_and_weekly() {
+        let workflow = read(".github/workflows/codeql.yml");
+        for needed in [
+            "pull_request:",
+            "schedule:",
+            "language: [ rust, actions ]",
+            "github/codeql-action/init@",
+            "github/codeql-action/analyze@",
+            "permissions: read-all",
+        ] {
+            assert!(workflow.contains(needed), "codeql.yml has `{needed}`");
+        }
+    }
 }
