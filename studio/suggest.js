@@ -28,9 +28,10 @@ export function scopeOf(structure, path) {
 }
 
 // The results of the model's games that `calculate` answered: every scalar
-// of the main file whose first part is a game's name, in Forge's order
+// of the main file whose first part is a game's name, in Forge's order; and
+// a network's named queries, bayesian_network.<query>.<state> (ADR-074)
 export function gameResults(structure, calc) {
-  const games = new Set(structure && structure.games ? structure.games : []);
+  const games = new Set([...(structure && structure.games ? structure.games : []), ...(structure && structure.analyses && structure.analyses.includes("bayesian_network") ? ["bayesian_network"] : [])]);
   if (!games.size || !calc) return [];
   return Object.keys(calc.scalars).filter((p) => games.has(p.slice(0, p.indexOf("."))));
 }

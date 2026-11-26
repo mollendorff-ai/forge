@@ -10,7 +10,7 @@ import { tableCard, tournamentCard, pathHover } from "./games.js";
 import { gameEditor, listenGameEdits } from "./gameedit.js";
 import { templateCard, listenTemplates } from "./templates.js";
 import { kindOf, questionsCard, setStrip, drawKinds } from "./sets.js";
-import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js";
+import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js"; import { bayesExtra } from "./bayesscenario.js";
 import { toolArgs, toolsHtml, answerHtml } from "./tools.js";
 import { helpButton, helpBody, suggestionStrip } from "./help.js";
 import { isModelLink, listenLinks, linkCard, toBase64, fromBase64 } from "./link.js";
@@ -212,7 +212,7 @@ async function runAnalyses() {
     const tool = ANALYSES[section].tool;
     try {
       if (tool === "bayesian" && !S.bnNodes) S.bnNodes = Object.values((await call(tool, request())).queries).map(({ name, states }) => ({ name, states }));
-      const extra = tool === "bayesian" ? { evidence: Object.entries(S.evidence).map(([n, st]) => `${n}=${st}`) } : {};
+      const extra = tool === "bayesian" ? bayesExtra(S) : {};
       answers[section] = await call(tool, request(extra));
     } catch (e) { answers[section] = { error: e.message }; }
   }
@@ -486,7 +486,7 @@ function updateValues() {
   drawBands($("#view-model"), S.band && S.band.answer, shortAt, S.open);
   for (const slot of $$("#view-model [data-analysis]")) {
     const answer = S.answers[slot.dataset.analysis];
-    if (answer) drawAnalysis(slot, slot.dataset.analysis, answer, S.bnNodes, S.evidence);
+    if (answer) drawAnalysis(slot, slot.dataset.analysis, answer, S.bnNodes, S.evidence, S.scenario);
   }
   fillHelp($("#view-model"));
 }

@@ -7,6 +7,7 @@
 
 import { esc } from "./text.js";
 import { fmt } from "./format.js";
+import { scenarioLine } from "./bayesscenario.js";
 
 // The analysis sections of a file (Forge's `model` answers them) that are
 // drawn here, each with its tool and what it answers
@@ -55,8 +56,8 @@ function bootstrap(r) {
 
 // `evidence`: what the person has seen, {node: state}; a node seen is shown
 // with its state pressed and no chances
-function bayesian(r, nodes, evidence) {
-  return `<p class="note">${Object.keys(evidence).length ? "Given what you have seen:" : "Nothing seen yet. Tap a state you have seen."}</p>` +
+function bayesian(r, nodes, evidence, scenario) {
+  return scenarioLine(scenario) + `<p class="note">${Object.keys(evidence).length ? "Given what you have seen:" : "Nothing seen yet. Tap a state you have seen."}</p>` +
     nodes.map(({ name, states }) => {
       const q = r.queries[name], seen = evidence[name];
       return `<div class="bn-node" data-node="${esc(name)}"><p class="sub">${esc(name)}</p>${states.map((s, i) => {
@@ -71,11 +72,11 @@ export const analysisSlot = (section) => `<div class="eyebrow"><h2>${esc(ANALYSE
   <div class="card row analysis" data-analysis="${esc(section)}"><p class="note">${esc(ANALYSES[section].about)}</p><div data-answer><p class="note">Forge is working it out…</p></div></div>`;
 
 // The answer drawn into its slot; `nodes` and `evidence` for a network
-export function drawAnalysis(slot, section, answer, nodes, evidence) {
+export function drawAnalysis(slot, section, answer, nodes, evidence, scenario = null) {
   const box = slot.querySelector("[data-answer]");
   if (answer.error) { box.innerHTML = `<div class="msg bad">${esc(answer.error)}</div>`; return; }
   box.innerHTML = section === "decision_tree" ? decisionTree(answer)
     : section === "real_options" ? realOptions(answer)
       : section === "bootstrap" ? bootstrap(answer)
-        : bayesian(answer, nodes, evidence);
+        : bayesian(answer, nodes, evidence, scenario);
 }

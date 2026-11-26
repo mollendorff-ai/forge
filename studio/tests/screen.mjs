@@ -44,6 +44,8 @@ function check(label, shown, native) {
   const seen = new Map(shown.values);
   if (shown.state !== "ready") failures.push(`${label}: the page says ${shown.state}`);
   for (const [path, value] of Object.entries(native)) {
+    // A network's named queries are drawn by its own card, as chances (tests/analyses.mjs), not as scalars
+    if (path.startsWith("bayesian_network.") && !seen.has(path)) continue;
     if (!seen.has(path)) { failures.push(`${label}: ${path} is not on screen`); continue; }
     const text = seen.get(path);
     // A date (ADR-060) is its text, shown exactly; a number within the rounding

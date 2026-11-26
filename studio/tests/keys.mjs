@@ -72,9 +72,16 @@ const result = await page.evaluate(async () => {
       files++;
       const keys = allKeys(schema);
       const lines = text.split("\n");
+      // The rows of a network's cpt: are named by the states of its parent (high, low), not keys
+      const inCpt = new Set();
+      for (let i = 0, indent = -1; i < lines.length; i++) {
+        const at = /^(\s*)/.exec(lines[i])[1].length;
+        if (indent >= 0 && lines[i].trim() && at > indent) inCpt.add(i);
+        else indent = /^\s*cpt:\s*$/.test(lines[i]) ? at : -1;
+      }
       for (let i = 0; i < lines.length; i++) {
         const m = /^(\s*)(-\s+)?([A-Za-z_][A-Za-z0-9_]*):(\s|$)/.exec(lines[i]);
-        if (!m || !keys.has(m[3])) continue;
+        if (!m || !keys.has(m[3]) || inCpt.has(i)) continue;
         // A word that is a name at this place (a scenario called base, a column
         // called start) is not a key; the keys the format documents are
         if (!documented.has(m[3])) continue;
