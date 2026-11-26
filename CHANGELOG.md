@@ -10,6 +10,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- New entries go in changelog.d/, not here (changelog.d/README.md). -->
 <!-- scriv-insert-here -->
 
+<a id='changelog-10.0.0-rc.36'></a>
+## [10.0.0-rc.36] - 2026-11-26
+
+`forge edit` changes a column of text, and `forge serve` serves every MCP tool over REST with an OpenAPI document (ADR-081). Each release now carries a CycloneDX SBOM and a keyless Sigstore signature for every archive, the repository is rated by OpenSSF Scorecard and analysed by CodeQL, and `CITATION.cff`, `security.txt` and an MCP Registry entry (`server.json`) describe Forge to tools. No wrong answer was fixed, so the two weeks in docs/STABILITY.md still run from rc.35 (2026-12-09).
+
+### Added
+
+- **Each release carries an SBOM and a signature for every archive.** `forge.cdx.json` (CycloneDX, made from `Cargo.lock` by `cargo-cyclonedx` 0.5.10) lists what is inside the binaries. Each archive and the SBOM have a keyless Sigstore bundle beside them (`<file>.sigstore`); check one with `cosign verify-blob --bundle <file>.sigstore --certificate-identity-regexp 'https://github.com/mollendorff-ai/forge/' --certificate-oidc-issuer https://token.actions.githubusercontent.com <file>`.
+
+- **An OpenSSF Scorecard of the repository, and its badge** (roadmap A17-SCORECARD). `.github/workflows/scorecard.yml` rates how the repository is run (pinned actions, a security policy, signed releases and the rest) weekly and on every push to `main`, publishes the score, and uploads the findings to the Security tab; the README shows the badge. Both actions it uses are pinned to a commit, and a test in `validation/repo` now fails when any action in any workflow is not.
+
+- **`forge edit` changes a table's column of text** (ADR-075, roadmap F-EDIT-TEXT-COLUMN). `forge edit model.yaml --set 'products.name=[Basic, Plus Pro]'`, and `forge_edit`'s `set_value` with `"value": ["Basic", "Plus Pro"]`, give each row's text. A row whose text is the same keeps its bytes. A changed row keeps its quotes: `'single'`, with a `'` doubled, or `"double"`, escaped. A plain row stays plain when YAML reads it back as the same text (`Zürich-Nord`, `假设.单价`); otherwise it is double-quoted (`"12"`, `"true"`, `"a: b"`). Comments and the list's style stay. Until now a column of text was refused (`it is a column of text; edit changes a column of numbers or of dates`). A number given for a row of text is refused, and so are texts that would make Forge read the column as dates.
+
+- **Every MCP tool is served over REST, with an OpenAPI document** (ADR-081, roadmap T3-API). `forge serve` answered five operations: `validate`, `calculate`, `audit`, `export` and `import`. It now serves the other 18 tools at `POST /api/v1/<name>`, named as their commands are (`goal-seek`, `simulate`, `decision-tree`, `edit`, ...). The body is the tool's arguments, as an MCP client sends them, and the answer is the tool's JSON in `data`. A tool that fails answers 422 with its message, and a body that is not JSON answers 400. Each endpoint runs the MCP tool itself, so the two give the same answers, and the token and `--root` hold for every one. `GET /api/v1/openapi.json` answers an OpenAPI 3.1 document of every endpoint, made from the schemas the MCP server lists, so it describes exactly what the server reads. The five existing endpoints are unchanged.
+
+- **`llms.txt`, `context7.json` and `.devin/wiki.json` tell the services agents use to look up a library what Forge is and which pages to read.** GitMCP was answering from an old index (five MCP tools, paths of the author's own machine); it now has an index of the current guide, the skill and the reference.
+
+- **`CITATION.cff` and `.well-known/security.txt`.** GitHub now offers "Cite this repository" for Forge, and the security contact is in the form tools read. A test holds each against `Cargo.toml` and `SECURITY.md`.
+
+- **CodeQL analyses the Rust source and the workflows' YAML.** It runs on pull requests, on `main` and every Wednesday, and its findings go to the repository's Security tab (`.github/workflows/codeql.yml`).
+
+- **`server.json`, Forge's entry for the official MCP Registry.** It names the crate and the command (`forge mcp`), and a test holds its version and addresses against `Cargo.toml` and the binary, so a release that leaves it behind fails.
+
+### Changed
+
+- **The architecture pages say what ADR-078 to ADR-080 built.** The testing page lists every check of the repository's documents, the interfaces page says how a Studio link carries a model and what the page's Content Security Policy limits, the analysis page says how a simulation of huge values is summarized, and the overview points to the documentation index.
+
+- **The docs no longer say how many unit tests Forge has** (roadmap E-DOC-COUNTS). "over 3,350 tests" went stale with every merge, turned `main` red when another lane's merge crossed a step of 50, and says nothing about quality. `README.md` and `VALIDATION.md` now name what the tests check; the numbers that stay are the ones a reader can verify: the coverage badge, the exact count of Gnumeric cases, and the comparisons with R, Gambit and Excel. `validation/repo` no longer counts tests, and fails if a count comes back.
+
+- **Forge is worked on in four lanes, and a change's changelog entry is a file of its own** (roadmap E-LANES). Several agent sessions work on Forge at once; each now works in one lane (engine, manual, features, architecture) with its own roadmap in `.asimov/roadmap/`, as `AGENTS.md` and `.asimov/project.yaml` say (asimov 3.6.0 reads the lanes). A change's changelog entry is a new file in `changelog.d/`, which `make changelog` collects into `CHANGELOG.md` with scriv when a release is made, so two pull requests no longer edit the same lines. `docs/SESSIONS.md` has how a session works here, imported by `CLAUDE.md`. `validation/repo`'s `lanes` check holds it: every lane has its roadmap, no item id is in two places, each fragment has only the four headings, and nothing is written under `[Unreleased]` by hand. The protocol files in `.asimov/` are asimov 3.6.0's, and the files asimov 1.x left there are gone.
+
+- **The features roadmap closes T2-SCENARIO-CHECKS and T2-BAYESIAN-LINK, which waited on kinship-protocol's release.** Its v0.8.0 states its figures under `expect:` and checks them with `forge validate`, and all 22 of its models that CI validates pass with rc.35. What was left of the Bayesian item, Forge Studio's card passing the chosen scenario, is its own item, F-STUDIO-BAYESIAN-SCENARIO. No behaviour changes.
+
+- **The MCP tool list is 8.6% shorter** (roadmap T3-MCP-TOKENS): 27,661 bytes where it was 30,262 (measured as the JSON of `tools/list`, which every client reads at the start of a session). The `includes` field's doc, repeated in 17 tools, is one line; `forge_edit`'s description no longer lists the ops its schema already describes; `forge_game`'s is shorter. The 23 tools, their names and their parameters are unchanged.
+
+- **The pipeline example repository's rc.35 update is on the manual lane's roadmap** (M-PIPELINE-EXAMPLE-RC35): forge-pipeline-example still runs rc.34's workflow, so the guide's "It has run" table no longer names the step where its third pull request fails. No behaviour changes.
+
+- **The pipeline example and the modelling skill assume Forge 10.0.0-rc.35.** `examples/pipeline/forge.yml` installs rc.35 and no longer checks `uncalculated` with `jq`, since `forge validate` now fails a formula with no stored result; the skill drops its notes for older releases.
+
+- **The README is the front door.** It opens with a door for each reader (new to Forge, working with an AI, building a pipeline, embedding Forge, changing Forge), each to the page the documentation's index starts that reader on, then tells the bagel shop's first year in five checked commands: its profit, its break-even price, the tornado, the price for an 80% chance of a profit and the price war across the street. The table of checks says which job runs each one on a pull request instead of a dated result; the results and their dates are in VALIDATION.md. `validation/repo` now checks every link and anchor of the README, its five doors and that table.
+
+### Fixed
+
+- **A pull request that changes only pages runs the repository checks** (roadmap E-CI-DOCS-PATHS). CI's path filter had no `docs/**`, `**/*.md` or `skills/**`, so a pull request of pages ran only the Mermaid check; the checks of the docs now run on it, and a test in `validation/repo` holds the filter.
+
+- **What three fresh readers tripped on, following the docs with rc.35.** Lesson 3 says what to do when `git commit` stops for want of a name and email; lesson 1 shows and explains the line `forge audit` prints when the file's stored result is out of date. The skill's `forge edit --formula` example changes a formula the model has, where it named one it does not (and `--add` adds one). docs/MCP.md shows the `initialize` handshake for a client wired by hand, and its Claude Code command matches the guide's. The pipeline page and `examples/pipeline/README.md` no longer say the workflow reads `uncalculated` (rc.35's `forge validate` fails such a formula itself); the runs recorded on 2026-11-24 say they were rc.34's workflow. The AI page counts its four ways.
+
 ## [10.0.0-rc.35] - 2026-11-25
 
 Wrong answers fixed: `ROW(reference)`, an array `IF` with an error in one branch, the `*IFS` functions over ranges of different sizes, `DDB` with a period or a life under 1, `PMT`, `PV`, `IPMT` and `PPMT` over any number of periods, and `CUMIPMT`, `CUMPRINC` and `VDB`, which could hang; a number of more than 15 digits is read as Excel reads it, and a simulation of huge values prints numbers. `forge validate` now fails a formula with no stored result, so a model `forge calculate` never ran on no longer passes the gate. `forge edit` changes a game's payoffs, settings, strategies, players and habits and a table's columns, and Forge Studio edits games on their cards and opens a model carried in a link (ADR-080). The documentation has a guide of six lessons on one model, pages for Studio, AI agents, pipelines, embedding, contributing and releasing, an index and an agent skill, each held by a test; coverage is 100% and no lint is allowed in any crate. Wrong answers were fixed, so the two weeks in docs/STABILITY.md start again from rc.35 (2026-12-09).

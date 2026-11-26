@@ -3,7 +3,7 @@
   "name": "io.github.mollendorff-ai/forge",
   "title": "Forge",
   "description": "YAML financial models for AI agents: Excel-style formulas, Monte Carlo, decision trees, games",
-  "version": "10.0.0-rc.35",
+  "version": "10.0.0-rc.36",
   "websiteUrl": "https://mollendorff.ai/forge",
   "repository": {
     "url": "https://github.com/mollendorff-ai/forge",
@@ -14,7 +14,7 @@
       "registryType": "cargo",
       "registryBaseUrl": "https://crates.io",
       "identifier": "mollendorff-forge",
-      "version": "10.0.0-rc.35",
+      "version": "10.0.0-rc.36",
       "transport": { "type": "stdio" },
       "packageArguments": [{ "type": "positional", "value": "mcp" }]
     }
