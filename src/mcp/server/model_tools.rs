@@ -100,7 +100,7 @@ impl ForgeMcpServer {
             req.content.as_deref(),
             req.includes.as_ref(),
         )?;
-        audit_core(&path, &req.variable)
+        audit_core(&path, &req.variable, req.plan)
             .map(|r| to_json(&r))
             .map_err(|e| format!("Audit failed: {e}"))
     }
@@ -237,6 +237,7 @@ mod tests {
         let server = ForgeMcpServer::new();
         // audit may succeed or fail, but should not panic
         let _ = server.audit(Parameters(AuditRequest {
+            plan: false,
             file_path: Some("test-data/budget.yaml".into()),
             content: None,
             includes: None,
@@ -776,6 +777,7 @@ scalars:
         for inline in [false, true] {
             let (file_path, content, includes) = plan(inline);
             let result = json(&ok_text(server.audit(Parameters(AuditRequest {
+                plan: false,
                 file_path,
                 content,
                 includes,
@@ -1007,7 +1009,7 @@ scalars:
         let server = ForgeMcpServer::new();
         let content = Some(PRICED.to_string());
         assert_eq!(
-            err_text(server.audit(Parameters(AuditRequest {
+            err_text(server.audit(Parameters(AuditRequest { plan: false,
                 file_path: None,
                 content: content.clone(),
                 includes: None,

@@ -9,7 +9,12 @@ current: {}
 
 previous: {}
 
-backlog: []
+backlog:
+  - id: AR-WHAT-IF-PLAN
+    title: "The analysis engines' page and the ADR index say the what-if commands take --plan"
+    why: "Filed 2026-11-26 by the features lane (F-WHAT-IF-PLAN): ADR-076 has an addendum of 2026-11-26, the what-if commands taking --plan (plan: true over MCP, REST and forge-wasm), one rule for all in src/cli/commands/plan.rs (at_plan_or_refused). 09-ANALYSIS-ENGINES.md says calculate --plan only, and the index row of ADR-076 does not name the addendum"
+    acceptance: "09-ANALYSIS-ENGINES.md and the ADR index say it; architecture_docs.rs passes"
+    model: "Haiku 5.5, low: the addendum says what to write"
 done:
   - id: AR-PAGES-CURRENT
     title: "The architecture pages say what the code does after ADR-078 to ADR-080 and the lanes"
