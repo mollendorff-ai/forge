@@ -68,6 +68,11 @@ backlog:
     how: "Settings, Pages in mollendorff-ai.github.io: remove the custom domain, save, add mollendorff.ai again, wait for the certificate, tick Enforce HTTPS. Then open mollendorff.com and mollendorff.ca on the phone and see where they land (EasyDNS forwards if they do not reach mollendorff.ai)"
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
 
+  - id: E-UPGRADE-GAMES
+    title: "forge upgrade --to 5.6.0 refuses a 5.5.0 file that has games"
+    why: "Filed by the manual lane, 2026-11-26 (M-GAMES-EXPECT), with rc.36 built from main at 7ff42d6. A 5.5.0 file with a games: section, which forge validate and forge calculate read without a word, is refused by forge upgrade --to 5.6.0: 'not converted, the file is unchanged: the original does not parse: Validation error: 'c' is a plain number, which is the short form of model format 5.1.0', after a warning that its comments cannot be kept because it 'needs the 1.0.0 to 5.0.0 restructuring'. The same file without games: upgrades; so do 5.1.0, 5.4.0 and 5.5.0 files without games. It looks as if the upgrade reads a file with games as format 1.0.0. Smallest case: _forge_version 5.5.0, c: 0, and a 2 x 2 symmetric game with plain-number payoffs. The nine examples in examples/games/ were moved to 5.6.0 by hand, the version line only (5.6.0 is 5.5.0 plus expect:)"
+    acceptance: "forge upgrade --to 5.6.0 turns a 5.5.0 file with games into 5.6.0, comments and layout kept, with a test on the smallest case"
+    model: "Sonnet 5.5, medium: a version check in the upgrade path, with a test"
 done:
   - id: E-MC-MESSAGE
     title: "The what-if commands say why they cannot run a file with MC.* inputs, as calculate does"

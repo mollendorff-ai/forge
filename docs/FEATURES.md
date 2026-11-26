@@ -113,7 +113,7 @@ year:
 
 Comments, quotes, blank lines, key order and inputs stay as you typed them, and a `.yaml.bak` keeps the previous file. If the results cannot be written without changing anything else, Forge leaves the file alone and says so. `--dry-run` shows the results without writing. A stored `value` can be out of date after you change an input, as with any saved result: run `forge calculate` again, and `forge validate` reports any value that no longer matches its formula, and any formula with no value stored yet.
 
-**`forge edit` changes the model's text, and nothing else (ADR-075).** `--set year.price=17` sets an input, `--set 'months.sales=[100, 120, 90]'` a table's column of numbers or dates, one value for each row, `--formula 'year.margin==year.profit / year.revenue'` a formula, `--add year.tax=0.15` or `--add 'year.net==year.profit * 0.85'` adds an input or a formula (a column, in a table) at the end of its group, in the indentation of the keys there, and `--delete year.old_fee` takes one out with the lines under it, leaving a comment above it. `@costs.rent` is changed in the file included as `costs`. `--rename year.price=unit_price` renames a name and every name that reads it; `--uncertain` and `--certain` make an input a distribution and back; and `--add-strategy sealed_bids.strategies.bid_50`, `--delete-strategy`, `--add-player` and `--delete-player` change a game's strategies and players, a new cell 0, `--set-habit rivalry.players.copycat=random` a tournament player's habit, and `--insert tournament=war` adds a game from a template (`forge templates` lists them) (`forge edit --help`). Every other byte stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else: otherwise no file is written, and the message says why. The MCP tool `forge_edit` takes the same changes as JSON. Results are not written by `edit`: `forge calculate` writes them.
+**`forge edit` changes the model's text, and nothing else (ADR-075).** `--set year.price=17` sets an input, `--set 'months.sales=[100, 120, 90]'` a table's column of numbers or dates, one value for each row, and `--set 'products.name=[Basic, Plus Pro]'` a column of text, each row written in the quotes it had (a column of true and false, or with an empty cell, is refused), `--formula 'year.margin==year.profit / year.revenue'` a formula, `--add year.tax=0.15` or `--add 'year.net==year.profit * 0.85'` adds an input or a formula (a column, in a table) at the end of its group, in the indentation of the keys there, and `--delete year.old_fee` takes one out with the lines under it, leaving a comment above it. `@costs.rent` is changed in the file included as `costs`. `--rename year.price=unit_price` renames a name and every name that reads it; `--uncertain` and `--certain` make an input a distribution and back; and `--add-strategy sealed_bids.strategies.bid_50`, `--delete-strategy`, `--add-player` and `--delete-player` change a game's strategies and players, a new cell 0, `--set-habit rivalry.players.copycat=random` a tournament player's habit, and `--insert tournament=war` adds a game from a template (`forge templates` lists them) (`forge edit --help`). Every other byte stays as it was. A change is made only when Forge reads the model back valid, with that change and nothing else: otherwise no file is written, and the message says why. The MCP tool `forge_edit` takes the same changes as JSON. Results are not written by `edit`: `forge calculate` writes them.
 
 **Anchors and aliases work; a YAML merge key does not (ADR-071).** `players: &roster [a, b]` and later `players: *roster` reuse a whole block. A merge key, `<<: *base`, is refused wherever it is written, in the model, an included file or an analysis section, with its place: `'scenarios.more.<<' is a YAML merge key (<<), which Forge does not read`. YAML 1.2 dropped merge keys, and a reader in 1.2 mode would see a different model; write the keys out, or make the change a scenario.
 
@@ -351,6 +351,8 @@ The API reads and writes the files that requests name, as the user running it. B
 | `/api/v1/audit` | POST | Audit variable dependencies |
 | `/api/v1/export` | POST | Export to Excel |
 | `/api/v1/import` | POST | Import from Excel |
+| `/api/v1/<tool>` | POST | Every other MCP tool, named as its command is: `goal-seek`, `break-even`, `simulate`, `decision-tree`, `edit`, `functions`, ... ([MCP.md](MCP.md) lists the tools) |
+| `/api/v1/openapi.json` | GET | The OpenAPI 3.1 document of every endpoint |
 | `/health` | GET | Health check |
 | `/version` | GET | Server version |
 
@@ -439,6 +441,22 @@ Give `file_path` or `content`, not both. Include paths in inline content must be
 {"success": true, "request_id": "15c17987-ab60-4b0f-9afc-1d45ef0c4c0e",
  "data": {"imported": true, "excel_path": "model.xlsx", "yaml_path": "back.yaml", "message": "Import completed"}}
 ```
+
+**Every other tool** is served at `POST /api/v1/<name>`, its name as its command is (`forge_goal_seek` at `/api/v1/goal-seek`, `forge_decision_tree` at `/api/v1/decision-tree`, [the tool list](MCP.md)). The body is the tool's arguments, the same JSON an MCP client sends, with the model as `file_path` or as `content`; the answer is the tool's JSON in `data`. A tool that fails, or a body that is not its arguments, answers `422` with `{"success": false, "request_id": "...", "error": "..."}` and the tool's message; a body that is not JSON answers `400`. On `examples/starter.yaml`, the price at which `plan.profit` is 0:
+
+```bash
+curl -s localhost:8080/api/v1/goal-seek -d '{"file_path": "examples/starter.yaml",
+  "target": "plan.profit", "value": 0, "vary": "plan.price"}'
+```
+
+```json
+{"success": true, "request_id": "8c770130-2765-49b1-b250-f25296dff5cd",
+ "data": {"achieved": -0.000060282648064458, "converged": true, "error": 0.000060282648064458,
+          "iterations": 31, "solution": 24.9999994976446, "target": "plan.profit",
+          "target_value": 0.0, "vary": "plan.price"}}
+```
+
+`GET /api/v1/openapi.json` is an OpenAPI 3.1 document of every endpoint, made from the same schemas MCP's `tools/list` gives each tool, so a client or an SDK generator needs nothing else ([ADR-081](architecture/ADR-081-EVERY-TOOL-OVER-REST.md)). The five endpoints above answer in their own shapes (`valid`, `calculated`, ...); the others answer as their tools do.
 
 A model that cannot be read answers in the same shape with the operation's flag false, for example `{"valid": false, "file_path": "missing.yaml", "message": "IO error: No such file or directory (os error 2)"}`. The tests in `src/api/server.rs` (`bagel_over_http`) run each endpoint on `examples/bagel` and assert the numbers the command-line tests assert.
 

@@ -15,8 +15,14 @@
 # The order is kinship's. The cost c of a defection comes off each defecting
 # payoff; AlwaysCooperate overtakes AlwaysDefect at c = 0.108, not 0.1:
 #   forge game games/axelrod.yaml --scenario c2
+#
+# Each result above is written under expect:, for the file as written and
+# for each scenario, and forge validate games/axelrod.yaml checks that Forge
+# still gives them (ADR-074).
+# A score falls by c times its share of defections (grim 0.397, ad 1), as
+# the moves do not change with c: grim 2.596 - 0.2 * 0.397 = 2.5166 at c2.
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 c: 0      # the cost of a defection
 dilemma_payoffs:
@@ -61,10 +67,24 @@ kinship:
     formula: "=1 - axelrod.cooperation.grim"
     value: 0.397
 
+expect:                       # worked out by hand
+  axelrod.score.grim: 2.596
+  axelrod.score.tft: 2.44825
+  axelrod.score.ad: 2.208
+  axelrod.score.ac: 2.1
+  axelrod.score.rand: 1.90875
+  axelrod.rank.grim: 1
+  kinship.crossover_c: 0.108
+  kinship.grim_defect_rate: 0.397
+  kinship.coop_wins: 0
+
 scenarios:
   c1:
     scalars: {c: 0.1}
+    expect: {axelrod.score.ad: 2.108, kinship.coop_wins: 0}
   c2:
     scalars: {c: 0.2}
+    expect: {axelrod.score.grim: 2.5166, axelrod.rank.grim: 1, axelrod.score.ad: 2.008, kinship.coop_wins: 1}
   c3:
     scalars: {c: 0.3}
+    expect: {axelrod.score.grim: 2.4769, kinship.coop_wins: 1}

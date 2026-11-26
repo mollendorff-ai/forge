@@ -13,8 +13,14 @@
 # agrees). The tornado shows the known result: a harsher penalty lowers the
 # audit rate (1/2 at a penalty of 2, 1/5 at 8) and leaves the cheating where
 # it was, because the cheating is what keeps the human indifferent.
+#
+# Each result above is written under expect:, for the file as written and
+# for each scenario, and forge validate games/inspection.yaml checks that Forge
+# still gives them (ADR-074).
+# The scenarios lenient and harsh are the tornado's two ends for the penalty:
+# the audit rate moves, 1/2 and 1/5, and the cheating stays at 1/3.
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 inputs:
   gain: 2         # what cheating gains the AI when it is not caught
@@ -44,3 +50,21 @@ tornado:
     - name: inputs.audit_cost
       low: 0.5
       high: 1.5
+
+expect:                       # worked out by hand
+  inspection.pure_equilibria: 0
+  inspection.equilibria: 1
+  inspection.equilibrium_1.human.audit: =1/3
+  inspection.equilibrium_1.ai.cheat: =1/3
+  inspection.equilibrium_1.ai.payoff: 0
+  inspection.equilibrium_1.human.payoff: -1
+
+scenarios:
+  lenient:
+    description: A penalty of 2, the tornado's low end
+    scalars: {inputs.penalty: 2}
+    expect: {inspection.equilibrium_1.human.audit: =1/2, inspection.equilibrium_1.ai.cheat: =1/3}
+  harsh:
+    description: A penalty of 8, the tornado's high end
+    scalars: {inputs.penalty: 8}
+    expect: {inspection.equilibrium_1.human.audit: =1/5, inspection.equilibrium_1.ai.cheat: =1/3}

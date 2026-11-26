@@ -235,6 +235,8 @@ For tighter integration, `forge mcp` is an MCP server with 23 tools (validate, c
 
 With a file path, the server reads and writes as you, and only inside the folder it starts in; `"args": ["mcp", "--root", "/path/to/models"]` names the folder, and `--any-path` lifts the limit ([docs/MCP.md](docs/MCP.md#keeping-files-inside-one-folder)). [docs/MCP.md](docs/MCP.md) describes each tool, and [Forge with an AI](docs/guide/ai.md) has rules to put in your project's `AGENTS.md` or `CLAUDE.md`. `forge serve` runs a REST API for validate, calculate, audit, export and import ([docs/FEATURES.md](docs/FEATURES.md#http-rest-api-server)).
 
+MCP Registry name: mcp-name: io.github.mollendorff-ai/forge
+
 ## Quick start
 
 ```bash

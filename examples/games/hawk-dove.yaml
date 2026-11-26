@@ -18,8 +18,14 @@
 # A share is multiplied by (payoff + baseline) / (average + baseline) in each
 # generation. Hawk against hawk pays -1, so the baseline must be above 1 to
 # keep every share above 0; 5 also makes the steps smaller.
+#
+# Each result above is written under expect:, for the file as written and
+# for each scenario, and forge validate games/hawk-dove.yaml checks that Forge
+# still gives them (ADR-074).
+# Under costly the population ends at 1/2 and each expects 2 (1 - 1/2) = 1;
+# under deadly at 1/3, and each expects 2 (1 - 1/3) = 4/3.
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 V: 4      # what the resource is worth
 C: 6      # what an injury costs
@@ -52,10 +58,18 @@ population:
     value: 0.666666666712422
     notes: What each expects then, 2 (1 - 2/3) = 2/3
 
+expect:                       # worked out by hand
+  hawk_dove.pure_equilibria: 2
+  hawk_dove.equilibrium_3.me.hawk: =2/3
+  population.hawks: =2/3
+  population.payoff: =2/3
+
 scenarios:
   costly:
     description: A worse injury, so fewer hawks (V / C = 1/2)
     scalars: {C: 8}
+    expect: {hawk_dove.equilibrium_3.me.hawk: =1/2, population.hawks: =1/2, population.payoff: 1}
   deadly:
     description: An injury three times the prize (V / C = 1/3)
     scalars: {C: 12}
+    expect: {hawk_dove.equilibrium_3.me.hawk: =1/3, population.hawks: =1/3, population.payoff: =4/3}

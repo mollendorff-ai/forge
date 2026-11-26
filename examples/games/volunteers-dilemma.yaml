@@ -20,8 +20,12 @@
 # with two players it is 0.4^2 = 0.16. The more players, the likelier that
 # nobody does it. The mix is stable: with fewer volunteers than that,
 # volunteering pays more, and with more, less.
+#
+# Each result above is written under expect:, for the file as written and
+# for each scenario, and forge validate games/volunteers-dilemma.yaml checks that Forge
+# still gives them (ADR-074).
 
-_forge_version: "5.5.0"
+_forge_version: "5.6.0"
 
 benefit: 10     # what each gets when someone volunteers
 cost: 4         # what volunteering costs the volunteer
@@ -50,7 +54,15 @@ risk:
     value: 1
     notes: 1, a population returns to the mix
 
+expect:                       # worked out by hand
+  vd.pure_equilibria: 5
+  risk.volunteers: =1 - 0.4^(1/4)
+  risk.nobody: =0.4^(5/4)
+  risk.stable: 1
+  vd.equilibrium_6.a1.payoff: 6
+
 scenarios:
   cheap:
     description: Volunteering costs 2; each volunteers with 1 - 0.2^(1/4) = 0.331260, and nobody does with 0.2^(5/4) = 0.133748
     scalars: {cost: 2}
+    expect: {risk.volunteers: =1 - 0.2^(1/4), risk.nobody: =0.2^(5/4), vd.equilibrium_6.a1.payoff: 8}
