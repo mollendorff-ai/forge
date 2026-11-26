@@ -61,6 +61,11 @@ backlog:
 
 
 done:
+  - id: M-HOW-BUILT
+    title: "The README says how Forge is built: one maintainer, AI agents in lanes, and the rules they cannot switch off"
+    why: "Asked by the maintainer on 2026-11-26, after an audit of the repository found the AI authorship disclosed (Status and known limitations) but not what the maintainer decides, so a reader of the owner's profile would ask what the owner did"
+    acceptance: "A README section, after How we know the numbers are right, with only claims the repository shows: the roadmaps and ADRs, pull requests merged by the maintainer, the lanes, AGENTS.md's rules and no_skipping.rs, the run pages and the fresh-agent trials; no count that goes stale; validation/repo passes"
+    built: "2026-11-26: README.md's How this is built, four bullets, each linking to the file that shows it (AGENTS.md, .asimov/project.yaml, docs/SESSIONS.md, no_skipping.rs, docs/PROMPTS.md); it gives no count of tests, ADRs or commits"
   - id: A10-README-AND-TRIALS
     title: "The README as the front door, then a trial by a fresh reader of each kind"
     how: "Last, once it has pages to link to: one door per reader, the bagel story, 'checked on every pull request by' in place of dated run stamps. Then one fresh agent per reader follows only the docs and reports its friction, as T1-AGENT-FRICTION did for the prompts"
