@@ -270,15 +270,16 @@ A change to a model is a change to its text, and the results it moved are in the
 
 ## It has run
 
-This workflow has run in [a repository of its own](https://github.com/mollendorff-ai/forge-pipeline-example) holding these two files (2026-11-24). It installed 10.0.0-rc.34 then, whose `forge validate` passes a formula with no result, so it had one more step, "Every formula has its result stored", which read `uncalculated`; with rc.35 `forge validate` fails that case itself, and the step is gone:
+This workflow has run in [a repository of its own](https://github.com/mollendorff-ai/forge-pipeline-example) holding these two files, with the release it installs, 10.0.0-rc.35 (2026-11-26). Its pull requests are the examples. The price in `main` is 17, calculated, so each of them starts from there:
 
 | Pull request | What it changes | The run |
 | --- | --- | --- |
-| [#1](https://github.com/mollendorff-ai/forge-pipeline-example/pull/1) | The price to 17, calculated | [Passed](https://github.com/mollendorff-ai/forge-pipeline-example/actions/runs/45303977313), with the results on its page and as JSON |
-| [#2](https://github.com/mollendorff-ai/forge-pipeline-example/pull/2) | The price to 17, not calculated | [Failed](https://github.com/mollendorff-ai/forge-pipeline-example/actions/runs/45303984249) at "Every stored result is what its formula gives" |
-| [#3](https://github.com/mollendorff-ai/forge-pipeline-example/pull/3) | `year.food_cost_share` added, not calculated | [Failed](https://github.com/mollendorff-ai/forge-pipeline-example/actions/runs/45303990085) at "Every formula has its result stored", after `forge validate` passed |
+| [#4](https://github.com/mollendorff-ai/forge-pipeline-example/pull/4) | The workflow itself, moved to rc.35 | [Passed](https://github.com/mollendorff-ai/forge-pipeline-example/actions/runs/45897679336) |
+| [#5](https://github.com/mollendorff-ai/forge-pipeline-example/pull/5) | The price to 18, calculated | [Passed](https://github.com/mollendorff-ai/forge-pipeline-example/actions/runs/45897682631), with the results on its page and as JSON |
+| [#6](https://github.com/mollendorff-ai/forge-pipeline-example/pull/6) | The price to 18, not calculated | [Failed](https://github.com/mollendorff-ai/forge-pipeline-example/actions/runs/45897687226) at "Every stored result is what its formula gives" |
+| [#7](https://github.com/mollendorff-ai/forge-pipeline-example/pull/7) | `year.food_cost_share` added, not calculated | [Failed](https://github.com/mollendorff-ai/forge-pipeline-example/actions/runs/45897692773) at "Every stored result is what its formula gives" too |
 
-[The push](https://github.com/mollendorff-ai/forge-pipeline-example/actions/runs/45303934481) of the two files to `main` passed as well. #1's [diff](https://github.com/mollendorff-ai/forge-pipeline-example/pull/1/files) is the one above. The tests of this repository run the same steps on the same files with the `forge` of its sources, green and red, on every pull request (`validation/repo`'s `pipeline` module), so a change to Forge that would break the workflow fails here first.
+Pull requests 5, 6 and 7 are stacked on the branch of 4 so that each runs this workflow, and 6 and 7 are red on purpose and not to be merged. The [diff of 5](https://github.com/mollendorff-ai/forge-pipeline-example/pull/5/files) is the same kind of change as the one above, at 18 a dozen. Before rc.35, a formula with no result passed `forge validate`, and the workflow had a step of its own to catch it. The tests of this repository run the same steps on the same files with the `forge` of its sources, green and red, on every pull request (`validation/repo`'s `pipeline` module), so a change to Forge that would break the workflow fails here first.
 
 ## Check it yourself
 
