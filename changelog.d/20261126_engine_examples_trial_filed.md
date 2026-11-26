@@ -1,0 +1,3 @@
+### Changed
+
+- **Four findings from a run of every example, and of a model written from scratch, are on the lanes' roadmaps.** For the manual lane (M-DEAL-BID-BRANCH, M-GAMES-EXPECT): the acquisition README's 91.73 for the 40% bid is right but printed by no command on the page, and only one of the ten games in `examples/games/` states its results under `expect:`. For the engine lane (E-MC-MESSAGE): `forge scenarios`, `compare`, `break-even`, `goal-seek`, `sensitivity` and `audit` say "Unknown function: MC.Triangular" on a file with uncertain inputs, where `forge calculate` says what to run instead. For the features lane (F-WHAT-IF-PLAN): those commands have no `--plan`, so an uncertain model needs a second file for its what-ifs. No behaviour changes.
