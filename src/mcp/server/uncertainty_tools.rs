@@ -460,6 +460,8 @@ scalars:
                 assert_eq!(driver["input"], name);
                 let got = driver["rank_correlation"].as_f64().unwrap();
                 assert!(close(got, rho, 1e-11), "{name}: {got}");
+                // The bagel's inputs are in no correlation: no note
+                assert!(driver.get("correlated_with").is_none(), "{name}");
             }
         }
     }
