@@ -292,8 +292,10 @@ fn upgrade_to_short_form(
         }
     }
     let converted = match crate::writer::in_place::to_short_form(content) {
-        // Already in the short form: only the version line changes
-        _ if matches!(current_version, "5.1.0" | "5.2.0") => Ok(content.to_string()),
+        // 5.1.0 and every later format are the short form: only the version
+        // line changes. Converting one would read it back as 5.1.0, which has
+        // no date as a scalar and no games.
+        _ if rank(current_version).is_some() => Ok(content.to_string()),
         Ok(text) => Ok(text),
         Err(_) if current_version != "5.0.0" => {
             outln!(
@@ -707,6 +709,26 @@ no_value:
         result.unwrap();
         let upgraded = fs::read_to_string(&file).unwrap();
         assert_eq!(upgraded, text.replace("\"5.1.0\"", "\"5.4.0\""));
+    }
+
+    /// A file in a format that 5.1.0 cannot read, a date as a scalar (5.4.0)
+    /// or a game (5.5.0), is already in the short form: only its version
+    /// line changes, its comments and layout kept (roadmap E-UPGRADE-GAMES).
+    #[test]
+    fn a_file_with_a_date_or_a_game_only_changes_its_version_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = "_forge_version: \"5.4.0\"\n\nstart: 2026-01-01   # a date\nx: 1\n";
+        let game = "_forge_version: \"5.5.0\"\n\nc: 0   # the cost\n\ngames:\n  g:\n    \
+                    players: [me, you]\n    strategies: [a, b]\n    symmetric: true\n    \
+                    payoffs:\n      a: {a: 4, b: 0}   # kept\n      b: {a: =3 - c, b: =3 - c}\n";
+        for (from, text) in [("5.4.0", date), ("5.5.0", game)] {
+            let file = write(dir.path(), "m.yaml", text);
+            let (result, out) = run(&file, false, "5.6.0", false);
+            assert!(result.is_ok(), "{from}: {out}");
+            assert!(!out.contains("cannot be kept"), "{from}: {out}");
+            let upgraded = fs::read_to_string(&file).unwrap_or_default();
+            assert_eq!(upgraded, text.replace(&format!("\"{from}\""), "\"5.6.0\""));
+        }
     }
 
     #[test]

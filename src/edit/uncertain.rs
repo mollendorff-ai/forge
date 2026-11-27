@@ -11,12 +11,10 @@
 
 use super::text::{encode_formula, parse, place, Style};
 use super::{check, formula, js_number, value_text, Change, Op, Target};
-use crate::core::array_calculator::references::{Named, Place, Reader};
-use crate::core::array_calculator::tokenizer;
 use crate::monte_carlo::engine::plan_of;
 use crate::monte_carlo::is_distribution;
 use crate::types::ParsedModel;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use yaml_edit::{MappingEntry, YamlFile, YamlNode};
 
 /// The distribution an input gets when none is asked for: a triangle from
@@ -186,39 +184,14 @@ pub(super) fn make_certain(
 }
 
 /// The model's results: its scalars with a formula that is not a
-/// distribution and that no formula reads, in the file's order
+/// distribution, in the file's order. A result that another formula reads is
+/// one too: a year's profit is read by its margin, and is what a simulation
+/// is asked about first (roadmap E-EDIT-UNCERTAIN)
 fn results(model: &ParsedModel) -> Vec<String> {
-    let reader = Reader::new(model.clone());
-    let mut read: HashSet<String> = HashSet::new();
-    let mut take = |formula: &str, place: Place<'_>| {
-        for (_, word) in tokenizer::names(formula).unwrap_or_default() {
-            if let Named::Scalar(name) = reader.read(&word, place) {
-                read.insert(name);
-            }
-        }
-    };
-    for (name, var) in &model.scalars {
-        if let Some(f) = &var.formula {
-            take(f, Place::Scalar(name));
-        }
-    }
-    for (name, table) in &model.tables {
-        table
-            .row_formulas
-            .values()
-            .for_each(|f| take(f, Place::Column(name)));
-    }
-    for game in model.games.values() {
-        game.formulas()
-            .into_iter()
-            .for_each(|f| take(f, Place::Elsewhere));
-    }
     model
         .scalars
         .iter()
-        .filter(|(name, var)| {
-            var.formula.as_deref().is_some_and(|f| !is_distribution(f)) && !read.contains(*name)
-        })
+        .filter(|(_, var)| var.formula.as_deref().is_some_and(|f| !is_distribution(f)))
         .map(|(name, _)| name.clone())
         .collect()
 }
@@ -376,7 +349,10 @@ four:
     other: 2
 ";
     const COSTS: &str = "_forge_version: \"5.4.0\"\nrent: 900   # a month\nspare: 1\n";
-    const BLOCK: &str = "\nmonte_carlo:\n  iterations: 5000\n  seed: 7\n  sampling: latin_hypercube\n  outputs:\n    - variable: year.net\n";
+    /// The simulation asks about every result, year.revenue too though
+    /// year.net reads it, as a year's profit is read by its margin
+    /// (roadmap E-EDIT-UNCERTAIN)
+    const BLOCK: &str = "\nmonte_carlo:\n  iterations: 5000\n  seed: 7\n  sampling: latin_hypercube\n  outputs:\n    - variable: year.revenue\n    - variable: year.net\n";
 
     fn files() -> HashMap<String, String> {
         HashMap::from([
