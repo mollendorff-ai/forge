@@ -219,6 +219,42 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "no_such_file.md: ")]
+    fn a_file_that_cannot_be_read_is_named_in_the_panic() {
+        let _ = read("no_such_file.md");
+    }
+
+    #[test]
+    #[should_panic(expected = "no_such_folder: ")]
+    fn a_folder_that_cannot_be_read_is_named_in_the_panic() {
+        rust_files(Path::new("no_such_folder"), &mut Vec::new());
+    }
+
+    #[test]
+    fn rust_files_leaves_out_build_output_and_installed_packages() {
+        let dir = tempfile::tempdir().unwrap();
+        for file in [
+            "a.rs",
+            "b.md",
+            "src/c.rs",
+            "target/d.rs",
+            "node_modules/e.rs",
+        ] {
+            let path = dir.path().join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "").unwrap();
+        }
+        let mut files = Vec::new();
+        rust_files(dir.path(), &mut files);
+        let mut names: Vec<String> = files
+            .iter()
+            .map(|f| f.strip_prefix(dir.path()).unwrap().display().to_string())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["a.rs", "src/c.rs"]);
+    }
+
+    #[test]
     fn rust_files_finds_the_crates_own_sources() {
         let mut files = Vec::new();
         rust_files(&root().join("validation/repo"), &mut files);

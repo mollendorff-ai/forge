@@ -81,6 +81,29 @@ mod tests {
         }
     }
 
+    /// The actions `text` of the workflow `path` uses without pinning them to
+    /// a commit
+    fn unpinned_actions(path: &str, text: &str) -> Vec<String> {
+        let mut wrong = Vec::new();
+        for line in text.lines() {
+            let Some(used) = line
+                .trim_start()
+                .strip_prefix("- uses: ")
+                .or_else(|| line.trim_start().strip_prefix("uses: "))
+            else {
+                continue;
+            };
+            let used = used.split_whitespace().next().unwrap_or_default();
+            let pinned = used.rsplit_once('@').is_some_and(|(_, sha)| {
+                sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit())
+            });
+            if !used.starts_with("./") && !pinned {
+                wrong.push(format!("{path}: {used}"));
+            }
+        }
+        wrong
+    }
+
     /// An action is pinned to a commit
     /// (a tag can be moved), so that what runs is what was reviewed.
     #[test]
@@ -90,26 +113,24 @@ mod tests {
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
             let text = std::fs::read_to_string(&path).unwrap_or_default();
-            for line in text.lines() {
-                let Some(used) = line
-                    .trim_start()
-                    .strip_prefix("- uses: ")
-                    .or_else(|| line.trim_start().strip_prefix("uses: "))
-                else {
-                    continue;
-                };
-                let used = used.split_whitespace().next().unwrap_or_default();
-                let pinned = used.rsplit_once('@').is_some_and(|(_, sha)| {
-                    sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit())
-                });
-                if !used.starts_with("./") && !pinned {
-                    wrong.push(format!("{}: {used}", path.display()));
-                }
-            }
+            wrong.extend(unpinned_actions(&path.display().to_string(), &text));
         }
         assert!(
             wrong.is_empty(),
             "actions not pinned to a commit: {wrong:#?}"
+        );
+    }
+
+    #[test]
+    fn an_action_on_a_tag_is_named() {
+        let sha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
+        let text = format!(
+            "steps:\n  - uses: actions/checkout@{sha} # v7\n  - uses: actions/cache@v4\n    \
+             uses: ./local\n  - run: echo uses: x\n"
+        );
+        assert_eq!(
+            unpinned_actions("ci.yml", &text),
+            ["ci.yml: actions/cache@v4"]
         );
     }
 
