@@ -151,6 +151,7 @@ jobs:
         uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # stable
         with:
           toolchain: stable
+          components: llvm-tools-preview
 
       # Compiled dependencies, restored from the last run on main; only main
       # saves one, so pull requests do not fill the 10 GB the repository has
@@ -159,17 +160,48 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@41e135bca37b18b5a9cc134855b5b3bccbedbf26 # cargo-llvm-cov
+        with:
+          tool: cargo-llvm-cov
+
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: forge-binary
           path: target/release
 
+      # The checks are code too, so their own coverage is measured as they
+      # run (roadmap E-REPO-COVERAGE)
       - name: Check the repository against the binary
         env:
           FORGE_BIN: target/release/forge
         run: |
           chmod +x target/release/forge
-          cargo test -p mollendorff-forge-repo
+          cargo llvm-cov -p mollendorff-forge-repo --json --summary-only --output-path repo-cov.json
+          jq -r '.data[0].files[] | select(.summary.regions.covered < .summary.regions.count or .summary.functions.covered < .summary.functions.count or .summary.lines.covered < .summary.lines.count) | "missed: \(.filename): \(.summary.regions.count - .summary.regions.covered) regions, \(.summary.functions.count - .summary.functions.covered) functions, \(.summary.lines.count - .summary.lines.covered) lines"' repo-cov.json
+
+      # The floors only rise, to 100 (AGENTS.md), as the main crate's did.
+      # Set 2026-11-27 a tenth below a local run on Rust 1.100 (99.06% lines,
+      # 98.71% functions, 98.77% regions), as CI's stable may count a little
+      # differently; raise them from CI's own number, never lower them.
+      - name: Fail below the coverage floor of the repository checks
+        env:
+          FLOOR_LINES: "98.9"
+          FLOOR_FUNCTIONS: "98.6"
+          FLOOR_REGIONS: "98.6"
+        run: |
+          fail=0
+          for kind in lines functions regions; do
+            floor_var="FLOOR_${kind^^}"
+            got=$(jq ".data[0].totals.$kind.percent" repo-cov.json)
+            if jq -e --argjson floor "${!floor_var}" ".data[0].totals.$kind.percent >= \$floor" repo-cov.json >/dev/null; then
+              echo "$kind: $got% (floor ${!floor_var}%)"
+            else
+              echo "::error::validation/repo's $kind coverage is $got%, below the floor of ${!floor_var}%: add tests, do not lower the floor"
+              fail=1
+            fi
+          done
+          exit $fail
 
   # The oldest Rust Forge says it builds with (Cargo.toml rust-version,
   # clippy.toml msrv): a newer API used by accident breaks this job, not a
