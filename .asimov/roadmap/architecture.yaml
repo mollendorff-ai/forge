@@ -9,7 +9,11 @@ current: {}
 
 previous: {}
 
-backlog: []
+backlog:
+  - id: AR-ADR-068-STATUS
+    title: "ADR-068's status line still lists kinship-protocol's rewrite as left"
+    why: "Found 2026-11-27 closing T2-GAME-THEORY (features lane): docs/architecture/ADR-068-GAMES.md says 'Left: kinship-protocol's three models rewritten in its own repository', but they are: its stag_hunt.yaml, chicken.yaml and axelrod_tournament.yaml are games: sections and validate with today's Forge (kinship-protocol main, 2026-11-25; PRs and the numbers are in T2-GAME-THEORY's built: line)"
+    acceptance: "ADR-068's status line says the rewrite is done, and nothing else in it is left open that the roadmap says is built"
 done:
   - id: AR-PAGES-CURRENT
     title: "The architecture pages say what the code does after ADR-078 to ADR-080 and the lanes"
