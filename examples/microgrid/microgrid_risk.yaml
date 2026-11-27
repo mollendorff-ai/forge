@@ -2,7 +2,7 @@ _forge_version: "5.4.0"
 # Ilha Corva, Monte Carlo version: microgrid.yaml with the five inputs we are
 # least sure of made uncertain (diesel price and its growth, demand growth,
 # sunshine, battery price). Everything else is the plan. Run it with
-# forge simulate (calculate cannot evaluate MC.* inputs):
+# forge simulate; calculate and the what-if commands run it at plan with --plan:
 #
 #   forge simulate microgrid_risk.yaml
 

@@ -3,7 +3,8 @@ _forge_version: "5.4.0"
 # buyer can least pin down made uncertain (rent growth, vacancy, running
 # costs and their growth, and the exit cap rate). Everything else is the
 # plan, and value: beside each MC.* formula is realestate.yaml's figure.
-# Run it with forge simulate (calculate cannot evaluate MC.* inputs):
+# Run it with forge simulate; calculate and the what-if commands run it at
+# plan with --plan:
 #
 #   forge simulate realestate_risk.yaml
 
