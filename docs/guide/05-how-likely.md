@@ -172,7 +172,13 @@ $ forge calculate bagel.yaml --dry-run
 Error: Validation error: shop.dozens_per_day, shop.staff_hours_per_day use MC.* distributions, which calculate and validate cannot evaluate. Run `forge simulate` on this file instead, or `forge calculate --plan` for its plan.
 ```
 
-The what-if commands of [lesson 4](04-what-if.md) (`scenarios`, `compare`, `goal-seek`, `break-even`, `sensitivity`, `tornado` and `audit`) refuse an uncertain model in the same way, and take the same `--plan`: each uncertain input is then at its plan figure, the `value:` beside its formula, so one file holds the plan and its uncertainty. A scenario that sets an uncertain input still fixes it at its own number.
+The what-if commands of [lesson 4](04-what-if.md) (`scenarios`, `compare`, `goal-seek`, `break-even`, `sensitivity`, `tornado` and `audit`) refuse an uncertain model in the same way, and take the same `--plan`: each uncertain input is then at its plan figure, the `value:` beside its formula, so one file holds the plan and its uncertainty. A scenario that sets an uncertain input still fixes it at its own number. The break-even price at plan is the one lesson 2's file gives, with plain numbers for both inputs:
+
+```text
+$ forge break-even bagel.yaml --output-var year.profit --vary shop.price_per_dozen --plan
+📋 AT PLAN - each uncertain input at its plan figure
+   shop.price_per_dozen = 15.08 (15.0798147287831) → year.profit = 0.000014
+```
 
 Releases after 10.0.0-rc.34 also write a distribution for you, `forge edit bagel.yaml --uncertain "shop.dozens_per_day==MC.PERT(40, 55, 70)"`, and add a `monte_carlo:` section if there is none.
 
