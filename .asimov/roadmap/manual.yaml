@@ -10,12 +10,6 @@ current: {}
 previous: {}
 
 backlog:
-  - id: A15-MAINTAINER-STEPS
-    title: "Index Forge at DeepWiki and Context7, then read what each says"
-    why: "A15 added llms.txt, context7.json and .devin/wiki.json, but DeepWiki has never indexed the repository and Context7 has no entry for it (2026-11-25); only the maintainer can add it, and Context7 wants a free API key"
-    how: "The maintainer: index the repository at deepwiki.com/mollendorff-ai/forge and add it at context7.com/add-library (a free key from its dashboard lifts the anonymous quota). Then an agent reads each service's answer about Forge (and GitMCP's again, its index was old) and corrects the config files where one is wrong or thin"
-    acceptance: "DeepWiki and Context7 answer from the current pages (the guide, the skill, 23 MCP tools), and the answers are recorded in this item's built: line"
-    model: "Sonnet 5.5, low"
   - id: T2-FIRST-USER
     title: "Watch one real person build a model with Forge"
     why: "Every bug found on 2026-11-07 came from building a model, and fresh agents have found the rest (T1-AGENT-FRICTION). A person who did not write Forge has not been watched yet. This is to find where a model goes wrong or a command confuses, not to test demand: adoption is not a goal (2026-11-16)"
@@ -34,6 +28,13 @@ backlog:
     model: "Sonnet 5.5, low: reprint the blocks"
 
 done:
+  - id: A15-MAINTAINER-STEPS
+    title: "Index Forge at DeepWiki and Context7, then read what each says"
+    why: "A15 added llms.txt, context7.json and .devin/wiki.json, but DeepWiki has never indexed the repository and Context7 has no entry for it (2026-11-25); only the maintainer can add it, and Context7 wants a free API key"
+    how: "The maintainer: index the repository at deepwiki.com/mollendorff-ai/forge and add it at context7.com/add-library (a free key from its dashboard lifts the anonymous quota). Then an agent reads each service's answer about Forge (and GitMCP's again, its index was old) and corrects the config files where one is wrong or thin"
+    acceptance: "DeepWiki and Context7 answer from the current pages (the guide, the skill, 23 MCP tools), and the answers are recorded in this item's built: line"
+    model: "Sonnet 5.5, low"
+    built: "2026-11-27. The maintainer indexed Forge at DeepWiki and added it to Context7 (376,229 tokens, 2,436 snippets, trust score 6.5); a free Context7 key is saved as a network secret on the forge environment. Four questions to each, by their MCP or API: DeepWiki names the 23 MCP tools by group, gives the edit, calculate, validate loop, the what-if commands with --plan and rc.36 with its install commands; its one flaw, that docs/cli/README.md says 22 tools, is from an older index (no page on main says it). Context7 answers from the guide and the skill as context7.json's rules ask: the 23 tools, the loop with lesson 3's output, the install; on an uncertain model's what-ifs it had no --plan, as no page had a run command with it, so lesson 5 now has one (break-even at plan, 15.08, the price lesson 2's file gives). Its own description of lesson 4's break-even says 54.86 is above the plan's 55, which is Context7's writing, not a page. GitMCP refuses requests from the cloud container (403) and was not read. No config file needed a change"
   - id: M-WHAT-IF-PLAN-EXAMPLES
     title: "The guide and the examples use --plan on the what-if commands, and the examples' pairs that are the same plan become one file"
     why: "Filed 2026-11-26 by the features lane (F-WHAT-IF-PLAN, ADR-076 addendum of 2026-11-26): scenarios, compare, goal-seek, break-even, sensitivity, tornado and audit take --plan, so one file can hold a plan and its uncertainty. examples/bagel has bagel.yaml and bagel_simulate.yaml, the same plan twice; docs/FEATURES.md says calculate --plan only; the comments of bagel_simulate.yaml, microgrid_risk.yaml and realestate_risk.yaml say calculate cannot evaluate MC.* inputs, and nothing says the what-if commands can at plan"
