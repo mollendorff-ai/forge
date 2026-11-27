@@ -950,7 +950,7 @@ scenarios:
                 Some("2026-11-30")
             );
             assert_eq!(later.scalars["out.open_months"], Some(11.0));
-            let compared = compare_core(&path, &["later".to_string()]).unwrap();
+            let compared = compare_core(&path, &["later".to_string()], false).unwrap();
             assert!(compared.dates.contains("inputs.last_actual"));
             assert!(!compared.dates.contains("out.year"));
 
@@ -973,6 +973,7 @@ scenarios:
                 None,
                 None,
                 "out.days",
+                false,
             )
             .unwrap_err()
             .to_string();
@@ -987,15 +988,22 @@ scenarios:
                 "inputs.last_actual",
                 (None, None),
                 0.001,
+                false,
             )
             .unwrap_err()
             .to_string();
             assert!(seek.contains("is a date"), "{seek}");
             // A number input beside it is varied as before
-            assert!(
-                sensitivity_core(&path, "inputs.rate", "0.1,0.2,0.1", None, None, "out.grown")
-                    .is_ok()
-            );
+            assert!(sensitivity_core(
+                &path,
+                "inputs.rate",
+                "0.1,0.2,0.1",
+                None,
+                None,
+                "out.grown",
+                false
+            )
+            .is_ok());
         }
 
         #[test]

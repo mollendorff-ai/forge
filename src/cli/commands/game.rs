@@ -900,7 +900,7 @@ games:
             // 4 and 8, gain / (gain + penalty); the AI cheats 1/3 at each,
             // audit_cost / harm
             let file = Path::new("examples/games/inspection.yaml");
-            let audit = crate::cli::tornado_core(file, None).unwrap();
+            let audit = crate::cli::tornado_core(file, None, false).unwrap();
             let penalty = audit
                 .bars
                 .iter()
@@ -910,7 +910,8 @@ games:
             assert!(close(penalty.output_at_low, 0.5) && close(penalty.output_at_high, 0.2));
             assert_eq!(audit.bars[0].input_name, "inputs.penalty");
             let cheat =
-                crate::cli::tornado_core(file, Some("inspection.equilibrium_1.ai.cheat")).unwrap();
+                crate::cli::tornado_core(file, Some("inspection.equilibrium_1.ai.cheat"), false)
+                    .unwrap();
             let penalty = cheat
                 .bars
                 .iter()
@@ -1195,6 +1196,7 @@ games:
                 None,
                 None,
                 "long_run.stable.grim",
+                false,
             )
             .unwrap();
             let sweep = serde_json::to_value(&sweep).unwrap();

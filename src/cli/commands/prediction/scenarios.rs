@@ -19,6 +19,7 @@ use std::path::{Path, PathBuf};
 pub fn scenarios_core(
     file: &Path,
     scenario_filter: Option<&str>,
+    plan: bool,
 ) -> ForgeResult<crate::scenarios::ScenarioResults> {
     let yaml_content = parser::read_model_text(file)?;
 
@@ -69,10 +70,12 @@ pub fn scenarios_core(
         }
     }
 
-    let model = parser::parse_model(file)?;
+    let mut model = parser::parse_model(file)?;
     // Said after the scenarios are checked: a model with no scenario to weigh
-    // is told that first, as Studio's Analyze card explains it (ADR-076)
-    let distributions = crate::cli::commands::reject_distributions_in(&model, "scenarios");
+    // is told that first, as Studio's Analyze card explains it (ADR-076).
+    // At plan, an uncertain input is no output: it is set, not calculated
+    let distributions =
+        crate::cli::commands::plan::at_plan_or_refused(&mut model, plan, "scenarios");
 
     // Report every calculated scalar (the ones with a formula) as an output,
     // so the probability of a positive result and the range are filled in.
@@ -106,10 +109,12 @@ pub fn scenarios(
     scenario_filter: Option<&str>,
     output_file: Option<PathBuf>,
     verbose: bool,
+    plan: bool,
 ) -> ForgeResult<()> {
     outln!(c, "{}", "📊 Forge - Scenario Analysis".bold().green());
     outln!(c, "   File: {}", file.display());
     outln!(c);
+    crate::cli::commands::plan::print_what_if_plan(c, plan);
 
     if verbose {
         match scenario_filter {
@@ -117,7 +122,7 @@ pub fn scenarios(
             None => outln!(c, "{}", "🔄 Running all scenarios...".cyan()),
         }
     }
-    let results = scenarios_core(file, scenario_filter)?;
+    let results = scenarios_core(file, scenario_filter, plan)?;
     // A number with a `format:` is printed as the format shows it (ADR-061)
     let shown = |var: &str, value: f64| {
         results
@@ -280,14 +285,14 @@ scalars:
                 "{BASE}scenarios:\n  zeta: {{probability: 0.2, scalars: {{g: 2}}}}\n  alpha: {{probability: 0.3, scalars: {{g: 3}}}}\n  mid: {{probability: 0.5, scalars: {{g: 4}}}}\n"
             );
             let path = model(&dir, &text);
-            let names: Vec<String> = scenarios_core(&path, None)
+            let names: Vec<String> = scenarios_core(&path, None, false)
                 .unwrap()
                 .scenarios
                 .into_iter()
                 .map(|s| s.name)
                 .collect();
             assert_eq!(names, ["zeta", "alpha", "mid"]);
-            let (result, printed) = capture(|c| scenarios(c, &path, None, None, false));
+            let (result, printed) = capture(|c| scenarios(c, &path, None, None, false, false));
             result.unwrap();
             let at = |name: &str| printed.out.find(&format!("{name} (p=")).unwrap();
             assert!(
@@ -315,8 +320,8 @@ scalars:
                 ),
             ] {
                 let path = model(&dir, &text);
-                assert_eq!(scenarios_core(&path, None).unwrap_err().to_string(), error);
-                let (result, _) = capture(|c| scenarios(c, &path, None, None, false));
+                assert_eq!(scenarios_core(&path, None, false).unwrap_err().to_string(), error);
+                let (result, _) = capture(|c| scenarios(c, &path, None, None, false, false));
                 assert_eq!(result.unwrap_err().to_string(), error);
             }
         }
@@ -325,7 +330,7 @@ scalars:
         fn a_model_that_is_not_one_is_an_error_after_its_scenarios_are_read() {
             let dir = tempfile::tempdir().unwrap();
             let path = model(&dir, TWO);
-            assert!(scenarios_core(&path, None)
+            assert!(scenarios_core(&path, None, false)
                 .unwrap_err()
                 .to_string()
                 .starts_with("Validation error: Missing required field: _forge_version"));
@@ -335,7 +340,7 @@ scalars:
         fn verbose_names_the_scenario_or_all_of_them() {
             let dir = tempfile::tempdir().unwrap();
             let path = model(&dir, &format!("{BASE}{TWO}"));
-            let (result, printed) = capture(|c| scenarios(c, &path, Some("a"), None, true));
+            let (result, printed) = capture(|c| scenarios(c, &path, Some("a"), None, true, false));
             result.unwrap();
             assert!(
                 printed.out.contains("🎯 Running scenario: a\n"),
@@ -351,7 +356,7 @@ scalars:
                     .contains("      (expected values cover every scenario)\n"),
                 "{printed:?}"
             );
-            let (result, printed) = capture(|c| scenarios(c, &path, None, None, true));
+            let (result, printed) = capture(|c| scenarios(c, &path, None, None, true, false));
             result.unwrap();
             assert!(
                 printed.out.contains("🔄 Running all scenarios...\n"),
@@ -366,7 +371,7 @@ scalars:
             let path = model(&dir, &format!("{BASE}{TWO}"));
             let json = dir.path().join("o.json");
             let (result, printed) =
-                capture(|c| scenarios(c, &path, None, Some(json.clone()), false));
+                capture(|c| scenarios(c, &path, None, Some(json.clone()), false, false));
             result.unwrap();
             let line = format!("💾 Results written to {}\n", json.display());
             assert!(printed.out.contains(&line), "{printed:?}");
@@ -374,7 +379,7 @@ scalars:
                 serde_json::from_str(&std::fs::read_to_string(&json).unwrap()).unwrap();
             assert_eq!(written["scenarios"].as_array().unwrap().len(), 2);
             let nowhere = dir.path().join("nodir").join("o.json");
-            let (result, _) = capture(|c| scenarios(c, &path, None, Some(nowhere), false));
+            let (result, _) = capture(|c| scenarios(c, &path, None, Some(nowhere), false, false));
             assert_eq!(
                 result.unwrap_err().to_string(),
                 "IO error: No such file or directory (os error 2)"
@@ -392,7 +397,7 @@ scalars:
                     scalars: {growth: 0.08}\n";
         let mut file = NamedTempFile::new().unwrap();
         write!(file, "{yaml}").unwrap();
-        let results = super::scenarios_core(file.path(), None).unwrap();
+        let results = super::scenarios_core(file.path(), None, false).unwrap();
         let expected = results.expected_values["out.twice"];
         assert!((expected - 0.1).abs() < 1e-12, "{expected}");
     }
@@ -467,7 +472,7 @@ scalars:
 
         #[test]
         fn the_plan_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), Some("base")).unwrap();
+            let results = scenarios_core(Path::new(MODEL), Some("base"), false).unwrap();
             let base = &results.scenarios[0].outputs;
             let expected = [
                 ("verdict.project_npv", 13_161_304.863_400_452, 1e-6),
@@ -501,7 +506,7 @@ scalars:
 
         #[test]
         fn each_scenario_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let results = scenarios_core(Path::new(MODEL), None, false).unwrap();
             let expected = [
                 ("base", 13_161_304.863_400_452, 1.964_501_147_746_806_2),
                 ("cheap_diesel", 5_402_750.368_024_642, 1.487_600_862_698_773),
@@ -591,7 +596,7 @@ scalars:
 
         #[test]
         fn the_returns_of_each_scenario_match_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let results = scenarios_core(Path::new(MODEL), None, false).unwrap();
             let expected = [
                 (
                     "base",
@@ -684,7 +689,7 @@ scalars:
 
         #[test]
         fn the_plan_and_each_scenario_match_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let results = scenarios_core(Path::new(MODEL), None, false).unwrap();
             let expected = [
                 ("base", 72_140.0, 355_200.0, 167.0),
                 ("glut", 53_525.0, 344_100.0, 208.75),
@@ -752,7 +757,7 @@ scalars:
 
         #[test]
         fn the_plan_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), Some("base")).unwrap();
+            let results = scenarios_core(Path::new(MODEL), Some("base"), false).unwrap();
             let base = &results.scenarios[0].outputs;
             let expected = [
                 ("valuation.dcf", 4_824_715.314_059_857, 1e-6),
@@ -776,7 +781,7 @@ scalars:
 
         #[test]
         fn each_scenario_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let results = scenarios_core(Path::new(MODEL), None, false).unwrap();
             let expected = [
                 ("base", 155_715.314_059_857_28, 1.218_220_150_553_821_7),
                 (
@@ -867,7 +872,7 @@ scalars:
 
         #[test]
         fn the_plan_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), Some("base")).unwrap();
+            let results = scenarios_core(Path::new(MODEL), Some("base"), false).unwrap();
             let base = &results.scenarios[0].outputs;
             let expected = [
                 ("valuation.value_created", 224.507_933_418_290_12, 1e-9),
@@ -899,7 +904,7 @@ scalars:
 
         #[test]
         fn each_scenario_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), None).unwrap();
+            let results = scenarios_core(Path::new(MODEL), None, false).unwrap();
             let expected = [
                 ("base", 224.507_933_418_290_12),
                 ("slow_integration", 166.930_363_659_840_85),
@@ -930,13 +935,18 @@ scalars:
     /// from it (T1-CLI-FROM-CORES).
     #[test]
     fn the_result_has_the_formats_of_the_model() {
-        let result =
-            super::scenarios_core(std::path::Path::new("examples/bagel/bagel.yaml"), None).unwrap();
+        let result = super::scenarios_core(
+            std::path::Path::new("examples/bagel/bagel.yaml"),
+            None,
+            false,
+        )
+        .unwrap();
         assert_eq!(result.formats["assumptions.price_per_dozen"], "$#,##0.00");
         assert_eq!(result.formats["year.margin"], "0.0%");
         // A model without one has none, and JSON leaves them out
         let plain =
-            super::scenarios_core(std::path::Path::new("examples/scenarios.yaml"), None).unwrap();
+            super::scenarios_core(std::path::Path::new("examples/scenarios.yaml"), None, false)
+                .unwrap();
         assert!(plain.formats.is_empty());
         let json = serde_json::to_value(&plain).unwrap();
         assert!(json.get("formats").is_none(), "{json}");

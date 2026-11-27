@@ -13,10 +13,14 @@ use std::path::{Path, PathBuf};
 
 /// The `tornado:` section of the model in `file`, with `output_var` as its
 /// output if given, and the model.
-fn load(file: &Path, output_var: Option<&str>) -> ForgeResult<(TornadoConfig, ParsedModel)> {
+fn load(
+    file: &Path,
+    output_var: Option<&str>,
+    plan: bool,
+) -> ForgeResult<(TornadoConfig, ParsedModel)> {
     let yaml_content = parser::read_model_text(file)?;
-    let model = parser::parse_model(file)?;
-    crate::cli::commands::reject_distributions_in(&model, "tornado")?;
+    let mut model = parser::parse_model(file)?;
+    crate::cli::commands::plan::at_plan_or_refused(&mut model, plan, "tornado")?;
 
     // The text is YAML: the model was just read from it
     let value: yaml_serde::Value = parser::read_yaml(&yaml_content).unwrap_or_default();
@@ -45,8 +49,9 @@ fn load(file: &Path, output_var: Option<&str>) -> ForgeResult<(TornadoConfig, Pa
 pub fn tornado_core(
     file: &Path,
     output_var: Option<&str>,
+    plan: bool,
 ) -> ForgeResult<crate::tornado::TornadoResult> {
-    let (config, model) = load(file, output_var)?;
+    let (config, model) = load(file, output_var, plan)?;
     let engine = TornadoEngine::new(config, model).map_err(ForgeError::Validation)?;
     engine.analyze().map_err(ForgeError::Eval)
 }
@@ -63,12 +68,14 @@ pub fn tornado(
     output_var: Option<&str>,
     output_file: Option<PathBuf>,
     verbose: bool,
+    plan: bool,
 ) -> ForgeResult<()> {
     outln!(c, "{}", "🌪️ Forge - Tornado Diagram".bold().green());
     outln!(c, "   File: {}", file.display());
     outln!(c);
+    crate::cli::commands::plan::print_what_if_plan(c, plan);
 
-    let result = tornado_core(file, output_var)?;
+    let result = tornado_core(file, output_var, plan)?;
 
     // Display config
     outln!(
@@ -263,7 +270,7 @@ plan:
         #[test]
         fn the_diesel_price_moves_the_value_most() {
             let result =
-                tornado_core(Path::new("examples/microgrid/microgrid.yaml"), None).unwrap();
+                tornado_core(Path::new("examples/microgrid/microgrid.yaml"), None, false).unwrap();
             let expected = [
                 (
                     "fuel.diesel_price",
@@ -339,7 +346,7 @@ plan:
 
         #[test]
         fn the_exit_market_moves_the_investors_return_most() {
-            let result = tornado_core(Path::new("examples/fund/fund.yaml"), None).unwrap();
+            let result = tornado_core(Path::new("examples/fund/fund.yaml"), None, false).unwrap();
             let expected = [
                 (
                     "market.multiple_factor",
@@ -385,7 +392,8 @@ plan:
 
         #[test]
         fn the_crop_moves_the_season_most_when_moved_alone() {
-            let result = tornado_core(Path::new("examples/vineyard/vineyard.yaml"), None).unwrap();
+            let result =
+                tornado_core(Path::new("examples/vineyard/vineyard.yaml"), None, false).unwrap();
             let expected = [
                 ("harvest.yield_factor", -90_430.0, 169_682.0),
                 ("harvest.price_per_tonne", -16_660.0, 160_940.0),
@@ -419,8 +427,12 @@ plan:
 
         #[test]
         fn rent_growth_moves_the_value_most() {
-            let result =
-                tornado_core(Path::new("examples/realestate/realestate.yaml"), None).unwrap();
+            let result = tornado_core(
+                Path::new("examples/realestate/realestate.yaml"),
+                None,
+                false,
+            )
+            .unwrap();
             let expected = [
                 (
                     "market.rent_growth",
@@ -491,7 +503,8 @@ plan:
 
         #[test]
         fn the_valuation_assumptions_move_the_value_more_than_any_synergy() {
-            let result = tornado_core(Path::new("examples/acquisition/deal.yaml"), None).unwrap();
+            let result =
+                tornado_core(Path::new("examples/acquisition/deal.yaml"), None, false).unwrap();
             let expected = [
                 (
                     "case.discount_rate",
@@ -612,11 +625,11 @@ plan:
                 assert!(!text.contains("Tornado diagram complete"), "{text}");
             }
             // The same refusals without printing
-            let err = tornado_core(Path::new(&none), None)
+            let err = tornado_core(Path::new(&none), None, false)
                 .unwrap_err()
                 .to_string();
             assert_eq!(err, "Validation error: No 'tornado' section found in YAML");
-            let err = tornado_core(Path::new(&no_inputs), None)
+            let err = tornado_core(Path::new(&no_inputs), None, false)
                 .unwrap_err()
                 .to_string();
             assert_eq!(
@@ -646,7 +659,7 @@ plan:
             let text = forge(&["tornado", &path, "--output-var", "flat"]).printed();
             assert!(text.contains("Output variable: flat"), "{text}");
             assert!(text.contains("Base value: 7.00"), "{text}");
-            let result = tornado_core(Path::new(&path), Some("flat")).unwrap();
+            let result = tornado_core(Path::new(&path), Some("flat"), false).unwrap();
             assert_eq!(result.output, "flat");
         }
 
@@ -702,7 +715,8 @@ plan:
     #[test]
     fn the_result_has_the_section_as_written() {
         let result =
-            super::tornado_core(std::path::Path::new("examples/tornado.yaml"), None).unwrap();
+            super::tornado_core(std::path::Path::new("examples/tornado.yaml"), None, false)
+                .unwrap();
         assert_eq!(result.section.output, "valuation.npv");
         let names: Vec<&str> = result
             .section

@@ -358,6 +358,9 @@ pub struct AuditRequest {
     pub source: ModelSource,
     /// The variable to audit (`plan.profit`)
     pub variable: String,
+    /// Each uncertain input at its plan figure, as calculate's `plan`
+    #[serde(default)]
+    pub plan: bool,
 }
 
 /// Audit response
@@ -378,11 +381,10 @@ pub async fn audit(
     Json(req): Json<AuditRequest>,
 ) -> impl IntoResponse {
     let file_path = req.source.label();
-    let variable = req.variable.clone();
-    let outcome = req
-        .source
-        .resolve(&state)
-        .and_then(|(path, _tmp)| audit_core(&path, &variable).map_err(|e| format!("Error: {e}")));
+    let (variable, plan) = (req.variable.clone(), req.plan);
+    let outcome = req.source.resolve(&state).and_then(|(path, _tmp)| {
+        audit_core(&path, &variable, plan).map_err(|e| format!("Error: {e}"))
+    });
 
     Json(ApiResponse::ok(match outcome {
         Ok(result) => AuditResponse {
@@ -970,6 +972,7 @@ mod tests {
         use axum::response::IntoResponse;
 
         let req = AuditRequest {
+            plan: false,
             source: ModelSource {
                 file_path: Some("test-data/budget.yaml".to_string()),
                 ..Default::default()
@@ -988,6 +991,7 @@ mod tests {
         use axum::response::IntoResponse;
 
         let req = AuditRequest {
+            plan: false,
             source: ModelSource {
                 file_path: Some("/nonexistent/file.yaml".to_string()),
                 ..Default::default()

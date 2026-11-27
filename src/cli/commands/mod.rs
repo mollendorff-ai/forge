@@ -39,6 +39,8 @@ mod names;
 mod plan;
 pub(crate) use names::{input_name, scalar};
 pub use plan::calculate_plan_core;
+#[cfg(test)]
+pub(crate) use plan::LAUNCH;
 mod prediction;
 mod probability_seek;
 mod report;
@@ -365,13 +367,28 @@ pub(super) fn calculated(
 /// `calculate` and `validate` are deterministic and cannot evaluate `MC.*` distributions; say so
 /// up front instead of failing later with an unknown-function or unknown-column error.
 fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
-    reject_distributions_in(model, "calculate and validate")
+    refuse_distributions(model, "calculate and validate", "`forge calculate --plan`")
 }
 
-/// The check of [`reject_distributions`] for `command`, a command that
-/// calculates the model as calculate does (the what-if commands), named in
-/// the message so that it says which command cannot run the file.
+/// The check of [`reject_distributions`] for `command`, a what-if command
+/// that calculates the model as calculate does, named in the message so that
+/// it says which command cannot run the file; its `--plan` runs it at plan
+/// (ADR-076, addendum of 2026-11-26).
 fn reject_distributions_in(model: &crate::types::ParsedModel, command: &str) -> ForgeResult<()> {
+    refuse_distributions(
+        model,
+        command,
+        "the same command with `--plan` (`plan: true` over MCP and REST)",
+    )
+}
+
+/// `model` refused if it has an uncertain input: `command` cannot evaluate
+/// it, and `forge simulate` or `plan_with` can.
+fn refuse_distributions(
+    model: &crate::types::ParsedModel,
+    command: &str,
+    plan_with: &str,
+) -> ForgeResult<()> {
     let mut names: Vec<String> = model
         .scalars
         .iter()
@@ -392,7 +409,7 @@ fn reject_distributions_in(model: &crate::types::ParsedModel, command: &str) -> 
     }
     names.sort_unstable();
     Err(ForgeError::Validation(format!(
-        "{} use MC.* distributions, which {command} cannot evaluate. Run `forge simulate` on this file instead, or `forge calculate --plan` for its plan.",
+        "{} use MC.* distributions, which {command} cannot evaluate. Run `forge simulate` on this file instead, or {plan_with} for its plan.",
         names.join(", ")
     )))
 }
@@ -670,7 +687,7 @@ pub(crate) fn assert_distributions_refused(args: &[&str], command: &str) {
     let said = ran.both();
     assert!(
         said.contains(&format!(
-            "assumptions.price use MC.* distributions, which {command} cannot evaluate. Run `forge simulate` on this file instead, or `forge calculate --plan` for its plan."
+            "assumptions.price use MC.* distributions, which {command} cannot evaluate. Run `forge simulate` on this file instead, or the same command with `--plan` (`plan: true` over MCP and REST) for its plan."
         )),
         "{said}"
     );
@@ -915,7 +932,7 @@ mod tests {
         fn test_misspelled_override_is_an_error_with_a_suggestion() {
             let dir = tempfile::tempdir().unwrap();
             let path = write_model(dir.path(), "prise: 6");
-            let err = scenarios_core(&path, None).unwrap_err().to_string();
+            let err = scenarios_core(&path, None, false).unwrap_err().to_string();
             assert!(err.contains("'prise' does not name a scalar"), "{err}");
             assert!(err.contains("Did you mean 'inputs.price'"), "{err}");
             // `forge calculate --scenario` takes the same path
@@ -930,7 +947,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             for line in ["price: 6", "inputs.price: 6"] {
                 let path = write_model(dir.path(), line);
-                let results = scenarios_core(&path, None).unwrap();
+                let results = scenarios_core(&path, None, false).unwrap();
                 assert!((shock_profit(&results) - 400.0).abs() < 1e-9, "{line}");
             }
         }
@@ -939,7 +956,7 @@ mod tests {
         fn test_override_of_an_included_value() {
             let dir = tempfile::tempdir().unwrap();
             let path = write_model(dir.path(), "\"@costs.prices.flour\": 3");
-            let results = scenarios_core(&path, None).unwrap();
+            let results = scenarios_core(&path, None, false).unwrap();
             assert!((shock_profit(&results) - 200.0).abs() < 1e-9);
             let calc = calculate_core(&path, true, Some("shock")).unwrap();
             assert!((calc.scalars["out.profit"].unwrap() - 200.0).abs() < 1e-9);
@@ -949,13 +966,13 @@ mod tests {
         fn test_override_of_an_unknown_include_or_name_is_an_error() {
             let dir = tempfile::tempdir().unwrap();
             let path = write_model(dir.path(), "\"@rates.prices.flour\": 3");
-            let err = scenarios_core(&path, None).unwrap_err().to_string();
+            let err = scenarios_core(&path, None, false).unwrap_err().to_string();
             assert!(
                 err.contains("no `_includes` entry with `as: rates`"),
                 "{err}"
             );
             let path = write_model(dir.path(), "\"@costs.prices.flower\": 3");
-            let err = scenarios_core(&path, None).unwrap_err().to_string();
+            let err = scenarios_core(&path, None, false).unwrap_err().to_string();
             assert!(err.contains("Did you mean 'prices.flour'"), "{err}");
         }
 
@@ -963,13 +980,15 @@ mod tests {
         fn test_outputs_ranges_and_filter() {
             let dir = tempfile::tempdir().unwrap();
             let path = write_model(dir.path(), "price: 1");
-            let results = scenarios_core(&path, Some("shock")).unwrap();
+            let results = scenarios_core(&path, Some("shock"), false).unwrap();
             assert_eq!(results.scenarios.len(), 1);
             assert_eq!(results.scenarios[0].name, "shock");
             // base 300, shock -100: half the probability is positive
             assert!((results.probability_positive["out.profit"] - 0.5).abs() < 1e-9);
             assert_eq!(results.ranges["out.profit"], (-100.0, 300.0));
-            let err = scenarios_core(&path, Some("nope")).unwrap_err().to_string();
+            let err = scenarios_core(&path, Some("nope"), false)
+                .unwrap_err()
+                .to_string();
             assert!(err.contains("Scenario 'nope' not found"), "{err}");
         }
 
@@ -994,6 +1013,7 @@ mod tests {
                     "inputs.price",
                     (Some(10.0), Some(40.0)),
                     0.0001,
+                    false,
                 )
                 .unwrap();
                 assert!(r.converged, "{target}: {}", r.error);

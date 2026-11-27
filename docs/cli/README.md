@@ -323,13 +323,14 @@ Options:
 ```text
 Show audit trail for a specific variable
 
-Usage: forge audit <FILE> <VARIABLE>
+Usage: forge audit [OPTIONS] <FILE> <VARIABLE>
 
 Arguments:
   <FILE>      Path to YAML file
   <VARIABLE>  Variable name to audit
 
 Options:
+      --plan  Run an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge calculate --plan` sets it; a scenario's own number for an input still wins. Without it, a model with MC.* inputs is refused
   -h, --help  Print help
 ```
 
@@ -547,6 +548,9 @@ Options:
   -v, --verbose
           Show verbose output
 
+      --plan
+          Run an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge calculate --plan` sets it; a scenario's own number for an input still wins. Without it, a model with MC.* inputs is refused
+
   -h, --help
           Print help (see a summary with '-h')
 ```
@@ -740,6 +744,9 @@ Options:
   -v, --verbose
           Show verbose output
 
+      --plan
+          Run an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge calculate --plan` sets it; a scenario's own number for an input still wins. Without it, a model with MC.* inputs is refused
+
   -h, --help
           Print help (see a summary with '-h')
 ```
@@ -796,6 +803,9 @@ Options:
   -v, --verbose
           Show verbose output
 
+      --plan
+          Run an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge calculate --plan` sets it; a scenario's own number for an input still wins. Without it, a model with MC.* inputs is refused
+
   -h, --help
           Print help (see a summary with '-h')
 ```
@@ -841,6 +851,9 @@ Options:
 
   -v, --verbose
           Show verbose output
+
+      --plan
+          Run an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge calculate --plan` sets it; a scenario's own number for an input still wins. Without it, a model with MC.* inputs is refused
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1206,6 +1219,9 @@ Options:
   -v, --verbose
           Show verbose output
 
+      --plan
+          Run an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge calculate --plan` sets it; a scenario's own number for an input still wins. Without it, a model with MC.* inputs is refused
+
   -h, --help
           Print help (see a summary with '-h')
 ```
@@ -1391,6 +1407,9 @@ Options:
 
   -v, --verbose
           Show verbose output
+
+      --plan
+          Run an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge calculate --plan` sets it; a scenario's own number for an input still wins. Without it, a model with MC.* inputs is refused
 
   -h, --help
           Print help (see a summary with '-h')
