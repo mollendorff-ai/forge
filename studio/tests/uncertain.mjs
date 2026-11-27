@@ -11,7 +11,11 @@
 //   parameters named as Forge's function list names them;
 // - nothing is wider than 390 px.
 //
-// On the bagel's simulation, also: Analyze lists the outputs in the model's
+// On the bagel's simulation, also: Analyze's goal seek, break-even and
+// tornado are the tools' with plan: true (bagel.yaml's tornado ranks its
+// inputs, and the simulation, which has no tornado section, says so), and its goal seek and break-even
+// give bagel.yaml's figures, whose own are the tools' without it (ADR-076,
+// addendum of 2026-11-26); Analyze lists the outputs in the model's
 // order; a typed input dims the band ("running") and the new band is
 // simulate's for the new files, and of two changes in a row only the last
 // one's is kept; a parameter typed on a distribution card and another kind
@@ -218,10 +222,55 @@ async function bagel(page, r) {
   if (options.join("|") !== r.output_order.join("|")) fail(`bagel: Analyze lists ${options.slice(0, 5)}…, not the model's order ${r.output_order.slice(0, 5)}…`);
 }
 
+// Analyze on the bagel's plan and on its simulation, at plan: the same
+// goal seek and break-even, each the tool's
+const seen = {};
+const bagelSet = SETS.find((set) => set.id === "bagel");
+const bagelFiles = Object.fromEntries(bagelSet.files.map((f) => [f, readFileSync(new URL(`../../examples/${bagelSet.dir}/${f}`, import.meta.url), "utf8")]));
+for (const file of ["bagel.yaml", "bagel_simulate.yaml"]) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.on("pageerror", (e) => fail(`${file}: ${e.message}`));
+  await page.goto(`${base}/?example=bagel&model=${file}`);
+  await page.waitForFunction(() => document.body.dataset.state !== "loading", null, { timeout: 180000 });
+  await page.click('.tab[data-tab="analyze"]');
+  await page.selectOption("#sk-out", "year.profit");
+  await page.selectOption("#sk-vary", "assumptions.price_per_dozen");
+  const tool = (name, args, plan) => page.evaluate(async ([n, a, p]) => {
+    const { call } = await import("./forge.js");
+    return call(n, { ...a, ...(p ? { plan: true } : {}) }).catch((e) => ({ error: e.message }));
+  }, [name, { files: bagelFiles, main: file, ...args }, plan]);
+  const solved = async (button, name, args) => {
+    await page.fill("#sk-target", "1000");
+    await page.click(button);
+    await page.waitForSelector("#sk-result .res-val, #sk-result .msg", { timeout: 60000 });
+    const shown = await page.locator("#sk-result .res-val").getAttribute("data-value").catch(() => null);
+    const answer = await tool(name, args, true);
+    if (shown === null) { fail(`${file}: Analyze's ${name} shows ${await page.textContent("#sk-result")}`); return; }
+    if (!close(Number(shown), answer.solution)) fail(`${file}: Analyze's ${name} gives ${shown}, the tool with plan: true ${answer.solution}`);
+    const bare = await tool(name, args, false);
+    if (file === "bagel.yaml" && !close(bare.solution, answer.solution)) fail(`bagel.yaml: ${name} is ${bare.solution} without plan, ${answer.solution} with it`);
+    if (file === "bagel_simulate.yaml" && !/plan: true/.test(bare.error || "")) fail(`bagel_simulate.yaml: ${name} without plan does not ask for plan: true: ${JSON.stringify(bare).slice(0, 200)}`);
+    seen[`${file} ${name}`] = Number(shown);
+  };
+  await solved("#sk-run", "goal_seek", { target: "year.profit", value: 1000, vary: "assumptions.price_per_dozen" });
+  await solved("#be-run", "break_even", { output: "year.profit", vary: "assumptions.price_per_dozen" });
+  await page.click("#tor-run");
+  await page.waitForSelector("#tor-box .tor, #tor-box .msg", { timeout: 60000 });
+  const rows = await page.$$eval("#tor-box .tor-name span:first-child", (els) => els.map((e) => e.textContent));
+  const t = await tool("tornado", {}, true);
+  if (t.error) { if (!(await page.textContent("#tor-box")).includes(t.error.replace(/^Validation error: /, ""))) fail(`${file}: Analyze's tornado does not say the tool's ${t.error}`); }
+  else if (!rows.length || rows.join("|") !== t.bars.map((b) => b.input_name).join("|")) fail(`${file}: Analyze's tornado ranks ${rows.join(", ") || await page.textContent("#tor-box")}, the tool with plan: true ${t.bars ? t.bars.map((b) => b.input_name) : t.error}`);
+  await page.close();
+}
+for (const name of ["goal_seek", "break_even"]) {
+  const a = seen[`bagel.yaml ${name}`], b = seen[`bagel_simulate.yaml ${name}`];
+  if (a === undefined || b === undefined || !close(a, b)) fail(`Analyze's ${name}: bagel_simulate.yaml at plan gives ${b}, bagel.yaml ${a}`);
+}
+
 await browser.close();
 server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.slice(0, 60).join("\n"));
   process.exit(1);
 }
-console.log(`Uncertain models: ${models.length} models at plan as forge calculate --plan gives them, every band and mean forge simulate's, distribution cards from Forge's function list; the bagel's band follows a change and its distributions are written.`);
+console.log(`Uncertain models: ${models.length} models at plan as forge calculate --plan gives them, every band and mean forge simulate's, distribution cards from Forge's function list; the bagel's band follows a change and its distributions are written; Analyze's goal seek, break-even and tornado run it at plan, as bagel.yaml.`);

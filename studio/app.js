@@ -161,8 +161,8 @@ async function load() {
     const structure = await call("model", request());
     if (generation !== S.generation) return;
     S.structure = structure;
-    // Why forge scenarios could not weigh them (none has a probability, or they do not sum to 1), shown on Analyze
-    if (structure.scenarios.length) S.scenarios = await call("scenarios", request()).catch((e) => { S.scenarioError = e.message; return null; });
+    // Why forge scenarios could not weigh them (none has a probability, or they do not sum to 1), shown on Analyze; an uncertain model at plan (ADR-076)
+    if (structure.scenarios.length) S.scenarios = await call("scenarios", request({ plan: true })).catch((e) => { S.scenarioError = e.message; return null; });
     S.report = await call("report", request()).catch(() => null);
     await loadFunctions(); // a distribution's card names its parameters as Forge's list does
     if (S.scenario && !structure.scenarios.includes(S.scenario)) S.scenario = null;
@@ -1134,10 +1134,10 @@ async function runSeek(breakEven) {
   A.target = target;
   busy(box, "Forge is searching…");
   try {
-    const r = breakEven ? await call("break_even", request({ output: A.out, vary: A.vary }))
-      : await call("goal_seek", request({ target: A.out, value: target, vary: A.vary }));
+    const r = breakEven ? await call("break_even", request({ output: A.out, vary: A.vary, plan: true }))
+      : await call("goal_seek", request({ target: A.out, value: target, vary: A.vary, plan: true }));
     A.solution = r.solution;
-    box.innerHTML = `<div class="answer"><div class="note">${esc(r.vary)}</div><div class="res-val">${esc(fmtAt(Number(r.solution.toFixed(6)), r.vary))}</div>
+    box.innerHTML = `<div class="answer"><div class="note">${esc(r.vary)}</div><div class="res-val" data-value="${r.solution}">${esc(fmtAt(Number(r.solution.toFixed(6)), r.vary))}</div>
       <div class="note">gives ${esc(r.target)} = ${esc(fmtAt(r.achieved, r.target))}, against ${esc(fmtAt(valueOf(r.vary), r.vary))} now. ${r.converged ? `Found in ${r.iterations} calculations.` : "Forge did not converge."}</div></div>
       <div class="btns"><button class="btn" type="button" id="sk-use">Use this value</button></div>`;
   } catch (e) { fail(box, e); }
@@ -1198,7 +1198,7 @@ va.addEventListener("click", async (e) => {
   if (id === "tor-run") {
     const box = $("#tor-box");
     busy(box, "Forge is moving each input…");
-    try { drawTornado(await call("tornado", request())); } catch (err) { fail(box, err); }
+    try { drawTornado(await call("tornado", request({ plan: true }))); } catch (err) { fail(box, err); }
   }
   if (id === "sim-run") {
     const box = $("#sim-box");
