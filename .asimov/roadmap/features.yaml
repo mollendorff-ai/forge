@@ -13,6 +13,11 @@ backlog:
   - id: T3-TRANSPORT
     title: "MCP over HTTP/SSE via rmcp"
     why: "Needed for hosted or browser clients; nobody has one yet"
+  - id: F-EXAMPLES-ONE-FILE
+    title: "examples/microgrid and examples/realestate are one file each, the plan and its uncertainty, run with --plan"
+    why: "Found 2026-11-27 by the manual lane (M-WHAT-IF-PLAN-EXAMPLES). microgrid_risk.yaml and realestate_risk.yaml are microgrid.yaml and realestate.yaml with MC.* formulas on five inputs and a monte_carlo: section, and the scenarios and tornado of the plan files; they drift unless someone keeps them equal. The manual lane did not merge them: it is Rust tests and Studio, not the guide"
+    how: "Fold the risk file into the plan file (value: beside each formula is the plan's figure, so the plan does not change). Then every test that calculates the plan file gets plan: true (goal_seek.rs, sensitivity.rs, scenarios.rs, tornado.rs, decision_tree.rs, excel_io/mod.rs, plan.rs, simulate/mod.rs), forge-wasm's cases and expected.rs, and Studio's two sets for each example (plan, how sure) and studio/tests become one set, with ADR-077's table. The examples' READMEs say --plan on the what-if commands. Bagel is not part of this: it stays two files (see M-WHAT-IF-PLAN-EXAMPLES, done)"
+    acceptance: "Each merged example gives the figures its tests assert (microgrid's project NPV of 13,161,304.86 at plan, realestate's 155,715.31, and each simulation's percentiles); the guide's pages pass validation/repo"
 
 done:
   - id: T2-GAME-THEORY

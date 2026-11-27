@@ -1,7 +1,8 @@
 _forge_version: "5.1.0"
 # Bagel Lune, Monte Carlo version: uncertain demand, staffing, flour price and
 # wage (bagel.yaml has the plan). The prices are uncertain in costs_risk.yaml.
-# Run with forge simulate (calculate cannot evaluate MC.* inputs).
+# Run with forge simulate. calculate and the what-if commands cannot draw MC.*
+# inputs; with --plan they run it at plan, each at its value:.
 _includes:
   - file: costs_risk.yaml
     as: costs
