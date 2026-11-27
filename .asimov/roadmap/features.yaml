@@ -23,6 +23,16 @@ backlog:
     why: "Found 2026-11-26 (F-WHAT-IF-PLAN): the what-if tools now take plan: true, but Analyze still calls them without it, so an uncertain model's scenarios, goal seek and tornado show Forge's refusal, while its Model view is drawn at plan"
     acceptance: "On bagel_simulate.yaml, Analyze's goal seek and break-even give bagel.yaml's figures, each the tool's with plan: true; a model with no uncertain input is unchanged; studio/tests show it"
     model: "Sonnet 5.5, medium: the Model view's calculate is the pattern"
+  - id: F-DRIVERS-CORRELATED
+    title: "forge simulate names a driver's correlation next to its rank correlation"
+    why: "Found 2026-11-27 by a model written from scratch with v10.0.0-rc.36 (a floating sauna: winter_lift and @costs.wood.price_per_cord correlated at 0.5 under monte_carlo.correlations). The wood price came out as a positive driver of year.profit (+0.359), though a dearer cord only ever lowers profit: it rides on the cold winters it is correlated with. The number is right, as a rank correlation; nothing on the line says it is borrowed, and the reader takes it for an effect"
+    acceptance: "In forge simulate's drivers, and in its JSON and the forge_simulate MCP tool, an input named in a correlations: entry carries the other input and the coefficient (for example: +0.359  @costs.wood.price_per_cord  (correlated 0.5 with assumptions.winter_lift)); a model with no correlations prints as today; a test on a correlated pair checks the note"
+    model: "Sonnet 5.5, medium: the correlations are already parsed in src/monte_carlo/correlation.rs; this is printing"
+  - id: F-GOAL-SEEK-NO-CROSSING
+    title: "A goal seek that finds no crossing says where it looked and what it found there"
+    why: "Found 2026-11-27 by the same model: forge goal-seek --target year.payback_years --value 5 --vary assumptions.price_per_seat, where payback = barge_build / profit. It answered 'No solution found in search range. The target value 5 may not be achievable', with no range and no values. expand_search_range_quiet (src/cli/commands/analysis/goal_seek.rs) widened the range up to 1,000 times and the output never crossed 5: negative at the low end (a loss), under 5 at the high end, and through infinity at the break-even price in between. Seeking year.profit = 37,000 (the profit a five-year payback needs) found 47.02 at once; the message could have pointed there"
+    acceptance: "When no crossing is found, the error names the widest range tried and the output at each end; when the output changes sign between two ends without crossing the target (a pole, such as a division by a result that passes zero), it says so. break-even gives the same message. A test with a reciprocal output checks it"
+    model: "Sonnet 5.5, medium: one function and its error text"
 
 done:
   - id: F-WHAT-IF-PLAN
