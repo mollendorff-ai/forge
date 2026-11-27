@@ -62,12 +62,13 @@ backlog:
     how: "Settings, Pages in mollendorff-ai.github.io: remove the custom domain, save, add mollendorff.ai again, wait for the certificate, tick Enforce HTTPS. Then open mollendorff.com and mollendorff.ca on the phone and see where they land (EasyDNS forwards if they do not reach mollendorff.ai)"
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
 
+done:
   - id: E-UPGRADE-GAMES
     title: "forge upgrade --to 5.6.0 refuses a 5.5.0 file that has games"
     why: "Filed by the manual lane, 2026-11-26 (M-GAMES-EXPECT), with rc.36 built from main at 7ff42d6. A 5.5.0 file with a games: section, which forge validate and forge calculate read without a word, is refused by forge upgrade --to 5.6.0: 'not converted, the file is unchanged: the original does not parse: Validation error: 'c' is a plain number, which is the short form of model format 5.1.0', after a warning that its comments cannot be kept because it 'needs the 1.0.0 to 5.0.0 restructuring'. The same file without games: upgrades; so do 5.1.0, 5.4.0 and 5.5.0 files without games. It looks as if the upgrade reads a file with games as format 1.0.0. Smallest case: _forge_version 5.5.0, c: 0, and a 2 x 2 symmetric game with plain-number payoffs. The nine examples in examples/games/ were moved to 5.6.0 by hand, the version line only (5.6.0 is 5.5.0 plus expect:)"
     acceptance: "forge upgrade --to 5.6.0 turns a 5.5.0 file with games into 5.6.0, comments and layout kept, with a test on the smallest case"
     model: "Sonnet 5.5, medium: a version check in the upgrade path, with a test"
-done:
+    built: "2026-11-27. Not games alone: a 5.3.0, 5.4.0 or 5.5.0 file went through the 5.0.0-to-5.1.0 conversion, which reads the converted text back as 5.1.0; a game, or a date as a scalar, is not read as such at 5.1.0, so the check failed and the upgrade fell to the 1.0.0 restructuring. Only 5.1.0 and 5.2.0 were treated as already in the short form; now every format from 5.1.0 on is, and only its version line changes (src/cli/commands/upgrade.rs, upgrade_to_short_form). A test upgrades a 5.4.0 file with a date and a 5.5.0 file with a game to 5.6.0, comments and layout kept"
   - id: E-SC-VULNS
     title: "The one known vulnerability Scorecard reports (Vulnerabilities, 9)"
     why: "Scorecard 2026-11-25 scores Vulnerabilities 9, so one OSV advisory is open against Forge or a dependency. cargo audit ignores none (.cargo/audit.toml), so it may be an advisory cargo audit does not carry, or a crate a pull request has not bumped yet"
