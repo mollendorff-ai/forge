@@ -470,7 +470,9 @@ OUTPUT:
   - Statistics: mean, median, std dev, min, max
   - Percentiles: P5, P10, P25, P50, P75, P90, P95 and those asked for
   - Probabilities: P(NPV > 0), P(NPV > 250000)
-  - Drivers: the sampled inputs ranked by rank correlation with each output
+  - Drivers: the sampled inputs ranked by rank correlation with each output; an
+    input in a correlations: entry names the other (correlated 0.5 with x), as
+    its rank correlation can come through it
 
 EXAMPLES:
   forge simulate model.yaml                    # Use YAML config

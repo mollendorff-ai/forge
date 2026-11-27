@@ -117,13 +117,43 @@ pub struct Driver {
     /// Spearman rank correlation between the input's samples and the output's
     /// (-1 to 1; the sign says which way the output moves)
     pub rank_correlation: f64,
+    /// The inputs this one is correlated with in `monte_carlo.correlations`,
+    /// each with its coefficient, in the order configured. A driver's rank
+    /// correlation can come through them (a dearer input that rides on a
+    /// colder winter shows as a driver of profit), so the report names them.
+    pub correlated_with: Vec<(String, f64)>,
 }
+
+impl Driver {
+    /// What a report says of the correlations the input is in, such as
+    /// `correlated 0.5 with assumptions.winter_lift`, or `None` when it is in
+    /// none.
+    #[must_use]
+    pub fn correlated_note(&self) -> Option<String> {
+        if self.correlated_with.is_empty() {
+            return None;
+        }
+        let with: Vec<String> = self
+            .correlated_with
+            .iter()
+            .map(|(input, coefficient)| format!("{coefficient} with {input}"))
+            .collect();
+        Some(format!("correlated {}", with.join(", ")))
+    }
+}
+
+/// Each input's samples, by its full name.
+type InputSamples = HashMap<String, Vec<f64>>;
+
+/// A configured correlation, by the full names of the two inputs it joins.
+type CorrelatedPair = (String, String, f64);
 
 /// Statistics, thresholds and drivers of one output's samples.
 fn summarize(
     output_config: &super::config::OutputConfig,
     samples: Vec<f64>,
     input_samples: &HashMap<String, Vec<f64>>,
+    pairs: &[CorrelatedPair],
 ) -> OutputResult {
     let mut statistics = Statistics::from_samples(&samples);
     // The percentiles asked for, on top of the standard set
@@ -142,7 +172,7 @@ fn summarize(
         })
         .collect();
 
-    let drivers = drivers(&samples, input_samples);
+    let drivers = drivers(&samples, input_samples, pairs);
     let expected_shortfall = output_config
         .expected_shortfall
         .iter()
@@ -185,8 +215,13 @@ fn expected_shortfall(samples: &[f64], percent: u8, higher_is_worse: bool) -> f6
 
 /// Every input whose samples vary, ranked by the size of its rank
 /// correlation with the output (name order breaks ties). An input that does
-/// not vary, or an output that does not, moves nothing and is left out.
-fn drivers(output: &[f64], input_samples: &HashMap<String, Vec<f64>>) -> Vec<Driver> {
+/// not vary, or an output that does not, moves nothing and is left out. Each
+/// driver names the inputs it is correlated with, from `pairs`.
+fn drivers(
+    output: &[f64],
+    input_samples: &HashMap<String, Vec<f64>>,
+    pairs: &[CorrelatedPair],
+) -> Vec<Driver> {
     let varies = |v: &[f64]| v.iter().any(|x| (x - v[0]).abs() > 0.0);
     if output.is_empty() || !varies(output) {
         return Vec::new();
@@ -197,6 +232,14 @@ fn drivers(output: &[f64], input_samples: &HashMap<String, Vec<f64>>) -> Vec<Dri
         .map(|(input, samples)| Driver {
             input: input.clone(),
             rank_correlation: super::sensitivity::spearman_correlation(samples, output),
+            correlated_with: pairs
+                .iter()
+                .filter_map(|(a, b, rho)| match input {
+                    x if x == a => Some((b.clone(), *rho)),
+                    x if x == b => Some((a.clone(), *rho)),
+                    _ => None,
+                })
+                .collect(),
         })
         .collect();
     drivers.sort_by(|a, b| {
@@ -339,7 +382,7 @@ impl MonteCarloEngine {
         let start = stopwatch();
         let n = self.config.iterations;
 
-        let input_samples = self.sample_inputs(n)?;
+        let (input_samples, pairs) = self.sample_inputs(n)?;
         let plan_inputs = self.plan_inputs();
 
         let mut outputs = IndexMap::new();
@@ -356,7 +399,7 @@ impl MonteCarloEngine {
                          calculate it"
                     )
                 })?;
-            let mut result = summarize(output_config, samples, &input_samples);
+            let mut result = summarize(output_config, samples, &input_samples, &pairs);
             result.at_plan = plan_inputs
                 .get(var)
                 .or_else(|| plan_inputs.get(&format!("scalars.{var}")))
@@ -396,7 +439,7 @@ impl MonteCarloEngine {
         let start = stopwatch();
         let n = self.config.iterations;
 
-        let input_samples = self.sample_inputs(n)?;
+        let (input_samples, pairs) = self.sample_inputs(n)?;
 
         // Initialize output sample storage
         let output_vars: Vec<String> = self
@@ -445,7 +488,7 @@ impl MonteCarloEngine {
         for output_config in &self.config.outputs {
             let var = &output_config.variable;
             let samples = output_samples.remove(var).unwrap_or_default();
-            let mut result = summarize(output_config, samples, &input_samples);
+            let mut result = summarize(output_config, samples, &input_samples, &pairs);
             result.at_plan = at_plan.as_ref().and_then(|m| m.get(var).copied());
             outputs.insert(var.clone(), result);
         }
@@ -470,16 +513,20 @@ impl MonteCarloEngine {
     /// distribution's inverse CDF. Configured correlations are applied to the
     /// normal scores of those draws first (a Gaussian copula), which keeps
     /// every variable's own distribution.
-    fn sample_inputs(&mut self, n: usize) -> Result<HashMap<String, Vec<f64>>, String> {
+    ///
+    /// The samples come with the correlations by the full names of the inputs
+    /// they join, which the drivers of an output name.
+    fn sample_inputs(&mut self, n: usize) -> Result<(InputSamples, Vec<CorrelatedPair>), String> {
         let mut names: Vec<String> = self.distributions.keys().cloned().collect();
         names.sort();
 
         let mut uniforms = self.sampler.generate_uniform_samples_nd(n, names.len());
-        if !self.config.correlations.is_empty() {
-            self.apply_correlations(&names, &mut uniforms)?;
+        let pairs = self.correlated_pairs(&names)?;
+        if !pairs.is_empty() {
+            Self::apply_correlations(&pairs, &mut uniforms, &names)?;
         }
 
-        Ok(names
+        let samples = names
             .into_iter()
             .zip(uniforms)
             .map(|(name, column)| {
@@ -487,17 +534,13 @@ impl MonteCarloEngine {
                 let samples = column.into_iter().map(|p| dist.inverse_cdf(p)).collect();
                 (name, samples)
             })
-            .collect())
+            .collect();
+        Ok((samples, pairs))
     }
 
-    /// Correlate the uniform draws of the variables named in `correlations`.
-    fn apply_correlations(
-        &self,
-        names: &[String],
-        uniforms: &mut [Vec<f64>],
-    ) -> Result<(), String> {
-        let pairs = self
-            .config
+    /// The configured correlations, each by the full names of its two inputs.
+    fn correlated_pairs(&self, names: &[String]) -> Result<Vec<CorrelatedPair>, String> {
+        self.config
             .correlations
             .iter()
             .map(|corr| {
@@ -508,8 +551,16 @@ impl MonteCarloEngine {
                 }
                 Ok((first.clone(), second.clone(), corr.coefficient))
             })
-            .collect::<Result<Vec<_>, String>>()?;
-        let matrix = CorrelationMatrix::new(&pairs)?;
+            .collect()
+    }
+
+    /// Correlate the uniform draws of the variables the `pairs` join.
+    fn apply_correlations(
+        pairs: &[CorrelatedPair],
+        uniforms: &mut [Vec<f64>],
+        names: &[String],
+    ) -> Result<(), String> {
+        let matrix = CorrelationMatrix::new(pairs)?;
 
         // One cursor down the column of each of the matrix's variables, in
         // the matrix's order; each step takes one draw from every column
@@ -627,7 +678,14 @@ impl SimulationResult {
             if !result.drivers.is_empty() {
                 output.push_str("      drivers:\n");
                 for d in &result.drivers {
-                    let _ = writeln!(output, "        \"{}\": {:.4}", d.input, d.rank_correlation);
+                    let _ = writeln!(
+                        output,
+                        "        \"{}\": {:.4}{}",
+                        d.input,
+                        d.rank_correlation,
+                        d.correlated_note()
+                            .map_or_else(String::new, |note| format!("  # {note}"))
+                    );
                 }
             }
         }
@@ -661,7 +719,20 @@ impl SimulationResult {
             let drivers: Vec<serde_json::Value> = result
                 .drivers
                 .iter()
-                .map(|d| json!({"input": d.input, "rank_correlation": d.rank_correlation}))
+                .map(|d| {
+                    let mut driver =
+                        json!({"input": d.input, "rank_correlation": d.rank_correlation});
+                    if !d.correlated_with.is_empty() {
+                        driver["correlated_with"] = d
+                            .correlated_with
+                            .iter()
+                            .map(|(input, coefficient)| {
+                                json!({"input": input, "coefficient": coefficient})
+                            })
+                            .collect();
+                    }
+                    driver
+                })
                 .collect();
 
             outputs_json.insert(
@@ -1098,6 +1169,103 @@ mod tests {
         );
     }
 
+    /// A driver that is in a correlation says so: the other input and the
+    /// coefficient, in the drivers, the YAML and the JSON; one in none says
+    /// nothing, and neither does a run with no correlations.
+    #[test]
+    fn a_driver_names_the_inputs_it_is_correlated_with() {
+        let build = |correlations: &[(&str, &str, f64)]| {
+            let mut corr = config(vec![output("profit")]);
+            corr.iterations = 200;
+            corr.seed = Some(7);
+            corr.correlations = correlations
+                .iter()
+                .map(
+                    |(a, b, rho)| crate::monte_carlo::config::CorrelationConfig {
+                        variables: vec![(*a).to_string(), (*b).to_string()],
+                        coefficient: *rho,
+                    },
+                )
+                .collect();
+            let mut engine = MonteCarloEngine::new(corr).unwrap();
+            for name in ["a.cost", "a.winter", "a.rent"] {
+                engine.add_distribution(name, Distribution::uniform(1.0, 2.0).unwrap());
+            }
+            engine
+                .run_with_evaluator(&mut |inputs| {
+                    let profit = inputs["a.winter"] - inputs["a.cost"] + inputs["a.rent"];
+                    Ok(HashMap::from([("profit".to_string(), profit)]))
+                })
+                .unwrap()
+        };
+        let correlated = build(&[("cost", "a.winter", 0.5)]);
+        let drivers = &correlated.outputs["profit"].drivers;
+        let of = |input: &str| {
+            drivers
+                .iter()
+                .find(|d| d.input == input)
+                .unwrap()
+                .correlated_with
+                .clone()
+        };
+        // The pair is by full names, and each end names the other
+        assert_eq!(of("a.cost"), vec![("a.winter".to_string(), 0.5)]);
+        assert_eq!(of("a.winter"), vec![("a.cost".to_string(), 0.5)]);
+        assert_eq!(of("a.rent"), vec![]);
+        let note = |input: &str| {
+            drivers
+                .iter()
+                .find(|d| d.input == input)
+                .unwrap()
+                .correlated_note()
+        };
+        assert_eq!(
+            note("a.cost"),
+            Some("correlated 0.5 with a.winter".to_string())
+        );
+        assert_eq!(note("a.rent"), None);
+
+        let yaml = correlated.to_yaml();
+        assert!(
+            yaml.lines().any(|l| l.starts_with("        \"a.cost\": ")
+                && l.ends_with("  # correlated 0.5 with a.winter")),
+            "{yaml}"
+        );
+        assert!(
+            yaml.lines()
+                .any(|l| l.starts_with("        \"a.rent\": ") && !l.contains('#')),
+            "{yaml}"
+        );
+        let json: serde_json::Value = serde_json::from_str(&correlated.to_json()).unwrap();
+        let listed = json["monte_carlo_results"]["outputs"]["profit"]["drivers"]
+            .as_array()
+            .unwrap();
+        let driver = |input: &str| listed.iter().find(|d| d["input"] == input).unwrap();
+        assert_eq!(
+            driver("a.cost")["correlated_with"],
+            serde_json::json!([{"input": "a.winter", "coefficient": 0.5}])
+        );
+        assert!(driver("a.rent").get("correlated_with").is_none());
+
+        // An input in two correlations names both, in the order configured
+        let two = build(&[("cost", "winter", 0.5), ("rent", "cost", -0.25)]);
+        let cost = two.outputs["profit"]
+            .drivers
+            .iter()
+            .find(|d| d.input == "a.cost")
+            .unwrap();
+        assert_eq!(
+            cost.correlated_note(),
+            Some("correlated 0.5 with a.winter, -0.25 with a.rent".to_string())
+        );
+
+        // No correlations: no driver has a note
+        assert!(build(&[]).outputs["profit"]
+            .drivers
+            .iter()
+            .all(|d| d.correlated_with.is_empty()));
+    }
+
     /// The correlated draws of a seeded run, to the bit: four inputs, three of
     /// them correlated (`a`, `c` and `d`, not side by side among the names)
     /// and `b` left as drawn. Each column's bits are folded into one number;
@@ -1165,17 +1333,19 @@ mod tests {
             ("b".to_string(), vec![3.0, 2.0, 1.0]),
             ("a".to_string(), vec![1.0, 2.0, 3.0]),
         ]);
-        let ranked = drivers(&[10.0, 20.0, 30.0], &inputs);
+        let ranked = drivers(&[10.0, 20.0, 30.0], &inputs, &[]);
         assert_eq!(
             ranked,
             vec![
                 Driver {
                     input: "a".to_string(),
-                    rank_correlation: 1.0
+                    rank_correlation: 1.0,
+                    correlated_with: vec![]
                 },
                 Driver {
                     input: "b".to_string(),
-                    rank_correlation: -1.0
+                    rank_correlation: -1.0,
+                    correlated_with: vec![]
                 },
             ]
         );
