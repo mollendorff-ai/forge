@@ -69,7 +69,7 @@ make format         # Format the code
 
 1. Fork the repository (or branch, if you have write access) from the newest `main`: `git fetch origin main && git checkout -b <your branch> origin/main`.
 2. `git commit` runs a pre-commit hook (`.cargo-husky/hooks/pre-commit`) that takes 4 to 8 minutes and prints little while it does: format, lint, every test and `validation/repo`. A commit that sits silent is not stuck; wait for it, then check `git log -1`.
-3. Name the changelog fragment `<date>_<lane>_<what>.md` with the lane whose work yours is: `engine` (the engine's answers, speed and `validation/`, CI, releases), `manual` (guide, examples, READMEs, `--help` text), `features` (new behaviour) or `architecture` (`docs/architecture/`, the contributor pages). The table in [AGENTS.md](AGENTS.md) has each lane's list; when two fit, the maintainer moves the file.
+3. Name the changelog fragment `<date>_<lane>_<what>.md` with the lane whose work yours is: `engine` (the engine's answers, speed and `validation/`, CI, releases), `manual` (guide, examples, READMEs, `--help` text), `features` (new behaviour) or `architecture` (`docs/architecture/`, the contributor pages). The table in [AGENTS.md](AGENTS.md) has each lane's list; when two fit, either will do.
 4. Push the branch and open a pull request against `main`, with the template filled in. A pull request needs no issue first. For a new feature, open an issue or a discussion before you write it: a feature has an ADR in `docs/architecture/` first, and the maintainer says whether it fits.
 
 The pull request template has these as a checklist. `.asimov/project.yaml` lists the conventions; `validation/repo/src/conventions.rs` checks the ones a test can.
