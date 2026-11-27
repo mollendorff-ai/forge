@@ -11,6 +11,7 @@ How an agent's session works on Forge: where it starts, how it commits, what CI 
 ## Committing
 
 - The pre-commit hook (`.cargo-husky/hooks/pre-commit`) runs `cargo fmt --all -- --check`, `make lint`, `cargo test --all-features`, builds `forge` and runs `validation/repo` against it: 4 to 8 minutes. Run `git commit` in the background with its output in a log, and wait with `until ! pgrep -f hooks/pre-commit >/dev/null; do sleep 10; done`.
+- In a fresh clone the hook may not be installed yet: cargo-husky writes `.git/hooks/pre-commit` when the main crate's tests are first built. Check `ls .git/hooks/pre-commit` before your first commit; without it `git commit` checks nothing, and a lint such as clippy's `too_many_lines` reaches CI. Run `cargo test` once, or the hook's steps yourself.
 - Then check that the commit is there (`git log -1`). A failing hook leaves the change staged, and the shell that ran it may still have exited 0. The hook's output is short: `cargo test -p mollendorff-forge-repo` shows which check failed.
 - A merge with no conflict runs no hook. Run `bash .git/hooks/pre-commit` yourself after it.
 - Never run two cargo jobs at once (the hook and a coverage run): the disk fills. When it is full, delete `target/llvm-cov-target`, `target/release` and `target/wasm32-unknown-unknown`, or all of `target/`.
@@ -33,6 +34,7 @@ How an agent's session works on Forge: where it starts, how it commits, what CI 
 
 - Open one, and merge one, only when the maintainer asks.
 - Bring `main` in with a merge (`git fetch origin main && git merge origin/main`), never a rebase, and never force-push.
+- Two pull requests that each move items to `done:` in the same roadmap conflict once the first merges, and other lanes append to your backlog meanwhile. Resolve by keeping every item from both sides, each in the list it now belongs to, then check that the roadmap parses and `cargo test -p mollendorff-forge-repo -- lanes` passes.
 - `main` moves while CI runs: check `git rev-list --count HEAD..origin/main` before merging, and merge with `expectedHeadSha` and the merge method.
 - A completed check suite is not a green one: read each check run's conclusion. Two skipped jobs on a pull request are normal. The maintainer may merge before CI ends: check `main`'s own run on the merge commit.
 - Subscribe to a pull request's activity once `create_pull_request` has returned its number, then end the turn rather than polling.

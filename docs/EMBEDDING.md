@@ -55,7 +55,7 @@ This is the example of the crate's own documentation, which `cargo test --doc` r
 
 ## The REST API
 
-`forge serve` serves five operations on models over HTTP: `validate`, `calculate`, `audit`, `export` and `import`, as JSON. The other analyses are MCP tools and commands. [FEATURES.md](FEATURES.md#http-rest-api-server) has each endpoint's request and answer; this is the shortest use, a model sent as text:
+`forge serve` serves every MCP tool over HTTP, as JSON: `validate`, `calculate`, `audit`, `export` and `import` with requests of their own, and each other tool (`simulate`, `goal-seek`, `scenarios`, `edit`, ...) at `POST /api/v1/<name>` with the arguments its MCP tool takes. `GET /api/v1/openapi.json` is an OpenAPI 3.1 document of all of them, for a client generator. [FEATURES.md](FEATURES.md#http-rest-api-server) has each endpoint's request and answer; this is the shortest use, a model sent as text:
 
 ```bash
 forge serve --port 8080
@@ -73,7 +73,7 @@ The answer, here without its `request_id`:
 {"success": true, "data": {"calculated": true, "dry_run": true, "result": {"scalars": {"plan.price": 40.0, "plan.revenue": 4800.0, "plan.units": 120.0}}}}
 ```
 
-Every answer has HTTP status 200 and `success: true` when the request was handled, also when the model could not be calculated: `data.calculated` says whether it was, and `data.message` why not. By default the server listens only on `127.0.0.1` and rejects other `Host` headers; to listen elsewhere set `FORGE_API_TOKEN` and send `Authorization: Bearer <token>`; `--root DIR` keeps file paths inside one folder, and `content` needs no file at all. [FEATURES.md](FEATURES.md#http-rest-api-server) has the security rules.
+Every answer of the five has HTTP status 200 and `success: true` when the request was handled, also when the model could not be calculated: `data.calculated` says whether it was, and `data.message` why not. A tool endpoint answers `200` with the tool's JSON in `data`, `422` with `success: false` and `error` when the tool fails or its arguments are not its request, and `400` when the body is not JSON. By default the server listens only on `127.0.0.1` and rejects other `Host` headers; to listen elsewhere set `FORGE_API_TOKEN` and send `Authorization: Bearer <token>`; `--root DIR` keeps file paths inside one folder, and `content` needs no file at all. [FEATURES.md](FEATURES.md#http-rest-api-server) has the security rules.
 
 ## In a browser
 

@@ -559,6 +559,19 @@ mod tests {
         }
     }
 
+    /// MAINTAINING.md says when the Scorecard workflow runs and what it does.
+    #[test]
+    fn maintaining_says_when_the_scorecard_runs_and_what_it_does() {
+        let (_, doc) = page("docs/MAINTAINING.md");
+        let scorecard = ".github/workflows/scorecard.yml";
+        let claims = [
+            (scorecard, "Tuesdays", "Tuesdays"),
+            (scorecard, "branches: [ main ]", "every push to `main`"),
+            (scorecard, "security-events: write", "Security tab"),
+        ];
+        assert_eq!(unheld(&doc, &claims, &read), Vec::<String>::new());
+    }
+
     /// A release changes the version where `docs/MAINTAINING.md` says it is
     /// written, and no other place says another.
     #[test]
@@ -586,6 +599,18 @@ mod tests {
                 "the page does not name {file}"
             );
         }
+        // the page says when security.txt expires, and says it as the file does
+        let expires = read(".well-known/security.txt");
+        let date = expires
+            .lines()
+            .find_map(|l| l.strip_prefix("Expires: "))
+            .and_then(|e| e.get(..10))
+            .unwrap_or_default();
+        assert!(
+            doc.contains(&format!("({date} now)")),
+            "the page's date for Expires"
+        );
+        assert!(doc.contains("`.well-known/security.txt`"));
         assert!(read("CHANGELOG.md").contains("## [Unreleased]"));
         // the example dependency in EMBEDDING.md is held to the version by
         // the embedding check, so a release changes it too

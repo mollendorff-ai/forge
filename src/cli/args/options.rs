@@ -6,6 +6,9 @@ use clap::builder::PossibleValue;
 use clap::Args;
 use std::path::PathBuf;
 
+/// `--plan` on a what-if command (ADR-076, addendum of 2026-11-26)
+const WHAT_IF_PLAN: &str = "Run an uncertain model at plan: each MC.* input at its plan figure (its value:, or else its distribution's likeliest value), as `forge calculate --plan` sets it; a scenario's own number for an input still wins. Without it, a model with MC.* inputs is refused";
+
 #[derive(Args)]
 pub struct CalculateArgs {
     /// Path to YAML file (can include other files via an '_includes' section)
@@ -37,6 +40,10 @@ pub struct AuditArgs {
 
     /// Variable name to audit
     pub variable: String,
+
+    /// Run an uncertain model at plan
+    #[arg(long, help = WHAT_IF_PLAN)]
+    pub plan: bool,
 }
 
 #[derive(Args)]
@@ -110,6 +117,10 @@ pub struct CompareArgs {
     /// Show verbose output
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Run an uncertain model at plan
+    #[arg(long, help = WHAT_IF_PLAN)]
+    pub plan: bool,
 }
 
 #[derive(Args)]
@@ -193,6 +204,10 @@ pub struct SensitivityArgs {
     /// Show verbose output
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Run an uncertain model at plan
+    #[arg(long, help = WHAT_IF_PLAN)]
+    pub plan: bool,
 }
 
 #[derive(Args)]
@@ -227,6 +242,10 @@ pub struct GoalSeekArgs {
     /// Show verbose output
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Run an uncertain model at plan
+    #[arg(long, help = WHAT_IF_PLAN)]
+    pub plan: bool,
 }
 
 #[derive(Args)]
@@ -253,6 +272,10 @@ pub struct BreakEvenArgs {
     /// Show verbose output
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Run an uncertain model at plan
+    #[arg(long, help = WHAT_IF_PLAN)]
+    pub plan: bool,
 }
 
 #[derive(Args)]
@@ -322,6 +345,10 @@ pub struct ScenariosArgs {
     /// Show verbose output
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Run an uncertain model at plan
+    #[arg(long, help = WHAT_IF_PLAN)]
+    pub plan: bool,
 }
 
 #[derive(Args)]
@@ -380,6 +407,10 @@ pub struct TornadoArgs {
     /// Show verbose output
     #[arg(short, long)]
     pub verbose: bool,
+
+    /// Run an uncertain model at plan
+    #[arg(long, help = WHAT_IF_PLAN)]
+    pub plan: bool,
 }
 
 #[derive(Args)]
