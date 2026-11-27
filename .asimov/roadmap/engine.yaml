@@ -38,12 +38,6 @@ backlog:
     why: "Scorecard 2026-11-25 scores Branch-Protection 0, Code-Review 0, CII-Best-Practices 0 and Contributors 6. None is a change to the code"
     how: "Branch-Protection: in Settings, Rules, protect main (require a pull request and the CI checks, block force pushes). CII-Best-Practices: register the repository at https://www.bestpractices.dev and answer the passing-level questions; the engine lane can supply the evidence for each. Code-Review: Scorecard wants a reviewer other than the author to approve each pull request; with one maintainer it stays 0, and the proposal is to leave it. Contributors: counts contributors from several organisations; with one maintainer it stays below 10, and the proposal is to leave it"
     acceptance: "Branch-Protection and CII-Best-Practices are done by the maintainer, or each is refused with a reason; Code-Review and Contributors are accepted as they are or the maintainer says otherwise"
-  - id: E-REPO-COVERAGE-100
-    title: "validation/repo's own coverage at 100%, its floors with it"
-    why: "Measured 2026-11-27 (E-REPO-COVERAGE) on Rust 1.100: 99.06% lines, 98.71% functions, 98.77% regions. Left: no_skipping.rs 24 regions, 3 functions, 18 lines; doc_counts.rs 17, 0, 7; architecture_docs.rs, conventions.rs, doc_examples.rs and readme_commands.rs 6 regions each; lib.rs and workflows_doc.rs 3 each. AGENTS.md wants 100% in every crate"
-    how: "Run the job's command locally (docs/SESSIONS.md), cover each miss with a test that asserts, or write the code so the miss cannot happen; raise FLOOR_* in ci.yml's repo-checks job in the same change, from CI's number"
-    acceptance: "The three floors of the repository checks are 100 in ci.yml and CI passes"
-    model: "Sonnet 5.5, medium: tests of checks, each miss a small case"
   - id: T3-BENCH
     title: "Per-function benchmarks"
     why: "Content for a talk, not a user need"
@@ -59,6 +53,13 @@ backlog:
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
 
 done:
+  - id: E-REPO-COVERAGE-100
+    title: "validation/repo's own coverage at 100%, its floors with it"
+    why: "Measured 2026-11-27 (E-REPO-COVERAGE) on Rust 1.100: 99.06% lines, 98.71% functions, 98.77% regions. Left: no_skipping.rs 24 regions, 3 functions, 18 lines; doc_counts.rs 17, 0, 7; architecture_docs.rs, conventions.rs, doc_examples.rs and readme_commands.rs 6 regions each; lib.rs and workflows_doc.rs 3 each. AGENTS.md wants 100% in every crate"
+    how: "Run the job's command locally (docs/SESSIONS.md), cover each miss with a test that asserts, or write the code so the miss cannot happen; raise FLOOR_* in ci.yml's repo-checks job in the same change, from CI's number"
+    acceptance: "The three floors of the repository checks are 100 in ci.yml and CI passes"
+    model: "Sonnet 5.5, medium: tests of checks, each miss a small case"
+    built: "2026-11-27. validation/repo is at 100% lines, functions and regions on Rust 1.100 (cargo llvm-cov -p mollendorff-forge-repo, from a clean build). What was missed was the failing half of each check, which only runs when the repository breaks a rule: each check now takes its input as an argument (a page's text, the BUDGET and a count found, a workflow's text, the README's blocks and a command to run them) and is tested twice, on the repository for the pass and on a made-up input that breaks the rule for the failure and its message. Also tests that a file or folder that cannot be read is named in the panic, and that rust_files leaves out target and node_modules. The Repository checks job's three floors are 100"
   - id: E-REPO-COVERAGE
     title: "validation/repo's own coverage measured in CI"
     why: "64% under cargo llvm-cov -p mollendorff-forge-repo (2026-11-24); the checks of the docs are code that is not itself held"

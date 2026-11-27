@@ -301,34 +301,63 @@ mod tests {
         );
     }
 
+    /// The broken links of the architecture page `name`, given its text
+    fn broken_in(name: &str, text: &str) -> Vec<String> {
+        let page = root().join("docs/architecture").join(name);
+        local_links(text)
+            .iter()
+            .filter_map(|target| broken_link(&page, target).map(|why| format!("{name}: {why}")))
+            .collect()
+    }
+
+    /// How many paths the page `name` names, given its text, and those that
+    /// do not exist
+    fn missing_in(name: &str, text: &str) -> (usize, Vec<String>) {
+        let named = named_paths(text);
+        let missing = named
+            .iter()
+            .filter(|path| !root().join(path).exists())
+            .map(|path| format!("{name}: {path}"))
+            .collect();
+        (named.len(), missing)
+    }
+
     #[test]
     fn every_link_in_the_architecture_pages_resolves() {
-        let mut broken = Vec::new();
-        for name in pages() {
-            let page = root().join("docs/architecture").join(&name);
-            for target in local_links(&read(&format!("docs/architecture/{name}"))) {
-                if let Some(why) = broken_link(&page, &target) {
-                    broken.push(format!("{name}: {why}"));
-                }
-            }
-        }
+        let broken: Vec<String> = pages()
+            .iter()
+            .flat_map(|name| broken_in(name, &read(&format!("docs/architecture/{name}"))))
+            .collect();
         assert!(broken.is_empty(), "broken links: {broken:#?}");
     }
 
     #[test]
+    fn a_broken_link_is_named_with_its_page() {
+        assert_eq!(
+            broken_in("README.md", "[gone](99-GONE.md) and [here](00-OVERVIEW.md)"),
+            ["README.md: 99-GONE.md: no such file"]
+        );
+    }
+
+    #[test]
     fn every_path_the_current_pages_name_exists() {
-        let mut missing = Vec::new();
         let mut named = 0;
+        let mut missing = Vec::new();
         for name in current_pages() {
-            for path in named_paths(&read(&format!("docs/architecture/{name}"))) {
-                named += 1;
-                if !root().join(&path).exists() {
-                    missing.push(format!("{name}: {path}"));
-                }
-            }
+            let (count, gone) = missing_in(&name, &read(&format!("docs/architecture/{name}")));
+            named += count;
+            missing.extend(gone);
         }
         assert!(named > 100, "the pages name the code they describe");
         assert!(missing.is_empty(), "paths that do not exist: {missing:#?}");
+    }
+
+    #[test]
+    fn a_path_that_does_not_exist_is_named_with_its_page() {
+        assert_eq!(
+            missing_in("x.md", "`src/lib.rs` and `src/gone_for_good.rs`"),
+            (2, vec!["x.md: src/gone_for_good.rs".to_string()])
+        );
     }
 
     #[test]

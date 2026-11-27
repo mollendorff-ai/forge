@@ -200,8 +200,12 @@ mod tests {
             if lang != "yaml" || !body.contains("_forge_version") {
                 continue;
             }
-            let result = run(body, dir.path(), index)
-                .unwrap_or_else(|e| panic!("example {index} does not run: {e}\n{body}"));
+            let result = run(body, dir.path(), index);
+            assert!(
+                result.is_ok(),
+                "example {index} does not run: {result:?}\n{body}"
+            );
+            let result = result.unwrap_or_default();
             ran += 1;
             // Its output: the next plain block before the next model
             let output = blocks[index + 1..]
@@ -294,6 +298,29 @@ mod tests {
         assert!(
             doc.contains(&format!("```yaml\n{starter}```")),
             "docs/EXAMPLES.md must show examples/starter.yaml as it is"
+        );
+    }
+
+    #[test]
+    fn an_example_that_fails_gives_what_the_command_said() {
+        let dir = tempfile::tempdir().unwrap();
+        // `calculate` for a model with no analysis section, `simulate` for one with
+        for (index, body) in [(1, "x: [1,\n"), (2, "monte_carlo: [\n")] {
+            let failed = run(body, dir.path(), index);
+            assert!(failed.is_err(), "{body}: {failed:?}");
+        }
+    }
+
+    #[test]
+    fn numbers_are_read_from_what_forge_prints() {
+        // An exponent with no digits is not part of the number, and a number that
+        // does not parse is left out
+        assert_eq!(numbers_in("1e x 1.2.3 -1.5e-7"), [1.0, -1.5e-7]);
+        assert_eq!(shown_numbers("1.2.3"), Vec::<(f64, usize)>::new());
+        // A count is not a result; a percentage is a fraction
+        assert_eq!(
+            shown_numbers("3 phases, 1.5 and 2,000 and 12%"),
+            [(1.5, 1), (2000.0, 0), (0.12, 2)]
         );
     }
 }
