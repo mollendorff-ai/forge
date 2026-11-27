@@ -152,9 +152,12 @@ fn print_output(c: &mut Console<'_>, var_name: &str, output: &crate::monte_carlo
         for driver in &output.drivers {
             outln!(
                 c,
-                "            {:+.3}  {}",
+                "            {:+.3}  {}{}",
                 driver.rank_correlation,
-                driver.input
+                driver.input,
+                driver
+                    .correlated_note()
+                    .map_or_else(String::new, |note| format!("  ({note})"))
             );
         }
     }
@@ -379,6 +382,55 @@ monte_carlo:
             assert!(done.is_err(), "{name}");
             assert_eq!(printed.out, "", "{name}");
         }
+    }
+
+    /// A driver that is in a correlation says so on its line, with the other
+    /// input and the coefficient; one in none prints as it always did.
+    #[test]
+    fn a_correlated_driver_says_so_on_its_line() {
+        let model = |correlations: &str| {
+            format!(
+                r#"_forge_version: "5.2.0"
+a:
+  cost: {{value: 10, formula: "=MC.Normal(10, 1)"}}
+  winter: {{value: 5, formula: "=MC.Normal(5, 1)"}}
+  rent: {{value: 3, formula: "=MC.Normal(3, 1)"}}
+  profit: {{formula: "=winter - cost + rent"}}
+monte_carlo:
+  iterations: 200
+  seed: 5
+  outputs:
+    - variable: a.profit
+{correlations}"#
+            )
+        };
+        let printed = |model: &str| {
+            let result = simulated(model);
+            crate::cli::console::capture(|c| print_simulation_results(c, &result))
+                .1
+                .out
+        };
+        let out = printed(&model(
+            "  correlations:\n    - {variables: [a.cost, a.winter], coefficient: 0.5}\n",
+        ));
+        let line = |input: &str| {
+            out.lines()
+                .find(|l| l.split_whitespace().nth(1) == Some(input))
+                .unwrap_or_default()
+                .to_string()
+        };
+        assert!(
+            line("a.cost").ends_with("a.cost  (correlated 0.5 with a.winter)"),
+            "{out}"
+        );
+        assert!(
+            line("a.winter").ends_with("a.winter  (correlated 0.5 with a.cost)"),
+            "{out}"
+        );
+        assert!(line("a.rent").ends_with("a.rent"), "{out}");
+
+        // No correlations: no line has a note
+        assert!(!printed(&model("")).contains("correlated"));
     }
 
     /// An output with no value at plan, no drivers and a threshold-less row
