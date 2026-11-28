@@ -96,7 +96,7 @@ for (const set of SETS) {
   await page.waitForFunction(() => document.body.dataset.state !== "loading", null, { timeout: 120000 });
   const start = await files(page);
   const structure = (await forge(page, "model", { files: start, main: set.main })).ok;
-  const list = formulasOf(structure);
+  const list = formulasOf(structure).filter((f) => !/^=MC\./.test(f.formula)); // a distribution is the whole formula: wrapping it in parentheses makes it no distribution (tests/uncertain.mjs edits those)
   console.log(`${set.id}: ${list.length} formulas`);
   for (const f of list) {
     const t0 = Date.now();

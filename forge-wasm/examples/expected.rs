@@ -18,8 +18,8 @@ use std::path::Path;
 /// The uncertain models of Forge Studio's example sets, by directory and file.
 const UNCERTAIN: [(&str, &str); 7] = [
     ("bagel", "bagel_simulate.yaml"),
-    ("microgrid", "microgrid_risk.yaml"),
-    ("realestate", "realestate_risk.yaml"),
+    ("microgrid", "microgrid.yaml"),
+    ("realestate", "realestate.yaml"),
     ("realestate", "realestate_flex.yaml"),
     ("acquisition", "deal_risk.yaml"),
     ("vineyard", "vineyard_risk.yaml"),

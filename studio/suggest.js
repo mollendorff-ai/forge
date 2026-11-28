@@ -128,7 +128,8 @@ export function suggest(index, text, caret) {
   }
   full.sort((a, b) => byLength(a.label, b.label));
   for (const n of [...names, ...full].slice(0, LIMIT.names)) out.push(n);
-  if (!/[.@]/.test(at.token)) {
+  // A function may have a dot (MC.Normal), so only an @ rules functions out
+  if (!at.token.includes("@")) {
     for (const c of CONSTANTS) if (c.toLowerCase().startsWith(low) && !seen.has(c)) out.push({ label: c, insert: c, kind: "constant", title: "A logical value" });
     const next = text[at.end];
     const fns = index.functions.filter((f) => f.name.toLowerCase().startsWith(low)).sort((a, b) => byLength(a.name, b.name));

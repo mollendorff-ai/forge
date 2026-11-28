@@ -656,7 +656,7 @@ mod tests {
                 "fuel.diesel_price",
                 (Some(0.1), Some(1.45)),
                 0.0001,
-                false,
+                true,
             )
             .unwrap();
             assert!(result.converged);
@@ -745,7 +745,7 @@ mod tests {
                 "deal.price",
                 (Some(4_000_000.0), Some(5_500_000.0)),
                 0.0001,
-                false,
+                true,
             )
             .unwrap();
             assert!(result.converged);
@@ -769,7 +769,7 @@ mod tests {
                 "deal.price",
                 (None, None),
                 0.0001,
-                false,
+                true,
             )
             .unwrap();
             assert!(result.converged);

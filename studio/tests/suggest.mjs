@@ -86,7 +86,7 @@ const result = await page.evaluate(async () => {
           typed = before + word.slice(0, n);
           list = suggest(index, typed, typed.length);
           hit = list.find((s) => s.label === want || (!isCall && s.insert === word));
-          if (hit || n >= word.length || list.filter((s) => s.kind !== "function" && s.kind !== "constant").length < LIMIT.names) break;
+          if (hit || n >= word.length || (list.filter((s) => s.kind !== "function" && s.kind !== "constant").length < LIMIT.names && list.filter((s) => s.kind === "function").length < LIMIT.functions)) break;
         }
         if (!hit) { problems.push(`${set.id}: ${path}: typing "${typed}" does not offer ${want}`); continue; }
         offered++;

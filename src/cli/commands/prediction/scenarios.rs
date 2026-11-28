@@ -472,7 +472,7 @@ scalars:
 
         #[test]
         fn the_plan_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), Some("base"), false).unwrap();
+            let results = scenarios_core(Path::new(MODEL), Some("base"), true).unwrap();
             let base = &results.scenarios[0].outputs;
             let expected = [
                 ("verdict.project_npv", 13_161_304.863_400_452, 1e-6),
@@ -506,7 +506,7 @@ scalars:
 
         #[test]
         fn each_scenario_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), None, false).unwrap();
+            let results = scenarios_core(Path::new(MODEL), None, true).unwrap();
             let expected = [
                 ("base", 13_161_304.863_400_452, 1.964_501_147_746_806_2),
                 ("cheap_diesel", 5_402_750.368_024_642, 1.487_600_862_698_773),
@@ -757,7 +757,7 @@ scalars:
 
         #[test]
         fn the_plan_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), Some("base"), false).unwrap();
+            let results = scenarios_core(Path::new(MODEL), Some("base"), true).unwrap();
             let base = &results.scenarios[0].outputs;
             let expected = [
                 ("valuation.dcf", 4_824_715.314_059_857, 1e-6),
@@ -781,7 +781,7 @@ scalars:
 
         #[test]
         fn each_scenario_matches_the_independent_calculation() {
-            let results = scenarios_core(Path::new(MODEL), None, false).unwrap();
+            let results = scenarios_core(Path::new(MODEL), None, true).unwrap();
             let expected = [
                 ("base", 155_715.314_059_857_28, 1.218_220_150_553_821_7),
                 (

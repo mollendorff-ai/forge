@@ -44,7 +44,7 @@ async function compare(page, id, scenario) {
     const set = sets.find((x) => x.id === id);
     const request = { files: set.files, main: set.main, scenario };
     const model = await call("model", request);
-    const calc = await call("calculate", request);
+    const calc = await call("calculate", { ...request, plan: true }); // an uncertain model at its plan, as the Model view draws it
     const problems = [];
     let cells = 0, headings = 0, scalars = 0;
     const text = (el) => (el ? el.textContent : null);
