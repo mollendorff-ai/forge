@@ -7,19 +7,24 @@ _forge_version: "5.4.0"
 # take depends on how big the battery is next to a day's demand, and the
 # battery fades every year until it is replaced.
 #
-#   forge calculate microgrid.yaml --dry-run
-#   forge scenarios microgrid.yaml
-#   forge tornado microgrid.yaml
-#   forge sensitivity microgrid.yaml --vary system.battery_mwh -r 4,16,2 --output-var verdict.project_npv
-#   forge break-even microgrid.yaml --output verdict.project_npv --vary fuel.diesel_price
+# Five inputs are uncertain (diesel price and its growth, demand growth,
+# sunshine, battery price): value: is the plan's figure, formula: the range.
+# The commands below run at plan with --plan; forge simulate draws the ranges.
+#
+#   forge calculate microgrid.yaml --plan --dry-run
+#   forge scenarios microgrid.yaml --plan
+#   forge tornado microgrid.yaml --plan
+#   forge sensitivity microgrid.yaml --plan --vary system.battery_mwh -r 4,16,2 --output-var verdict.project_npv
+#   forge break-even microgrid.yaml --plan --output verdict.project_npv --vary fuel.diesel_price
+#   forge simulate microgrid.yaml
 
 demand:
   first_year_mwh: {value: 4200, format: "#,##0"}
-  growth: {value: 0.025, format: "0.0%"}
+  growth: {value: 0.025, formula: "=MC.Uniform(0.0, 0.05)", format: "0.0%"}
 
 fuel:
-  diesel_price: {value: 1.45, format: "$#,##0.00"}     # per litre, delivered by boat
-  price_escalation: {value: 0.03, format: "0.0%"}
+  diesel_price: {value: 1.45, formula: "=MC.Triangular(1.05, 1.45, 2.10)", format: "$#,##0.00"}     # per litre, delivered by boat
+  price_escalation: {value: 0.03, formula: "=MC.Normal(0.03, 0.012)", format: "0.0%"}
   kwh_per_litre: 3.5          # what the island's generators get from a litre
   diesel_om_per_mwh: 35       # maintenance per MWh the generators make
   backup_fixed_per_year: 60000  # keeping the generators ready, used or not
@@ -27,7 +32,7 @@ fuel:
 
 system:
   solar_mwp: 3.4
-  solar_yield_mwh_per_mwp: 1550
+  solar_yield_mwh_per_mwp: {value: 1550, formula: "=MC.Normal(1550, 80)"}
   solar_degradation: {value: 0.005, format: "0.0%"}
   battery_mwh: 10
   battery_fade: {value: 0.025, format: "0.0%"}
@@ -40,7 +45,7 @@ system:
 
 costs:
   solar_per_mwp: 1100000
-  battery_per_mwh: 380000
+  battery_per_mwh: {value: 380000, formula: "=MC.PERT(300000, 380000, 520000)"}
   controls_and_grid: 600000
   # By year 11 batteries are expected to cost 55% of today's price
   replacement_cost_share: 0.55
@@ -219,3 +224,18 @@ tornado:
     - name: finance.discount_rate
       low: 0.06
       high: 0.10
+
+monte_carlo:
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 11
+  outputs:
+    - variable: verdict.project_npv
+      percentiles: [5, 50, 95]
+      thresholds: ["> 0", "> 5000000"]
+      expected_shortfall: [5]
+    - variable: verdict.min_dscr
+      percentiles: [5, 50]
+      thresholds: ["< 1.2", "< 1.0"]
+    - variable: verdict.project_irr
+      percentiles: [5, 50, 95]

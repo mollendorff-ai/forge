@@ -270,7 +270,7 @@ plan:
         #[test]
         fn the_diesel_price_moves_the_value_most() {
             let result =
-                tornado_core(Path::new("examples/microgrid/microgrid.yaml"), None, false).unwrap();
+                tornado_core(Path::new("examples/microgrid/microgrid.yaml"), None, true).unwrap();
             let expected = [
                 (
                     "fuel.diesel_price",
@@ -427,12 +427,8 @@ plan:
 
         #[test]
         fn rent_growth_moves_the_value_most() {
-            let result = tornado_core(
-                Path::new("examples/realestate/realestate.yaml"),
-                None,
-                false,
-            )
-            .unwrap();
+            let result =
+                tornado_core(Path::new("examples/realestate/realestate.yaml"), None, true).unwrap();
             let expected = [
                 (
                     "market.rent_growth",

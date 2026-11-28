@@ -611,7 +611,7 @@ out:
                 None,
                 None,
                 "verdict.project_npv",
-                false,
+                true,
             )
             .unwrap();
             let json = serde_json::to_value(result.data).unwrap();

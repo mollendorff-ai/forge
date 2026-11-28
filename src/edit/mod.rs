@@ -1066,7 +1066,7 @@ months:
         }
         assert!(models > 50, "{models} models");
         assert!(
-            inputs > 370 && formulas > 440,
+            inputs > 340 && formulas > 440,
             "{inputs} inputs, {formulas} formulas"
         );
     }

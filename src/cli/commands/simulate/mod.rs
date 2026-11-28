@@ -1002,7 +1002,7 @@ revenue:
     }
 
     mod microgrid_example {
-        //! `examples/microgrid/microgrid_risk.yaml`: futures for Ilha Corva. The
+        //! `examples/microgrid/microgrid.yaml`: futures for Ilha Corva. The
         //! README quotes the file's 10,000 runs; this runs 1,000 of them, which
         //! keep the README's claims: the project is worth more than nothing in
         //! every future, the loan's cover never falls below 1.2, and the diesel
@@ -1014,7 +1014,7 @@ revenue:
         use crate::core::ArrayCalculator;
         use std::path::Path;
 
-        const MODEL: &str = "examples/microgrid/microgrid_risk.yaml";
+        const MODEL: &str = "examples/microgrid/microgrid.yaml";
 
         #[test]
         fn the_microgrid_pays_in_every_future_and_the_loan_is_always_covered() {
@@ -1052,7 +1052,7 @@ revenue:
     }
 
     mod realestate_example {
-        //! `examples/realestate/realestate_risk.yaml`: futures for Linden Court.
+        //! `examples/realestate/realestate.yaml`: futures for Linden Court.
         //! The README quotes the file's 10,000 runs; this runs 1,000. Three of the
         //! uncertain inputs lean against the buyer (vacancy, the exit cap rate and
         //! the running costs have their mean on the bad side of the plan), so the
@@ -1065,7 +1065,7 @@ revenue:
         use crate::core::ArrayCalculator;
         use std::path::Path;
 
-        const MODEL: &str = "examples/realestate/realestate_risk.yaml";
+        const MODEL: &str = "examples/realestate/realestate.yaml";
 
         #[test]
         fn the_futures_lean_below_the_plan_and_rent_growth_drives_them() {

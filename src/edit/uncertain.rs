@@ -809,7 +809,7 @@ four:
         let refused: usize = results.iter().map(|r| r.1).sum();
         let failures: Vec<&String> = results.iter().flat_map(|r| &r.2).collect();
         assert_eq!(failures, Vec::<&String>::new());
-        assert!(made > 470, "{made} made");
+        assert!(made > 450, "{made} made");
         assert_eq!(refused, 20);
     }
 
