@@ -1248,7 +1248,7 @@ x: 1
             ),
             "{text_refused:#?}"
         );
-        assert_eq!((text_back, kept), (30, 16), "{refused:#?}");
+        assert_eq!((text_back, kept), (32, 17), "{refused:#?}");
         // What Forge refuses, and why: a tournament's round has two
         // strategies; a symmetric game of three is written in the count form;
         // the roster two tournaments share; formulas that read an equilibrium
@@ -1261,12 +1261,12 @@ x: 1
         );
         assert_eq!(
             why("a symmetric game of 3 players is written with one payoff for each strategy"),
-            7,
+            8,
             "{refused:#?}"
         );
         assert_eq!(why("noisy-tournament.yaml clean.players.edit_added: Err(\"Validation error: add_player clean.players.edit_added: Forge reads the new text as more than this change"), 1);
         assert_eq!(why("noisy-tournament.yaml noisy.players.edit_added: Err(\"Validation error: add_player noisy.players.edit_added: games.noisy.tournament.players is not written"), 1);
         assert_eq!(why("'vd.equilibrium_6"), 2, "{refused:#?}");
-        assert_eq!(refused.len(), 15, "{refused:#?}");
+        assert_eq!(refused.len(), 16, "{refused:#?}");
     }
 }

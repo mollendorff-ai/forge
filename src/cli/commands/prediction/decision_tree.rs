@@ -573,4 +573,77 @@ decision_tree:
         assert_eq!(result.root_name, "Invest in R&D?");
         assert_eq!(result.node_count, 4);
     }
+
+    mod settlement {
+        //! `examples/questions/settlement.yaml`: the offer is taken, and
+        //! refusing is the better choice only above 85 chances in 130 of
+        //! winning.
+        //!
+        //! Checked outside Forge:
+        //! ```python
+        //! def refuse(p):
+        //!     trial = p * 120000 + (1 - p) * -10000 - 20000
+        //!     better = max(50000, trial)        # the offer of 50,000, or the trial
+        //!     none = max(trial, 0)              # the trial, or drop the claim
+        //!     return 0.4 * better + 0.6 * none - 15000
+        //! refuse(0.6)        # 33800.0, against the 40,000 offered
+        //! refuse(85 / 130)   # 40000.0: the trial is then worth 55,000
+        //! ```
+
+        use super::super::decision_tree_core;
+        use std::path::Path;
+
+        const MODEL: &str = "examples/questions/settlement.yaml";
+
+        /// The tree with the claim winning `win` times in 1,000.
+        fn with_chance(dir: &tempfile::TempDir, win: u32) -> std::path::PathBuf {
+            let text = std::fs::read_to_string(MODEL).unwrap();
+            let text = text
+                .replacen(
+                    "probability: 0.6\n          value: 120000",
+                    &format!("probability: 0.{win}\n          value: 120000"),
+                    1,
+                )
+                .replacen(
+                    "probability: 0.4\n          value: -10000",
+                    &format!("probability: 0.{}\n          value: -10000", 1_000 - win),
+                    1,
+                );
+            let path = dir.path().join(format!("{win}.yaml"));
+            std::fs::write(&path, text).unwrap();
+            path
+        }
+
+        #[test]
+        fn the_offer_is_taken_though_the_trial_alone_is_worth_more() {
+            let tree = decision_tree_core(Path::new(MODEL)).unwrap();
+            let root = &tree.node_results["root"];
+            assert_eq!(root.optimal_choice.as_deref(), Some("accept"));
+            assert!((root.branch_values["accept"] - 40_000.0).abs() <= 1e-9);
+            assert!((root.branch_values["refuse"] - 33_800.0).abs() <= 1e-9);
+            let door = &tree.node_results["the_court_door"];
+            assert_eq!(door.optimal_choice.as_deref(), Some("trial"));
+            assert!((door.expected_value - 48_000.0).abs() <= 1e-9);
+            let better = &tree.node_results["the_better_offer"];
+            assert_eq!(better.optimal_choice.as_deref(), Some("accept"));
+            assert!((tree.root_expected_value - 40_000.0).abs() <= 1e-9);
+        }
+
+        #[test]
+        fn refusing_is_better_only_above_85_chances_in_130() {
+            // 85 / 130 = 0.6538...: accept at 0.653, refuse at 0.654
+            let dir = tempfile::tempdir().unwrap();
+            let below = decision_tree_core(&with_chance(&dir, 653)).unwrap();
+            let root = &below.node_results["root"];
+            assert_eq!(root.optimal_choice.as_deref(), Some("accept"));
+            assert!((root.branch_values["refuse"] - 39_890.0).abs() <= 1e-6);
+            let above = decision_tree_core(&with_chance(&dir, 654)).unwrap();
+            let root = &above.node_results["root"];
+            assert_eq!(root.optimal_choice.as_deref(), Some("refuse"));
+            assert!((root.branch_values["refuse"] - 40_020.0).abs() <= 1e-6);
+            // Refused, the claim ends 45,000 down in 34.6 cases in 100
+            let worst = above.risk_profile.worst_case;
+            assert!((worst + 45_000.0).abs() <= 1e-6, "{worst}");
+        }
+    }
 }

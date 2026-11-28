@@ -773,6 +773,10 @@ g:
                 "guide/05-bagel-uncertain.yaml",
                 "microgrid/microgrid_risk.yaml",
                 "monte-carlo.yaml",
+                "questions/food_truck.yaml",
+                "questions/job_offer.yaml",
+                "questions/mortgage_or_tfsa.yaml",
+                "questions/price_cut.yaml",
                 "realestate/realestate_flex.yaml",
                 "realestate/realestate_risk.yaml",
                 "vineyard/vineyard_independent.yaml",
@@ -787,14 +791,14 @@ g:
             let text = fs::read_to_string(root.join(name)).unwrap();
             assert!(text.contains("MC."), "{name} has no MC. distribution");
         }
-        // The rest, 56 models (the guide's two among them), all round-trip
+        // The rest, 57 models (the guide's two among them), all round-trip
         // with no difference. The ten
         // in games/, bagel/price_war.yaml, bagel/street_fund.yaml and
         // acquisition/deal_game.yaml come
         // back as their results, numbers as of the export: the export warns
         // that the games themselves are not written. So does the network of
         // expected_loss.yaml, under group network_results
-        assert_eq!(results.len() - skipped.len(), 56);
+        assert_eq!(results.len() - skipped.len(), 57);
     }
 }
 

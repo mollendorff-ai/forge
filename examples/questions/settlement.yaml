@@ -1,0 +1,67 @@
+_forge_version: "5.1.0"
+# Accept the settlement offer or go to court?
+# Run in the examples folder: forge decision-tree questions/settlement.yaml
+#
+# The other side offers 40,000 today. The claim is for 120,000, and the
+# lawyer thinks it wins six times in ten. Refusing costs 15,000 of lawyer's
+# work before the trial; four times in ten the other side then offers
+# 50,000; the trial costs 20,000 more, and losing it means paying 10,000 of
+# the other side's costs. Every value is what the claimant receives; the
+# costs are on the branches that incur them.
+#
+# The tree says take the 40,000: refusing is worth 33,800. The trial alone
+# is worth 48,000, more than the offer, but 15,000 is spent to reach it.
+# Refusing is the better choice only when the claim wins more than 65.4
+# times in 100 (85 / 130: the trial must then be worth 55,000 after its own
+# costs). The figures are made up and this is not legal advice.
+
+decision_tree:
+  name: "Settle or go to court"
+  root:
+    type: decision
+    name: "The offer of 40,000"
+    branches:
+      accept:
+        value: 40000
+      refuse:
+        cost: 15000
+        next: second_offer
+  nodes:
+    second_offer:
+      type: chance
+      name: "Before the trial"
+      branches:
+        better_offer:
+          probability: 0.4
+          next: the_better_offer
+        no_new_offer:
+          probability: 0.6
+          next: the_court_door
+    the_better_offer:
+      type: decision
+      name: "The offer of 50,000"
+      branches:
+        accept:
+          value: 50000
+        trial:
+          cost: 20000
+          next: verdict
+    the_court_door:
+      type: decision
+      name: "Go to trial, or drop the claim"
+      branches:
+        trial:
+          cost: 20000
+          next: verdict
+        drop:
+          value: 0
+    verdict:
+      type: chance
+      name: "The verdict"
+      branches:
+        win:
+          probability: 0.6
+          value: 120000
+        lose:
+          probability: 0.4
+          value: -10000

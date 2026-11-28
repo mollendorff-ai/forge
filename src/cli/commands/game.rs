@@ -1326,4 +1326,97 @@ games:
             assert!(out.contains("human: audit 0.3333, trust 0.6667"), "{out}");
         }
     }
+
+    mod price_cut {
+        //! `examples/questions/price_cut.yaml`: the share of customers who
+        //! must leave before matching a rival's cut pays, the street's
+        //! equilibria, and their chances when that share is uncertain.
+        //!
+        //! Checked outside Forge. A shop sells 1,000 at 20 that cost 12; the
+        //! cut is a tenth, so the margin falls from 8 to 6:
+        //! ```python
+        //! from scipy.stats import beta
+        //! 2 / 8, 2 / 6              # match above 0.25; a war is certain above 0.333
+        //! # MC.PERT(0.10, 0.28, 0.50) is a beta on [0.10, 0.50]
+        //! a, b = 1 + 4 * 0.18 / 0.40, 1 + 4 * 0.22 / 0.40
+        //! F = lambda x: beta.cdf((x - 0.10) / 0.40, a, b)
+        //! 1 - F(0.25)               # 0.6630251301: matching pays
+        //! 1 - F(1 / 3)              # 0.2843672887: cutting first pays
+        //! F(1 / 3) - F(0.25)        # 0.3786578414: two equilibria
+        //! ```
+        //! With a share s leaving, both holding is an equilibrium when
+        //! 6 (1 + s) <= 8 and both cutting when 8 (1 - s) <= 6.
+
+        use crate::cli::{calculate_plan_core, simulate_core, SimulateOptions};
+        use std::path::Path;
+
+        const MODEL: &str = "examples/questions/price_cut.yaml";
+
+        #[test]
+        fn matching_pays_above_a_quarter_and_a_war_is_certain_above_a_third() {
+            let value = |scenario: Option<&str>, name: &str| {
+                calculate_plan_core(Path::new(MODEL), scenario)
+                    .unwrap()
+                    .scalars[name]
+                    .unwrap()
+            };
+            for (name, expected) in [
+                ("answer.match_pays_above", 0.25),
+                ("answer.war_above", 1.0 / 3.0),
+                // At plan 28 in 100 leave: matching earns 6,000 against 5,760
+                ("answer.matching_gains", 240.0),
+                ("answer.cutting_first_gains", -320.0),
+                ("answer.war_costs", 2_000.0),
+                ("answer.equilibria", 2.0),
+                ("answer.price_war_is_certain", 0.0),
+                ("street.equilibrium_1.me.hold", 1.0),
+                ("street.equilibrium_2.me.cut", 1.0),
+            ] {
+                let got = value(None, name);
+                assert!((got - expected).abs() <= 1e-9, "{name}: {got}");
+            }
+            for (scenario, name, expected) in [
+                ("loyal_customers", "answer.equilibria", 1.0),
+                ("loyal_customers", "street.equilibrium_1.me.hold", 1.0),
+                ("loyal_customers", "answer.matching_gains", -800.0),
+                ("fickle_customers", "answer.equilibria", 1.0),
+                ("fickle_customers", "street.equilibrium_1.me.cut", 1.0),
+                ("fickle_customers", "answer.price_war_is_certain", 1.0),
+                ("fickle_customers", "answer.cutting_first_gains", 700.0),
+            ] {
+                let got = value(Some(scenario), name);
+                assert!((got - expected).abs() <= 1e-9, "{scenario} {name}: {got}");
+            }
+        }
+
+        #[test]
+        fn the_streets_equilibria_follow_the_share_who_leave_in_every_run() {
+            let result = simulate_core(Path::new(MODEL), SimulateOptions::default()).unwrap();
+            let shares = &result.input_samples["shop.leave_share"];
+            let matching = &result.outputs["answer.matching_gains"];
+            let first = &result.outputs["answer.cutting_first_gains"];
+            let equilibria = &result.outputs["answer.equilibria"];
+            assert_eq!(shares.len(), 5_000);
+            for (i, share) in shares.iter().enumerate() {
+                let hold_alone = 1_000.0 * (1.0 - share) * 8.0;
+                let cut_alone = 1_000.0 * (1.0 + share) * 6.0;
+                assert!((6_000.0 - hold_alone - matching.samples[i]).abs() <= 1e-6);
+                assert!((cut_alone - 8_000.0 - first.samples[i]).abs() <= 1e-6);
+                let count = f64::from(u8::from(cut_alone <= 8_000.0))
+                    + f64::from(u8::from(hold_alone <= 6_000.0));
+                assert!(
+                    (count - equilibria.samples[i]).abs() <= 0.0,
+                    "iteration {i}"
+                );
+            }
+            for (output, threshold, exact) in [
+                (matching, "> 0", 0.663_025_130_1),
+                (first, "> 0", 0.284_367_288_7),
+                (equilibria, "> 1", 0.378_657_841_4),
+            ] {
+                let chance = output.threshold_probabilities[threshold];
+                assert!((chance - exact).abs() <= 0.002, "{threshold}: {chance}");
+            }
+        }
+    }
 }

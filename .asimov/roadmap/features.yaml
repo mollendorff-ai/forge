@@ -47,6 +47,16 @@ backlog:
     acceptance: "On a model whose inputs are correlated, each driver in Studio's list that is in a correlation says so, with the other input and the coefficient, read from the simulation's own answer; a model with no correlations is drawn as before; a studio test shows it. studio/app.js is at the 1,500-line limit: the list is drawn from a module of its own"
     model: "Sonnet 5.5, medium: the drivers list is drawn from simulate's answer"
 
+  - id: F-GAME-PLAN
+    title: "forge game takes --plan, as the other what-if commands do"
+    why: "Found 2026-11-27 by the manual lane (M-QUESTION-PAGES-TRIAL): examples/questions/price_cut.yaml is a game whose payoffs read an uncertain input (the share of customers who leave, MC.PERT). forge calculate --plan and forge simulate run it, and scenarios, compare, goal-seek, break-even, sensitivity, tornado and audit take --plan (F-WHAT-IF-PLAN), but forge game has no --plan and says 'Unknown function: MC.PERT'. The game is printed only for a scenario that fixes the input"
+    acceptance: "forge game model.yaml --plan prints the games with each uncertain input at its plan figure, and without --plan says what to run, as calculate does; the MCP and REST game tools take plan too; examples/questions/README.md's sentence about it is then the manual lane's to remove"
+    model: "Sonnet 5.5, medium: the pattern of F-WHAT-IF-PLAN on one more command"
+  - id: F-TREE-BRANCH-VALUES
+    title: "forge decision-tree prints the value of each branch at a decision, not only the one chosen"
+    why: "Found 2026-11-27 by the manual lane (M-QUESTION-PAGES-TRIAL): examples/questions/settlement.yaml's answer is 'take the 40,000: refusing is worth 33,800', but the terminal prints only the chosen path and its 40,000. The 33,800 is in branch_values of the file -o writes. The reader of a decision wants what the other choice was worth"
+    acceptance: "The printed policy gives each decision's branches with their values, the chosen one marked; Studio's tree card shows the same if it does not already"
+    model: "Sonnet 5.5, low: a few printed lines and their test"
 done:
   - id: F-DRIVERS-CORRELATED
     title: "forge simulate names a driver's correlation next to its rank correlation"

@@ -1,0 +1,51 @@
+_forge_version: "5.1.0"
+# Higher salary or stock options: which job offer pays more?
+# Run in the examples folder:
+#   forge calculate questions/job_offer.yaml --plan
+#   forge simulate questions/job_offer.yaml
+#
+# Two offers. The startup pays 25,000 a year less and gives 25,000 options
+# that vest over four years. The plan is the recruiter's story: the company
+# is sold for 300 million. The simulation is what startups do: most are
+# worth nothing to the staff's shares, a few are worth a great deal.
+# All figures are made up.
+
+offer:
+  salary_gap: 25000         # what the other job pays more, a year
+  years: 4                  # the options vest over these years
+  options: 25000
+  strike: 2.00              # the price of a share under the option
+
+company:
+  shares: 10000000          # every share and option today
+  raised: 30000000          # the investors get this back before anyone else
+  # What the company is sold for: nothing six times in ten, a small sale,
+  # a good one, or one of the few
+  exit_value:
+    value: 300000000
+    formula: "=MC.Discrete({0, 50000000, 300000000, 1500000000}, {0.60, 0.25, 0.12, 0.03})"
+  # The share of the company that later investors take before the sale
+  dilution:
+    value: 0.35
+    formula: "=MC.Triangular(0.20, 0.35, 0.50)"
+
+result:
+  share_price:
+    formula: "=MAX(0, company.exit_value - company.raised) * (1 - company.dilution) / company.shares"
+  options_value:
+    formula: "=offer.options * MAX(0, share_price - offer.strike)"
+  salary_given_up:
+    formula: "=offer.salary_gap * offer.years"
+  options_ahead:
+    formula: "=options_value - salary_given_up"
+
+monte_carlo:
+  iterations: 10000
+  seed: 2026
+  sampling: latin_hypercube
+  outputs:
+    - variable: result.options_value
+      percentiles: [50, 85, 90, 97]
+      thresholds: ["> 0"]
+    - variable: result.options_ahead
+      thresholds: ["> 0"]
