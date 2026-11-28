@@ -1,8 +1,8 @@
 # ADR-082: Forge Says What Is Surprising in a Model, with the Command That Shows It
 
-**Status:** Proposed (2026-11-28); nothing built
+**Status:** Accepted (2026-11-28); nothing built yet
 **Date:** 2026-11-28
-**Decided by:** the maintainer, who is asked to accept, change or refuse each decision below. The design is Claude's, in a session configured for Opus 5.5
+**Decided by:** the maintainer (2026-11-28), who accepted the seven decisions as written, with the recommendation of each of the five questions. The design is Claude's, in a session configured for Opus 5.5
 **For:** roadmap F-INSIGHTS. It builds on ADR-047 (one core function under every surface), ADR-068 (games), ADR-076 and its addendum (a plan and `--plan`) and ADR-081 (every tool over REST), and changes none of their decisions
 
 ---
@@ -77,7 +77,7 @@ The hard part is not running the checks; it is what to leave out. A command that
 
 ## Questions for the maintainer
 
-These are the numbers and choices most likely to be argued with. Each has a recommendation above:
+These are the numbers and choices most likely to be argued with. The maintainer accepted the recommendation of each (2026-11-28):
 
 1. The 10% band for a break-even, and whether it is 10% of the input's plan figure (recommended) or of its swept width.
 2. A quarter of the swept width for "near" a turning point. For the sauna (members swept 6 to 18 around 12, worst at about 10) it is 2 against 3.
@@ -101,7 +101,7 @@ These are the numbers and choices most likely to be argued with. Each has a reco
 - Studio's Analyze view gets a card, drawn from its own module (`studio/app.js` is at its 1,500-line limit).
 - Decision trees and real options are not checked yet: a decision tree takes no scenario (`forge decision-tree` has no `--scenario`), so "a scenario that changes the best choice" applies to games only until it does. That gap is listed in the roadmap item, not here.
 
-## What is built, in order, once accepted
+## What is built, in order
 
 1. `insights_core` with checks 1, 3 and 5, the command, its JSON and `--all`. Tests: `examples/bagel` gives the price within 10% of break-even (15.97 against 16), the simulated mean below the plan (-15,925.94 against 786.32) and the price war's equilibrium that both shops would leave (19,188.94 against 21,489.38), each with its command, and each command, run, shows its finding. A linear fixture with no break-even near its plan gives no finding.
 2. Checks 2 and 4, with a fixture of the sauna whose members give the turning point near the plan, and a correlated pair whose driver's sign is borrowed.

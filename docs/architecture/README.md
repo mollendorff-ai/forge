@@ -124,7 +124,7 @@ Each ADR records one decision: the context, the options, what was decided and wh
 | [ADR-079](ADR-079-THE-SUMMARY-OF-HUGE-VALUES.md) | The Summary of a Simulation of Huge Values Is a Number | Proposed (2026-11-24), built: figures worked out again on scaled samples when the plain arithmetic overflows; the variance `None` past the largest `f64` |
 | [ADR-080](ADR-080-A-STUDIO-LINK-CARRIES-ITS-MODEL-AFTER-THE-HASH.md) | A Studio Link Carries Its Model After the #, and Nowhere Else | Accepted (2026-11-24); built: `#name=…&gzip=…` and `#yaml=…` read and written by `studio/link.js`, asking before a link replaces your files, and a Content Security Policy on the page |
 | [ADR-081](ADR-081-EVERY-TOOL-OVER-REST.md) | Every Tool over REST, Described by an OpenAPI Document Made from It | Accepted (2026-11-25); built: `POST /api/v1/<tool>` for every MCP tool, running the tool itself, and `GET /api/v1/openapi.json` made from the tools' schemas |
-| [ADR-082](ADR-082-FORGE-SAYS-WHAT-IS-SURPRISING.md) | Forge Says What Is Surprising in a Model, with the Command That Shows It | Proposed (2026-11-28); nothing built |
+| [ADR-082](ADR-082-FORGE-SAYS-WHAT-IS-SURPRISING.md) | Forge Says What Is Surprising in a Model, with the Command That Shows It | Accepted (2026-11-28); nothing built yet |
 
 ### Numbers not in the list
 
