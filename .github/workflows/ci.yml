@@ -525,7 +525,7 @@ jobs:
       # validated with yaml-language-server, and the manifest packaged
       - name: Test and package
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npm test
           npx vsce package
 

@@ -26,6 +26,11 @@ backlog:
     why: "Found 2026-11-27 by the features lane (F-DRIVERS-CORRELATED): forge simulate now says `(correlated -0.6 with financials.margin)` on a driver that is in a correlations: entry. docs/EXAMPLES.md prints a simulation of a model whose revenue and margin are correlated at -0.6 (around line 399), with the drivers as they were; check every printed simulation of a correlated model in the docs, the README and the guide"
     acceptance: "Each printed simulation of a model with a correlations: entry shows the note on the drivers it names, as forge simulate prints it; validation/repo passes"
     model: "Sonnet 5.5, low: reprint the blocks"
+  - id: M-NPM-CI-READMES
+    title: "editors/vscode/README.md and validation/mermaid/README.md say npm ci, as CI now does"
+    why: "Found 2026-11-27 by the engine lane (E-SC-PINNED): both folders now commit a package-lock.json and CI installs with npm ci, but editors/vscode/README.md (line 34) and validation/mermaid/README.md (line 11) still tell a reader to run npm install, which can change the lockfile"
+    acceptance: "Each README says npm ci for installing what the lockfile names, and npm install only for adding a package; validation/repo passes"
+    model: "Sonnet 5.5, low: two lines"
 
 done:
   - id: A15-MAINTAINER-STEPS
