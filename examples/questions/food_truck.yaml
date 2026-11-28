@@ -1,0 +1,55 @@
+_forge_version: "5.1.0"
+# How many meals a day does a food truck need to break even?
+# Run in the examples folder:
+#   forge break-even questions/food_truck.yaml --plan --output season.profit --vary meals_per_day --min 20 --max 150
+#   forge simulate questions/food_truck.yaml
+#   forge simulate questions/food_truck.yaml --seek "P(season.profit > 0) = 0.9" --vary meals_per_day --min 20 --max 150
+#
+# A truck's season: 26 weeks, five days a week. The usual answer divides
+# the costs by the margin on a meal and gives one number. But days are lost
+# to rain, and a day out sells what the street gives, more often less than
+# the plan than more. So there are two answers: the meals a day that break
+# even if the season goes to plan, and the meals a day that make a losing
+# season rare. All figures are made up.
+
+truck:
+  meals_per_day: 55         # what a day out sells, by the plan
+  price: 14
+  food_per_meal: 4.90       # ingredients and packaging
+  card_fee_rate: 0.026
+  days_planned: 130
+  cost_per_day_out: 250     # a helper, fuel and the pitch
+  season_costs: 26000       # the truck's lease, insurance, permits, the kitchen
+
+weather:
+  # Days the truck stays in: rain, a breakdown, a cancelled event
+  days_lost:
+    value: 18
+    formula: "=MC.PERT(8, 18, 40)"
+
+street:
+  # What a day out sells against the plan: seldom more, often less
+  demand:
+    value: 1
+    formula: "=MC.Triangular(0.70, 1, 1.15)"
+
+season:
+  days_out:
+    formula: "=truck.days_planned - weather.days_lost"
+  meals:
+    formula: "=days_out * truck.meals_per_day * street.demand"
+  margin_per_meal:
+    formula: "=truck.price * (1 - truck.card_fee_rate) - truck.food_per_meal"
+  costs:
+    formula: "=truck.season_costs + truck.cost_per_day_out * days_out"
+  profit:
+    formula: "=meals * margin_per_meal - costs"
+
+monte_carlo:
+  iterations: 5000
+  seed: 2026
+  sampling: latin_hypercube
+  outputs:
+    - variable: season.profit
+      percentiles: [10, 50, 90]
+      thresholds: ["> 0"]

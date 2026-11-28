@@ -32,6 +32,16 @@ backlog:
     acceptance: "On a model small enough to solve by hand, the best choice, the expected value of perfect information and each input's value match the hand calculation; on a larger one they agree with an outside implementation (such as R's voi package) within its sampling error, on the same draws where possible; an input that cannot change the best choice is worth 0. The ADR is accepted before the code"
     model: "Opus 5.5, high: EVPPI is easy to get subtly wrong, and a wrong value of information would send someone to pay for the wrong study"
 
+  - id: F-GAME-PLAN
+    title: "forge game takes --plan, as the other what-if commands do"
+    why: "Found 2026-11-27 by the manual lane (M-QUESTION-PAGES-TRIAL): examples/questions/price_cut.yaml is a game whose payoffs read an uncertain input (the share of customers who leave, MC.PERT). forge calculate --plan and forge simulate run it, and scenarios, compare, goal-seek, break-even, sensitivity, tornado and audit take --plan (F-WHAT-IF-PLAN), but forge game has no --plan and says 'Unknown function: MC.PERT'. The game is printed only for a scenario that fixes the input. Studio's game card shows the same error on such a file (seen 2026-11-28 in a Studio built from main), while its other cards show the plan. So the example is two files, price_cut.yaml and price_cut_unsure.yaml, the same street twice"
+    acceptance: "forge game model.yaml --plan prints the games with each uncertain input at its plan figure, and without --plan says what to run, as calculate does; the MCP and REST game tools take plan too; Studio's game card shows an uncertain model's games at plan; the two price_cut files can then be one, which is the manual lane's to do with examples/questions/README.md's sentence about it"
+    model: "Sonnet 5.5, medium: the pattern of F-WHAT-IF-PLAN on one more command"
+  - id: F-TREE-BRANCH-VALUES
+    title: "forge decision-tree prints the value of each branch at a decision, not only the one chosen"
+    why: "Found 2026-11-27 by the manual lane (M-QUESTION-PAGES-TRIAL): examples/questions/settlement.yaml's answer is 'take the 40,000: refusing is worth 33,800', but the terminal prints only the chosen path and its 40,000. The 33,800 is in branch_values of the file -o writes. The reader of a decision wants what the other choice was worth"
+    acceptance: "The printed policy gives each decision's branches with their values, the chosen one marked; Studio's tree card shows the same if it does not already"
+    model: "Sonnet 5.5, low: a few printed lines and their test"
 done:
   - id: F-EXAMPLES-ONE-FILE
     title: "examples/microgrid and examples/realestate are one file each, the plan and its uncertainty, run with --plan"
