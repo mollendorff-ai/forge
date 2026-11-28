@@ -1329,8 +1329,9 @@ games:
 
     mod price_cut {
         //! `examples/questions/price_cut.yaml`: the share of customers who
-        //! must leave before matching a rival's cut pays, the street's
-        //! equilibria, and their chances when that share is uncertain.
+        //! must leave before matching a rival's cut pays, and the street's
+        //! equilibria; `price_cut_unsure.yaml`: their chances when that
+        //! share is uncertain. The two files give the same plan.
         //!
         //! Checked outside Forge. A shop sells 1,000 at 20 that cost 12; the
         //! cut is a tenth, so the margin falls from 8 to 6:
@@ -1351,6 +1352,8 @@ games:
         use std::path::Path;
 
         const MODEL: &str = "examples/questions/price_cut.yaml";
+        /// The same street with the share who leave a range
+        const UNSURE: &str = "examples/questions/price_cut_unsure.yaml";
 
         #[test]
         fn matching_pays_above_a_quarter_and_a_war_is_certain_above_a_third() {
@@ -1375,6 +1378,17 @@ games:
                 let got = value(None, name);
                 assert!((got - expected).abs() <= 1e-9, "{name}: {got}");
             }
+            // The uncertain file's plan is the certain file
+            for name in [
+                "answer.matching_gains",
+                "answer.equilibria",
+                "month.i_cut_alone",
+            ] {
+                let unsure = calculate_plan_core(Path::new(UNSURE), None)
+                    .unwrap()
+                    .scalars[name];
+                assert_eq!(unsure.map(f64::to_bits), Some(value(None, name).to_bits()));
+            }
             for (scenario, name, expected) in [
                 ("loyal_customers", "answer.equilibria", 1.0),
                 ("loyal_customers", "street.equilibrium_1.me.hold", 1.0),
@@ -1391,7 +1405,7 @@ games:
 
         #[test]
         fn the_streets_equilibria_follow_the_share_who_leave_in_every_run() {
-            let result = simulate_core(Path::new(MODEL), SimulateOptions::default()).unwrap();
+            let result = simulate_core(Path::new(UNSURE), SimulateOptions::default()).unwrap();
             let shares = &result.input_samples["shop.leave_share"];
             let matching = &result.outputs["answer.matching_gains"];
             let first = &result.outputs["answer.cutting_first_gains"];

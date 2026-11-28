@@ -23,12 +23,14 @@ mortgage:
     formula: "=(1 + annual_rate / 2) ^ (1 / 6) - 1"
   yearly_cost:
     formula: "=(1 + annual_rate / 2) ^ 2 - 1"
+    unit: "%"
     notes: The return the fund must beat, a year
 
 tfsa:
   # The fund's average yearly return over the ten years
   yearly_return:
     value: 0.06
+    unit: "%"
     formula: "=MC.Normal(0.06, 0.05)"
   monthly_return:
     formula: "=(1 + yearly_return) ^ (1 / 12) - 1"

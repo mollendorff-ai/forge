@@ -27,6 +27,7 @@ company:
   # The share of the company that later investors take before the sale
   dilution:
     value: 0.35
+    unit: "%"
     formula: "=MC.Triangular(0.20, 0.35, 0.50)"
 
 result:
