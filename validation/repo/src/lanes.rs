@@ -100,6 +100,32 @@ pub fn fragment_problems(text: &str) -> Vec<String> {
     problems
 }
 
+/// What is wrong with the files of `changelog.d/`, given as (name, text).
+///
+/// A file that is not a Markdown fragment, or a fragment with a problem;
+/// `README.md` and `scriv.ini` are not fragments. A release empties the
+/// folder, so the check takes its files as input and is tested on both.
+#[must_use]
+pub fn fragment_dir_problems(files: &[(String, String)]) -> Vec<String> {
+    files
+        .iter()
+        .filter(|(name, _)| name != "README.md" && name != "scriv.ini")
+        .flat_map(|(name, text)| {
+            if std::path::Path::new(name)
+                .extension()
+                .is_some_and(|x| x == "md")
+            {
+                fragment_problems(text)
+                    .into_iter()
+                    .map(|p| format!("{name}: {p}"))
+                    .collect()
+            } else {
+                vec![format!("{name} is not a Markdown fragment")]
+            }
+        })
+        .collect()
+}
+
 /// What was written by hand under `## [Unreleased]` in a changelog.
 ///
 /// The lines up to the next release that are neither blank, a comment nor
@@ -284,23 +310,33 @@ mod tests {
     fn every_changelog_fragment_has_only_the_headings_scriv_sorts() {
         let ini = read("changelog.d/scriv.ini");
         assert!(ini.contains(&format!("categories = {}", CATEGORIES.join(", "))));
-        for name in names("changelog.d") {
-            if name == "README.md" || name == "scriv.ini" {
-                continue;
-            }
-            assert!(
-                std::path::Path::new(&name)
-                    .extension()
-                    .is_some_and(|x| x == "md"),
-                "changelog.d/{name} is not a Markdown fragment"
-            );
-            let text = read(&format!("changelog.d/{name}"));
-            assert_eq!(
-                fragment_problems(&text),
-                Vec::<String>::new(),
-                "changelog.d/{name}"
-            );
-        }
+        let files: Vec<(String, String)> = names("changelog.d")
+            .into_iter()
+            .map(|name| {
+                let text = read(&format!("changelog.d/{name}"));
+                (name, text)
+            })
+            .collect();
+        assert_eq!(fragment_dir_problems(&files), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_file_that_is_not_a_fragment_or_a_fragment_with_a_problem_is_named() {
+        let file = |name: &str, text: &str| (name.to_string(), text.to_string());
+        let files = [
+            file("README.md", "not a fragment"),
+            file("scriv.ini", ""),
+            file("notes.txt", "### Added\n- x\n"),
+            file("20261128_engine_ok.md", "### Added\n\n- x\n"),
+            file("20261128_engine_empty.md", ""),
+        ];
+        assert_eq!(
+            fragment_dir_problems(&files),
+            [
+                "notes.txt is not a Markdown fragment",
+                "20261128_engine_empty.md: no heading",
+            ]
+        );
     }
 
     #[test]
