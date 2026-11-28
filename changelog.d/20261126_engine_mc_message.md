@@ -1,3 +1,0 @@
-### Fixed
-
-- **The what-if commands say why they cannot run a model with `MC.*` inputs** (roadmap E-MC-MESSAGE). `forge compare`, `goal-seek`, `break-even`, `sensitivity`, `scenarios` and `tornado` said `Unknown function: MC.Triangular` (a function Forge knows) and listed every formula downstream as not calculated; `sensitivity` printed `ERR` in every row. Each now gives `calculate`'s message: which inputs use `MC.*` distributions, that the command cannot evaluate them, and to run `forge simulate` or `forge calculate --plan` instead. `forge audit` still shows the trail, with that message as its warning. The MCP tools and REST endpoints of these commands say the same.
