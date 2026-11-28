@@ -15,12 +15,6 @@ backlog:
     why: "Counted 2026-11-16 by validation/repo/src/no_skipping.rs: 218 lint allow or expect attributes, 16 lints allowed in Cargo.toml files, 31 places of code compiled only for or only without coverage, 2 ignored tests. Counted again 2026-11-24: every budget in no_skipping.rs is 0 except the crates clippy.toml allows in two versions (4: syn, getrandom, r-efi, hashbrown), each held by a library the maintainer decided to keep (ADR-072, ADR-075). None can be lowered today: tracing-attributes 0.1.31, zeroize_derive 1.5.0 and strum_macros 0.28 are the latest releases and are on syn 2; ahash 0.8.13 and jsonschema 0.63.1 still bring getrandom 0.3 (tried 2026-11-24, nothing removed); yaml-edit 0.3.6 is the latest and its rowan 0.16 is on hashbrown 0.14. Checked again 2026-11-26 against the newest release of each holder: tracing-attributes 0.1.31, zeroize_derive 1.5.0 and strum_macros 0.28.0 are on syn ^2 (and zerocopy-derive 0.8.63, windows-implement and windows-interface hold it too); rowan 0.17.0 (and yaml-edit 0.3.6, on rowan ^0.16) take hashbrown ^0.14.3; and getrandom 0.3 is held on wasm32 by jsonschema, jsonschema-value and referencing, which take getrandom ^0.3.4 with wasm_js (0.60.2, which the lockfile has, and 0.63.2, the latest). ahash 0.8.14 no longer brings getrandom 0.3 where 0.8.12 did, so on a host build it is gone, but clippy reads every target and the three crates keep it on wasm32 (removing Forge's getrandom_03 line breaks the wasm32 build, tried 2026-11-26), so no budget can fall"
     how: "What is left is not in Forge's code: no #[allow] or #[expect], no lint set to allow, no coverage-only code, no ignored test, no formatting skip and no tests outside their file are left (every other budget in no_skipping.rs is 0). The four crates clippy.toml allows in two versions fall when a library stops bringing the duplicate: syn when tracing-attributes, zeroize_derive and strum_macros move to syn 3; getrandom and r-efi when jsonschema (its wasm32 dependency) moves to getrandom 0.4; hashbrown when rowan moves to hashbrown 0.17. Check the newest release of each holder when a Dependabot pull request touches one, lower the budget in the same change, and remove the line in clippy.toml"
     acceptance: "Every budget in validation/repo/src/no_skipping.rs is 0 and the test passes; CLAUDE.md and project.yaml name no exception"
-  - id: E-SC-SAST
-    title: "Static analysis in CI that Scorecard recognises (SAST, 0)"
-    why: "Scorecard 2026-11-25 scores SAST 0: it finds no CodeQL or SonarCloud run on pull requests. Clippy pedantic already runs, but Scorecard does not count it"
-    how: "A pinned CodeQL workflow (github/codeql-action) for Rust and for the workflows' own YAML, on pull requests and weekly; read its first findings and fix or explain each"
-    acceptance: "A CodeQL run on a pull request, its alerts at zero or each one explained here; SAST rises on Scorecard's next run"
-    model: "Sonnet 5.5, medium: findings have to be read, not just switched on"
   - id: E-SC-PINNED
     title: "The one dependency of the build that is not pinned (Pinned-Dependencies, 9)"
     why: "Scorecard 2026-11-25 scores Pinned-Dependencies 9: every action is pinned to a commit (a validation/repo test holds that), so something else is not, such as a pip or npm install, a cargo install without --locked, or a download in a script"
@@ -53,6 +47,19 @@ backlog:
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
 
 done:
+  - id: E-REPO-BINARIES
+    title: "No binary files in the repository (Binary-Artifacts, 0)"
+    why: "Scorecard 2026-11-28 scores Binary-Artifacts 0. 16 Python wheels and a source tarball (cffconvert and its dependencies, from a pip download) were committed at the repository root by mistake in b323b945 (A18-METADATA, CITATION.cff)"
+    how: "git rm them; nothing refers to them (git grep)"
+    acceptance: "No .whl or .tar.gz file is tracked; Binary-Artifacts rises on Scorecard's next run"
+    model: "Sonnet 5.5, low"
+    built: "2026-11-28. The files are removed. Binary-Artifacts is to be read on the next Scorecard run; if it is still below 10, the viewer names the file"
+  - id: E-SC-SAST
+    title: "Static analysis in CI that Scorecard recognises (SAST, 0)"
+    why: "Scorecard 2026-11-25 scores SAST 0: it finds no CodeQL or SonarCloud run on pull requests. Clippy pedantic already runs, but Scorecard does not count it"
+    how: "A pinned CodeQL workflow (github/codeql-action) for Rust and for the workflows' own YAML, on pull requests and weekly; read its first findings and fix or explain each"
+    acceptance: "A CodeQL run on a pull request, its alerts at zero or each one explained here; SAST rises on Scorecard's next run"
+    built: "2026-11-28. Scorecard's run of 2026-11-28 (commit 3b85216, v5.7.0) scores SAST 10. The CodeQL workflow (.github/workflows/codeql.yml, E-SC-SAST's own item) runs on pull requests, on main and weekly, and its runs on main are green"
   - id: E-REPO-COVERAGE-100
     title: "validation/repo's own coverage at 100%, its floors with it"
     why: "Measured 2026-11-27 (E-REPO-COVERAGE) on Rust 1.100: 99.06% lines, 98.71% functions, 98.77% regions. Left: no_skipping.rs 24 regions, 3 functions, 18 lines; doc_counts.rs 17, 0, 7; architecture_docs.rs, conventions.rs, doc_examples.rs and readme_commands.rs 6 regions each; lib.rs and workflows_doc.rs 3 each. AGENTS.md wants 100% in every crate"
