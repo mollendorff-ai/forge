@@ -265,7 +265,8 @@ table.report td.bad { color: var(--bad) }
 .var { display: flex; flex-direction: column; gap: 3px }
 .var-top { display: flex; justify-content: space-between; align-items: center; gap: 8px }
 .var-name { font-family: var(--f-mono); font-size: 13px; overflow-wrap: anywhere; min-width: 0 }
-.var-nums { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted) }
+.var-nums { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted) }
+.var-nums .note { flex-basis: 100%; margin: 0 }
 .var.dim { opacity: .55 }
 .pill.good { background: var(--accent-soft); color: var(--good); border-color: transparent }
 .pill.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent }

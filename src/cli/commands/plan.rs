@@ -179,8 +179,8 @@ mod tests {
     /// Every example with a `monte_carlo:` section.
     const UNCERTAIN: [&str; 8] = [
         "bagel/bagel_simulate.yaml",
-        "microgrid/microgrid_risk.yaml",
-        "realestate/realestate_risk.yaml",
+        "microgrid/microgrid.yaml",
+        "realestate/realestate.yaml",
         "realestate/realestate_flex.yaml",
         "acquisition/deal_risk.yaml",
         "vineyard/vineyard_risk.yaml",

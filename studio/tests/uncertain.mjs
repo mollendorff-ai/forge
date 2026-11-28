@@ -267,10 +267,43 @@ for (const name of ["goal_seek", "break_even"]) {
   if (a === undefined || b === undefined || !close(a, b)) fail(`Analyze's ${name}: bagel_simulate.yaml at plan gives ${b}, bagel.yaml ${a}`);
 }
 
+// Analyze's "what drives it": a driver in a correlations: entry says so, with
+// the other input and the coefficient forge simulate gives (the independent
+// vineyard keeps its entry, at 0, and Forge names it); a model with no
+// correlation is drawn with no note
+const setFiles = (id) => { const set = SETS.find((x) => x.id === id); return Object.fromEntries(set.files.map((f) => [f, readFileSync(new URL(`../../examples/${set.dir}/${f}`, import.meta.url), "utf8")])); };
+let notes = 0;
+for (const [id, file] of [["vineyard", "vineyard_risk.yaml"], ["vineyard", "vineyard_independent.yaml"], ["bagel", "bagel_simulate.yaml"]]) {
+  const files = setFiles(id);
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.on("pageerror", (e) => fail(`${file}: ${e.message}`));
+  await page.goto(`${base}/?example=${id}&model=${file}`);
+  await page.waitForFunction(() => document.body.dataset.state !== "loading", null, { timeout: 180000 });
+  await page.click('.tab[data-tab="analyze"]');
+  await page.click("#sim-run");
+  await page.waitForSelector("#sim-out", { timeout: 120000 });
+  const [runs, seed] = [Number(await page.inputValue("#sim-n")), Number(await page.inputValue("#sim-seed"))];
+  const answer = await page.evaluate(async ([f, m, iterations, sd]) => {
+    const { call } = await import("./forge.js");
+    return call("simulate", { files: f, main: m, iterations, seed: sd });
+  }, [files, file, runs, seed]);
+  for (const out of answer.monte_carlo_results.output_order) {
+    await page.selectOption("#sim-out", out);
+    const shown = await page.$$eval("#sim-box [data-driver]", (els) => els.map((e) => [e.dataset.driver, [...e.querySelectorAll("[data-correlated]")].map((n) => n.dataset.correlated).join(", ")]));
+    const want = (answer.monte_carlo_results.outputs[out].drivers || []).map((d) => [d.input, (d.correlated_with || []).map((c) => `correlated ${c.coefficient} with ${c.input}`).join(", ")]);
+    if (JSON.stringify(shown) !== JSON.stringify(want)) fail(`${file}: ${out}'s drivers show ${JSON.stringify(shown)}, forge simulate gives ${JSON.stringify(want)}`);
+    notes += want.filter(([, n]) => n).length;
+    if (file === "bagel_simulate.yaml" && want.some(([, n]) => n)) fail(`${file}: a model with no correlation has a correlated note`);
+    if (file === "vineyard_risk.yaml") for (const [input, n] of want) if (n && !/^correlated -0\.7 with /.test(n)) fail(`${file}: ${input} is noted "${n}", not -0.7 with its partner`);
+  }
+  await page.close();
+}
+if (!notes) fail("the vineyard's correlated drivers carry no note in simulate's answer, so the test checks nothing");
+
 await browser.close();
 server.close();
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.slice(0, 60).join("\n"));
   process.exit(1);
 }
-console.log(`Uncertain models: ${models.length} models at plan as forge calculate --plan gives them, every band and mean forge simulate's, distribution cards from Forge's function list; the bagel's band follows a change and its distributions are written; Analyze's goal seek, break-even and tornado run it at plan, as bagel.yaml.`);
+console.log(`Uncertain models: ${models.length} models at plan as forge calculate --plan gives them, every band and mean forge simulate's, distribution cards from Forge's function list; the bagel's band follows a change and its distributions are written; Analyze's goal seek, break-even and tornado run it at plan, as bagel.yaml; a driver in a correlation names its partner and coefficient as forge simulate gives them.`);

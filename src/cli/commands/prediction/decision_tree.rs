@@ -379,6 +379,7 @@ decision_tree:
         /// year 20's cash.
         fn island(inputs: &[(&str, f64)]) -> (f64, f64, f64) {
             let mut model = crate::parser::parse_model(Path::new(MODEL)).unwrap();
+            crate::cli::commands::plan::set_at_plan(&mut model).unwrap();
             for (name, value) in inputs {
                 model.override_scalar(name, Some(*value), None).unwrap();
             }

@@ -4,30 +4,35 @@ _forge_version: "5.4.0"
 # borrows 65% of the price earn? The yearly table runs eleven years because
 # the buyer of year 10 pays for year 11's rent. All figures are made up.
 #
-#   forge calculate realestate.yaml --dry-run
-#   forge scenarios realestate.yaml
-#   forge tornado realestate.yaml
-#   forge break-even realestate.yaml --output valuation.npv --vary deal.price
+# Five inputs are uncertain (rent growth, vacancy, running costs and their
+# growth, the exit cap rate): value: is the plan's figure, formula: the range.
+# The commands below run at plan with --plan; forge simulate draws the ranges.
+#
+#   forge calculate realestate.yaml --plan --dry-run
+#   forge scenarios realestate.yaml --plan
+#   forge tornado realestate.yaml --plan
+#   forge break-even realestate.yaml --plan --output valuation.npv --vary deal.price
+#   forge simulate realestate.yaml
 
 building:
   units: 24
   rent_per_unit_month: {value: 1450, format: "$#,##0"}
   # Parking, storage and laundry, a flat a month
   other_income_per_unit_month: 60
-  vacancy: {value: 0.06, format: "0.0%"}
+  vacancy: {value: 0.06, formula: "=MC.Triangular(0.03, 0.06, 0.12)", format: "0.0%"}
   # Rent billed and never paid
   credit_loss: {value: 0.01, format: "0.0%"}
   # Property tax, insurance, utilities and repairs, a flat a year
-  opex_per_unit_year: 5200
+  opex_per_unit_year: {value: 5200, formula: "=MC.PERT(4600, 5200, 6200)"}
   management_fee: {value: 0.04, format: "0.0%"}
   # Set aside for roofs, boilers and kitchens, a flat a year
   reserves_per_unit_year: 350
 
 market:
-  rent_growth: {value: 0.03, format: "0.0%"}
-  expense_growth: {value: 0.025, format: "0.0%"}
+  rent_growth: {value: 0.03, formula: "=MC.Normal(0.03, 0.012)", format: "0.0%"}
+  expense_growth: {value: 0.025, formula: "=MC.Normal(0.025, 0.01)", format: "0.0%"}
   # What the buyer in year 10 pays for each unit of year 11's income
-  exit_cap_rate: {value: 0.0575, format: "0.00%"}
+  exit_cap_rate: {value: 0.0575, formula: "=MC.Triangular(0.05, 0.0575, 0.07)", format: "0.00%"}
   selling_costs: {value: 0.02, format: "0.0%"}
 
 deal:
@@ -189,3 +194,23 @@ tornado:
     - name: deal.discount_rate
       low: 0.07
       high: 0.09
+
+monte_carlo:
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 41
+  outputs:
+    # Worth more than it costs; worth 500,000 less
+    - variable: valuation.npv
+      percentiles: [5, 50, 95]
+      thresholds: ["> 0", "< -500000"]
+      expected_shortfall: [5]
+    - variable: valuation.dcf
+      percentiles: [5, 50, 95]
+    - variable: returns.equity_irr
+      percentiles: [5, 50, 95]
+      thresholds: ["< 0.08", "< 0"]
+    # The bank's covenant is usually 1.20
+    - variable: returns.min_dscr
+      percentiles: [5, 50]
+      thresholds: ["< 1.2", "< 1.0"]

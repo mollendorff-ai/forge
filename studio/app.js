@@ -10,7 +10,7 @@ import { tableCard, tournamentCard, pathHover } from "./games.js";
 import { gameEditor, listenGameEdits } from "./gameedit.js";
 import { templateCard, listenTemplates } from "./templates.js";
 import { kindOf, questionsCard, setStrip, drawKinds } from "./sets.js";
-import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js"; import { bayesExtra } from "./bayesscenario.js";
+import { ANALYSES, analysisSlot, drawAnalysis } from "./analyses.js"; import { bayesExtra } from "./bayesscenario.js"; import { driversHtml } from "./drivers.js";
 import { toolArgs, toolsHtml, answerHtml } from "./tools.js";
 import { helpButton, helpBody, suggestionStrip } from "./help.js";
 import { isModelLink, listenLinks, linkCard, toBase64, fromBase64 } from "./link.js";
@@ -1167,7 +1167,7 @@ function drawSim() {
   box.innerHTML = `<div style="margin-top:10px"><label class="lab" for="sim-out">Output</label><select class="sel" id="sim-out">${outs.map((x) => opt(x, A.simOut)).join("")}</select></div>
     <div class="stats" style="margin-top:10px">${[["mean", o.mean], ["P5", p.p5], ["P50", p.p50], ["P95", p.p95]].map(([k, v]) => `<div class="stat"><b>${k}</b><span>${esc(shortAt(v, out))}</span></div>`).join("")}</div>
     ${th.map(([k, v]) => `<p class="note" style="margin-top:8px">Chance that ${esc(A.simOut)} ${esc(k)}: <b>${(v * 100).toFixed(1)}%</b></p>`).join("")}
-    ${o.drivers && o.drivers.length ? `<p class="sub" style="margin-top:12px">what drives it</p>${o.drivers.map((d) => `<div class="var-nums"><span class="mono">${esc(d.input)}</span><span>${d.rank_correlation.toFixed(2)}</span></div>`).join("")}` : ""}
+    ${driversHtml(o.drivers)}
     <p class="note" style="margin-top:8px">${r.iterations.toLocaleString("en-US")} runs, seed ${esc(A.seed)}. The same seed gives the same numbers as <span class="mono">forge simulate</span>.</p>`;
 }
 function drawVariance(r) {

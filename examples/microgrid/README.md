@@ -21,16 +21,16 @@ The plan's sizes are the best ones. A battery of 8 or 12 MWh is worth 11,934,790
 
 The loan's 10 years are the other choice. A 12-year loan still has a payment to make in year 11, when the battery is replaced, and in a cheap-diesel year that leaves almost nothing to make it with.
 
-- `microgrid_risk.yaml`: the same plan with five inputs uncertain: the diesel price (triangular, 1.05 to 2.10) and its growth (normal, 3% ± 1.2), demand growth (uniform, 0 to 5%), sunshine (normal, 1,550 ± 80 MWh a MWp) and the battery price (PERT, 300,000 to 520,000 a MWh). In 10,000 futures the project is worth 13,705,188.09 at the median and 7,703,707.13 at the 5th percentile, and more than 5,000,000 in 99.6% of them. The loan's cover never falls below 1.2; its 5th percentile is 1.58.
+- Five inputs of `microgrid.yaml` are uncertain, each with its plan figure as `value:` and its range as `formula:` (`forge calculate --plan` and the what-if commands read the plan; `forge simulate` draws the ranges): the diesel price (triangular, 1.05 to 2.10) and its growth (normal, 3% ± 1.2), demand growth (uniform, 0 to 5%), sunshine (normal, 1,550 ± 80 MWh a MWp) and the battery price (PERT, 300,000 to 520,000 a MWh). In 10,000 futures the project is worth 13,705,188.09 at the median and 7,703,707.13 at the 5th percentile, and more than 5,000,000 in 99.6% of them. The loan's cover never falls below 1.2; its 5th percentile is 1.58.
 - `microgrid_decision.yaml`: build the plan now, a smaller system now (2.8 MWp, 9 MWh), or wait a year in case batteries get 30% cheaper. Building the plan now is worth 13,792,484.13 in expected value; waiting, 13,697,669.33; the smaller system, 12,826,402.48. Waiting would win only if a fall in battery prices were more likely than 57%. Each of the tree's 36 numbers is `microgrid.yaml` calculated for that branch.
 
 ```bash
-forge calculate examples/microgrid/microgrid.yaml --dry-run
-forge scenarios examples/microgrid/microgrid.yaml
-forge tornado examples/microgrid/microgrid.yaml
-forge break-even examples/microgrid/microgrid.yaml --output verdict.project_npv --vary fuel.diesel_price
-forge sensitivity examples/microgrid/microgrid.yaml --vary system.battery_mwh -r 4,16,2 --output-var verdict.project_npv
-forge simulate examples/microgrid/microgrid_risk.yaml
+forge calculate examples/microgrid/microgrid.yaml --plan --dry-run
+forge scenarios examples/microgrid/microgrid.yaml --plan
+forge tornado examples/microgrid/microgrid.yaml --plan
+forge break-even examples/microgrid/microgrid.yaml --plan --output verdict.project_npv --vary fuel.diesel_price
+forge sensitivity examples/microgrid/microgrid.yaml --plan --vary system.battery_mwh -r 4,16,2 --output-var verdict.project_npv
+forge simulate examples/microgrid/microgrid.yaml
 forge decision-tree examples/microgrid/microgrid_decision.yaml
 ```
 
