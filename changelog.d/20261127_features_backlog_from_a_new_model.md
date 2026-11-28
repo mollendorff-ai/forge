@@ -1,3 +1,0 @@
-### Changed
-
-- **Five items in the features roadmap's backlog, from a model written from scratch** (a fictional floating sauna, with v10.0.0-rc.36). Two are fixes it ran into: `forge simulate` names a driver's correlation next to its rank correlation (F-DRIVERS-CORRELATED), and a goal seek that finds no crossing says where it looked (F-GOAL-SEEK-NO-CROSSING). Three are proposals, each to start with an ADR: `forge insights`, which says what is surprising in a model (F-INSIGHTS); write-ups whose numbers Forge fills in and `forge validate` checks (F-RECEIPTS); and the value of knowing each uncertain input before choosing (F-VALUE-OF-INFORMATION). No behaviour changes.

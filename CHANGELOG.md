@@ -10,6 +10,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- New entries go in changelog.d/, not here (changelog.d/README.md). -->
 <!-- scriv-insert-here -->
 
+<a id='changelog-10.0.0-rc.37'></a>
+## [10.0.0-rc.37] - 2026-11-28
+
+The what-if commands (`scenarios`, `compare`, `goal-seek`, `break-even`, `sensitivity`, `tornado`, `audit`) take `--plan`, so one file holds a plan and its uncertainty, and Forge Studio's Analyze view runs them at plan. A goal seek or break-even that finds no crossing says where it looked; `forge upgrade` raises 5.3.0 to 5.5.0 files, games included; `forge edit --uncertain` asks about every result. Wrong answer fixed: Forge Studio's Bayesian card was drawn at the plan in every scenario; it now follows the scenario chosen. The two weeks in docs/STABILITY.md start again from rc.37: no earlier than 2026-12-12.
+
+
+### Added
+
+- **The what-if commands take `--plan`, so one file can hold a plan and its uncertainty.** `forge scenarios`, `compare`, `goal-seek`, `break-even`, `sensitivity`, `tornado` and `audit` used to refuse a model with `MC.*` inputs. With `--plan` (`plan: true` over MCP, REST and in forge-wasm) they run it with each uncertain input at its plan figure, as `forge calculate --plan` does; a scenario can still set an uncertain input to its own number. On `examples/bagel/bagel_simulate.yaml` at plan, the break-even price is `bagel.yaml`'s 15.97 (ADR-076, addendum of 2026-11-26).
+
+- **The README says how Forge is built** (M-HOW-BUILT): one maintainer directs AI coding agents that work in lanes, under rules they cannot switch off (100% coverage, pedantic lints on two Rust versions, inline tests, every way round them counted and held at zero), and nothing is taken on an agent's word.
+
+- **`forge simulate` says when a driver's rank correlation is borrowed.** An input that is in a `monte_carlo.correlations` entry now shows the other input and the coefficient on its line in the drivers (`+0.359  @costs.wood.price_per_cord  (correlated 0.5 with assumptions.winter_lift)`), and the JSON (and so the `forge_simulate` tool over MCP and REST) has `correlated_with` on that driver. A wood price that looked like a driver of profit only rode on the cold winters it is correlated with; the line now says so. A model with no correlations prints as before.
+
+- **`examples/questions/`: five models that each answer a question people search for, where one number is the wrong answer** (M-QUESTION-PAGES-TRIAL, step 2). A job offer's stock options (388,750 by the recruiter's story, nothing in 85 futures out of 100), the mortgage or a TFSA (the TFSA ahead in 59 futures out of 100), a food truck's break-even (55.19 meals a day, and 68.52 for nine profitable seasons in ten), matching a rival's price cut (a game, in two files until `forge game` reads an uncertain input at plan: match when more than a quarter of the customers would leave), and a settlement offer or the court (a decision tree: take the 40,000). Each figure is asserted in the tests against a calculation written outside Forge. Two findings are filed for the features lane: `forge game` has no `--plan`, and `forge decision-tree` does not print the value of the branch not taken.
+
+### Changed
+
+- **`CONTRIBUTING.md` says how to send a change.** It names the 4 to 8 minute pre-commit hook, says Rust 1.100.0 is only for the coverage run, says which lane's name a changelog file takes, and has the steps from a branch to a pull request. `docs/MAINTAINING.md` names the Scorecard workflow, the release date in `CITATION.cff` and the date `security.txt` expires; the repository checks hold them.
+
+- **The release steps in `docs/MAINTAINING.md` match what rc.36 did.** They now name the SBOM and the Sigstore signature of each archive, the thirteen files a release page holds, the two other files whose version a release changes (`CITATION.cff` and `server.json`), and the `cosign verify-blob` check; the repository checks hold each.
+
+- **The maintainer has reviewed the release steps in `docs/MAINTAINING.md`** (2026-11-26). The architecture roadmap records it. No behaviour changes.
+
+- **The architecture pages and `docs/EMBEDDING.md` say `forge serve` serves every tool.** They described five operations; they now describe an endpoint for each MCP tool, the `400` and `422` answers of a tool endpoint, and the OpenAPI document (ADR-081).
+
+- **The analysis-engines page says the what-if commands take `--plan`.** `scenarios`, `compare`, `goal-seek`, `break-even`, `sensitivity`, `tornado` and `audit` run an uncertain model at its plan figures by one rule, and the decision index names ADR-076's addendum.
+
+- **The duplicate crate versions Forge allows are checked against the newest releases, and the reasons written next to them are corrected.** `getrandom` 0.3 is held on `wasm32` by `jsonschema` itself, not by `ahash` (0.8.14 no longer brings it), and `strum_macros` also holds `syn` 2. Nothing could be removed: the count stays at 4 (`syn`, `getrandom`, `r-efi`, `hashbrown`). No behaviour changes.
+
+- **Four findings from a run of every example, and of a model written from scratch, are on the lanes' roadmaps.** For the manual lane (M-DEAL-BID-BRANCH, M-GAMES-EXPECT): the acquisition README's 91.73 for the 40% bid is right but printed by no command on the page, and only one of the ten games in `examples/games/` states its results under `expect:`. For the engine lane (E-MC-MESSAGE): `forge scenarios`, `compare`, `break-even`, `goal-seek`, `sensitivity` and `audit` say "Unknown function: MC.Triangular" on a file with uncertain inputs, where `forge calculate` says what to run instead. For the features lane (F-WHAT-IF-PLAN): those commands have no `--plan`, so an uncertain model needs a second file for its what-ifs. No behaviour changes.
+
+- **The roadmap records rc.36 as the first release with an SBOM and signatures.** A16-SBOM and E-SC-SIGNED-RELEASES name the release run, its files, and the `cosign verify-blob` check that accepted them. No behaviour changes.
+
+- **docs/SESSIONS.md says how to measure coverage, check an advisory or a signature, and find a duplicate crate from a fresh cloud container.** `cargo-llvm-cov` and the wasm32 target have to be installed first; osv.dev, scorecard.dev's API and Sigstore's TUF CDN are blocked, with what works instead; and `cargo tree -d --target all` shows the duplicates clippy counts. It also says how to measure the coverage of `validation/repo`, and how to wait for the pre-commit hook without the wait finding itself. No behaviour changes.
+
+- **The one advisory Scorecard reports is named, with why it stays** (roadmap E-SC-VULNS). It is RUSTSEC-2026-0543, `chrono` unmaintained (informational, not a security flaw). `rmcp`, the MCP SDK, requires `chrono`, so it stays in the build until `rmcp` moves off it. No behaviour changes.
+
+- **Forge Studio's Bayesian card follows the scenario chosen on the Model view.** It used to be drawn at the plan in every scenario. It now says which scenario it shows, and a new example set, A lender's loan (`examples/expected_loss.yaml`), has a network whose chances a recession or a boom moves.
+
+- **Without `--plan`, a what-if command's refusal of an uncertain model says to add it.** It used to point to `forge calculate --plan`.
+- **The MCP tool list's shared field descriptions are shorter**, to leave room for the new `plan` fields under its size ceiling.
+
+- **The docs say `forge edit` changes a column of text.** docs/MCP.md, docs/FEATURES.md and the agent skill give the column of text beside the numbers and dates, with `--set 'products.name=[Basic, Plus Pro]'`, and say a column of true and false, or with an empty cell, is still refused.
+- **The docs show every MCP tool over REST.** docs/FEATURES.md lists `POST /api/v1/<tool>` and `GET /api/v1/openapi.json` with a worked call (goal seek on `examples/starter.yaml`), and docs/MCP.md says the tools are also reachable over HTTP.
+- **The README carries the MCP Registry name** (`mcp-name: io.github.mollendorff-ai/forge`) as visible text, so the registry can verify the crate once the next release is on crates.io; a test holds it equal to `server.json`'s name.
+- **The acquisition example says how its 91.73 is worked out.** The command prints only the best path, so the page shows the arithmetic for the 40% bid and the 69% threshold, which `src/cli/commands/prediction/decision_tree.rs` asserts.
+- **Every game in `examples/games/` states its results under `expect:`**, so `forge validate` checks them: the equilibria, the population shares, the tournament scores and the ranks, for the file as written and for each scenario. Each was worked out outside Forge. New scenarios state what only a comment said: `inspection.yaml`'s `lenient` and `harsh` (the audit rate at a penalty of 2 and 8) and `continuation.yaml`'s `short_matches` (a chance of 0.4, under the threshold).
+
+- **A short "How this is built" section for the README is on the manual lane's roadmap (M-HOW-THIS-IS-BUILT).** The evaluation of rc.36 found that the README discloses the AI authorship but does not show what the maintainer decides: the rules in `AGENTS.md`, the lanes, the ADRs, and that every pull request is his to open and merge. The item asks the lane for a few paragraphs that say only what the repository shows, with the maintainer's own words on what he decides.
+
+- **The pipeline page's runs are the rc.35 workflow's.** Its "It has run" table links four pull requests of `forge-pipeline-example` on 2026-11-26: the workflow moved to rc.35 and a price change with its results calculated pass, and a price change and a new formula with no results fail, both at "Every stored result is what its formula gives", since `forge validate` now fails a formula with no stored result itself. The earlier table was rc.34's, with a step of its own for that case.
+
+- **`CONTRIBUTING.md`: when two lanes fit a changelog fragment, either will do.** It used to say the maintainer moves the file; the lane in a fragment's name is a label only, and the file is gone once a release collects it.
+
+- **`docs/SESSIONS.md` names two traps a session met.** In a fresh clone the pre-commit hook may not be installed until the main crate's tests are built, so a commit checks nothing; and two pull requests that move roadmap items to `done:` conflict, which is resolved by keeping every item from both sides.
+
+- **The VS Code extension's check and the Mermaid check install their npm packages from a committed lockfile.** `editors/vscode` and `validation/mermaid` had no `package-lock.json` (both were ignored), so CI's `npm install` took the newest version of every dependency of their dependencies on the day it ran. Both now commit one and CI runs `npm ci`, which is what Scorecard's Pinned-Dependencies check asks of a build. No behaviour of Forge changes.
+
+- **CI measures the coverage of the repository checks (`validation/repo`) and fails below a floor.** The checks of the docs, examples and rules are code too; they now run under `cargo llvm-cov` in the Repository checks job, which names each file with a miss and fails when lines, functions or regions fall below their floor (98.9%, 98.6% and 98.6%, a tenth below today's). The floors only rise, to 100%. No behaviour of Forge changes.
+
+- **The repository checks (`validation/repo`) are covered 100%, and CI holds that floor.** What was untested was the failing half of each check, the code that only runs when the repository breaks a rule: its message, and what it counts. Each check now takes its input as an argument and is tested on the repository, which passes, and on a made-up input that breaks the rule, which fails with the message. The three floors of the Repository checks job are now 100% lines, functions and regions. No behaviour of Forge changes.
+
+- **The coverage floors of the repository checks (`validation/repo`) rise to 99.0% lines, 98.7% functions and 98.7% regions**, from CI's own first measurement (99.06%, 98.71%, 98.77%). They only rise, to 100%. No behaviour of Forge changes.
+
+- **Five items in the features roadmap's backlog, from a model written from scratch** (a fictional floating sauna, with v10.0.0-rc.36). Two are fixes it ran into: `forge simulate` names a driver's correlation next to its rank correlation (F-DRIVERS-CORRELATED), and a goal seek that finds no crossing says where it looked (F-GOAL-SEEK-NO-CROSSING). Three are proposals, each to start with an ADR: `forge insights`, which says what is surprising in a model (F-INSIGHTS); write-ups whose numbers Forge fills in and `forge validate` checks (F-RECEIPTS); and the value of knowing each uncertain input before choosing (F-VALUE-OF-INFORMATION). No behaviour changes.
+
+- **The games' roadmap item is closed.** Every part of its acceptance is built and checked (roadmap T2-GAME-THEORY, ADR-068): the `games:` section, `forge game`, the tournaments, ten examples in `examples/games`, and the checks against Gambit, axelrod and R. Nothing in Forge changes.
+
+- **A goal seek or break-even that finds no crossing says where it looked and what it found there.** It used to say only that the target "may not be achievable". It now names the widest range of the input it tried and the output at each end, and when the output changes sign between the ends without reaching the target, as a division by a result that passes zero does (`payback = build / profit` jumps through infinity at the break-even price), it says so and suggests seeking a target on that result instead.
+
+- **Lesson 5 runs a what-if command on its uncertain model with `--plan`.** `forge break-even bagel.yaml --output-var year.profit --vary shop.price_per_dozen --plan` gives 15.08, the break-even price lesson 2's file gives with plain numbers. The page said the what-if commands take `--plan` but showed none, so the documentation services that index Forge had nothing to answer from.
+
+- **The question-pages trial has its five questions, written down with why each was chosen** (M-QUESTION-PAGES-TRIAL, step 1): salary or stock options, the mortgage or a TFSA, a food truck's break-even, matching a rival's price cut, and a settlement offer or the court (the old car was chosen first and set aside once searched). T2-FIRST-USER now says adoption became a goal for this trial. No behaviour changes.
+
+- **A trial of five question pages on mollendorff.ai is in the manual roadmap's backlog** (M-QUESTION-PAGES-TRIAL): five pages, each answering a question people search for and opening its model in Forge Studio, measured for four weeks before deciding whether to write more. No behaviour changes.
+
+- **The guide and the example files say the what-if commands take `--plan`.** Lesson 5 and `docs/FEATURES.md` name `scenarios`, `compare`, `goal-seek`, `break-even`, `sensitivity`, `tornado` and `audit` beside `forge calculate --plan`, with the bagel's break-even price at plan, 15.97; the comments of `bagel_simulate.yaml`, `microgrid_risk.yaml` and `realestate_risk.yaml` and the bagel README no longer say only `forge simulate` can run an uncertain model.
+
+- **docs/SESSIONS.md has four more lessons from measuring a crate's coverage and checking a pull request's branch:** a coverage run of one crate merges the old data of another unless it starts clean; clippy on the newest Rust has to be installed as a component and has lints the oldest lacks; a second checkout needs the first's `target/` linked in; and the hook cannot be skipped. A finding for the manual lane, `npm ci` in two READMEs, is in its backlog (M-NPM-CI-READMES). No behaviour changes.
+
+- **`examples/microgrid` and `examples/realestate` are one file each, the plan and its uncertainty.** `microgrid_risk.yaml` and `realestate_risk.yaml` are folded into `microgrid.yaml` and `realestate.yaml`: each of the five uncertain inputs has its plan figure as `value:` and its range as `formula:`, so the plan is the same and the two can no longer drift. Run the what-if commands with `--plan`; `forge simulate` draws the ranges, with the same percentiles as before. In Forge Studio each set has one model for both questions.
+
+- **Forge Studio's "what drives it" list says when a driver is correlated with another input.** An input named in a `monte_carlo.correlations` entry now has a line under it, such as `correlated -0.7 with harvest.price_per_tonne`, as `forge simulate` prints it, because its rank correlation with the output can come through the input it moves with. A model with no correlations is drawn as before.
+
+- **The question pages are live on mollendorff.ai from 2026-11-28**, which starts the four weeks of the trial's measure (M-QUESTION-PAGES-TRIAL, step 5, to 2026-12-26). The roadmap item says so. No behaviour of Forge changes.
+
+- **The five question pages are written, in English and French, in the repository of mollendorff.ai** (M-QUESTION-PAGES-TRIAL, step 3): each opens its model from `examples/questions/` in Forge Studio with a link that carries the model after the `#`. No behaviour of Forge changes.
+
+### Fixed
+
+- **The what-if commands say why they cannot run a model with `MC.*` inputs** (roadmap E-MC-MESSAGE). `forge compare`, `goal-seek`, `break-even`, `sensitivity`, `scenarios` and `tornado` said `Unknown function: MC.Triangular` (a function Forge knows) and listed every formula downstream as not calculated; `sensitivity` printed `ERR` in every row. Each now gives `calculate`'s message: which inputs use `MC.*` distributions, that the command cannot evaluate them, and to run `forge simulate` or `forge calculate --plan` instead. `forge audit` still shows the trail, with that message as its warning. The MCP tools and REST endpoints of these commands say the same.
+
+- **`forge edit --uncertain` asks the simulation it adds about every result, the year's profit included.** When a model had no `monte_carlo:` section, the one written for it listed only the results no other formula reads, so a profit that a margin reads was left out: on the bagel shop, six outputs without revenue and profit. It now lists every scalar with a formula, in the file's order.
+
+- **`forge upgrade` raises a 5.3.0, 5.4.0 or 5.5.0 file, games and dates included, by changing its version line only.** A 5.5.0 file with `games:`, or a 5.4.0 file with a date as a scalar, was refused with "'c' is a plain number, which is the short form of model format 5.1.0", after a warning that its comments could not be kept. Every format from 5.1.0 on is already in the short form, so its comments and layout are now kept as they are.
+
+- **Forge Studio's Analyze view runs an uncertain model's goal seek, break-even, tornado and scenarios at plan.** It sends `plan: true` to each, as its Model view does to `calculate`, where it used to show Forge's refusal. On `bagel_simulate.yaml` the break-even price and a goal seek are `bagel.yaml`'s; a model with no uncertain input gives the same answers as before (ADR-076, addendum of 2026-11-26).
+
+- **Forge Studio's formula suggestions offer a function with a dot.** Typing `=MC.` in a formula now offers `MC.Normal(`, `MC.PERT(` and the others; they were never offered, since a word with a dot was taken for a name.
+
+### Removed
+
+- **Sixteen Python packages at the repository's root.** A pip download for `CITATION.cff` was committed by mistake; nothing used them, and Scorecard counted them as binaries.
+
 <a id='changelog-10.0.0-rc.36'></a>
 ## [10.0.0-rc.36] - 2026-11-26
 
