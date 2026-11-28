@@ -589,4 +589,92 @@ mod tests {
             assert!(r.value < 0.483_4);
         }
     }
+
+    mod food_truck {
+        //! `examples/questions/food_truck.yaml`: the meals a day that break
+        //! even at plan, and the meals a day that make nine seasons in ten
+        //! profitable.
+        //!
+        //! Checked outside Forge. At plan the truck is out 130 - 18 = 112 days:
+        //! ```python
+        //! margin = 14 * (1 - 0.026) - 4.90          # 8.736 a meal
+        //! (26000 + 250 * 112) / (112 * margin)      # 55.1903452724, break-even
+        //! 55 * 112 * margin - 26000 - 250 * 112     # -186.24, the plan's season
+        //! ```
+        //! The season's profit is linear in the meals a day, so each run has its
+        //! own break-even, worked out here from Forge's draws; nine seasons in
+        //! ten make money just above the 4,500th lowest of the 5,000.
+
+        use super::super::{probability_seek_core, SeekGoal};
+        use crate::cli::{calculate_plan_core, goal_seek_core, simulate_core, SimulateOptions};
+        use std::path::Path;
+
+        const MODEL: &str = "examples/questions/food_truck.yaml";
+        /// A meal's margin: the price less the card fee, less the food
+        const MARGIN: f64 = 8.736;
+
+        #[test]
+        fn nine_seasons_in_ten_need_a_quarter_more_meals_than_the_break_even() {
+            let file = Path::new(MODEL);
+            let plan = calculate_plan_core(file, None).unwrap();
+            let profit = plan.scalars["season.profit"].unwrap();
+            assert!((profit + 186.24).abs() <= 1e-6, "{profit}");
+
+            let result = simulate_core(file, SimulateOptions::default()).unwrap();
+            let lost = &result.input_samples["weather.days_lost"];
+            let demand = &result.input_samples["street.demand"];
+            let profits = &result.outputs["season.profit"].samples;
+            assert_eq!(profits.len(), 5_000);
+            let mut needed = Vec::new();
+            for (i, (lost, demand)) in lost.iter().zip(demand).enumerate() {
+                let days = 130.0 - lost;
+                let costs = 250.0_f64.mul_add(days, 26_000.0);
+                let season = (days * 55.0 * demand).mul_add(MARGIN, -costs);
+                assert!((season - profits[i]).abs() <= 1e-6, "iteration {i}");
+                needed.push(costs / (days * demand * MARGIN));
+            }
+            needed.sort_by(f64::total_cmp);
+
+            let goal = SeekGoal::parse("P(season.profit > 0) = 0.9").unwrap();
+            let seek = probability_seek_core(
+                file,
+                SimulateOptions::default(),
+                &goal,
+                "meals_per_day",
+                20.0,
+                150.0,
+            )
+            .unwrap();
+            assert_eq!(seek.input, "truck.meals_per_day");
+            assert!(
+                seek.value > needed[4_499] && seek.value < needed[4_500],
+                "{} is not between {} and {}",
+                seek.value,
+                needed[4_499],
+                needed[4_500]
+            );
+            assert!((seek.probability - 0.9).abs() <= 1e-12);
+            // 68.5 meals a day, against 55.2 at plan
+            assert!((seek.value - 68.52).abs() <= 0.01, "{}", seek.value);
+        }
+
+        #[test]
+        fn the_break_even_at_plan_is_55_meals_a_day() {
+            let result = goal_seek_core(
+                Path::new(MODEL),
+                "season.profit",
+                0.0,
+                "meals_per_day",
+                (Some(20.0), Some(150.0)),
+                1e-6,
+                true,
+            )
+            .unwrap();
+            assert!(
+                (result.solution - 55.190_345_272_4).abs() <= 1e-4,
+                "{}",
+                result.solution
+            );
+        }
+    }
 }

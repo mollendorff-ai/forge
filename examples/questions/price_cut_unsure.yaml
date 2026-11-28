@@ -1,0 +1,100 @@
+_forge_version: "5.5.0"
+# A competitor cut prices: should I match, when I do not know how many
+# customers would leave?
+# Run in the examples folder:
+#   forge simulate questions/price_cut_unsure.yaml
+#   forge calculate questions/price_cut_unsure.yaml --plan
+#
+# The street of price_cut.yaml, line for line, but the share of customers
+# who leave is a range: somewhere between one in ten and one in two, most
+# likely 28 in 100. In each of 5,000 futures Forge works out the game again:
+# matching pays in 66 of 100, cutting first would have paid in 28, and in 38
+# the street has two equilibria. All figures are made up.
+
+shop:
+  customers: 1000           # each shop's sales a month, at the same price
+  price: 20
+  unit_cost: 12
+  cut:                      # the rival's price cut
+    value: 0.10
+    unit: "%"
+  # The share of a shop's customers who move to the cheaper shop
+  leave_share:
+    value: 0.28
+    unit: "%"
+    formula: "=MC.PERT(0.10, 0.28, 0.50)"
+
+margin:
+  hold:
+    formula: "=shop.price - shop.unit_cost"
+  cut:
+    formula: "=shop.price * (1 - shop.cut) - shop.unit_cost"
+
+# A month's margin for one shop
+month:
+  both_hold:
+    formula: "=shop.customers * margin.hold"
+  both_cut:
+    formula: "=shop.customers * margin.cut"
+  i_cut_alone:
+    formula: "=shop.customers * (1 + shop.leave_share) * margin.cut"
+  i_hold_alone:
+    formula: "=shop.customers * (1 - shop.leave_share) * margin.hold"
+
+games:
+  street:
+    description: Hold the price, or cut it by a tenth
+    players: [me, rival]
+    strategies: [hold, cut]
+    symmetric: true           # a cell is the payoff of the row's shop
+    payoffs:
+      hold: {hold: =month.both_hold, cut: =month.i_hold_alone}
+      cut: {hold: =month.i_cut_alone, cut: =month.both_cut}
+
+answer:
+  match_pays_above:
+    formula: "=(margin.hold - margin.cut) / margin.hold"
+    unit: "%"
+    notes: Match when more than this share of customers would leave
+  war_above:
+    formula: "=(margin.hold - margin.cut) / margin.cut"
+    unit: "%"
+    notes: Above this share, cutting pays whatever the rival does
+  matching_gains:
+    formula: "=month.both_cut - month.i_hold_alone"
+    notes: What matching earns a month over holding, once the rival has cut
+  cutting_first_gains:
+    formula: "=month.i_cut_alone - month.both_hold"
+    notes: What the first shop to cut earns a month while the other holds
+  war_costs:
+    formula: "=month.both_hold - month.both_cut"
+    notes: What each shop gives up a month when both have cut
+  equilibria:
+    formula: "=street.pure_equilibria"
+  price_war_is_certain:
+    formula: "=street.dominated.me.hold"
+    notes: 1 when cutting pays more whatever the rival does
+
+monte_carlo:
+  iterations: 5000
+  seed: 2026
+  sampling: latin_hypercube
+  outputs:
+    - variable: answer.matching_gains
+      percentiles: [10, 50, 90]
+      thresholds: ["> 0"]
+    - variable: answer.cutting_first_gains
+      thresholds: ["> 0"]
+    - variable: answer.equilibria
+      thresholds: ["> 1"]
+
+
+scenarios:
+  loyal_customers:
+    description: Fifteen in a hundred would leave
+    scalars:
+      shop.leave_share: 0.15
+  fickle_customers:
+    description: Forty-five in a hundred would leave
+    scalars:
+      shop.leave_share: 0.45

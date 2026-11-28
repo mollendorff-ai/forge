@@ -1,0 +1,60 @@
+_forge_version: "5.1.0"
+# Pay down the mortgage or put the money in a TFSA?
+# Run in the examples folder:
+#   forge calculate questions/mortgage_or_tfsa.yaml --plan
+#   forge simulate questions/mortgage_or_tfsa.yaml
+#
+# 300 a month for ten years, one way or the other. Paid on the mortgage
+# (the loan of mortgage/mortgage.yaml, 4.79% compounded twice a year, as
+# Canadian fixed rates are), it saves interest for certain. Put in an index
+# fund in a TFSA, it earns a return nobody knows: 6% a year at plan, and
+# over ten years an average somewhere around that, give or take 5 points.
+# A TFSA's gains are not taxed and a home's mortgage interest is not
+# deducted, so there is no tax in the model. All figures are made up.
+
+choice:
+  per_month: 300
+  years: 10
+
+mortgage:
+  annual_rate: 0.0479       # assumed to hold when the term renews
+  # The monthly rate that compounds to the semi-annual rate
+  monthly_rate:
+    formula: "=(1 + annual_rate / 2) ^ (1 / 6) - 1"
+  yearly_cost:
+    formula: "=(1 + annual_rate / 2) ^ 2 - 1"
+    unit: "%"
+    notes: The return the fund must beat, a year
+
+tfsa:
+  # The fund's average yearly return over the ten years
+  yearly_return:
+    value: 0.06
+    unit: "%"
+    formula: "=MC.Normal(0.06, 0.05)"
+  monthly_return:
+    formula: "=(1 + yearly_return) ^ (1 / 12) - 1"
+
+after:
+  months:
+    formula: "=choice.years * 12"
+  paid_in:
+    formula: "=choice.per_month * months"
+  mortgage_lower_by:
+    formula: "=FV(mortgage.monthly_rate, months, -choice.per_month)"
+    notes: What the mortgage owes less after ten years of 300 more a month
+  tfsa_worth:
+    formula: "=FV(tfsa.monthly_return, months, -choice.per_month)"
+  tfsa_ahead:
+    formula: "=tfsa_worth - mortgage_lower_by"
+
+monte_carlo:
+  iterations: 10000
+  seed: 2026
+  sampling: latin_hypercube
+  outputs:
+    - variable: after.tfsa_ahead
+      percentiles: [10, 50, 90]
+      thresholds: ["> 0", "< -5000", "> 10000"]
+    - variable: after.tfsa_worth
+      percentiles: [10, 50, 90]

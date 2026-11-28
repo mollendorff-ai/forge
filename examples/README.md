@@ -30,9 +30,10 @@ Each folder but `options/` and `games/` has a README with the numbers it should 
 | [`fund/`](fund/) | A venture fund seen by its investors: calls, fees and exits on their own dates, the return by `XIRR` and the value by `XNPV`, fees and carry taking 15.7% down to 10.8%, and what a year's delay or a cold exit market costs. |
 | [`inherited-budget/`](inherited-budget/) | A coffee roaster's budget handed over as a workbook someone else built: titles, merged headings, a total row, a named range and one month's staff cost typed in. `forge import` reads it to the workbook's own numbers and names what it could not keep, `forge audit` finds the typed number, a pay rise is made in the YAML, and `forge export` goes back to a workbook LibreOffice recalculates to the same numbers. |
 | [`options/`](options/compare-options.yaml) | Two rentals compared. |
+| [`questions/`](questions/) | Five questions people ask, each with an answer that is not one number: a job offer's stock options (worth nothing in 85 futures out of 100), the mortgage or a TFSA, a food truck's break-even and the meals a day that make a losing season rare, whether to match a rival's price cut (a game), and a settlement offer or the court (a decision tree). |
 | [`games/`](games/) | Games and tournaments, run with `forge game`: kinship-protocol's stag hunt, chicken and Axelrod tournament with the flags it wrote by hand now read from the games; the inspection game, where a harsher penalty lowers the audit rate and not the cheating (`forge tornado`); a tournament where noise moves a forgiving strategy ahead of TitForTat; the battle of the sexes; the continuation at which cooperation holds (`forge sensitivity`); and three games of many players: the public goods game, the volunteer's dilemma, and hawks and doves generation by generation (`dynamics:`). |
 
-Studio opens all of these, `games/` included, but not `inherited-budget/` (it starts from a workbook) or the one-command files below.
+Studio opens all of these, `games/` included, but not `inherited-budget/` (it starts from a workbook) or the one-command files below; the models of `questions/` are not among its examples and open from a file or a link.
 
 ## One command each
 

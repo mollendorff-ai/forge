@@ -607,6 +607,6 @@ games:
                 }
             }
         }
-        assert_eq!((kept, formulas, added), (81, 44, 6));
+        assert_eq!((kept, formulas, added), (89, 52, 6));
     }
 }

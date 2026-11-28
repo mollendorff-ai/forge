@@ -137,4 +137,117 @@ mod tests {
             );
         }
     }
+
+    mod question_models {
+        //! The two simulated models of `examples/questions/` that a person
+        //! reads for themselves: every iteration worked out again here from
+        //! Forge's own draws, and the chances against their exact values.
+        //!
+        //! The Python that gives those (independent of Forge):
+        //! ```python
+        //! from scipy.stats import norm
+        //! # job_offer.yaml
+        //! def options(exit, dilution):
+        //!     price = max(0, exit - 30e6) * (1 - dilution) / 10e6
+        //!     return 25000 * max(0, price - 2.00)
+        //! options(300e6, 0.35)                      # 388750.0, the plan
+        //! 0.12 * options(300e6, 0.35) + 0.03 * options(1500e6, 0.35)
+        //!                                           # 116812.5, the mean: the value
+        //!                                           # is linear in the dilution, whose
+        //!                                           # mean is (0.20 + 0.35 + 0.50) / 3
+        //! 0.12 + 0.03                               # 0.15, the chance of any value
+        //! # mortgage_or_tfsa.yaml
+        //! def fv(yearly, per_year):
+        //!     m = (1 + yearly) ** (1 / per_year) - 1
+        //!     return 300 * ((1 + m) ** 120 - 1) / m
+        //! lower = fv((1 + 0.0479 / 2) ** 2 - 1, 12) # 45949.4363825837
+        //! fv(0.06, 12) - lower                      # 2792.59634576786, the plan
+        //! 1 - norm.cdf(((1 + 0.0479 / 2) ** 2 - 1 - 0.06) / 0.05)
+        //!                                           # 0.5911592263, the chance the
+        //!                                           # fund beats the mortgage
+        //! ```
+
+        use crate::cli::{calculate_plan_core, simulate_core, SimulateOptions};
+        use std::path::Path;
+
+        fn close(a: f64, b: f64, tol: f64) -> bool {
+            (a - b).abs() <= tol
+        }
+
+        #[test]
+        fn the_job_offers_options_are_worth_nothing_in_85_futures_of_100() {
+            let file = Path::new("examples/questions/job_offer.yaml");
+            let plan = calculate_plan_core(file, None).unwrap();
+            assert!(close(
+                plan.scalars["result.options_value"].unwrap(),
+                388_750.0,
+                1e-6
+            ));
+            assert!(close(
+                plan.scalars["result.options_ahead"].unwrap(),
+                288_750.0,
+                1e-6
+            ));
+
+            let result = simulate_core(file, SimulateOptions::default()).unwrap();
+            let value = &result.outputs["result.options_value"];
+            let ahead = &result.outputs["result.options_ahead"];
+            let exits = &result.input_samples["company.exit_value"];
+            let dilutions = &result.input_samples["company.dilution"];
+            assert_eq!(value.samples.len(), 10_000);
+            for (i, (exit, dilution)) in exits.iter().zip(dilutions).enumerate() {
+                let price = (exit - 30e6).max(0.0) * (1.0 - dilution) / 10e6;
+                let options = 25_000.0 * (price - 2.0).max(0.0);
+                assert!(close(options, value.samples[i], 1e-6), "iteration {i}");
+                assert!(
+                    close(options - 100_000.0, ahead.samples[i], 1e-6),
+                    "iteration {i}"
+                );
+            }
+            // Six exits in ten are nothing and a quarter are too small: 85%
+            assert!(close(value.threshold_probabilities["> 0"], 0.15, 1e-12));
+            assert!(close(ahead.threshold_probabilities["> 0"], 0.15, 1e-12));
+            assert!(close(value.statistics.median, 0.0, 0.0));
+            // The mean, 116,812.50 exactly, is under a third of the plan
+            assert!(
+                close(value.statistics.mean, 116_812.5, 500.0),
+                "{}",
+                value.statistics.mean
+            );
+        }
+
+        #[test]
+        fn the_tfsa_beats_the_mortgage_in_59_futures_of_100() {
+            let file = Path::new("examples/questions/mortgage_or_tfsa.yaml");
+            let plan = calculate_plan_core(file, None).unwrap();
+            for (name, expected) in [
+                ("mortgage.yearly_cost", 0.048_473_602_5),
+                ("after.mortgage_lower_by", 45_949.436_382_583_7),
+                ("after.tfsa_worth", 48_742.032_728_351_5),
+                ("after.tfsa_ahead", 2_792.596_345_767_86),
+            ] {
+                assert!(close(plan.scalars[name].unwrap(), expected, 1e-6), "{name}");
+            }
+
+            let result = simulate_core(file, SimulateOptions::default()).unwrap();
+            let ahead = &result.outputs["after.tfsa_ahead"];
+            let returns = &result.input_samples["tfsa.yearly_return"];
+            let future = |monthly: f64| 300.0 * ((1.0 + monthly).powi(120) - 1.0) / monthly;
+            let lower = future((1.0_f64 + 0.0479 / 2.0).powf(1.0 / 6.0) - 1.0);
+            assert_eq!(ahead.samples.len(), 10_000);
+            for (i, yearly) in returns.iter().enumerate() {
+                let worth = future((1.0 + yearly).powf(1.0 / 12.0) - 1.0);
+                assert!(
+                    close(worth - lower, ahead.samples[i], 1e-6),
+                    "iteration {i}"
+                );
+            }
+            let chance = ahead.threshold_probabilities["> 0"];
+            assert!(close(chance, 0.591_159_226_3, 0.002), "{chance}");
+            // A tenth of the futures end more than 10,000 behind the mortgage
+            let mut sorted = ahead.samples.clone();
+            sorted.sort_by(f64::total_cmp);
+            assert!(sorted[999] < -10_000.0 && sorted[1_000] > -11_000.0);
+        }
+    }
 }
