@@ -46,7 +46,7 @@ jobs:
       # mirror, limited as in ci.yml (it did not answer on 2026-11-11)
       - name: Install mermaid and Chromium
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npx playwright install chromium
           timeout 180 npx playwright install-deps chromium || echo "system packages not installed; continuing"
 

@@ -62,7 +62,11 @@ pub fn goal_seek_core(
     let y_high = calculate_with_override(&base_model, vary, upper, target)?;
     let ((mut low, mut y_low), (mut high, mut y_high)) = if (y_low - value) * (y_high - value) > 0.0
     {
-        expand_search_range_quiet(&base_model, vary, target, value, lower, upper)?
+        expand_search_range_quiet(
+            &base_model,
+            (vary, target, value),
+            ((lower, y_low), (upper, y_high)),
+        )?
     } else {
         ((lower, y_low), (upper, y_high))
     };
@@ -117,15 +121,15 @@ pub fn goal_seek_core(
 
 /// Widen the interval 10, 100 and then 1,000 times, away from zero at each
 /// end, until the output crosses the target inside it: the two ends, each
-/// with its output.
+/// with its output. When it never does, the error names the widest range
+/// tried and the output at each end.
 fn expand_search_range_quiet(
     base_model: &crate::types::ParsedModel,
-    vary: &str,
-    target: &str,
-    value: f64,
-    lower: f64,
-    upper: f64,
+    (vary, target, value): (&str, &str, f64),
+    first: ((f64, f64), (f64, f64)),
 ) -> ForgeResult<((f64, f64), (f64, f64))> {
+    let ((lower, _), (upper, _)) = first;
+    let mut widest = first;
     for factor in [10.0, 100.0, 1000.0] {
         let exp_low = if lower > 0.0 {
             lower / factor
@@ -140,15 +144,41 @@ fn expand_search_range_quiet(
 
         let y_low = calculate_with_override(base_model, vary, exp_low, target)?;
         let y_high = calculate_with_override(base_model, vary, exp_high, target)?;
+        widest = ((exp_low, y_low), (exp_high, y_high));
 
         if (y_low - value) * (y_high - value) <= 0.0 {
-            return Ok(((exp_low, y_low), (exp_high, y_high)));
+            return Ok(widest);
         }
     }
 
-    Err(ForgeError::Validation(format!(
-        "No solution found in search range. The target value {value} may not be achievable by varying '{vary}'."
+    Err(ForgeError::Validation(no_crossing(
+        (vary, target, value),
+        widest,
     )))
+}
+
+/// What a goal seek says when the output never crosses the target: the
+/// widest range tried with the output at each end and, when the output
+/// changes sign between the ends without reaching the target, that it may
+/// jump through a pole.
+fn no_crossing(
+    (vary, target, value): (&str, &str, f64),
+    ((low, y_low), (high, y_high)): ((f64, f64), (f64, f64)),
+) -> String {
+    let said = format!(
+        "No solution found. Varying '{vary}' from {low} to {high}, the widest range tried, \
+         '{target}' is {y_low} at {low} and {y_high} at {high}, and does not cross the target \
+         value {value}."
+    );
+    if y_low * y_high < 0.0 {
+        format!(
+            "{said} The output changes sign between the ends without crossing {value}, as a \
+             division by a result that passes zero does (it jumps through infinity): seek a \
+             target on that result instead."
+        )
+    } else {
+        said
+    }
 }
 
 /// Execute the goal-seek command
@@ -382,12 +412,66 @@ mod tests {
             }
         }
 
+        /// break-even is a goal seek for 0, and gives the same error.
         #[test]
-        fn a_target_out_of_reach_is_refused() {
+        fn break_even_without_a_crossing_names_the_range_too() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = model(dir.path(), "1", "=x * x + 1");
+            let ran = crate::cli::forge(&[
+                "break-even",
+                path.to_str().unwrap(),
+                "--output",
+                "y",
+                "--vary",
+                "x",
+            ]);
+            assert!(!ran.success(), "{}", ran.both());
+            assert!(
+                ran.both().contains(
+                    "No solution found. Varying 'x' from 0.00001 to 100000, the widest range \
+                     tried, 'y' is 1.0000000001 at 0.00001 and 10000000001 at 100000"
+                ),
+                "{}",
+                ran.both()
+            );
+        }
+
+        /// The error names the widest range tried (x from 1e-5 to 100,000,
+        /// the first range 0.01 to 100 widened 1,000 times) and the output at
+        /// each end.
+        #[test]
+        fn a_target_out_of_reach_is_refused_with_the_range_and_the_output_at_its_ends() {
             assert_eq!(
                 seek("1", "=x * x + 1", 0.0),
-                Err("Validation error: No solution found in search range. The target value 0 may not be achievable by varying 'x'.".to_string())
+                Err("Validation error: No solution found. Varying 'x' from 0.00001 to 100000, the widest range tried, 'y' is 1.0000000001 at 0.00001 and 10000000001 at 100000, and does not cross the target value 0.".to_string())
             );
+        }
+
+        /// A reciprocal passes through infinity at x = 5 and is 5 at x = 7,
+        /// which no pair of ends brackets: below zero at the low end, just
+        /// above at the high end. The error says the output changes sign, and
+        /// what that means; a plain miss does not say it.
+        #[test]
+        fn a_jump_through_a_pole_is_named() {
+            let said = seek("1", "=10 / (x - 5)", 5.0).unwrap_err();
+            assert!(
+                said.starts_with(
+                    "Validation error: No solution found. Varying 'x' from 0.00001 to 100000, \
+                     the widest range tried, 'y' is -2.0000"
+                ),
+                "{said}"
+            );
+            assert!(
+                said.ends_with(
+                    "does not cross the target value 5. The output changes sign between the \
+                     ends without crossing 5, as a division by a result that passes zero does \
+                     (it jumps through infinity): seek a target on that result instead."
+                ),
+                "{said}"
+            );
+            assert!(!seek("1", "=x * x + 1", 0.0)
+                .unwrap_err()
+                .contains("changes sign"));
         }
 
         /// The output cannot be calculated at an end of the first range (x =

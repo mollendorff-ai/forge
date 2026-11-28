@@ -16,6 +16,7 @@
 
 use crate::{root, rust_files, without_comment};
 use std::collections::BTreeMap;
+use std::path::Path;
 
 /// What is left of each kind on 2026-11-16, when the rule was made. Lower a
 /// number when a change removes some; never raise one.
@@ -206,9 +207,15 @@ pub fn test_modules_elsewhere(text: &str) -> usize {
 /// The Rust files in each crate's `tests` folder
 #[must_use]
 pub fn test_folder_files() -> Vec<String> {
+    test_folder_files_in(root(), CRATES.iter().map(|(manifest, _)| *manifest))
+}
+
+/// The Rust files in the `tests` folder next to each of `manifests`, which
+/// are paths from `top`, as paths from `top`
+fn test_folder_files_in<'a>(top: &Path, manifests: impl Iterator<Item = &'a str>) -> Vec<String> {
     let mut files = Vec::new();
-    for (manifest, _) in CRATES {
-        let folder = root()
+    for manifest in manifests {
+        let folder = top
             .join(manifest)
             .parent()
             .map(|crate_root| crate_root.join("tests"))
@@ -221,7 +228,7 @@ pub fn test_folder_files() -> Vec<String> {
     files
         .into_iter()
         .map(|path| {
-            path.strip_prefix(root())
+            path.strip_prefix(top)
                 .unwrap_or(&path)
                 .display()
                 .to_string()
@@ -273,6 +280,11 @@ pub fn clippy_configs() -> Vec<String> {
 #[must_use]
 pub fn manifest_lints(manifest: &str) -> (Vec<String>, Vec<&'static str>) {
     let text = std::fs::read_to_string(root().join(manifest)).unwrap();
+    manifest_lints_in(manifest, &text)
+}
+
+/// The same, for the text of the manifest
+fn manifest_lints_in(manifest: &str, text: &str) -> (Vec<String>, Vec<&'static str>) {
     let start = text
         .find("[lints.clippy]")
         .unwrap_or_else(|| panic!("{manifest} has no [lints.clippy] table"));
@@ -299,42 +311,60 @@ pub fn manifest_lints(manifest: &str) -> (Vec<String>, Vec<&'static str>) {
     (allowed, missing)
 }
 
+/// What was found of each kind: its count, and where
+pub type Found = BTreeMap<&'static str, (usize, Vec<String>)>;
+
+/// Add `count` of `kind`, found in `place`, to `found`
+fn add(found: &mut Found, kind: &'static str, count: usize, place: &str) {
+    let entry = found.entry(kind).or_default();
+    if count > 0 {
+        entry.0 += count;
+        entry.1.push(format!("{place} ({count})"));
+    }
+}
+
+/// Add the lints a manifest allows and the groups it leaves out
+fn add_manifest_lints(
+    found: &mut Found,
+    manifest: &str,
+    (allowed, missing): (Vec<String>, Vec<&str>),
+) {
+    for lint in allowed {
+        add(found, BUDGET[1].0, 1, &lint);
+    }
+    for group in missing {
+        add(found, BUDGET[2].0, 1, &format!("{manifest}: {group}"));
+    }
+}
+
 /// The count of each kind, and where each was found
 ///
 /// # Panics
 ///
 /// Panics if a file cannot be read.
 #[must_use]
-pub fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
+pub fn found() -> Found {
     let mut found = BTreeMap::new();
-    let mut add = |kind: &'static str, count: usize, place: String| {
-        let entry: &mut (usize, Vec<String>) = found.entry(kind).or_default();
-        if count > 0 {
-            entry.0 += count;
-            entry.1.push(format!("{place} ({count})"));
-        }
-    };
     for (file, text) in compact_sources() {
-        add(BUDGET[0].0, lint_attributes(&text), file.clone());
-        add(BUDGET[3].0, coverage_only(&text), file.clone());
-        add(BUDGET[4].0, ignored_tests(&text), file.clone());
-        add(BUDGET[5].0, formatting_skips(&text), file.clone());
-        add(BUDGET[7].0, test_modules_elsewhere(&text), file);
+        add(&mut found, BUDGET[0].0, lint_attributes(&text), &file);
+        add(&mut found, BUDGET[3].0, coverage_only(&text), &file);
+        add(&mut found, BUDGET[4].0, ignored_tests(&text), &file);
+        add(&mut found, BUDGET[5].0, formatting_skips(&text), &file);
+        add(
+            &mut found,
+            BUDGET[7].0,
+            test_modules_elsewhere(&text),
+            &file,
+        );
     }
     // Counted even when there are none, so the kind is known to be scanned
     let files = test_folder_files();
-    add(BUDGET[6].0, files.len(), files.join(", "));
+    add(&mut found, BUDGET[6].0, files.len(), &files.join(", "));
     // Counted even when there are none, so the kinds are known to be scanned
-    add(BUDGET[1].0, 0, String::new());
-    add(BUDGET[2].0, 0, String::new());
+    add(&mut found, BUDGET[1].0, 0, "");
+    add(&mut found, BUDGET[2].0, 0, "");
     for (manifest, _) in CRATES {
-        let (allowed, missing) = manifest_lints(manifest);
-        for lint in allowed {
-            add(BUDGET[1].0, 1, lint);
-        }
-        for group in missing {
-            add(BUDGET[2].0, 1, format!("{manifest}: {group}"));
-        }
+        add_manifest_lints(&mut found, manifest, manifest_lints(manifest));
     }
     // Counted even when there are none, so the kind is known to be scanned
     let mut duplicates = Vec::new();
@@ -344,7 +374,12 @@ pub fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
             duplicates.push(format!("{config}: {name}"));
         }
     }
-    add(BUDGET[8].0, duplicates.len(), duplicates.join(", "));
+    add(
+        &mut found,
+        BUDGET[8].0,
+        duplicates.len(),
+        &duplicates.join(", "),
+    );
     let rustfmt = std::fs::read_to_string(root().join("rustfmt.toml")).unwrap();
     for key in ["ignore", "disable_all_formatting"] {
         let set = rustfmt.lines().any(|line| {
@@ -352,9 +387,10 @@ pub fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
                 .is_some_and(|(name, _)| name.trim() == key)
         });
         add(
+            &mut found,
             BUDGET[5].0,
             usize::from(set),
-            format!("rustfmt.toml: {key}"),
+            &format!("rustfmt.toml: {key}"),
         );
     }
     found
@@ -364,25 +400,97 @@ pub fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn the_ways_round_a_rule_only_ever_get_fewer() {
-        let found = found();
+    /// What is wrong with `found` against `budget`: a count over its budget,
+    /// and a count under it that the budget was not lowered to
+    fn complaints(found: &Found, budget: &[(&str, usize)]) -> Vec<String> {
         let mut wrong = Vec::new();
-        for (kind, budget) in BUDGET {
+        for (kind, budget) in budget {
             let (count, places) = found.get(kind).cloned().unwrap_or_default();
-            if count > budget {
+            if count > *budget {
                 wrong.push(format!(
                     "{kind}: {count}, more than the {budget} left. Fix the code rather than \
                  switch the rule off; the budget is never raised. Where: {places:#?}"
                 ));
-            } else if count < budget {
+            } else if count < *budget {
                 wrong.push(format!(
                     "{kind}: {count}, fewer than the {budget} in BUDGET. Good: lower it to \
                  {count} in validation/repo/src/no_skipping.rs, in this change"
                 ));
             }
         }
+        wrong
+    }
+
+    #[test]
+    fn the_ways_round_a_rule_only_ever_get_fewer() {
+        let wrong = complaints(&found(), &BUDGET);
         assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
+    }
+
+    #[test]
+    fn a_count_over_or_under_its_budget_is_a_complaint() {
+        let mut found = Found::new();
+        add(&mut found, "a", 3, "x.rs");
+        add(&mut found, "b", 1, "y.rs");
+        let wrong = complaints(&found, &[("a", 2), ("b", 2), ("c", 0), ("d", 1)]);
+        assert_eq!(wrong.len(), 3, "{wrong:#?}");
+        assert!(
+            wrong[0].starts_with("a: 3, more than the 2 left."),
+            "{wrong:#?}"
+        );
+        assert!(wrong[0].contains("x.rs (3)"), "{wrong:#?}");
+        assert!(
+            wrong[1].starts_with("b: 1, fewer than the 2 in BUDGET."),
+            "{wrong:#?}"
+        );
+        assert!(
+            wrong[2].starts_with("d: 0, fewer than the 1 in BUDGET."),
+            "{wrong:#?}"
+        );
+    }
+
+    #[test]
+    fn lints_a_manifest_allows_and_groups_it_leaves_out_are_counted() {
+        let text = "[package]\nname = \"x\"\n\n[lints.clippy]\npedantic = { level = \"warn\", priority = -1 }\n\
+                    cargo = { level = \"warn\", priority = -1 }\nmultiple_crate_versions = \"allow\"\n\n[dependencies]\n";
+        let lints = manifest_lints_in("x/Cargo.toml", text);
+        assert_eq!(
+            lints,
+            (
+                vec!["x/Cargo.toml: multiple_crate_versions".to_string()],
+                vec!["nursery"]
+            )
+        );
+        let mut found = Found::new();
+        add_manifest_lints(&mut found, "x/Cargo.toml", lints);
+        assert_eq!(found[BUDGET[1].0].0, 1);
+        assert_eq!(
+            found[BUDGET[2].0],
+            (1, vec!["x/Cargo.toml: nursery (1)".to_string()])
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "x/Cargo.toml has no [lints.clippy] table")]
+    fn a_manifest_with_no_lints_table_is_refused() {
+        let _ = manifest_lints_in("x/Cargo.toml", "[package]\nname = \"x\"\n");
+    }
+
+    #[test]
+    fn test_files_are_found_next_to_each_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        for file in [
+            "a/Cargo.toml",
+            "a/tests/one.rs",
+            "a/tests/sub/two.rs",
+            "b/Cargo.toml",
+        ] {
+            let path = dir.path().join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "").unwrap();
+        }
+        let files = test_folder_files_in(dir.path(), ["a/Cargo.toml", "b/Cargo.toml"].into_iter());
+        assert_eq!(files, ["a/tests/one.rs", "a/tests/sub/two.rs"]);
     }
 
     #[test]

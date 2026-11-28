@@ -109,6 +109,99 @@ mod tests {
     use super::*;
     use crate::read;
 
+    /// What `text` of the file `path` says about the number of functions that
+    /// is not `actual`: "203 functions", "203 Excel-compatible functions", "203
+    /// supported functions". A category's own count (`## Math (22 functions)`)
+    /// is checked apart.
+    fn wrong_function_counts(path: &str, text: &str, actual: u64) -> Vec<String> {
+        let mut wrong = Vec::new();
+        for word in [
+            " functions",
+            " excel-compatible functions",
+            " supported functions",
+            " supported excel-compatible functions",
+            " excel-style functions",
+        ] {
+            for n in numbers_before(text, word) {
+                let is_category = text
+                    .lines()
+                    .any(|l| l.starts_with("## ") && l.contains(&format!("({n} functions)")));
+                if n != actual && !is_category {
+                    wrong.push(format!("{path}: says {n}"));
+                }
+            }
+        }
+        wrong
+    }
+
+    /// What `text` of the file `path` says about the number of tools that is
+    /// not `actual`
+    fn wrong_tool_counts(path: &str, text: &str, actual: u64) -> Vec<String> {
+        let mut wrong = Vec::new();
+        for word in [" tools", " forge tools", " mcp tools"] {
+            for n in numbers_before(text, word) {
+                if n != actual {
+                    wrong.push(format!("{path}: says {n}"));
+                }
+            }
+        }
+        wrong
+    }
+
+    /// The categories whose heading in `doc` does not give the count of the
+    /// code
+    fn stale_categories(doc: &str, by_category: &BTreeMap<String, usize>) -> Vec<String> {
+        let mut wrong = Vec::new();
+        for (category, count) in by_category {
+            let heading = format!("({count} functions)");
+            let ok = doc.lines().any(|l| {
+                l.starts_with("## ") && l.contains(category.as_str()) && l.contains(&heading)
+            });
+            if !ok {
+                wrong.push(format!("{category}: the code has {count}"));
+            }
+        }
+        wrong
+    }
+
+    /// The stale wording of `docs` (path and text): an unmeasured claim of
+    /// maturity; of `excel_docs`, how Excel was checked; of the two rows,
+    /// a unit-test count
+    fn stale_wording(
+        docs: &[(String, String)],
+        excel_docs: &[(String, String)],
+        readme: &str,
+        validation: &str,
+    ) -> Vec<String> {
+        let mut wrong = Vec::new();
+        for (path, text) in docs {
+            let text = text.to_lowercase();
+            for word in ["battle-proven", "battle-tested", "production-grade"] {
+                if text.contains(word) {
+                    wrong.push(format!("{path}: says {word}"));
+                }
+            }
+        }
+        for (path, text) in excel_docs {
+            for once in ["by hand, once", "by hand once"] {
+                if text.contains(once) {
+                    wrong.push(format!("{path}: says Excel was checked {once}"));
+                }
+            }
+        }
+        let row = readme
+            .lines()
+            .find(|l| l.starts_with("| Unit tests"))
+            .expect("README has a unit-test row");
+        if row.contains(" pass, 0 fail (") || row.contains(" tests and ") {
+            wrong.push("README.md: the unit-test row gives a count".into());
+        }
+        if validation.contains(" tests and 2 doctests") {
+            wrong.push("VALIDATION.md: the unit-test row gives a count".into());
+        }
+        wrong
+    }
+
     #[test]
     fn every_function_count_written_anywhere_is_the_registry_count() {
         let (actual, _) = registry();
@@ -124,28 +217,10 @@ mod tests {
             "src/mcp/server.rs",
             "Cargo.toml",
         ];
-        let mut wrong = Vec::new();
-        for path in places {
-            let text = read(path);
-            // "203 functions", "203 Excel-compatible functions", "203 supported functions"
-            for word in [
-                " functions",
-                " excel-compatible functions",
-                " supported functions",
-                " supported excel-compatible functions",
-                " excel-style functions",
-            ] {
-                for n in numbers_before(&text, word) {
-                    // A category's own count (`## Math (22 functions)`) is checked below
-                    let is_category = text
-                        .lines()
-                        .any(|l| l.starts_with("## ") && l.contains(&format!("({n} functions)")));
-                    if n != actual && !is_category {
-                        wrong.push(format!("{path}: says {n}"));
-                    }
-                }
-            }
-        }
+        let mut wrong: Vec<String> = places
+            .iter()
+            .flat_map(|path| wrong_function_counts(path, &read(path), actual))
+            .collect();
         wrong.sort();
         wrong.dedup();
         assert!(
@@ -155,19 +230,19 @@ mod tests {
     }
 
     #[test]
+    fn a_function_count_that_is_not_the_registrys_is_named_unless_it_is_a_category() {
+        let text = "It has 5 functions, 7 Excel-compatible functions and 9 functions.\n\
+                    ## Math (9 functions)\n";
+        assert_eq!(wrong_function_counts("a.md", text, 7), ["a.md: says 5"]);
+    }
+
+    #[test]
     fn every_tool_count_written_in_the_docs_is_what_the_server_lists() {
         let actual = mcp_tool_count() as u64;
-        let mut wrong = Vec::new();
-        for path in ["README.md", "docs/MCP.md", "docs/WORKFLOWS.md"] {
-            let text = read(path);
-            for word in [" tools", " forge tools", " mcp tools"] {
-                for n in numbers_before(&text, word) {
-                    if n != actual {
-                        wrong.push(format!("{path}: says {n}"));
-                    }
-                }
-            }
-        }
+        let mut wrong: Vec<String> = ["README.md", "docs/MCP.md", "docs/WORKFLOWS.md"]
+            .iter()
+            .flat_map(|path| wrong_tool_counts(path, &read(path), actual))
+            .collect();
         wrong.sort();
         wrong.dedup();
         assert!(
@@ -177,19 +252,18 @@ mod tests {
     }
 
     #[test]
+    fn a_tool_count_that_is_not_the_servers_is_named() {
+        assert_eq!(
+            wrong_tool_counts("a.md", "23 tools, 21 MCP tools", 23),
+            ["a.md: says 21"]
+        );
+    }
+
+    #[test]
     fn the_function_doc_counts_each_category() {
         let doc = read("docs/FUNCTIONS.md");
         let (_, by_category) = registry();
-        let mut wrong = Vec::new();
-        for (category, count) in &by_category {
-            let heading = format!("({count} functions)");
-            let ok = doc.lines().any(|l| {
-                l.starts_with("## ") && l.contains(category.as_str()) && l.contains(&heading)
-            });
-            if !ok {
-                wrong.push(format!("{category}: the code has {count}"));
-            }
-        }
+        let wrong = stale_categories(&doc, &by_category);
         assert!(
             wrong.is_empty(),
             "docs/FUNCTIONS.md headings are out of date: {wrong:#?}"
@@ -201,13 +275,24 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_category_heading_with_another_count_is_named() {
+        let by_category = BTreeMap::from([("Math".to_string(), 22), ("Text".to_string(), 3)]);
+        assert_eq!(
+            stale_categories(
+                "## Math (22 functions)\n## Text (4 functions)\n",
+                &by_category
+            ),
+            ["Text: the code has 3"]
+        );
+    }
+
     /// Words and counts an evaluation found stale (2026-11-15): Forge's own docs
     /// make no unmeasured claim of maturity, say how many times Excel was
     /// checked, and give no unit-test count at all: a test count says nothing about
     /// quality and went stale with every merge (roadmap E-DOC-COUNTS).
     #[test]
     fn the_docs_keep_no_stale_wording() {
-        let mut wrong = Vec::new();
         let mut docs = vec!["README.md".to_string(), "VALIDATION.md".to_string()];
         for entry in std::fs::read_dir(crate::root().join("docs")).unwrap() {
             let path = entry.unwrap().path();
@@ -216,33 +301,44 @@ mod tests {
                 docs.push(format!("docs/{name}"));
             }
         }
-        for path in &docs {
-            let text = read(path).to_lowercase();
-            for word in ["battle-proven", "battle-tested", "production-grade"] {
-                if text.contains(word) {
-                    wrong.push(format!("{path}: says {word}"));
-                }
-            }
-        }
-        for path in ["VALIDATION.md", "docs/STABILITY.md"] {
-            let text = read(path);
-            for once in ["by hand, once", "by hand once"] {
-                if text.contains(once) {
-                    wrong.push(format!("{path}: says Excel was checked {once}"));
-                }
-            }
-        }
-        let readme = read("README.md");
-        let row = readme
-            .lines()
-            .find(|l| l.starts_with("| Unit tests"))
-            .expect("README has a unit-test row");
-        if row.contains(" pass, 0 fail (") || row.contains(" tests and ") {
-            wrong.push("README.md: the unit-test row gives a count".into());
-        }
-        if read("VALIDATION.md").contains(" tests and 2 doctests") {
-            wrong.push("VALIDATION.md: the unit-test row gives a count".into());
-        }
+        let read_all = |paths: &[String]| -> Vec<(String, String)> {
+            paths
+                .iter()
+                .map(|path| (path.clone(), read(path)))
+                .collect()
+        };
+        let excel = ["VALIDATION.md".to_string(), "docs/STABILITY.md".to_string()];
+        let wrong = stale_wording(
+            &read_all(&docs),
+            &read_all(&excel),
+            &read("README.md"),
+            &read("VALIDATION.md"),
+        );
         assert!(wrong.is_empty(), "{wrong:#?}");
+    }
+
+    #[test]
+    fn stale_wording_is_named_in_each_place_it_is_looked_for() {
+        let doc = |text: &str| vec![("a.md".to_string(), text.to_string())];
+        let row = "| Unit tests | 1,865 tests and 2 doctests |\n";
+        let wrong = stale_wording(
+            &doc("A Battle-Tested engine"),
+            &doc("checked by hand, once"),
+            row,
+            "1 tests and 2 doctests",
+        );
+        assert_eq!(
+            wrong,
+            [
+                "a.md: says battle-tested",
+                "a.md: says Excel was checked by hand, once",
+                "README.md: the unit-test row gives a count",
+                "VALIDATION.md: the unit-test row gives a count",
+            ]
+        );
+        assert_eq!(
+            stale_wording(&doc("fine"), &doc("fine"), "| Unit tests | many |\n", ""),
+            Vec::<String>::new()
+        );
     }
 }

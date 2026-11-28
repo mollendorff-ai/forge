@@ -24,13 +24,13 @@ backlog:
   - id: E-SC-PINNED
     title: "The one dependency of the build that is not pinned (Pinned-Dependencies, 9)"
     why: "Scorecard 2026-11-25 scores Pinned-Dependencies 9: every action is pinned to a commit (a validation/repo test holds that), so something else is not, such as a pip or npm install, a cargo install without --locked, or a download in a script"
-    how: "Open the check in the viewer for the file and line; pin it (a hash, an exact version, --locked) or say here why it cannot be"
+    how: "Open the check in the viewer for the file and line; pin it (a hash, an exact version, --locked) or say here why it cannot be Done 2026-11-27 without the viewer, from Scorecard's own rules (its checks.md): editors/vscode and validation/mermaid had no lockfile (both gitignored), so ci.yml and diagrams.yml ran npm install and took whatever the dependencies of their dependencies were that day; both now commit a package-lock.json and run npm ci, tested with npm ci and npm test in editors/vscode. Still candidates if the next run does not give 10: pip install -r validation/games/requirements.txt in validation.yml has == pins but no hashes (pip-compile --generate-hashes and --require-hashes, a larger change), and cargo install cross --git in release.yml has no --rev, which Scorecard does not read but which is unpinned all the same. The viewer's file and line settle which"
     acceptance: "Pinned-Dependencies is 10 on the next run, or this item says what stays and why"
     model: "Sonnet 5.5, low"
   - id: E-SC-FUZZING
     title: "Fuzzing: decide whether Forge gets a fuzz target, and which (Fuzzing, 0)"
     why: "Scorecard 2026-11-25 scores Fuzzing 0. Forge parses untrusted YAML and formulas, which is what fuzzing is for, and it already has property tests (proptest). Scorecard counts OSS-Fuzz, ClusterFuzzLite and some languages' native fuzzing; whether it counts proptest or cargo-fuzz for Rust has to be checked in its docs first. A fuzz crate is a crate, so AGENTS.md's rules hold for it: 100% coverage, pedantic lints, inline tests"
-    how: "Check which tools Scorecard's Fuzzing check detects for Rust. If a cargo-fuzz target on the formula parser and the YAML reader is counted, weigh it against the rules above; if only OSS-Fuzz or ClusterFuzzLite is, it is a larger step. Ask the maintainer before adding a crate"
+    how: "Check which tools Scorecard's Fuzzing check detects for Rust. If a cargo-fuzz target on the formula parser and the YAML reader is counted, weigh it against the rules above; if only OSS-Fuzz or ClusterFuzzLite is, it is a larger step. Ask the maintainer before adding a crate Checked 2026-11-27 against Scorecard's checks.md: the Fuzzing check counts (1) the repository being in OSS-Fuzz's project list, (2) ClusterFuzzLite deployed in the repository, and (3) fuzzing or property-based testing written in the language: Go's native fuzzing, QuickCheck and its kin for Haskell, fast-check for JavaScript and TypeScript, proper and quickcheck for Erlang, FsCheck for C# and F#. Rust is not on the list, so neither cargo-fuzz nor proptest counts by itself. What would raise the score: ClusterFuzzLite (a workflow, a .clusterfuzzlite folder with a Dockerfile and a build script, and cargo-fuzz targets on the formula parser and the YAML reader, which are crates under AGENTS.md's rules: 100% coverage, pedantic lints, tests inline), or fast-check as a devDependency of studio/ with a property test of the browser app (studio/ is JavaScript, its modules parse what a user types; a dependency, not a crate). The maintainer decides which, or neither"
     acceptance: "The maintainer decides: a fuzz target is added with its own tests and Fuzzing rises, or this item says it is not worth its cost for Forge today"
     model: "Opus 5.5, medium: a decision with a cost"
   - id: S-SCORECARD-SETTINGS
@@ -38,12 +38,6 @@ backlog:
     why: "Scorecard 2026-11-25 scores Branch-Protection 0, Code-Review 0, CII-Best-Practices 0 and Contributors 6. None is a change to the code"
     how: "Branch-Protection: in Settings, Rules, protect main (require a pull request and the CI checks, block force pushes). CII-Best-Practices: register the repository at https://www.bestpractices.dev and answer the passing-level questions; the engine lane can supply the evidence for each. Code-Review: Scorecard wants a reviewer other than the author to approve each pull request; with one maintainer it stays 0, and the proposal is to leave it. Contributors: counts contributors from several organisations; with one maintainer it stays below 10, and the proposal is to leave it"
     acceptance: "Branch-Protection and CII-Best-Practices are done by the maintainer, or each is refused with a reason; Code-Review and Contributors are accepted as they are or the maintainer says otherwise"
-  - id: E-REPO-COVERAGE-100
-    title: "validation/repo's own coverage at 100%, its floors with it"
-    why: "Measured 2026-11-27 (E-REPO-COVERAGE) on Rust 1.100: 99.06% lines, 98.71% functions, 98.77% regions. Left: no_skipping.rs 24 regions, 3 functions, 18 lines; doc_counts.rs 17, 0, 7; architecture_docs.rs, conventions.rs, doc_examples.rs and readme_commands.rs 6 regions each; lib.rs and workflows_doc.rs 3 each. AGENTS.md wants 100% in every crate"
-    how: "Run the job's command locally (docs/SESSIONS.md), cover each miss with a test that asserts, or write the code so the miss cannot happen; raise FLOOR_* in ci.yml's repo-checks job in the same change, from CI's number"
-    acceptance: "The three floors of the repository checks are 100 in ci.yml and CI passes"
-    model: "Sonnet 5.5, medium: tests of checks, each miss a small case"
   - id: T3-BENCH
     title: "Per-function benchmarks"
     why: "Content for a talk, not a user need"
@@ -59,6 +53,13 @@ backlog:
     acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
 
 done:
+  - id: E-REPO-COVERAGE-100
+    title: "validation/repo's own coverage at 100%, its floors with it"
+    why: "Measured 2026-11-27 (E-REPO-COVERAGE) on Rust 1.100: 99.06% lines, 98.71% functions, 98.77% regions. Left: no_skipping.rs 24 regions, 3 functions, 18 lines; doc_counts.rs 17, 0, 7; architecture_docs.rs, conventions.rs, doc_examples.rs and readme_commands.rs 6 regions each; lib.rs and workflows_doc.rs 3 each. AGENTS.md wants 100% in every crate"
+    how: "Run the job's command locally (docs/SESSIONS.md), cover each miss with a test that asserts, or write the code so the miss cannot happen; raise FLOOR_* in ci.yml's repo-checks job in the same change, from CI's number"
+    acceptance: "The three floors of the repository checks are 100 in ci.yml and CI passes"
+    model: "Sonnet 5.5, medium: tests of checks, each miss a small case"
+    built: "2026-11-27. validation/repo is at 100% lines, functions and regions on Rust 1.100 (cargo llvm-cov -p mollendorff-forge-repo, from a clean build). What was missed was the failing half of each check, which only runs when the repository breaks a rule: each check now takes its input as an argument (a page's text, the BUDGET and a count found, a workflow's text, the README's blocks and a command to run them) and is tested twice, on the repository for the pass and on a made-up input that breaks the rule for the failure and its message. Also tests that a file or folder that cannot be read is named in the panic, and that rust_files leaves out target and node_modules. The Repository checks job's three floors are 100"
   - id: E-REPO-COVERAGE
     title: "validation/repo's own coverage measured in CI"
     why: "64% under cargo llvm-cov -p mollendorff-forge-repo (2026-11-24); the checks of the docs are code that is not itself held"

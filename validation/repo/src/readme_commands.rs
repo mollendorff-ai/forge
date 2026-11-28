@@ -88,32 +88,34 @@ mod tests {
     use super::*;
     use crate::forge;
 
-    #[test]
-    fn every_command_in_the_readme_prints_what_the_readme_shows() {
-        let doc = crate::read("README.md");
+    /// Runs a command: whether it succeeded, and the lines it printed
+    type Run = dyn Fn(&[String]) -> (bool, Vec<String>);
+
+    /// What the `blocks` of the README show that its commands do not print:
+    /// how many commands ran, how many lines were checked, and what is wrong.
+    /// `run` runs a command and gives whether it succeeded and the lines it
+    /// printed.
+    fn check_blocks(blocks: &[Vec<String>], run: &Run) -> (usize, usize, Vec<String>) {
         let mut commands = 0;
         let mut lines_checked = 0;
+        let mut wrong = Vec::new();
         let mut printed: Vec<String> = Vec::new();
-        for block in text_blocks(&doc) {
+        for block in blocks {
             let (shown, label) = match block.first().and_then(|l| l.strip_prefix("$ forge ")) {
                 Some(args) => {
                     let args: Vec<&str> = args.split_whitespace().collect();
                     // The shown arguments are quoted as a shell would: "P(year.profit > 0) = 0.8"
                     let args = rejoin_quotes(&args);
-                    let out = forge(&args);
-                    assert!(
-                        out.success(),
-                        "`forge {}` fails:\n{}{}",
-                        args.join(" "),
-                        out.out,
-                        out.err
-                    );
-                    printed = out
-                        .out
-                        .lines()
-                        .chain(out.err.lines())
-                        .map(squeeze)
-                        .collect();
+                    let (success, lines) = run(&args);
+                    if !success {
+                        wrong.push(format!(
+                            "`forge {}` fails:\n{}",
+                            args.join(" "),
+                            lines.join("\n")
+                        ));
+                        continue;
+                    }
+                    printed = lines.iter().map(|l| squeeze(l)).collect();
                     commands += 1;
                     (&block[1..], format!("forge {}", args.join(" ")))
                 },
@@ -125,19 +127,73 @@ mod tests {
                 if wanted.is_empty() {
                     continue;
                 }
-                assert!(
-                    printed.contains(&wanted),
-                    "README shows a line that `{label}` does not print:\n  {wanted}\nIt prints:\n{}",
-                    printed.join("\n")
-                );
-                lines_checked += 1;
+                if printed.contains(&wanted) {
+                    lines_checked += 1;
+                } else {
+                    wrong.push(format!(
+                        "README shows a line that `{label}` does not print:\n  {wanted}\nIt prints:\n{}",
+                        printed.join("\n")
+                    ));
+                }
             }
         }
+        (commands, lines_checked, wrong)
+    }
+
+    #[test]
+    fn every_command_in_the_readme_prints_what_the_readme_shows() {
+        let doc = crate::read("README.md");
+        let (commands, lines_checked, wrong) = check_blocks(&text_blocks(&doc), &|args| {
+            let out = forge(args);
+            let lines = out.out.lines().chain(out.err.lines()).map(str::to_string);
+            (out.success(), lines.collect())
+        });
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
         assert!(
             commands >= 7,
             "only {commands} commands found in the README"
         );
         assert!(lines_checked >= 20, "only {lines_checked} lines checked");
+    }
+
+    #[test]
+    fn a_readme_block_that_a_command_does_not_print_is_named() {
+        let block = |lines: &[&str]| lines.iter().map(|l| (*l).to_string()).collect::<Vec<_>>();
+        let blocks = [
+            // Before any command: nothing to check it against
+            block(&["not a command"]),
+            block(&["$ forge ok", "  one   line", "", "gone"]),
+            // A block with no command shows more of the command above
+            block(&["one line", "another"]),
+            block(&["$ forge bad --flag"]),
+        ];
+        let run = |args: &[String]| {
+            if args[0] == "ok" {
+                (true, vec!["one line".to_string()])
+            } else {
+                (false, vec!["boom".to_string()])
+            }
+        };
+        let (commands, checked, wrong) = check_blocks(&blocks, &run);
+        assert_eq!((commands, checked), (1, 2));
+        assert_eq!(wrong.len(), 3, "{wrong:#?}");
+        assert!(
+            wrong[0].contains("`forge ok` does not print:\n  gone"),
+            "{wrong:#?}"
+        );
+        assert!(
+            wrong[1].contains("`the command above` does not print:\n  another"),
+            "{wrong:#?}"
+        );
+        assert_eq!(wrong[2], "`forge bad --flag` fails:\nboom");
+    }
+
+    #[test]
+    fn a_word_in_quotes_is_one_argument_whole_or_in_pieces() {
+        assert_eq!(
+            rejoin_quotes(&["\"one\"", "\"two", "words\"", "plain"]),
+            ["one", "two words", "plain"]
+        );
     }
 
     /// A development command the README says runs "as CI runs it" is a command

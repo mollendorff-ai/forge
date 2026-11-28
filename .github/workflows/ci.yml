@@ -180,18 +180,14 @@ jobs:
           cargo llvm-cov -p mollendorff-forge-repo --json --summary-only --output-path repo-cov.json
           jq -r '.data[0].files[] | select(.summary.regions.covered < .summary.regions.count or .summary.functions.covered < .summary.functions.count or .summary.lines.covered < .summary.lines.count) | "missed: \(.filename): \(.summary.regions.count - .summary.regions.covered) regions, \(.summary.functions.count - .summary.functions.covered) functions, \(.summary.lines.count - .summary.lines.covered) lines"' repo-cov.json
 
-      # The floors only rise, to 100 (AGENTS.md), as the main crate's did.
-      # Set 2026-11-27 a tenth below a local run, then raised the same day
-      # from CI's own run on #473 (99.058% lines, 98.707% functions, 98.769%
-      # regions), which counted what the local run did: lines and regions to
-      # the tenth below, functions to 98.7 (a hundredth of margin: one function
-      # nothing runs lowers it by 0.4). Raise them from CI's number, never
-      # lower them.
+      # At 100, as AGENTS.md says of every crate, since 2026-11-27
+      # (E-REPO-COVERAGE-100). The floors only rise, and there is nowhere
+      # higher: a miss is covered by a test, never by a lower floor.
       - name: Fail below the coverage floor of the repository checks
         env:
-          FLOOR_LINES: "99.0"
-          FLOOR_FUNCTIONS: "98.7"
-          FLOOR_REGIONS: "98.7"
+          FLOOR_LINES: "100"
+          FLOOR_FUNCTIONS: "100"
+          FLOOR_REGIONS: "100"
         run: |
           fail=0
           for kind in lines functions regions; do
@@ -529,7 +525,7 @@ jobs:
       # validated with yaml-language-server, and the manifest packaged
       - name: Test and package
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npm test
           npx vsce package
 
